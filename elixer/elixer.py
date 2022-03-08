@@ -2552,6 +2552,12 @@ def read_coords_file(filename,args=None,as_rows=False):
             return [],[],[],[],[]
 
     if as_rows:
+        #todo: if not 2d array, wrap as 2d array
+        try:
+            if len(np.shape(rows)) == 1:
+                rows = [rows]
+        except:
+            pass
         return rows
     else:
         return ras, decs, shots, waves, names

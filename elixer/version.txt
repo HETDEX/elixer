@@ -1,5 +1,11 @@
 changes to elixer by version
 
+1.16.4 [2022-03-08]
+* add WD compatibility check
+* fix missing OII-3727 requirement if OIII-4959 and OIII-5007 found
+* fix coords file read if only one line
+* allow re-extractions/forced extractions to turn on CONTINUUM_RULES
+
 1.16.3 [2022-03-01]
 * add continuum_masked as the continuum estimate from the DEX spectra with emission and absorption lines masked
   and restored the original continuum_wide as the estimate from the DEX spectrum as g-mag (band pass)

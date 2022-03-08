@@ -2199,7 +2199,7 @@ def merge_unique(newfile,file1,file2):
                     print(f"Exception! merging detectid {d} : {e}")
                     log.error("Exception! merging detectid (%d): (%s)" %(d,e))
              # end for loop
-            flush_all(newfile_handle)
+            flush_all(newfile_handle,reindex=True)
             newfile_handle.close()
 
         #end for loop (chunks)

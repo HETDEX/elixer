@@ -270,7 +270,10 @@ def ew_obs(lineflux,lineflux_err, obs_wave, band, filter_flux, filter_flux_err):
         #continuum = mag2cgs(mag,filter_iso(band,obs_wave))*flux_adjust
         log.debug(f"Continuum estimate adjustment for {band}: x{flux_adjust:0.2f}")
         continuum = filter_flux*flux_adjust
-        ew_obs = lineflux/continuum
+        if continuum !=0:
+            ew_obs = lineflux/continuum
+        else:
+            return 0, 0
 
         try:
             ew_obs_err = abs(ew_obs * np.sqrt(  (lineflux_err / lineflux) ** 2 + (filter_flux_err / continuum) ** 2))
@@ -294,6 +297,9 @@ def lya_ewr(lineflux,lineflux_err, obs_wave, band, filter_flux, filter_flux_err)
     :return: rest EW and error
     """
     try:
+        if (lineflux is None) or (lineflux == 0) or (obs_wave is None) or (obs_wave == 0) or (filter_flux is None) or (filter_flux == 0):
+            return np.nan, np.nan
+
         return np.array(ew_obs(lineflux,lineflux_err, obs_wave, band, filter_flux, filter_flux_err))/(obs_wave/G.LyA_rest)
     except:
         log.error(f"Exception in spectrum_utilities::lya_ewr",exc_info=True)

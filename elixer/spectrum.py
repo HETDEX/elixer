@@ -4140,6 +4140,9 @@ class Spectrum:
         self.identifier = None #optional string to help identify in the log
         self.plot_dir = None
 
+        self.wd_checked = 0 #0 = unchecked, -1 = NOT a WD, 1 = is a WD
+        self.wd_z = -999
+
         #from HDF5
 
 
@@ -4468,6 +4471,101 @@ class Spectrum:
 
         return 0
 
+    def detection_consistent_with_wd(self):
+        """
+        This is a little different in that this applies to the detction all absorbers, not a specific solution, since
+        the solution logic does not attempt to fit most of these lines
+
+        basically, do we see the hydrogen series in absorption (or helium, oxygen, carbon)
+        probably will not handle faint, cool WDs
+        Seems to do well with DAs, not sure about the others
+
+        only positive ... do not return a penality if there is no solid match
+
+        :return: 0/1 if not consistent /constent, redshift
+        """
+
+        #
+        try:
+            if self.all_found_absorbs is None or len(self.all_found_absorbs) < 4: #really expect all these lines, so if too few, just bail
+                return 0,-999
+
+            def match_lines(obs_waves, target_waves, target_points,threshold_points):
+                try:
+                    z_list = [] #if there is a matched line, add the redshift to the z_list and expect there to be 4+ and all similar and near zero
+                    z_points = 0
+
+                    for w in obs_waves:
+                        w1 = w - 2.0
+                        w2 = w + 2.0
+                        s = np.array(target_waves > w1 ) & np.array(target_waves < w2)
+                        if np.sum(s) == 1: #1 match
+                            z_list.append(w/target_waves[s][0] - 1.0)
+                            z_points += target_points[s][0]
+
+
+                    if z_points > threshold_points:
+                        z_mean = np.mean(z_list)
+                        z_std = np.std(z_list)
+
+                        if (-0.05 < z_mean < 0.05) and (z_std < 0.01):
+                            return 1, z_mean
+                except:
+                    pass
+
+                return 0, -999
+
+            line_waves = np.array([l.fit_x0 for l in self.all_found_absorbs])
+
+            #
+            # This should cover the DA and DAB types
+            #
+            hydrogen_series = np.array([3750.158, 3770.637, 3797.904, 3835.391, 3889.000,    3970.79, 4101.742, 4340.471, 4861.333])
+            #                         12         11      10        9       He_I + H_8    epsilon,  delta,     gamma,   beta
+            hydrogen_points = np.array([1,1,1,1,2,2,2,3,3])
+            #others = [3888.647,3933.66,3967.470,3968.47]
+            #         He_I     CaII(K), NeIII, CaII(H)
+
+            #
+            # This should cover the DB type (just Helium)
+            #
+            helium_series = np.array([3888.647, 4026.190, 4143.761, 4471.479, 4685.710])
+            helium_points = np.array([1,1,1,1,1])
+
+
+            #
+            # DQ types (mostly Carbon and Oxygen)
+            #
+            oxygen_series = np.array([3727.8, 4317.139, 4363.210, 4414.899, 4650.0, 4958.911, 5006.843])
+            #                                                               4650 = CIII
+            oxygen_points = np.array([1,1,1,1,1,1,1])
+
+
+            #check DA, DAB
+            res, z = match_lines(line_waves,hydrogen_series,hydrogen_points,11)
+
+            if res > 0:
+                log.info(f"Matched WD to DA, DAB type.")
+                return res, z
+
+            #check DB
+            res, z = match_lines(line_waves,helium_series,helium_points,4)
+            if res > 0:
+                log.info(f"Matched WD to DB type.")
+                return res, z
+
+            #check DQ
+            res, z = match_lines(line_waves,oxygen_series,oxygen_points,5)
+            if res > 0:
+                log.info(f"Matched WD to DQ type.")
+                return res, z
+
+        except:
+            log.info("Exception in Spectrum::detection_consistent_with_wd", exc_info=True)
+            return 0, -999
+
+        return 0, -999
+
     def solution_consistent_with_H_and_K(self,solution):
         """
         For continuum sources at low-z, we often find the H & K lines (CaII 3968 [H] and 3934 [K])
@@ -4560,8 +4658,8 @@ class Spectrum:
                            [1,0,0,0,1,1,1,0,0],  #4 H_delta
                            [0,0,0,0,0,1,1,0,0],  #5 H_gamma
                            [0,0,0,0,0,0,1,0,0],  #6 H_beta
-                           [0,0,0,0,0,0,0,1,1],  #7 OIII 4959
-                           [0,0,0,0,0,0,0,0,1]]  #8 OIII 5007
+                           [1,0,0,0,0,0,0,1,1],  #7 OIII 4959
+                           [1,0,0,0,0,0,0,0,1]]  #8 OIII 5007
             match_matrix = np.array(match_matrix)
 
             #row/column (is mininum, where lines are smallest compared to OII)
@@ -5694,12 +5792,37 @@ class Spectrum:
             self.all_found_lines = found_lines
 
             try:
-                if (G.CONTINUUM_RULES or ((self.est_g_cont is not None) and (self.est_g_cont > G.CONTNIUUM_RULES_THRESH))) and \
+
+                est_g_cont = self.est_g_cont #just a very basic check on whether we are bright enough to trigger continuum rules
+                if est_g_cont is None or est_c_cont == 0:
+                    if values_units != 0:
+                        est_g_cont = np.median(values)*10**values_units
+                    else:
+                        est_g_cont = np.median(values)
+
+                if (G.CONTINUUM_RULES or ((est_g_cont is not None) and (est_g_cont > G.CONTNIUUM_RULES_THRESH))) and \
                         (self.all_found_absorbs is None or len(self.all_found_absorbs) == 0):
                     try:
+                        #this is a dumb way to do this ... need to go refactor and change the CONTINUUM_RULES from a global
+                        #condition to just a per-detection condition
+                        orig_CONTINUUM_RULES = G.CONTINUUM_RULES
+                        orig_MAX_SCORE_ABSORPTION_LINES = G.MAX_SCORE_ABSORPTION_LINES
+                        orig_DISPLAY_ABSORPTION_LINES = G.DISPLAY_ABSORPTION_LINES
+
+                        G.CONTINUUM_RULES = True
+                        G.MAX_SCORE_ABSORPTION_LINES = 9999.9
+                        G.DISPLAY_ABSORPTION_LINES = True
+
                         found_absorbers = peakdet(wavelengths,values,errors,values_units=values_units,absorber=True)
+
+                        G.CONTINUUM_RULES = orig_CONTINUUM_RULES
+                        G.MAX_SCORE_ABSORPTION_LINES = orig_MAX_SCORE_ABSORPTION_LINES
+                        G.DISPLAY_ABSORPTION_LINES = orig_DISPLAY_ABSORPTION_LINES
                     except:
                         found_absorbers = []
+                        G.CONTINUUM_RULES = orig_CONTINUUM_RULES
+                        G.MAX_SCORE_ABSORPTION_LINES = orig_MAX_SCORE_ABSORPTION_LINES
+                        G.DISPLAY_ABSORPTION_LINES = orig_DISPLAY_ABSORPTION_LINES
             except:
                 # log.error("Exception! <Traceback>",exc_info=True)
                 # log.error(f"{G.CONTINUUM_RULES}, {self.est_g_cont}, {self.all_found_absorbs} ")
@@ -6974,6 +7097,25 @@ class Spectrum:
                         s.score =  boost * s.score
                         per_line_total_score += s.score
 
+
+                    #note: this applies to the detection only, so really only need this once
+                    if not self.wd_checked:
+                        check, wd_z = self.detection_consistent_with_wd()
+                        #boost = self.scale_consistency_score_to_solution_score_factor(self.detection_consistent_with_wd())
+                        if check > 0.0:
+                            self.wd_checked = 1
+                            self.wd_z = wd_z
+                            self.add_classification_label("WD")
+                        else:
+                            self.wd_checked = -1
+
+                    if self.wd_checked > 0:
+                        if abs(s.z - self.wd_z) < 0.001: #if this solution happens to be consistent with the z, then boost it
+                            log.info(f"Solution: {s.name} score {s.score} to be modified by x{boost} for consistency with WD")
+
+                            per_line_total_score -= s.score
+                            s.score =  boost * s.score
+                            per_line_total_score += s.score
 
         else: #still check for invalid solutions (no valid central emission line)
             if self.central_eli is None:

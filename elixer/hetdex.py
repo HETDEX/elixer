@@ -2830,7 +2830,7 @@ class DetObj:
                         #if we already have 4 or more lines from the PSF weighted spectra, these
                         #are going to be the brighter/stronger lines anyway,
                         #there is no need to run the "no fit" lines and risk a shotgun match
-                        if len(waves) < 4:
+                        if len(waves) < 4 and self.best_gmag > 22.5:
                             pos = elixer_spectrum.sn_peakdet_no_fit(G.CALFIB_WAVEGRID, exp[cmx_expid - 1],
                                                                     exp_err[cmx_expid - 1],
                                                                     dx=3, rx=2, dv=3.0, dvmx=5.0)
@@ -2866,7 +2866,9 @@ class DetObj:
                     #            MgI  at 5173,5184
                     #            FeI  at 5330  (weak)
 
-                    if len(waves) > 30:
+                    if near_bright_obj and weighted_line_count < 4:
+                        pass
+                    elif len(waves) > 30:
                         #too many to trust
                         meteor = 0
                     elif len(common_lines) > 3: #got most of the common lines
@@ -2897,7 +2899,9 @@ class DetObj:
                             if (len(bright_mg_line) > 0) : #only got a bright line
                                 #if (len(waves) < 4):
                                 #    log.debug("+++++ no enough other lines for meteor. condition 3")
-                                if (len(waves) < 10):  # check for total waves (too many results in shotgun match)
+                                if weighted_line_count < 4:
+                                    pass #just not enough lines
+                                elif (len(waves) < 10):  # check for total waves (too many results in shotgun match)
                                     meteor = 2 #occasional trigger
                                     log.debug("+++++ meteor condition 3")
                                 elif len(waves) < 20:  # getting close to shotgun
@@ -2914,7 +2918,9 @@ class DetObj:
                     elif near_bright_obj and (spec_ratio > bright_obj_spec_ratio_trigger) and \
                             (full_spec_ratio_trigger > 0.75 * full_spec_ratio_trigger):
                         if (len(bright_mg_line) > 0) and (len(common_lines) > 1):
-                            if (len(waves) < 10):  # check for total waves (too many results in shotgun match)
+                            if weighted_line_count < 4:
+                                pass #just not enough lines
+                            elif (len(waves) < 10):  # check for total waves (too many results in shotgun match)
                                 meteor = 2
                                 log.debug("+++++ meteor condition 1b")
                             elif len(waves) < 20:
@@ -7360,131 +7366,7 @@ class DetObj:
                 except:
                     log.info("Could not set spectrum noise_estimate to sumpsec_fluxerr", exc_info=True)
 
-            #my own fitting
-            try:
-
-                self.spec_obj.set_spectra(self.sumspec_wavelength, self.sumspec_flux, self.sumspec_fluxerr, self.w,
-                                          values_units=-17, estflux=self.estflux, estflux_unc=self.estflux_unc,
-                                          eqw_obs=self.eqw_obs, eqw_obs_unc=self.eqw_obs_unc,
-                                          estcont=self.cont_cgs, estcont_unc=self.cont_cgs_unc,
-                                          continuum_g=self.best_gmag_cgs_cont,continuum_g_unc=self.best_gmag_cgs_cont_unc)
-
-                #update DEX-g based continuum and EW
-                try:
-                    self.best_masked_cgs_cont, self.best_masked_cgs_cont_unc, _ = self.spec_obj.gband_masked_continuum()
-                    #self.best_gmag_cgs_cont_unc *= self.spec_obj.gband_masked_correction()
-
-                    if G.USE_MASKED_CONTINUUM_FOR_BEST_EW:
-                        if self.best_masked_cgs_cont is None:
-                            self.best_masked_cgs_cont = self.best_gmag_cgs_cont
-
-                        if self.best_masked_cgs_cont_unc is None:
-                            self.best_masked_cgs_cont_unc = self.best_gmag_cgs_cont_unc
-
-                        self.best_eqw_gmag_obs = self.estflux / self.best_gmag_cgs_cont
-                        self.best_eqw_gmag_obs_unc = abs(self.best_eqw_gmag_obs * np.sqrt(
-                            (self.estflux_unc / self.estflux) ** 2 +
-                            (self.best_masked_cgs_cont_unc / self.best_masked_cgs_cont) ** 2))
-
-                        log.info(f"Update best DEX-g continuum x{self.spec_obj.gband_masked_correction():0.2f} and EW; "
-                                 f"cont {self.best_gmag_cgs_cont} +/- {self.best_gmag_cgs_cont_unc}" )
-                    else:
-                        self.best_eqw_gmag_obs = self.estflux / self.best_gmag_cgs_cont
-                        self.best_eqw_gmag_obs_unc = abs(self.best_eqw_gmag_obs * np.sqrt(
-                            (self.estflux_unc / self.estflux) ** 2 +
-                            (self.best_gmag_cgs_cont_unc / self.best_gmag_cgs_cont) ** 2))
-                except:
-                    log.error("Exception! Excpetion updating DEX-g continuum.",exc_info=True)
-
-                if self.spec_obj.central_eli is not None:
-
-                    #update the central wavelength
-                    log.info(f"Central Wavelength updated from {self.w} to {self.spec_obj.central_eli.fit_x0}")
-                    self.w = self.spec_obj.central_eli.fit_x0
-
-                    if self.spec_obj.central_eli.mcmc_line_flux is None:
-
-                        self.estflux = self.spec_obj.central_eli.fit_line_flux
-                        self.estflux_unc = self.spec_obj.central_eli.fit_line_flux_err
-
-                        self.cont_cgs = self.spec_obj.central_eli.fit_continuum
-                        self.cont_cgs_unc = 0 # not computed correctly right now self.spec_obj.central_eli.fit_continuum_err
-
-                        self.eqw_obs = self.spec_obj.central_eli.eqw_obs
-                        self.eqw_obs_unc = 0 #self.eqw_obs * np.sqrt( (self.estflux_unc/self.estflux)**2 + (self.cont_cgs_unc/self.cont_cgs)**2)
-
-                        # self.snr = self.spec_obj.central_eli.mcmc_snr
-                        self.snr = self.spec_obj.central_eli.snr
-                        self.snr_unc = 0
-
-                        self.chi2 = self.spec_obj.central_eli.fit_chi2
-                        self.chi2_unc = 0.0
-
-                    else: #we have mcmc data
-
-                        self.estflux = self.spec_obj.central_eli.mcmc_line_flux
-                        self.estflux_unc = 0.5 * (self.spec_obj.central_eli.mcmc_line_flux_tuple[1] +
-                                                  self.spec_obj.central_eli.mcmc_line_flux_tuple[2])
-
-                        self.eqw_obs = self.spec_obj.central_eli.mcmc_ew_obs[0]
-                        self.eqw_obs_unc = 0.5 * (self.spec_obj.central_eli.mcmc_ew_obs[1] +
-                                                  self.spec_obj.central_eli.mcmc_ew_obs[2])
-
-                        self.cont_cgs = self.spec_obj.central_eli.mcmc_continuum
-                        self.cont_cgs_unc = 0.5*(self.spec_obj.central_eli.mcmc_continuum_tuple[1] +
-                                                 self.spec_obj.central_eli.mcmc_continuum_tuple[2])
-                        # self.snr = self.spec_obj.central_eli.mcmc_snr
-                        self.snr = self.spec_obj.central_eli.mcmc_snr
-                        self.snr_unc = self.spec_obj.central_eli.mcmc_snr_err
-
-                        try:
-                            if self.spec_obj.central_eli.mcmc_chi2 is not None and \
-                               not np.isnan(self.spec_obj.central_eli.mcmc_chi2) and \
-                               self.spec_obj.central_eli.mcmc_chi2 > 0:
-                                self.chi2 = self.spec_obj.central_eli.mcmc_chi2
-                            else:
-                                self.chi2 = self.spec_obj.central_eli.fit_chi2
-                            self.chi2_unc = 0.0
-                        except:
-                            pass
-
-
-                    self.spec_obj.estflux = self.estflux
-                    self.spec_obj.eqw_obs = self.eqw_obs
-
-                    self.snr = self.spec_obj.central_eli.snr #row['sn']
-                    self.snr_unc = self.spec_obj.central_eli.snr_err #row['sn']
-                    #self.snr_unc = 0.0 #row['sn_err']
-
-                    self.sigma = self.spec_obj.central_eli.fit_sigma #row['linewidth']  # AA
-                    self.sigma_unc = self.spec_obj.central_eli.fit_sigma_err #0.0 #row['linewidth_err']
-                    if (self.sigma_unc is None) or (self.sigma_unc < 0.0):
-                        self.sigma_unc = 0.0
-                    self.fwhm = 2.35 * self.sigma
-                    self.fwhm_unc = 2.35 * self.sigma_unc
-
-                    self.estflux_h5 = self.estflux
-                    self.estflux_h5_unc = self.estflux_unc
-
-                else:
-                    log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra(). spec_obj.central_eli is None.")
-
-            except:
-                log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra")
-
-
-
-
-            #todo: then update the values on record
-            # mu, sigma, Amplitude, y, dx   (dx is the bin width if flux instead of flux/dx)
-            #continuum does NOT get the bin scaling
-            self.line_gaussfit_parms = (self.w,self.sigma,self.estflux*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,
-                                        self.cont_cgs/G.HETDEX_FLUX_BASE_CGS,
-                                        G.FLUX_WAVEBIN_WIDTH) #*2.0 for Karl's bin width
-            self.line_gaussfit_unc = (self.w_unc,self.sigma_unc,self.estflux_unc*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,
-                                      self.cont_cgs_unc/G.HETDEX_FLUX_BASE_CGS, 0.0)
-
-            # used just below to choose between the two
+                    # used just below to choose between the two
             sdss_okay = 0
             hetdex_okay = 0
 
@@ -7564,7 +7446,7 @@ class DetObj:
             #actually using the values elsewhere they are compared to a limit and the limit is used if needed
 
             if (hetdex_okay == sdss_okay) and (self.hetdex_gmag is not None) and (self.sdss_gmag is not None) and \
-                        abs(self.hetdex_gmag - self.sdss_gmag) < 1.0: #use both as an average? what if they are very different?
+                    abs(self.hetdex_gmag - self.sdss_gmag) < 1.0: #use both as an average? what if they are very different?
                 #make the average
                 avg_cont = 0.5 * (self.hetdex_gmag_cgs_cont + self.sdss_cgs_cont)
                 avg_cont_unc =  np.sqrt(self.hetdex_gmag_cgs_cont_unc**2 + self.sdss_cgs_cont_unc**2) #error on the mean
@@ -7653,7 +7535,153 @@ class DetObj:
             except:
                 pass
 
-            self.spec_obj.classify(known_z=self.known_z)  # solutions can be returned, also stored in spec_obj.solutions
+
+            #my own fitting
+            try:
+
+                self.spec_obj.set_spectra(self.sumspec_wavelength, self.sumspec_flux, self.sumspec_fluxerr, self.w,
+                                          values_units=-17, estflux=self.estflux, estflux_unc=self.estflux_unc,
+                                          eqw_obs=self.eqw_obs, eqw_obs_unc=self.eqw_obs_unc,
+                                          estcont=self.cont_cgs, estcont_unc=self.cont_cgs_unc,
+                                          continuum_g=self.best_gmag_cgs_cont,continuum_g_unc=self.best_gmag_cgs_cont_unc)
+
+
+                if self.spec_obj.central_eli is not None:
+
+                    #update the central wavelength
+                    log.info(f"Central Wavelength updated from {self.w} to {self.spec_obj.central_eli.fit_x0}")
+                    self.w = self.spec_obj.central_eli.fit_x0
+
+                    if self.spec_obj.central_eli.mcmc_line_flux is None:
+
+                        self.estflux = self.spec_obj.central_eli.fit_line_flux
+                        self.estflux_unc = self.spec_obj.central_eli.fit_line_flux_err
+
+                        self.cont_cgs = self.spec_obj.central_eli.fit_continuum
+                        self.cont_cgs_unc = 0 # not computed correctly right now self.spec_obj.central_eli.fit_continuum_err
+
+                        self.eqw_obs = self.spec_obj.central_eli.eqw_obs
+                        self.eqw_obs_unc = 0 #self.eqw_obs * np.sqrt( (self.estflux_unc/self.estflux)**2 + (self.cont_cgs_unc/self.cont_cgs)**2)
+
+                        # self.snr = self.spec_obj.central_eli.mcmc_snr
+                        self.snr = self.spec_obj.central_eli.snr
+                        self.snr_unc = 0
+
+                        self.chi2 = self.spec_obj.central_eli.fit_chi2
+                        self.chi2_unc = 0.0
+
+                    else: #we have mcmc data
+
+                        self.estflux = self.spec_obj.central_eli.mcmc_line_flux
+                        self.estflux_unc = 0.5 * (self.spec_obj.central_eli.mcmc_line_flux_tuple[1] +
+                                                  self.spec_obj.central_eli.mcmc_line_flux_tuple[2])
+
+                        self.eqw_obs = self.spec_obj.central_eli.mcmc_ew_obs[0]
+                        self.eqw_obs_unc = 0.5 * (self.spec_obj.central_eli.mcmc_ew_obs[1] +
+                                                  self.spec_obj.central_eli.mcmc_ew_obs[2])
+
+                        self.cont_cgs = self.spec_obj.central_eli.mcmc_continuum
+                        self.cont_cgs_unc = 0.5*(self.spec_obj.central_eli.mcmc_continuum_tuple[1] +
+                                                 self.spec_obj.central_eli.mcmc_continuum_tuple[2])
+                        # self.snr = self.spec_obj.central_eli.mcmc_snr
+                        self.snr = self.spec_obj.central_eli.mcmc_snr
+                        self.snr_unc = self.spec_obj.central_eli.mcmc_snr_err
+
+                        try:
+                            if self.spec_obj.central_eli.mcmc_chi2 is not None and \
+                               not np.isnan(self.spec_obj.central_eli.mcmc_chi2) and \
+                               self.spec_obj.central_eli.mcmc_chi2 > 0:
+                                self.chi2 = self.spec_obj.central_eli.mcmc_chi2
+                            else:
+                                self.chi2 = self.spec_obj.central_eli.fit_chi2
+                            self.chi2_unc = 0.0
+                        except:
+                            pass
+
+
+                    self.spec_obj.estflux = self.estflux
+                    self.spec_obj.eqw_obs = self.eqw_obs
+
+                    self.snr = self.spec_obj.central_eli.snr #row['sn']
+                    self.snr_unc = self.spec_obj.central_eli.snr_err #row['sn']
+                    #self.snr_unc = 0.0 #row['sn_err']
+
+                    self.sigma = self.spec_obj.central_eli.fit_sigma #row['linewidth']  # AA
+                    self.sigma_unc = self.spec_obj.central_eli.fit_sigma_err #0.0 #row['linewidth_err']
+                    if (self.sigma_unc is None) or (self.sigma_unc < 0.0):
+                        self.sigma_unc = 0.0
+                    self.fwhm = 2.35 * self.sigma
+                    self.fwhm_unc = 2.35 * self.sigma_unc
+
+                    self.estflux_h5 = self.estflux
+                    self.estflux_h5_unc = self.estflux_unc
+
+                else:
+                    log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra(). spec_obj.central_eli is None.")
+
+
+                #update DEX-g based continuum and EW
+                try:
+                    self.best_masked_cgs_cont, self.best_masked_cgs_cont_unc, _ = self.spec_obj.gband_masked_continuum()
+                    #self.best_gmag_cgs_cont_unc *= self.spec_obj.gband_masked_correction()
+
+                    if G.USE_MASKED_CONTINUUM_FOR_BEST_EW:
+                        if self.best_masked_cgs_cont is None:
+                            self.best_masked_cgs_cont = self.best_gmag_cgs_cont
+
+                        if self.best_masked_cgs_cont_unc is None:
+                            self.best_masked_cgs_cont_unc = self.best_gmag_cgs_cont_unc
+
+                        self.best_eqw_gmag_obs = self.estflux / self.best_gmag_cgs_cont
+                        self.best_eqw_gmag_obs_unc = abs(self.best_eqw_gmag_obs * np.sqrt(
+                            (self.estflux_unc / self.estflux) ** 2 +
+                            (self.best_masked_cgs_cont_unc / self.best_masked_cgs_cont) ** 2))
+
+                        log.info(f"Update best DEX-g continuum x{self.spec_obj.gband_masked_correction():0.2f} and EW; "
+                                 f"cont {self.best_gmag_cgs_cont} +/- {self.best_gmag_cgs_cont_unc}" )
+                    else:
+                        self.best_eqw_gmag_obs = self.estflux / self.best_gmag_cgs_cont
+                        self.best_eqw_gmag_obs_unc = abs(self.best_eqw_gmag_obs * np.sqrt(
+                            (self.estflux_unc / self.estflux) ** 2 +
+                            (self.best_gmag_cgs_cont_unc / self.best_gmag_cgs_cont) ** 2))
+                except:
+                    log.error("Exception! Excpetion updating DEX-g continuum.",exc_info=True)
+
+            except:
+                log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra")
+
+
+
+
+            #todo: then update the values on record
+            # mu, sigma, Amplitude, y, dx   (dx is the bin width if flux instead of flux/dx)
+            #continuum does NOT get the bin scaling
+            self.line_gaussfit_parms = (self.w,self.sigma,self.estflux*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,
+                                        self.cont_cgs/G.HETDEX_FLUX_BASE_CGS,
+                                        G.FLUX_WAVEBIN_WIDTH) #*2.0 for Karl's bin width
+            self.line_gaussfit_unc = (self.w_unc,self.sigma_unc,self.estflux_unc*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,
+                                      self.cont_cgs_unc/G.HETDEX_FLUX_BASE_CGS, 0.0)
+
+            try:
+                #this is a dumb way to do this ... need to go refactor and change the CONTINUUM_RULES from a global
+                #condition to just a per-detection condition
+                orig_CONTINUUM_RULES = G.CONTINUUM_RULES
+                orig_MAX_SCORE_ABSORPTION_LINES = G.MAX_SCORE_ABSORPTION_LINES
+                orig_DISPLAY_ABSORPTION_LINES = G.DISPLAY_ABSORPTION_LINES
+                if self.best_gmag_cgs_cont > G.CONTNIUUM_RULES_THRESH:
+                    G.CONTINUUM_RULES = True
+                    G.MAX_SCORE_ABSORPTION_LINES = 9999.9
+                    G.DISPLAY_ABSORPTION_LINES = True
+
+                self.spec_obj.classify(known_z=self.known_z)  # solutions can be returned, also stored in spec_obj.solutions
+
+                G.CONTINUUM_RULES = orig_CONTINUUM_RULES
+                G.MAX_SCORE_ABSORPTION_LINES = orig_MAX_SCORE_ABSORPTION_LINES
+                G.DISPLAY_ABSORPTION_LINES = orig_DISPLAY_ABSORPTION_LINES
+            except:
+                G.CONTINUUM_RULES = orig_CONTINUUM_RULES
+                G.MAX_SCORE_ABSORPTION_LINES = orig_MAX_SCORE_ABSORPTION_LINES
+                G.DISPLAY_ABSORPTION_LINES = orig_DISPLAY_ABSORPTION_LINES
 
             self.rvb = SU.red_vs_blue(self.w, self.sumspec_wavelength,
                                       self.sumspec_flux / G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS,
@@ -10825,12 +10853,17 @@ class HETDEX:
             good, scale_score, p_score = e.multiline_solution_score()
 
             #pick best eqw observered to use
-            if (e.eqw_sdss_obs is not None) and (e.eqw_sdss_obs_unc is not None):
-                l_eqw_obs =  e.eqw_sdss_obs
-            elif (e.eqw_hetdex_gmag_obs is not None) and (e.eqw_hetdex_gmag_obs_unc is not None):
-                l_eqw_obs =  e.eqw_hetdex_gmag_obs
-            elif (e.eqw_line_obs is not None) and (e.eqw_line_obs_unc is not None):
-                l_eqw_obs = e.eqw_line_obs
+            # if (e.eqw_sdss_obs is not None) and (e.eqw_sdss_obs_unc is not None):
+            #     l_eqw_obs =  e.eqw_sdss_obs
+            # elif (e.eqw_hetdex_gmag_obs is not None) and (e.eqw_hetdex_gmag_obs_unc is not None):
+            #     l_eqw_obs =  e.eqw_hetdex_gmag_obs
+            # elif (e.eqw_line_obs is not None) and (e.eqw_line_obs_unc is not None):
+            #     l_eqw_obs = e.eqw_line_obs
+            # else:
+            #     l_eqw_obs = e.eqw_obs
+
+            if (e.best_eqw_gmag_obs is not None) and (e.best_eqw_gmag_obs is not None):
+                l_eqw_obs =  e.best_eqw_gmag_obs
             else:
                 l_eqw_obs = e.eqw_obs
 
