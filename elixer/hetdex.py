@@ -2953,7 +2953,7 @@ class DetObj:
                         log.debug("Failed to meet additional meteor criteria. Likely not a meteor.")
 
                     #final check
-                    if (meteor == 0)  \
+                    if (meteor == 0)  and  (weighted_line_count > 3) \
                             and (((spec_ratio > 20) and (full_ratio > 5)) or ((spec_ratio > 40) and (full_ratio > 2.5))) \
                             and (len(waves) <= 20):
                         if len(common_lines) > 0: #got at least one
@@ -4403,12 +4403,13 @@ class DetObj:
         #check for specific incompatible classification labels
         ########################################################
 
-        if "Meteor" in self.spec_obj.classification_label:
-            likelihood.append(0.0)
-            weight.append(self.spec_obj.meteor_strength)
-            var.append(1)  # todo: ? could do something like the spectrum noise?
-            prior.append(base_assumption)
-            log.info( f"{self.entry_id} Aggregate Classification: Meteor indicated: lk({likelihood[-1]}) weight({weight[-1]})")
+
+        # if "meteor" in self.spec_obj.classification_label:
+        #     likelihood.append(0.0)
+        #     weight.append(self.spec_obj.meteor_strength)
+        #     var.append(1)  # todo: ? could do something like the spectrum noise?
+        #     prior.append(base_assumption)
+        #     log.info( f"{self.entry_id} Aggregate Classification: Meteor indicated: lk({likelihood[-1]}) weight({weight[-1]})")
 
         ##########################
         # single line OIII 5007
