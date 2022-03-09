@@ -84,6 +84,7 @@ def main():
     if i != -1:
         try:
             merge_list_fn = sys.argv[i + 1]
+            print(f"merge_list_fn = {merge_list_fn}")
         except:
             print("Error! Cannot find mandatory parameter --dispatch")
             exit(-1)
@@ -99,6 +100,7 @@ def main():
         #this is the top level final merge
         #find all previous generation merges files AND includ the elixer_merge.cat, if present
         still_waiting = True
+        print("Beginning final merge ... ")
 
         #how many do we expect?
         try:
