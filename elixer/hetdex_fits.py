@@ -74,6 +74,7 @@ class HetdexFits:
         self.fiber_centers = None
         self.fe_crval1 = None
         self.fe_cdelt1 = None
+        #self.relflux_virus = [] #relative through put for each dither
 
         self.calfib = None #calibrated, rectified (see G.CALFIB_WAVEGRID) (local sky subtraction)
         self.calfibe = None
@@ -291,6 +292,12 @@ class HetdexFits:
                 fibers_table = h5_multifits.root.Data.Fibers
                 images_table = h5_multifits.root.Data.Images
                 shots_table = h5_multifits.root.Shot
+
+                # try: #not necessary ... this is also in the survey h5, no need to repeatedly get it here
+                #     self.relflux_virus = h5_multifits.root.Astrometry.NominalVals.cols.relflux_virus[:]    #relative through put for each dither
+                # except:
+                #     log.info("Exception in HetdexFits getting relative throughputs.",exc_info=True)
+                #     self.relflux_virus = None
 
                 # set the query values needed shortly ...
                 q_expnum = int(self.expid)

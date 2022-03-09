@@ -2194,6 +2194,7 @@ def merge_unique(newfile,file1,file2):
                             print(e)
 
                     #flush_all(newfile_handle) #don't think we need to flush every time
+                    #definitely DO NOT reindex each time ... super costly
 
                 except Exception as e:
                     print(f"Exception! merging detectid {d} : {e}")

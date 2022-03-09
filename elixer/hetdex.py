@@ -761,6 +761,7 @@ class DetObj:
         self.survey_fwhm = None #HDR2+
         self.survey_response = None
         self.dither_norm = 0.0 #todo: max/min for dithers?
+        self.relflux_virus = []
         self.amp_stats = 0.0 #todo:???
         self.survey_fieldname = None
 
@@ -2627,7 +2628,7 @@ class DetObj:
             common_line_idx = np.searchsorted(G.CALFIB_WAVEGRID, common_line_waves)
 
             #planning ahead a bit, not quite sure how to use this yet
-            #this is a an average flux density in areas not commonly covered by meteor emission lines
+            #this is an average flux density in areas not commonly covered by meteor emission lines
             #so this can indicate a lot of continuum
             # a REAALY bright meteor would have continuum too, but this is from the PSF weighted spectra and the other
             # contributing exposures would normally have very little
@@ -2748,9 +2749,21 @@ class DetObj:
                 #make sure the two methods ID the same
                 # BUT we could be near a bright object and then its scattered light could flip these around
                 # so ignore this and just use the 'common' values at the end
-                if (cmx_expid != mx_expid) or (cmn_expid != mn_expid):
-                    log.info("DetObj::check_for_meteor expids do not match. Could be near a bright object OR not a meteor.")
-                    near_bright_obj = True
+                # checking that the indices are the same in both methods AND
+                # the middle sum is not so close to either the min or the max that they could reasonably be confused
+                if ((cmx_expid != mx_expid) or (cmn_expid != mn_expid)):
+
+
+                # if ((cmx_expid != mx_expid) and \
+                #         ( (2*abs(cmx_sum - cn2_sum)/(cmx_sum + cn2_sum)) > 0.25) and \
+                #         ( (2*abs(mx_sum - n2_sum)/(mx_sum + n2_sum)) > 0.25)) or \
+                #     ((cmn_expid != mn_expid) and \
+                #         ( (2*abs(cmn_sum - cn2_sum)/(cmn_sum + cn2_sum)) > 0.25) and \
+                #         ( (2*abs(mn_sum - n2_sum)/(mn_sum + n2_sum)) > 0.25)):
+
+
+                        log.info("DetObj::check_for_meteor expids do not match. Could be near a bright object OR not a meteor.")
+                        near_bright_obj = True
                 #     return 0
 
             if False:
@@ -2847,6 +2860,30 @@ class DetObj:
 
                     waves = np.array(sorted(waves))
 
+
+                    #first can this be explained by being near a bright object where the lines are accounted for?
+                    try:
+                        if near_bright_obj and (self.spec_obj is not None) and (self.spec_obj.solutions is not None) and \
+                                (len(self.spec_obj.solutions) > 0) and (self.spec_obj.solutions[0].scale_score > 0.9) and \
+                                ((self.spec_obj.solutions[0].unmatched_lines_count < 2) and \
+                                 (self.spec_obj.solutions[0].unmatched_lines_score < 10)):
+                                #there is a strong solution that accounts for all the blind search fitted lines
+                                #remove the lines in THIS solution from the waves above and then use the remaining
+                                #to check for meteor
+                                solution_waves =sorted([l.w_obs for l in self.spec_obj.solutions[0].lines] +
+                                                       [self.spec_obj.solutions[0].emission_line.w_obs])
+
+                                del_idx = np.full(len(waves),False)
+                                for i in range(len(waves)):
+                                    if np.any(np.isclose(waves[i],solution_waves,atol=1.0)):
+                                        del_idx[i] = True
+
+                                waves = np.delete(waves,del_idx)
+                    except:
+                        log.info("Exception in check_for_meteor() when removing lines included in strong solution.",exc_info=True)
+
+
+
                     bright_mg_line = np.where(  ((waves >= 3826) & (waves <= 3840)) |
                                                 ((waves >= 5170) & (waves <= 5186)))[0]
                     common_lines = np.where( ((waves >= 3570) & (waves <= 3590)) |
@@ -2865,6 +2902,10 @@ class DetObj:
                     #            CaI  at 4227
                     #            MgI  at 5173,5184
                     #            FeI  at 5330  (weak)
+
+
+
+
 
                     if near_bright_obj and weighted_line_count < 4:
                         pass
@@ -6659,13 +6700,16 @@ class DetObj:
             self.dither_norm = -1.0
             #self.dither_norm_high_expid = -1
             try:
-                relflux_virus = row['relflux_virus']
-                self.dither_norm = np.max(relflux_virus) / np.min(relflux_virus)
+                self.relflux_virus = row['relflux_virus']
+                self.dither_norm = np.max(self.relflux_virus) / np.min(self.relflux_virus)
                # self.dither_norm_high_expid = np.argmax(relflux_virus)
             except:
                 self.dither_norm = -1.0
 
             #relflux_virus
+
+           # astro = h5_survey.root.Astrometry.NominalVals
+
 
         return
 
