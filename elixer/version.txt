@@ -1,10 +1,13 @@
 changes to elixer by version
 
-1.16.4 [2022-03-08]
+1.16.4a1 [2022-03-08]
 * add WD compatibility check
 * fix missing OII-3727 requirement if OIII-4959 and OIII-5007 found
 * fix coords file read if only one line
 * allow re-extractions/forced extractions to turn on CONTINUUM_RULES
+* further restrict meteor trigger. If possibly near a bright object and there is a strong, multiline solution with few
+  to no unaccounted lines, remove the solution lines from the spectrum and then check to see if the remaining lines
+  trigger a meteor condition.
 
 1.16.3 [2022-03-01]
 * add continuum_masked as the continuum estimate from the DEX spectra with emission and absorption lines masked
