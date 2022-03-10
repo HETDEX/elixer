@@ -5068,59 +5068,9 @@ class DetObj:
                     gmag_at_limit = True
 
                 log.info(
-                        f"{self.entry_id} Combine ALL Continuum: Added best spectrum gmag estimate ({continuum[-1]}) "
+                        f"{self.entry_id} Combine All Continuum: Added best spectrum gmag estimate ({continuum[-1]}) "
                         f"sd({np.sqrt(variance[-1])}) weight({weight[-1]})")
 
-                if False: #old way
-                    #estimate - error is still better than the limit, so it gets full marks
-                    if (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) > cgs_limit: #good, full marks
-                        continuum.append(self.best_gmag_cgs_cont)
-                        variance.append(self.best_gmag_cgs_cont_unc * self.best_gmag_cgs_cont_unc)
-
-                        if (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) > cgs_fc:
-                            weight.append(4.0) #best measure of flux (right on top of our target) so boost
-                            #typically 4 other estiamtes: narrow, wide (this one), 1+ forced photometery, 1+ catalog
-                            #so make this one 4x to dominated (aside from big error)
-                        else:
-                            weight.append(1.0)
-
-                        cont_type.append('hdw') #HETDEX wide
-                        nondetect.append(0)
-
-                        log.debug(
-                            f"{self.entry_id} Combine ALL Continuum: Added best spectrum gmag estimate ({continuum[-1]:#.4g}) "
-                            f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
-
-                    #estimate is better than the limit, but with error hits the limit, so reduced marks
-                    elif (self.best_gmag_cgs_cont > cgs_limit): #mean value is in range, but with error is out of range
-                        frac = (self.best_gmag_cgs_cont - cgs_fc) / (cgs_fc - cgs_limit)
-                        # at 24mag this is zero, fainter goes negative, at 24.5 it is -1.0
-                        if frac > 0:  # full weight
-                            w = 1.0
-                        else: #going to get at least 0.3
-                            w = max(0.5, 1.0 + frac)  # linear drop to zero at cgs_limit
-
-                        continuum.append(self.best_gmag_cgs_cont)
-                        variance.append(self.best_gmag_cgs_cont_unc * self.best_gmag_cgs_cont_unc)
-                        weight.append(w)
-                        cont_type.append('hdw')  # HETDEX wide
-                        nondetect.append(0)
-
-                        log.debug(
-                            f"{self.entry_id} Combine ALL Continuum: Added best spectrum gmag estimate ({continuum[-1]:#.4g}) "
-                            f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
-                    else:  # going to use the lower limit, totally out of range
-                        gmag_at_limit = True
-                        continuum.append(cgs_limit)
-                        variance.append((cgs_limit-cgs_faint_limit)**2)  # ie. sd of ~ 1/3 * cgs_limit
-                        weight.append(0.5)  # never very high (a little better than HETDEX narrow continuum weight)
-                        cont_type.append('hdw')  # HETDEX wide
-                        nondetect.append(1)
-
-                        log.debug(
-                            f"{self.entry_id} Combine ALL Continuum: best spectrum gmag estimate fainter than limit. Setting to lower limit "
-                            f"({continuum[-1]:#.4g}) "
-                            f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
             else:
                 got_hd_gmag = False
         except:
@@ -5140,7 +5090,7 @@ class DetObj:
                         weight.append(0.2) #never very high
                         cont_type.append('hdn') #HETDEX-narrow
                         nondetect.append(0)
-                        log.debug(f"{self.entry_id} Combine ALL Continuum: Added HETDEX estimate ({continuum[-1]:#.4g}) "
+                        log.debug(f"{self.entry_id} Combine All Continuum: Added HETDEX estimate ({continuum[-1]:#.4g}) "
                                   f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
                     else: #set as lower limit ... too far to be meaningful
                         continuum.append(G.HETDEX_CONTINUUM_FLUX_LIMIT)
@@ -5190,7 +5140,7 @@ class DetObj:
                                 #only add if there is a matching source extractor radius
                                 # base_psf.append(this_psf)
                                 #
-                                # log.debug(f"{self.entry_id} Combine ALL Continuum: Added base psf: "
+                                # log.debug(f"{self.entry_id} Combine All Continuum: Added base psf: "
                                 #           f"{a['elixer_apertures'][0]['radius']*2.0} arcsec,"
                                 #           f" filter ({a['filter_name']})")
 
@@ -5200,11 +5150,10 @@ class DetObj:
                         except:
                             log.debug("Exception handling base_psf in DetObj:combin_all_continuum", exc_info=True)
 
-                        #todo: source extractor objects (no PLAE/POII right now, just counts and mag
-                        # this would be sextractor = a['sep_objects'][a['sep_obj_idx']]
-                        # adjust weight based on distance to barycenter if inside ellipse or to edge of ellipse if not
-
-                        #todo: this should be re-done in terms of the imaging catalog PSF
+                        #
+                        # this sets the physical/angular extent
+                        # the measured mag contribution to the continuum estimate follows in the code block after this one
+                        #
                         try:
                             if (a['sep_objects'] is not None):
                                 any_sep = len(a['sep_objects']) > 0
@@ -5214,14 +5163,11 @@ class DetObj:
                                     best_guess_maglimit.append(a['mag_limit'])
                                     base_psf.append(this_psf)
 
-                                    log.debug(f"{self.entry_id} Combine ALL Continuum: Added base psf: "
+                                    log.debug(f"{self.entry_id} Combine All Continuum: Added base psf: "
                                           f"{this_psf} arcsec, filter ({a['filter_name']})")
-                                    log.debug(f"{self.entry_id} Combine ALL Continuum: Added best guess extent: "
+                                    log.debug(f"{self.entry_id} Combine All Continuum: Added best guess extent: "
                                           f"{a['sep_objects'][a['sep_obj_idx']]['a']:#.2g} arcsec,"
                                           f" {a['catalog_name']} filter ({a['filter_name']})")
-
-                                    if a['mag_limit'] is not None and a['mag_limit'] > deep_detect:
-                                        deep_detect = a['mag_limit']
 
                                 else: #there are SEP object(s), but they are too far away, so the apeture under/near
                                       #the reticle is probably empty .... this actually favors LAE (essentially would
@@ -5234,16 +5180,6 @@ class DetObj:
                             log.debug("Exception handling best_guess_extent in DetObj:combin_all_plae",exc_info=True)
 
                         if a['mag'] is not None:
-                            # if a['filter_name'] == 'f606w':
-                            #     lam = 5777. #AA
-                            # elif  a['filter_name'] == 'g':
-                            #     lam = 4770.
-                            # elif a['filter_name'] == 'r':
-                            #         lam = 6231.
-                            # else:
-                            #     log.error(f"Unexpected filter {a['mag']} in DetObj::combine_all_continuum")
-                            #     lam = 4500. #set to HETDEX mid-point
-
 
                             #technically this is *WRONG* ... the wavelength should be the filter's iso wavelength
                             #and this is especially off when using 'r' band, but this is how the PLAE/POII is used
@@ -5253,8 +5189,6 @@ class DetObj:
                             cgs_24 = SU.mag2cgs(24,lam) #24 - 25 chosen as the questionable zone for LAE vs OII
                             cgs_25 = SU.mag2cgs(25,lam)
                             cgs_26 = SU.mag2cgs(26,lam)
-
-                            #todo: find max (fainted) mag limit and norm to that??
 
                             if a['fail_mag_limit']:
                                 #mag is set to the (safety) mag limit
@@ -5268,8 +5202,7 @@ class DetObj:
                                     #if a['mag_err'] is not None:
                                     try:
                                         #set hi to the bright limit
-                                        cont_hi = SU.mag2cgs(a['mag_limit'],
-                                                             lam)  # SU.mag2cgs(a['mag_bright'],lam)
+                                        cont_hi = SU.mag2cgs(a['mag_limit'], lam)  # SU.mag2cgs(a['mag_bright'],lam)
                                         #set low to 1 mag fainter?
                                         cont_lo = SU.mag2cgs(a['mag_limit'] + 2.5*np.log10(1.2),  #20% error
                                                              lam)  # SU.mag2cgs(a['mag_faint'],lam)
@@ -5294,16 +5227,6 @@ class DetObj:
                                         log.info(f"Combine ALL continuum: mag ({a['mag']}) at mag limit ({a['mag_limit']}) fainter than 24,"
                                                  f" scaled weight {w} applied.")
 
-                                    # w = min((cont - cgs_25) / (cgs_24-cgs_25),1.0)
-                                    # if w < 0:
-                                    #     w = 1.0
-                                    #     log.info(f"Combine ALL continuum: mag ({a['mag']}) at mag limit much fainter than 24,"
-                                    #              f" full weight {w} applied.")
-                                    # else:
-                                    #     w = max(0.1,w)
-                                    #     log.info(f"Combine ALL continuum: mag ({a['mag']}) at mag limit fainter than 24,"
-                                    #              f" scaled weight {w} applied.")
-
                                     variance.append(cont_var)
                                     continuum.append(cont)
                                     weight.append(w)
@@ -5311,7 +5234,7 @@ class DetObj:
                                     aperture_radius = a['radius']
                                     nondetect.append(1)
 
-                            else:
+                            else: #have a detection or at least an aperture that is brighter than mag-limit
                                 cont = SU.mag2cgs(a['mag'],lam)
                                 if a['mag_err'] is not None:
                                     cont_hi = SU.mag2cgs(a['mag']-a['mag_err'],lam)#SU.mag2cgs(a['mag_bright'],lam)
@@ -5322,7 +5245,7 @@ class DetObj:
 
                                 w = 1.0
                                 if (a['mag_err'] is None) or (a['mag_err']==0):
-                                    w = 0.2 #probably below the flux limit, so weight low
+                                    w = 0.5 #probably below the flux limit, so weight low
                                 else:
                                     #what about ELiXer Aperture that is huge where SDSS/HETDEX gmag at limit?
                                     #
@@ -5337,7 +5260,6 @@ class DetObj:
                                                 #it is just not growing
                                                 #most likely this is just sky or nearby neighbor, down weight as unreliable
                                                 w = 0.0
-
 
                                 #do we want to use this?
                                 #if there are SEP apertures, but we are not using them
@@ -5372,12 +5294,33 @@ class DetObj:
                                             aperture_radius = a['radius']
 
                                             log.debug(
-                                                f"{self.entry_id} Combine ALL Continuum: Added imaging estimate ({continuum[-1]:#.4g}) "
+                                                f"{self.entry_id} Combine All Continuum: Added imaging estimate ({continuum[-1]:#.4g}) "
                                                 f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f}) filter({a['filter_name']})")
 
                                     except:
                                         pass
-                                # elif:
+                                elif a['sep_obj_idx'] is not None: #this is the SEP aperture of selected object
+                                    try:
+                                        if a['mag_limit'] > deep_detect:
+                                            deep_detect = a['mag_limit']
+
+                                        weight.append(w)
+                                        variance.append(cont_var)
+                                        continuum.append(cont)
+                                        cont_type.append("a" + a['filter_name'])
+                                        nondetect.append(0)
+                                        aperture_radius = a['radius']
+
+                                        log.debug(
+                                            f"{self.entry_id} Combine All Continuum: Added imaging estimate "
+                                            f"{a['catalog_name']}-{a['filter_name']}: "
+                                            f"({continuum[-1]:#.4g}) "
+                                            f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f}) filter({a['filter_name']})")
+                                    except:
+                                        pass
+
+
+                            # elif:
                                 #     weight.append(w)
                                 #     variance.append(cont_var)
                                 #     continuum.append(cont)
@@ -5386,7 +5329,7 @@ class DetObj:
                                 #     aperture_radius = a['radius']
                                 #
                                 # log.debug(
-                                #     f"{self.entry_id} Combine ALL Continuum: Added imaging estimate ({continuum[-1]:#.4g}) "
+                                #     f"{self.entry_id} Combine All Continuum: Added imaging estimate ({continuum[-1]:#.4g}) "
                                 #     f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f}) filter({a['filter_name']})")
                 except:
                     log.debug("Exception handling individual forced aperture photometry continuum in DetObj:combine_all_continuum",
@@ -5422,7 +5365,7 @@ class DetObj:
                     cont_type.append("c" + self.best_counterpart.bid_filter.lower())
                     nondetect.append(0)
                     log.debug(
-                        f"{self.entry_id} Combine ALL Continuum: Added catalog bid target estimate"
+                        f"{self.entry_id} Combine All Continuum: Added catalog bid target estimate"
                         f" ({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) "
                         f"weight({weight[-1]:#.2f}) filter({self.best_counterpart.bid_filter.lower()}) dist({self.best_counterpart.distance})")
 
@@ -5478,7 +5421,7 @@ class DetObj:
                                 cont_type.append("c" + a['filter_name'])
                                 nondetect.append(0)
                                 log.debug(
-                                    f"{self.entry_id} Combine ALL Continuum: Added catalog bid target estimate"
+                                    f"{self.entry_id} Combine All Continuum: Added catalog bid target estimate"
                                     f" ({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) "
                                     f"weight({weight[-1]:#.2f}) filter({b.bid_filter}) dist({b.distance})")
 
@@ -5513,7 +5456,7 @@ class DetObj:
                                         cat_idx = len(continuum)
 
                                         log.debug(
-                                            f"{self.entry_id} Combine ALL Continuum: Added catalog bid target estimate"
+                                            f"{self.entry_id} Combine All Continuum: Added catalog bid target estimate"
                                             f" ({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) "
                                             f"weight({weight[-1]:#.2f}) filter({key})")
                                     break #only use one
@@ -5663,6 +5606,10 @@ class DetObj:
             #todo: object extent? (consistent or inconsistent with PSF and thus with a point-source?)
             #todo: slope of whole spectra or spectral features that would preclude LAE?
             #todo: ELiXer line finder strongly suggesting mutlitple lines and NOT LAE?
+
+            log.debug(f"{self.entry_id} Combine All Continuum: continua {continuum}")
+            log.debug(f"{self.entry_id} Combine All Continuum: stddevs {np.sqrt(variance)}")
+            log.debug(f"{self.entry_id} Combine All Continuum: weights {weight}")
 
             log.debug(f"{self.entry_id} Combine ALL Continuum: Final estimate: continuum_hat({continuum_hat}) continuum_sd_hat({continuum_sd_hat}) "
                       f"size in psf ({size_in_psf})")

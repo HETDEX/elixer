@@ -4975,7 +4975,7 @@ def main():
                                             if p_of_z > 0:
                                                 if e.cluster_z == best_z:
                                                     e.flags |= G.DETFLAG_Z_FROM_NEIGHBOR
-                                                    header_text = r"EW: %0.4g$\pm$%0.4g$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  " \
+                                                    header_text = r"EW: %0.1f$\pm$%0.1f$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  " \
                                                                   r"P(Ly$\alpha$): %0.3f  Q(z): %0.2f  z: %0.4f*" \
                                                                   % (min(combined_ew,9999),min(combined_ew_err,9999),
                                                                       round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae,p_of_z,best_z)
@@ -4986,17 +4986,17 @@ def main():
                                                     except:
                                                         line_label = ""
 
-                                                    header_text = r"EW: %0.4g$\pm$%0.4g$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  " \
+                                                    header_text = r"EW: %0.1f$\pm$%0.1f$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  " \
                                                               r"P(Ly$\alpha$): %0.3f  Q(z): %0.2f  z: %0.4f %s" \
                                                           % (min(combined_ew,9999),min(combined_ew_err,9999),round(plae, 3),round(plae_high, 3),round(plae_low, 3),
                                                              scale_plae,p_of_z,best_z,line_label)
                                             else:
-                                                header_text = r"EW: %0.4g$\pm$%0.4g$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  P(Ly$\alpha$): %0.3f" \
+                                                header_text = r"EW: %0.1f$\pm$%0.1f$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  P(Ly$\alpha$): %0.3f" \
                                                   % (min(combined_ew,9999),min(combined_ew_err,9999),round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae)
 
                                         try:
                                             if len(e.spec_obj.classification_label) > 0:
-                                                header_text += "     " + e.spec_obj.classification_label.rstrip(",")
+                                                header_text += "  " + e.spec_obj.classification_label.rstrip(",")
                                         except:
                                             pass
                                     except:

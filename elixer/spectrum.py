@@ -4487,7 +4487,9 @@ class Spectrum:
 
         #
         try:
-            if self.all_found_absorbs is None or len(self.all_found_absorbs) < 4: #really expect all these lines, so if too few, just bail
+            if self.all_found_absorbs is None or (len(self.all_found_absorbs) < 4) or \
+                    (self.spectrum_slope + self.spectrum_slope_err) > 0: #really expect all these lines, so if too few, just bail
+                                                                        #or if it is red (positive slope) it is not a WD
                 return 0,-999
 
             def match_lines(obs_waves, target_waves, target_points,threshold_points):
@@ -7139,6 +7141,17 @@ class Spectrum:
         except:
             log.debug("Exception clearing solutions",exc_info=True)
 
+
+        #also check here, in case there were no other solutions
+        if not self.wd_checked:
+            check, wd_z = self.detection_consistent_with_wd()
+            #boost = self.scale_consistency_score_to_solution_score_factor(self.detection_consistent_with_wd())
+            if check > 0.0:
+                self.wd_checked = 1
+                self.wd_z = wd_z
+                self.add_classification_label("WD")
+            else:
+                self.wd_checked = -1
 
 
         per_solution_total_score = np.nansum([s.score for s in solutions])

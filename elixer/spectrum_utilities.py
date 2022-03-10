@@ -217,14 +217,17 @@ def continuum_band_adjustment(obs_wave,band):
     """
     Adjustment, assuming UV Beta slope for star forming galaxies, for the given band pass to the obs_wave (assuming
     it is LyA)
+    Using f_lam propto lambda^beta
     :param obs_wave:
     :param band:
     :return:
     """
     try:
-        #if want a fixed +0.3 mag like in Leung+2017, then return x 1.318 ~= 10**(0.12)
-        #which is 10**(-.4*0.3)
+        #if want a fixed +0.3 mag like in Leung+2017, then return x 1.318 ~= 10**(0.12) , which is 10**(-.4*0.3)
         #return 1.318
+
+        #this is for restframe ... so need to compress assuming z_LyA
+        #adjust as beta exponent over the relative ratio of the observed wavlength and the iso-wavelength of the filter
         return (obs_wave/filter_iso(band,obs_wave))**(G.R_BAND_UV_BETA_SLOPE+2)
     except:
         return 1.0

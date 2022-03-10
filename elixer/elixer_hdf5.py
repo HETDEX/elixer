@@ -2194,13 +2194,14 @@ def merge_unique(newfile,file1,file2):
                             print(e)
 
                     #flush_all(newfile_handle) #don't think we need to flush every time
-                    #definitely DO NOT reindex each time ... super costly
+                    #definitely DO NOT reindex each time ... super costly; flush each time is okay, but does increase
+                    #overall time a bit and is not necessary
 
                 except Exception as e:
                     print(f"Exception! merging detectid {d} : {e}")
                     log.error("Exception! merging detectid (%d): (%s)" %(d,e))
              # end for loop
-            flush_all(newfile_handle,reindex=True)
+            flush_all(newfile_handle,reindex=True) #re-index is important for the final merge
             newfile_handle.close()
 
         #end for loop (chunks)
