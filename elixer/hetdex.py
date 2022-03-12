@@ -3026,6 +3026,8 @@ class DetObj:
                         else:
                             log.info(f"Meteor: Detection likely a meteor. Exp# {mx_expid} at x{spec_ratio:0.1f}")
                         return 1
+                    elif spec_ratio > 2*spec_ratio_trigger or full_ratio > 2*full_spec_ratio_trigger:
+                        self.flags |= G.DETFLAG_POSSIBLE_LOCAL_TRANSIENT
                 else:
                     log.debug(f"Did not trigger initial meteor check. Targetted spec ratio {spec_ratio}. Full ratio {full_ratio}.")
 
