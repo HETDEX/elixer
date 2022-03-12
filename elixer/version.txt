@@ -10,6 +10,8 @@ changes to elixer by version
   trigger a meteor condition.
 * tweak title line for EW to be single digit float, capped at 9999.0
 * fix missing imaging contributions to continuum
+* add DETFLAG_POSSIBLE_LOCAL_TRANSIENT for meteors and satellite. Lower threshold to trigger. Meteor
+  label made a higher threshold to trigger.
 
 1.16.3 [2022-03-01]
 * add continuum_masked as the continuum estimate from the DEX spectra with emission and absorption lines masked

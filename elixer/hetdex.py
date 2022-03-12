@@ -3007,10 +3007,18 @@ class DetObj:
 
 
                     if meteor > 0:
-                        if spec_ratio > 5.0 or full_ratio > 3.0 or meteor >= 2:
-                            self.spec_obj.add_classification_label("meteor",replace=True)
-                        else:
+                        self.flags |= G.DETFLAG_POSSIBLE_LOCAL_TRANSIENT
+
+                        #2022-03-12 change to only set the label if meteor is strong, but
+                        #in all possible cases, set the flag
+                        #do not ever replace the existing labels, but can put meteor at the top
+                        if meteor > 2:
                             self.spec_obj.add_classification_label("meteor",prepend=True)
+
+                        # if spec_ratio > 5.0 or full_ratio > 3.0 or meteor >= 2:
+                        #     self.spec_obj.add_classification_label("meteor",replace=True)
+                        # else:
+                        #     self.spec_obj.add_classification_label("meteor",prepend=True)
                         self.spec_obj.meteor_strength = meteor
                         pos = np.array(pos)
                         if len(pos) > 0:

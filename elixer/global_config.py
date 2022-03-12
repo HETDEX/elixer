@@ -1040,6 +1040,7 @@ DETFLAG_DEXSPEC_GMAG_INCONSISTENT   = 0x00002000 #the straight gmag from the DEX
 
 DETFLAG_LARGE_NEIGHBOR              = 0x00004000 #imaging and SEP show/suggest a large, bright neighbor that could be
                                                  #messing up the classification and continuum measure
+DETFLAG_POSSIBLE_LOCAL_TRANSIENT    = 0x00008000 #meteor or satellite ... a single bright dither, etc
 
 DETFLAG_BAD_PIXEL_FLAT              = 0x00010000
 DETFLAG_DUPLICATE_FIBERS            = 0x00020000
@@ -1047,6 +1048,7 @@ DETFLAG_NEGATIVE_SPECTRUM           = 0x00040000
 DETFLAG_POOR_THROUGHPUT             = 0x00080000
 DETFLAG_BAD_DITHER_NORM             = 0x00100000
 DETFLAG_POOR_SHOT                   = 0x00200000
+
 #todo: low SNR, weighted position is between fibers (i.e. distances from blue fiber center > 0.74 or 0.75 and SNR < 5.2 or so)
 
 
