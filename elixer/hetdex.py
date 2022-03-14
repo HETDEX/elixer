@@ -2104,6 +2104,51 @@ class DetObj:
                 self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
                 log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_UNCERTAIN_CLASSIFICATION (in best_redshift)")
 
+
+            #check for the DEX emission line in the elixer found lines and/or maximum elixer line in the solution
+
+            #is the DEX line in the elixer found lines?
+            dex_line_found = False
+            any_lines_found = False
+            max_line_in_solution = None #None instead of True/False, where False is there ARE solutions but none with this line
+            try:
+                if self.spec_obj is not None and self.spec_obj.all_found_lines is not None:
+                    if np.any(np.isclose(self.w,[x.fit_x0 for x in self.spec_obj.all_found_lines],atol=4.0)):
+                        dex_line_found = True
+
+                    if len(self.spec_obj.all_found_lines) > 0:
+                        any_lines_found = True
+                        elixer_max_idx = np.argmax([x.line_score for x in self.spec_obj.all_found_lines])
+                    else:
+                        elixer_max_idx = None
+
+                    if elixer_max_idx is not None and self.spec_obj.solutions is not None and len(self.spec_obj.solutions) > 0:
+                        sol_sel = np.isclose(z,[x.z for x in self.spec_obj.solutions],atol=0.01) #solutions with matching z
+                        if np.any(np.isclose(self.spec_obj.all_found_lines[elixer_max_idx].fit_x0,
+                                             [x.w_obs for x in np.hstack([l.lines for l in np.array(self.spec_obj.solutions )[sol_sel]])],
+                                             atol=4.0)):
+                            max_line_in_solution = True
+                        else:
+                            max_line_in_solution = False
+
+                    #see if the strongest ELIXER line is used in the solutions, not the DEx-line
+
+            except:
+                log.debug(f"Exception checking HETDEX line against ELiXer lines.",exc_info=True)
+
+            if max_line_in_solution is not None: #None is basically, a "no-comment"
+                if max_line_in_solution == False:
+                    log.info(f"{self.entry_id}: maximum elixer line at {self.spec_obj.all_found_lines[elixer_max_idx].fit_x0:0.2f}"
+                             f" is not part of any solution with HETDEX line at {self.w:0.2f} as anchor. Lowering Q(z).")
+
+                    if dex_line_found:
+                        p = p / 1.5
+                    else:
+                        p = p / 2.0
+            elif (dex_line_found == False) and any_lines_found: #elixer found lines, but not this one from HETDEX
+                log.info(f"{self.entry_id}: elixer did not find HETDEX line. Lowering Q(z).")
+                p = p / 1.5
+
             self.best_z = z
             self.best_p_of_z = p
 
@@ -4538,7 +4583,7 @@ class DetObj:
             self.red_header = True
             self.flags |= G.DETFLAG_BAD_PIXEL_FLAT
             self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
-            self.needs_review = True
+            self.needs_review = 1
             self.classification_dict['scaled_plae'] = scaled_prob_lae
             self.classification_dict['spurious_reason'] = reason
             log.info(f"{self.entry_id} Aggregate Classification: bad pixel flat dominates. Setting spurious reason.")
@@ -4548,7 +4593,7 @@ class DetObj:
             self.red_header = True
             self.flags |= G.DETFLAG_DUPLICATE_FIBERS
             self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
-            self.needs_review = True
+            self.needs_review = 1
             self.classification_dict['scaled_plae'] = scaled_prob_lae
             self.classification_dict['spurious_reason'] = reason
             log.info(f"{self.entry_id} Aggregate Classification: duplicate 2D fibers "
@@ -4559,7 +4604,7 @@ class DetObj:
             self.red_header = True
             self.flags |= G.DETFLAG_NEGATIVE_SPECTRUM
             self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
-            self.needs_review = True
+            self.needs_review = 1
             self.classification_dict['scaled_plae'] = scaled_prob_lae
             self.classification_dict['spurious_reason'] = reason
             log.info(f"{self.entry_id} Aggregate Classification: grossly negative spectrum. Setting purious reason.")
@@ -4572,7 +4617,7 @@ class DetObj:
                 self.red_header = True
                 self.flags |= G.DETFLAG_POOR_THROUGHPUT
                 self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
-                self.needs_review = True
+                self.needs_review = 1
                 self.classification_dict['scaled_plae'] = scaled_prob_lae
                 self.classification_dict['spurious_reason'] = reason
                 log.info(f"{self.entry_id} Aggregate Classification: poor throughput {self.survey_response:0.4f}. Setting spurious reason.")
@@ -4582,7 +4627,7 @@ class DetObj:
                 self.red_header = True
                 self.flags |= G.DETFLAG_BAD_DITHER_NORM
                 self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
-                self.needs_review = True
+                self.needs_review = 1
                 self.classification_dict['scaled_plae'] = scaled_prob_lae
                 self.classification_dict['spurious_reason'] = reason
                 log.info(
@@ -4595,7 +4640,7 @@ class DetObj:
                     self.red_header = True
                     self.flags |= G.DETFLAG_POOR_SHOT
                     self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
-                    self.needs_review = True
+                    self.needs_review = 1
                     self.classification_dict['scaled_plae'] = scaled_prob_lae
                     self.classification_dict['spurious_reason'] = reason
                     log.info(
@@ -7499,6 +7544,15 @@ class DetObj:
                 self.best_gmag_cgs_cont_unc = 0
                 self.best_eqw_gmag_obs = self.estflux / self.best_gmag_cgs_cont
                 self.best_eqw_gmag_obs_unc = 0
+                try:
+                    #if we can't get a gmag continuum estiamte and the other estimates are negative and there
+                    #are 2x negative bins as positive and the whole spectrum in negative ... flag it
+                    if (self.cont_cgs_narrow != -9999) and (self.cont_cgs_narrow < -5.0e-18) and \
+                            (sum(self.sumspec_flux) < 0) and (sum(self.sumspec_flux < 0) > (0.67 *len(self.sumspec_flux))):
+                        self.flags |= G.DETFLAG_QUESTIONABLE_DETECTION
+                        self.needs_review = 1
+                except:
+                    pass
 
             try:
                 diff = abs(self.hetdex_gmag - self.sdss_gmag)
@@ -7886,6 +7940,10 @@ class DetObj:
             self.cont_cgs *= G.HETDEX_FLUX_BASE_CGS
             self.cont_cgs_unc *= G.HETDEX_FLUX_BASE_CGS
 
+            if self.cont_cgs > -9999 * G.HETDEX_FLUX_BASE_CGS:
+                self.cont_cgs_narrow = self.cont_cgs
+                self.cont_cgs_narrow_unc = self.cont_cgs_unc
+
             #ignoring date, datevobs, fiber_num, etc that apply to the top weighted fiber or observation, etc
             #since we want ALL the fibers and will load them after the core spectra info
 
@@ -8061,6 +8119,17 @@ class DetObj:
                 self.best_gmag_cgs_cont_unc = 0
                 self.best_eqw_gmag_obs =  self.estflux / self.best_gmag_cgs_cont
                 self.best_eqw_gmag_obs_unc = 0
+
+                try:
+                    #if we can't get a gmag continuum estiamte and the other estimates are negative and there
+                    #are 2x negative bins as positive and the whole spectrum in negative ... flag it
+                    if (self.cont_cgs_narrow != -9999) and (self.cont_cgs_narrow < -5.0e-18) and \
+                            (sum(self.sumspec_flux) < 0) and (sum(self.sumspec_flux < 0) > (0.67 *len(self.sumspec_flux))):
+                        self.flags |= G.DETFLAG_QUESTIONABLE_DETECTION
+                        self.needs_review = 1
+                except:
+                    pass
+
 
             try:
                 diff = abs(self.hetdex_gmag - self.sdss_gmag)
