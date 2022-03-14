@@ -1,6 +1,6 @@
 changes to elixer by version
 
-1.16.4a1 [2022-03-14]
+1.16.4 [2022-03-14]
 * add WD compatibility check
 * fix missing OII-3727 requirement if OIII-4959 and OIII-5007 found
 * fix coords file read if only one line
