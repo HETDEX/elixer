@@ -2133,7 +2133,7 @@ class DetObj:
 
                     if elixer_max_idx is not None and self.spec_obj.solutions is not None and len(self.spec_obj.solutions) > 0:
                         sol_sel = np.isclose(z,[x.z for x in self.spec_obj.solutions],atol=0.01) #solutions with matching z
-                        if np.any(np.isclose(self.spec_obj.all_found_lines[elixer_max_idx].fit_x0,
+                        if sum(sol_sel) > 0 and np.any(np.isclose(self.spec_obj.all_found_lines[elixer_max_idx].fit_x0,
                                              [x.w_obs for x in np.hstack([l.lines for l in np.array(self.spec_obj.solutions )[sol_sel]])],
                                              atol=4.0)):
                             max_line_in_solution = True

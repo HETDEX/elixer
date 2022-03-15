@@ -4265,7 +4265,7 @@ class Spectrum:
 
 
 
-    def rescore(self,sum_score=None):
+    def rescore(self,sum_score=None,undo_absorb_penalty=False):
         """
         Rescore solutons based on changes to individual solution scores
         :param sum_score:
@@ -4277,6 +4277,13 @@ class Spectrum:
 
             for s in self.solutions:
                 if sum_score != 0:
+                    try:
+                        if undo_absorb_penalty and G.CONTINUUM_RULES and s.emission_line.absorber and \
+                                s.central_rest in self.h_and_k_waves and ABSORPTION_LINE_SCORE_SCALE_FACTOR != 0: #h&k
+                            s.score /= ABSORPTION_LINE_SCORE_SCALE_FACTOR
+                            log.info(f"Undo absorption line down-scoring for H&K solution.")
+                    except:
+                        log.debug("Exception.",exc_info=True)
                     s.frac_score = s.score/sum_score
                     s.scale_score = s.prob_real * G.MULTILINE_WEIGHT_PROB_REAL + \
                                     min(1.0, s.score / G.MULTILINE_FULL_SOLUTION_SCORE) *  G.MULTILINE_WEIGHT_SOLUTION_SCORE + \
@@ -5796,7 +5803,7 @@ class Spectrum:
             try:
 
                 est_g_cont = self.est_g_cont #just a very basic check on whether we are bright enough to trigger continuum rules
-                if est_g_cont is None or est_c_cont == 0:
+                if est_g_cont is None or est_g_cont == 0:
                     if values_units != 0:
                         est_g_cont = np.median(values)*10**values_units
                     else:
@@ -6191,17 +6198,22 @@ class Spectrum:
                 k_reference = self.emission_lines[np.where([k.name == "(K)CaII" for k in self.emission_lines])[0][0]]
                 h_reference = self.emission_lines[np.where([k.name == "(H)CaII" for k in self.emission_lines])[0][0]]
 
-                for k in self.all_found_absorbs:
-                    if (k.fit_x0 + k.fit_x0_err)  > self.h_and_k_waves[0]: #could be k
+                wsel = [x0 > 3932.0] #allow a little blue of 3934 for slop
+
+                for k in np.array(self.all_found_absorbs)[wsel]:
+                    # #if (k.fit_x0 + k.fit_x0_err)  > self.h_and_k_waves[0]: #could be k
+                    if True:
                         zp1 = k.fit_x0/self.h_and_k_waves[0]
                         zp1e = k.fit_x0_err/self.h_and_k_waves[0]
+                        #
+                        # hwave = zp1*self.h_and_k_waves[1]
+                        # hwave_err = zp1e*self.h_and_k_waves[1]
 
-                        hwave = zp1*self.h_and_k_waves[1]
-                        hwave_err = zp1e*self.h_and_k_waves[1]
+                        # sel1 = (x0-x0e) > (hwave-hwave_err)
+                        # sel2 = (x0+x0e) < (hwave+hwave_err)
+                        # sel = sel1 & sel2
 
-                        sel1 = (x0-x0e) > (hwave-hwave_err)
-                        sel2 = (x0+x0e) < (hwave+hwave_err)
-                        sel = sel1 & sel2
+                        sel = np.isclose(self.h_and_k_waves[1]*zp1,[x.fit_x0 for x in self.all_found_absorbs],atol=2.5)
 
                         #there is one pair that fits h & k positions
                         # could be one or more? should only expect one match though
@@ -6219,7 +6231,7 @@ class Spectrum:
 
         if h_and_k_found:
             try:
-                self.rescore()
+                self.rescore()#undo_absorb_penalty=True)
                 #todo: if the h or k line is now the top score, set the central wavelength to that solution??
                 if self.solutions[0].central_rest in self.h_and_k_waves: #can't that is in hetdex object?
                     self.central = hk_mcmc.mcmc_mu_2[0]

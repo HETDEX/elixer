@@ -16,6 +16,7 @@ changes to elixer by version
   in the Q(z) logic.
 * if we can't get a gmag continuum estiamte and the other estimates are negative and there are 2x negative bins as positive
   and the whole spectrum in negative, flag for review
+* update H&K rules
 
 1.16.3 [2022-03-01]
 * add continuum_masked as the continuum estimate from the DEX spectra with emission and absorption lines masked
