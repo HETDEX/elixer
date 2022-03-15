@@ -3095,6 +3095,7 @@ class DetObj:
 
 
                     if meteor > 0:
+                        log.debug(f"Meteor check score: {meteor}")
                         self.flags |= G.DETFLAG_POSSIBLE_LOCAL_TRANSIENT
 
                         #2022-03-12 change to only set the label if meteor is strong, but
@@ -3114,8 +3115,8 @@ class DetObj:
                         else:
                             log.info(f"Meteor: Detection likely a meteor. Exp# {mx_expid} at x{spec_ratio:0.1f}")
                         return 1
-                    elif spec_ratio > 2*spec_ratio_trigger or full_ratio > 2*full_spec_ratio_trigger:
-                        self.flags |= G.DETFLAG_POSSIBLE_LOCAL_TRANSIENT
+                    # elif spec_ratio > 2*spec_ratio_trigger or full_ratio > 2*full_spec_ratio_trigger:
+                    #     self.flags |= G.DETFLAG_POSSIBLE_LOCAL_TRANSIENT
                 else:
                     log.debug(f"Did not trigger initial meteor check. Targetted spec ratio {spec_ratio}. Full ratio {full_ratio}.")
 
