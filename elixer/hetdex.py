@@ -2111,7 +2111,14 @@ class DetObj:
             dex_line_found = False
             any_lines_found = False
             max_line_in_solution = None #None instead of True/False, where False is there ARE solutions but none with this line
+            max_line_score = 0
+            dex_line_score = 0
             try:
+
+                if self.spec_obj is not None and self.spec_obj.central_eli is not None:
+                    dex_line_score = self.spec_obj.central_eli.line_score
+
+
                 if self.spec_obj is not None and self.spec_obj.all_found_lines is not None:
                     if np.any(np.isclose(self.w,[x.fit_x0 for x in self.spec_obj.all_found_lines],atol=4.0)):
                         dex_line_found = True
@@ -2119,8 +2126,10 @@ class DetObj:
                     if len(self.spec_obj.all_found_lines) > 0:
                         any_lines_found = True
                         elixer_max_idx = np.argmax([x.line_score for x in self.spec_obj.all_found_lines])
+                        max_line_score = self.spec_obj.all_found_lines[elixer_max_idx].line_score
                     else:
                         elixer_max_idx = None
+                        max_line_score = 0
 
                     if elixer_max_idx is not None and self.spec_obj.solutions is not None and len(self.spec_obj.solutions) > 0:
                         sol_sel = np.isclose(z,[x.z for x in self.spec_obj.solutions],atol=0.01) #solutions with matching z
@@ -2143,11 +2152,45 @@ class DetObj:
 
                     if dex_line_found:
                         p = p / 1.5
+                    elif dex_line_score !=0 and max_line_score != 0 and max_line_score / dex_line_score > 1.5:
+                        if max_line_score > G.MULTILINE_MIN_SOLUTION_SCORE:
+                            p = min(p/4.0,0.05)
+                        elif max_line_score > 10.0:
+                            p = min(p/3.0,0.10)
+                        else:
+                            p = p / 2.0
                     else:
                         p = p / 2.0
-            elif (dex_line_found == False) and any_lines_found: #elixer found lines, but not this one from HETDEX
-                log.info(f"{self.entry_id}: elixer did not find HETDEX line. Lowering Q(z).")
-                p = p / 1.5
+                #else it is in the solution, so all is good
+            elif any_lines_found:
+                if (dex_line_found == False): #elixer found lines, but not this one from HETDEX
+                    log.info(f"{self.entry_id}: elixer did not find HETDEX line. Lowering Q(z).")
+
+                    #Max line is stronger than Dex line and the Max line is not part of a solution
+                    if dex_line_score !=0 and max_line_score != 0 and max_line_score / dex_line_score > 1.5:
+                        if max_line_score > G.MULTILINE_MIN_SOLUTION_SCORE:
+                            self.needs_review = 1
+                            self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
+                            p = min(p/4.0,0.05)
+                        elif max_line_score > 10.0:
+                            p = min(p/3.0,0.10)
+                        else:
+                            p = p / 2.0
+                    else:
+                        p = p / 1.5
+                else: #we did also find the dex line, so penalize less
+                    #Max line is stronger than Dex line and the Max line is not part of a solution
+                    if dex_line_score !=0 and max_line_score != 0 and max_line_score / dex_line_score > 1.5:
+                        if max_line_score > G.MULTILINE_MIN_SOLUTION_SCORE:
+                            self.needs_review = 1
+                            self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
+                            p = min(p/3.0,0.10)
+                        elif max_line_score > 10.0:
+                            p = min(p/2.0,0.15)
+                        else:
+                            p = p / 1.5
+                    else:
+                        p = p / 1.5
 
             self.best_z = z
             self.best_p_of_z = p
