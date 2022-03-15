@@ -516,13 +516,13 @@ def flush_all(fileh,reindex=True):
         try:
             dtb.cols.detectid.remove_index()
         except:
-            log.debug("Failed to remove detectid index on detections table")
+            log.debug("Failed to remove detectid index on detections table",exc_info=True)
 
         try:
             dtb.cols.ra.remove_index()
             dtb.cols.dec.remove_index()
         except:
-            log.debug("Failed to remove ra, dec index on detections table")
+            log.debug("Failed to remove ra, dec index on detections table",exc_info=True)
 
         try:
             ltb.cols.detectid.remove_index()
@@ -530,7 +530,7 @@ def flush_all(fileh,reindex=True):
             atb.cols.detectid.remove_index()
             ctb.cols.detectid.remove_index()
         except:
-            log.debug("Failed to remove detectid index on multiple tables")
+            log.debug("Failed to remove detectid index on multiple tables",exc_info=True)
 
 
         dtb.flush()
@@ -543,30 +543,35 @@ def flush_all(fileh,reindex=True):
         # vtb does not have or need an index
         try:
             dtb.cols.detectid.create_csindex()
+        except:
+            log.debug("Index fail on detections table: detectid",exc_info=True)
+
+        try:
             dtb.cols.ra.create_csindex()
             dtb.cols.dec.create_csindex()
         except:
-            log.debug("Index fail on detections table")
+            log.debug("Index fail on detections table: ra and/or dec",exc_info=True)
+
 
         try:
             ltb.cols.detectid.create_csindex()
         except:
-            log.debug("Index fail on lines table")
+            log.debug("Index fail on lines table",exc_info=True)
 
         try:
             stb.cols.detectid.create_csindex()
         except:
-            log.debug("Index fail on spectra table")
+            log.debug("Index fail on spectra table",exc_info=True)
 
         try:
             atb.cols.detectid.create_csindex()
         except:
-            log.debug("Index fail on apertures table")
+            log.debug("Index fail on apertures table",exc_info=True)
 
         try:
             ctb.cols.detectid.create_csindex()
         except:
-            log.debug("Index fail on catalog match table")
+            log.debug("Index fail on catalog match table",exc_info=True)
 
 
         #vtb.flush() # no need to re-flush vtb

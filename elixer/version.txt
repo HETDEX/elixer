@@ -1,6 +1,13 @@
 changes to elixer by version
 
-1.16.4 [2022-03-15]
+1.16.5 [2022-03-15]
+* include whether elixer also detects the HETDEX line and if the maximum elixer found line is included in the solution(s)
+  in the Q(z) logic.
+* if we can't get a gmag continuum estiamte and the other estimates are negative and there are 2x negative bins as positive
+  and the whole spectrum in negative, flag for review
+* update H&K rules
+
+1.16.4 [2022-03-13]
 * add WD compatibility check
 * fix missing OII-3727 requirement if OIII-4959 and OIII-5007 found
 * fix coords file read if only one line
@@ -12,11 +19,7 @@ changes to elixer by version
 * fix missing imaging contributions to continuum
 * add DETFLAG_POSSIBLE_LOCAL_TRANSIENT for meteors and satellite. Lower threshold to trigger. Meteor
   label made a higher threshold to trigger.
-* include whether elixer also detects the HETDEX line and if the maximum elixer found line is included in the solution(s)
-  in the Q(z) logic.
-* if we can't get a gmag continuum estiamte and the other estimates are negative and there are 2x negative bins as positive
-  and the whole spectrum in negative, flag for review
-* update H&K rules
+
 
 1.16.3 [2022-03-01]
 * add continuum_masked as the continuum estimate from the DEX spectra with emission and absorption lines masked
