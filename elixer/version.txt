@@ -1,5 +1,9 @@
 changes to elixer by version
 
+1.16.6a1 [2022-03-21]
+* update smerge.py to detect timeout on merging and handle easier recovery (just re-run "sbatch elixer_merge.slurm")
+
+
 1.16.5 [2022-03-15]
 * include whether elixer also detects the HETDEX line and if the maximum elixer found line is included in the solution(s)
   in the Q(z) logic.

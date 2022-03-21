@@ -4489,13 +4489,20 @@ class Spectrum:
 
         only positive ... do not return a penality if there is no solid match
 
+        In truth, these could also be A-stars, esp if the Hydrogen lines are narrow and if H&K are found (though
+         they are sometimes found in WD too)
+
         :return: 0/1 if not consistent /constent, redshift
         """
 
         #
         try:
-            if self.all_found_absorbs is None or (len(self.all_found_absorbs) < 4) or \
-                    (self.spectrum_slope + self.spectrum_slope_err) > 0: #really expect all these lines, so if too few, just bail
+            if self.spectrum_slope is not None and self.spectrum_slope_err is not None:
+                slope = self.spectrum_slope + self.spectrum_slope_err
+            else:
+                slope = 0 #unknown
+
+            if self.all_found_absorbs is None or (len(self.all_found_absorbs) < 4) or slope > 0: #really expect all these lines, so if too few, just bail
                                                                         #or if it is red (positive slope) it is not a WD
                 return 0,-999
 

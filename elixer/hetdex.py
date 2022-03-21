@@ -5751,7 +5751,7 @@ class DetObj:
                 #(len(self.spec_obj.solutions[0].lines) >= G.MIN_ADDL_EMIS_LINES_FOR_CLASSIFY):
 
                 if (len(self.spec_obj.solutions) == 1) or \
-                    ((len(self.spec_obj.solutions) > 1) and \
+                    ((len(self.spec_obj.solutions) > 1) and (self.spec_obj.solutions[1].score == 0) or \
                       (self.spec_obj.solutions[0].score / self.spec_obj.solutions[1].score > G.MULTILINE_MIN_NEIGHBOR_SCORE_RATIO)):
 
                     self.multiline_z_minimum_flag = True
