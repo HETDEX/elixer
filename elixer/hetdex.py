@@ -4154,6 +4154,23 @@ class DetObj:
         # low weight
         #########################################
 
+
+        #
+        # todo: update/repalce with combined mag vote
+        #define combined mag as :  SU.cgs2mag(combined_continuum, observed_wavelength)
+# Max idx = 300, slope = 0.001001, intercept: 19.000
+# LyA Accuracy: 0.8648, Contamination: 0.0745
+# OII Accuracy: 0.9250, Contamination: 0.0105
+#
+# Max idx = 14719, slope = 0.001073, intercept: 19.190
+# LyA Accuracy: 0.7752, Contamination: 0.0215
+# OII Accuracy: 0.9579, Contamination: 0.0275
+#
+# LyA above: 592, OII above: 13
+# LyA between: 79, OII between: 41
+# LyA below: 44, OII below: 828
+#
+
         if True:
             try:
                 if ('combined_eqw_rest_lya' in self.classification_dict) and \
