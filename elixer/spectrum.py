@@ -1489,6 +1489,10 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
     recommend_mcmc = False #internal trigger ... may want MCMC even if do_mcmc is false
     accept_fit = False
+    if do_mcmc:
+        forced_mcmc = True #do_mcmc is reused a little later for another case, so this is to disambiguate
+    else:
+        forced_mcmc = False
     #if values_are_flux:
     #    # assumed then to be in cgs units of x10^-17 as per typical HETDEX values
     #    # !!!! reminder, do NOT do values *= 10.0  ... that is an in place operation and overwrites the original
@@ -2086,6 +2090,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             mcmc.initial_mu = eli.fit_x0
             mcmc.initial_sigma = eli.fit_sigma
             mcmc.initial_A = eli.fit_a  # / adjust
+
         mcmc.initial_y = eli.fit_y  # / adjust
         mcmc.initial_peak = raw_peak  # / adjust
         mcmc.data_x = narrow_wave_x
@@ -2413,7 +2418,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
         # end plotting
 
-    if accept_fit:
+    if accept_fit or forced_mcmc:
         #last check
         if G.CONTINUUM_RULES and not absorber:
             #def local_continuum(wavelengths, values, errors, central, amplitude, sigma, cont_width=50,start=6.0 ):

@@ -3267,7 +3267,9 @@ class DetObj:
                 s1 = 2.8
                 s2 = 1.0
 
-                if wave_obs < w1:
+                if wave_obs < (G.OII_rest - 1.0): #-1 just for some slop
+                    return 10.0 #some huge number, cannot be OII
+                elif wave_obs < w1:
                     return s1
                 elif wave_obs > w2:
                     return s2
@@ -3973,7 +3975,7 @@ class DetObj:
                     #     weight.append(0.25)
                     #     prior.append(base_assumption)
                     #     var.append(1)
-                    elif rat > 1.2 or (self.fwhm > 11 and rat > 1.0): #seems to be pretty good separation above 1.2
+                    elif rat > 1.4 or (self.fwhm > 11 and rat > 1.0): #seems to be pretty good separation above 1.2
                         likelihood.append(1.0)
                         weight.append(0.25)
                         prior.append(base_assumption)
