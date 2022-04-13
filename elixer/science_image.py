@@ -142,6 +142,27 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
             cutout.vmin = max( np.min(hdu[0].data),  -1 * std) #None
         else:
 
+            adjusted_imsize = max(imsize,30.0) #select a minimum size for better statistics, can trim down after the call
+            if adjusted_imsize != imsize:
+                log.debug("Extra call to phot_tools.get_line_image for larger cutout and better statistics...")
+                hdu = phot_tools.get_line_image(#friendid=friendid,
+                    detectid=detectid,
+                    survey=f"hdr{G.HDR_Version}",
+                    coords=coords,
+                    shotid=shotid,
+                    subcont=subcont,
+                    convolve_image=convolve_image,
+                    pixscale=pixscale,
+                    imsize=adjusted_imsize,
+                    wave_range=wave_range,
+                    return_coords=return_coords)
+
+                hdu_median = np.nanmedian(np.where(hdu[0].data == 0, np.nan,hdu[0].data))#np.median(hdu[0].data)
+                hud_std = np.std(hdu[0].data)
+            else:
+                hdu_median = None
+                hud_std = None
+
             hdu = phot_tools.get_line_image(#friendid=friendid,
                                             detectid=detectid,
                                             survey=f"hdr{G.HDR_Version}",
@@ -154,7 +175,7 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
                                             wave_range=wave_range,
                                             return_coords=return_coords)
 
-            #there are 4 extensions in the HDU .. the 0th is the image we want
+            #there are 4 extensions in the HDU ... the 0th is the image we want
             cutout = cp.deepcopy(hdu[0])
 
             #if north is down, flip everything
@@ -174,14 +195,21 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
             cutout.wcs = WCS(cutout.header)
             cutout.flux, cutout.flux_err, cutout.bkg_stddev, cutout.apcor = None, None, None, None
 
-            #subtract off the avg
-            hdu[0].data -= np.median(hdu[0].data)
+            if hdu_median is None:
+                hdu_median = np.nanmedian(np.where(hdu[0].data == 0, np.nan,hdu[0].data))#np.median(hdu[0].data)
+                hud_std = np.std(hdu[0].data)
 
-            std = np.std(hdu[0].data)
-            cutout.vmax = 4 * std
-            cutout.vmin = max( np.min(hdu[0].data), -1 * std) #None
+            #subtract off the avg
+            hdu[0].data -= hdu_median
+
+            cutout.vmax = 4 * hud_std
+            cutout.vmin = max( np.min(hdu[0].data), -1 * hud_std) #None
             cutout.wave = w
             cutout.d_wave = dw
+
+            # if imsize != adjusted_imsize:
+            #     trim = int(0.5 * (adjusted_imsize - imsize) * pixscale)
+            #     hdu[0].data = hdu[0].data[trim:-trim,trim:-trim]
 
             cutout.flux, cutout.flux_err, cutout.bkg_stddev, cutout.apcor  = phot_tools.get_flux_for_source(detectid=None,
                                                                                                             coords=coords,
