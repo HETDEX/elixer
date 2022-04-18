@@ -5304,6 +5304,7 @@ class Spectrum:
             sel = np.where(np.array([l.absorber for l in solution.lines])==False)[0]
             sol_lines = np.array(solution.lines)[sel]
             line_waves = [solution.central_rest] + [l.w_rest for l in sol_lines]
+            line_obs_waves = [solution.central_rest*(1+solution.z)] + [l.w_obs for l in sol_lines]
             line_eli = [None] + [l.eli for l in sol_lines]
             #line_ew = [self.eqw_obs/(1+solution.z)] + [l.eqw_rest for l in sol_lines]
             # line_flux is maybe more reliable ... the continuum estimates for line_ew can go wrong and give horrible results
@@ -5395,11 +5396,18 @@ class Spectrum:
                     else:
                         score = 0.25 * snr/8.0
                 #this could be an AGN and then the continuum measure from the band pass can be way too high, and then
-                #the EW too low, so give it some room
-                elif ((ew > 15.0) or (ew+ew_err) > 20.0) and (line_flux[lya_idx] > 1e-17) and (lya_idx == np.argmax(line_flux)):
-                    score = 0.25 * snr/8.0
-                elif ew > 16.0 and ew_err < 5.0:
-                    score = 0 #probably not an LAE, by definition, but might be an LBG or could be something else, but let's no penalize
+                #the EW too low, so give it some room, if the continuum is a little high and the line is at least a little broad
+                elif (ew > 15.0) or (ew+ew_err) > 20.0:
+                    if  (line_flux[lya_idx] > 5e-17) and \
+                        (lya_idx == np.argmax(line_flux)) and \
+                        (SU.cgs2mag(continuum,line_obs_waves[lya_idx]) < 24.0) and \
+                        (line_fwhm[lya_idx]/line_obs_waves[lya_idx]*3e5 > 600.0):
+                        score = 0.25 * snr/8.0
+                    else:
+                        score = 0 #probably not an LAE, by definition, but might be an LBG or could be something else, but let's no penalize
+
+               # elif ew > 15.0 and ew_err < 5.0:
+               #     score = 0 #probably not an LAE, by definition, but might be an LBG or could be something else, but let's no penalize
                 else:
                     score = -1.0
 
