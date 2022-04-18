@@ -2,7 +2,8 @@ changes to elixer by version
 
 
 1.16.7a1 [2022-04-12]
-*
+* Allow CIV + LyA (in solution_consistent_with_lae) and similar to have lower EW thredhold since may be AGN with lower
+  EW (and over estimated continuum from the bandpass).
 
 
 1.16.6 [2022-04-05]

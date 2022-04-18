@@ -8687,7 +8687,13 @@ class DetObj:
                 except:
                     log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra",exc_info=True)
 
-            self.spec_obj.classify(known_z=self.known_z,continuum_limit=max(self.best_gmag_cgs_cont, G.HETDEX_CONTINUUM_FLUX_LIMIT),
+            if self.best_masked_cgs_cont is not None and self.best_masked_cgs_cont > 0:
+                self.spec_obj.classify(known_z=self.known_z,
+                                       continuum_limit=max(self.best_masked_cgs_cont, G.HETDEX_CONTINUUM_FLUX_LIMIT),
+                                       continuum_limit_err=self.best_masked_cgs_cont_unc)
+            else:
+                self.spec_obj.classify(known_z=self.known_z,
+                                   continuum_limit=max(self.best_gmag_cgs_cont, G.HETDEX_CONTINUUM_FLUX_LIMIT),
                                    continuum_limit_err=self.best_gmag_cgs_cont_unc) #solutions can be returned, also stored in spec_obj.solutions
 
             # if central_wave_volatile and (self.spec_obj.central_eli.w_obs != self.w):

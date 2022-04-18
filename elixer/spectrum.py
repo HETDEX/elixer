@@ -5394,6 +5394,10 @@ class Spectrum:
                         score = 0.5 * snr/8.0
                     else:
                         score = 0.25 * snr/8.0
+                #this could be an AGN and then the continuum measure from the band pass can be way too high, and then
+                #the EW too low, so give it some room
+                elif ((ew > 15.0) or (ew+ew_err) > 20.0) and (line_flux[lya_idx] > 1e-17) and (lya_idx == np.argmax(line_flux)):
+                    score = 0.25 * snr/8.0
                 elif ew > 16.0 and ew_err < 5.0:
                     score = 0 #probably not an LAE, by definition, but might be an LBG or could be something else, but let's no penalize
                 else:
