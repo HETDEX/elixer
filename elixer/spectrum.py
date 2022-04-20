@@ -4721,6 +4721,7 @@ class Spectrum:
             line_flux_err = [self.estflux_unc] + [l.flux_err for l in sol_lines]
             line_fwhm = [self.fwhm] + [l.sigma * 2.355 for l in sol_lines]
             line_fwhm_err = [self.fwhm_unc] + [l.sigma_err * 2.355 for l in sol_lines]
+            #line_rank = [solution.emission_line.rank] + [l.rank for l in sol_lines]
 
             overlap, rest_idx, line_idx = np.intersect1d(rest_waves, line_waves, return_indices=True)
 
@@ -4799,6 +4800,13 @@ class Spectrum:
                                 diff_fwhm = max(0,abs(fwhm_i - fwhm_j) - (fwhm_err_i+fwhm_err_j))
 
                                 if avg_fwhm > 0 and diff_fwhm/avg_fwhm < 0.5:
+                                    # bump = min(1, 2.0 / max(line_rank[i],line_rank[j]))
+                                    # score += bump
+                                    # log.debug(f"Ratio match (+{bump:0.2f}) for solution = {solution.central_rest}: "
+                                    #           f"rest {overlap[j]} to {overlap[i]}: "
+                                    #           f"{min_ratio:0.2f} < {ratio:0.2f} +/- {ratio_err:0.2f} < {max_ratio:0.2f} "
+                                    #           f"FWHM {fwhm_j}, {fwhm_i}")
+
                                     score += 1
                                     log.debug(f"Ratio match (+1) for solution = {solution.central_rest}: "
                                               f"rest {overlap[j]} to {overlap[i]}: "
@@ -5027,6 +5035,7 @@ class Spectrum:
             line_fwhm = [self.fwhm] + [l.sigma * 2.355 for l in sol_lines]
             line_fwhm_err = [self.fwhm_unc] + [l.sigma_err * 2.355 for l in sol_lines]
             line_broad = [solution.emission_line.broad] + [l.broad for l in sol_lines] #can they be broad
+            line_rank = [solution.emission_line.rank] + [l.rank for l in sol_lines]
 
             overlap, rest_idx, line_idx = np.intersect1d(rest_waves,line_waves,return_indices=True)
 
@@ -5172,8 +5181,11 @@ class Spectrum:
                                     adjust = 0.5  #
 
                                 if avg_fwhm > 0 and adjust*diff_fwhm/avg_fwhm < 0.5:
-                                    score += 1
-                                    log.debug(f"Ratio match (+1) for solution = {solution.central_rest}: "
+                                    #full 1pt for rank 1,2 lines, 2/3 for rank 3, 0.5 for rank 4 ...
+                                    #want the max line rank (the lower "reliable" or "quality" line)
+                                    bump = min(1, 2.0 / max(line_rank[i],line_rank[j]))
+                                    score += bump
+                                    log.debug(f"Ratio match (+{bump:0.2f}) for solution = {solution.central_rest}: "
                                               f"rest {overlap[j]} to {overlap[i]}: "
                                               f"{min_ratio:0.2f} < {ratio:0.2f} +/- {ratio_err:0.2f} < {max_ratio:0.2f} "
                                               f"FWHM {fwhm_j}, {fwhm_i}")
@@ -5313,6 +5325,7 @@ class Spectrum:
             line_fwhm = [self.fwhm] + [l.sigma * 2.355 for l in sol_lines]
             line_fwhm_err = [self.fwhm_unc] + [l.sigma_err * 2.355 for l in sol_lines]
             line_broad = [solution.emission_line.broad] + [l.broad for l in sol_lines] #can they be broad
+            #line_rank = [solution.emission_line.rank] + [l.rank for l in sol_lines]
 
             overlap, rest_idx, line_idx = np.intersect1d(rest_waves,line_waves,return_indices=True)
 
@@ -6736,9 +6749,10 @@ class Spectrum:
                                     # delta sigma is okay, the higher rank is larger sigma (negative result) or within 50%
                                 pass
                             else:
-                                log.debug(f"Sigma sanity check failed {self.identifier}. Disallowing {a.name} at sigma {eli.fit_sigma:0.2f} "
-                                          f" vs anchor sigma {self.central_eli.fit_sigma:0.2f}")
-                                add_to_sol = False
+                                if a.snr < 5.7:
+                                    log.debug(f"Sigma sanity check failed {self.identifier}. Disallowing {a.name} at sigma {eli.fit_sigma:0.2f} "
+                                              f" vs anchor sigma {self.central_eli.fit_sigma:0.2f}")
+                                    add_to_sol = False
                                 # this line should not be part of the solution
                         except:
                             pass

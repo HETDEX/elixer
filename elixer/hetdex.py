@@ -166,8 +166,16 @@ def gmag_vote_thresholds(wave):
         # faint_gmag = 0.001211 * wave + 18.980
 
         #DESI set about 660 LAE and 120 OII ... OII x5 to balance numbers
+        #HDR2.1 values
         bright_gmag = 0.0007507 * wave + 20.450
         faint_gmag = 0.0007507 * wave + 21.460
+
+
+        #HDR3 values ... may want to adjust so we intercept 25.0 or 25.2 or so at the faint end,
+        bright_gmag = 0.001151 * wave + 18.000
+        #faint_gmag  = 0.001001 * wave + 19.250
+        faint_gmag  = 0.001081 * wave + 19.250  #make intercept 25.0 at 5500AA
+
 
         return bright_gmag, faint_gmag
     except:
