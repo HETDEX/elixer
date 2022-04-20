@@ -4,6 +4,8 @@ changes to elixer by version
 * Limit sibling line FWHM similarity sanity check enforcement to SNR < 5.7
 * Update AGN consistency check to use line ranks in scoring
 * Update gmag_vote_thresholds() to use HDR3 calibration
+* Manually tweak the faint end gmag threshold line to hit 25.5AB at 5500AA by adjusting the slope
+* Penalize Q(z) by x (1-low voting weight correction)
 
 1.16.7a1 [2022-04-12]
 * Allow CIV + LyA (in solution_consistent_with_lae) and similar to have lower EW thredhold since may be AGN with lower

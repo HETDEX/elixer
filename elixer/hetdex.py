@@ -173,10 +173,10 @@ def gmag_vote_thresholds(wave):
 
         #HDR3 values ... may want to adjust so we intercept 25.0 or 25.2 or so at the faint end,
         bright_gmag = 0.001151 * wave + 18.000
-        #faint_gmag  = 0.001001 * wave + 19.250
+        faint_gmag  = 0.001001 * wave + 19.250
         #faint_gmag  = 0.001081 * wave + 19.250  #make intercept 25.2 at 5500AA
         #faint_gmag  = 0.001036 * wave + 19.500  #make intercept 25.2 at 5500AA different slope
-        faint_gmag  = 0.001136 * wave + 19.250  #make intercept 25.5 at 5500AA
+        #faint_gmag  = 0.001136 * wave + 19.250  #make intercept 25.5 at 5500AA
 
 
         return bright_gmag, faint_gmag
