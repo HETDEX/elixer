@@ -167,14 +167,16 @@ def gmag_vote_thresholds(wave):
 
         #DESI set about 660 LAE and 120 OII ... OII x5 to balance numbers
         #HDR2.1 values
-        bright_gmag = 0.0007507 * wave + 20.450
-        faint_gmag = 0.0007507 * wave + 21.460
+        # bright_gmag = 0.0007507 * wave + 20.450
+        # faint_gmag = 0.0007507 * wave + 21.460
 
 
         #HDR3 values ... may want to adjust so we intercept 25.0 or 25.2 or so at the faint end,
         bright_gmag = 0.001151 * wave + 18.000
         #faint_gmag  = 0.001001 * wave + 19.250
-        faint_gmag  = 0.001081 * wave + 19.250  #make intercept 25.0 at 5500AA
+        #faint_gmag  = 0.001081 * wave + 19.250  #make intercept 25.2 at 5500AA
+        #faint_gmag  = 0.001036 * wave + 19.500  #make intercept 25.2 at 5500AA different slope
+        faint_gmag  = 0.001136 * wave + 19.250  #make intercept 25.5 at 5500AA
 
 
         return bright_gmag, faint_gmag
@@ -2199,6 +2201,15 @@ class DetObj:
                             p = p / 1.5
                     else:
                         p = p / 1.5
+
+
+            try:
+                if self.vote_info['low_weight_correction'] > 0:
+                    corr = np.clip(1.0 - self.vote_info['low_weight_correction'],0.0,1.0)
+                    log.info(f"Q(z): modifying P(z) from {p:0.2f} to {p*corr:0.2f} due to low voting weight. ")
+                    p = p * corr
+            except:
+                pass
 
             self.best_z = z
             self.best_p_of_z = p
@@ -4740,13 +4751,17 @@ class DetObj:
                     tot_weight = np.sum(weight)
                     log.info(f"Low voting weight ({tot_weight}). Adding in 0.5 vote at {1.0-tot_weight} weight.")
                     likelihood.append(0.5)
-                    weight.append(1.0 - np.sum(weight))
+                    weight.append(1.0 -tot_weight)
                     var.append(1.0)
                     prior.append(0.5)
+
+                    vote_info['low_weight_correction'] = 1.0 - tot_weight
 
                     if weight[-1] >= 0.5:
                         self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
                         self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
+                else:
+                    vote_info['low_weight_correction'] = 0
             except:
                 pass
 
