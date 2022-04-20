@@ -128,10 +128,13 @@ def main():
                     print(f"Final Merge List {len(merge_list)}: {merge_list}")
 
         if still_waiting: #we timed out
-            print(f"Timeout waiting on expected number {len(merge_list)}/{merge_count} of *intermediate_merge.h5 files. Aborting run.")
+            print(f"Timeout {timeout_wait:0.1f}s waiting on expected number {len(merge_list)}/{merge_count} of *intermediate_merge.h5 files. Aborting run.")
             dummy_list = [f"dispatch_{str(n).zfill(4)}/elixer_intermediate_merge.h5" for n in range(merge_count)]
             missing = np.setdiff1d(dummy_list,merge_list)
             print(f"Missing files: {missing}")
+            with open("elixer_merged_cat.fail","w+") as f:
+                f.write(f"Timeout {timeout_wait:0.1f}s waiting on expected number {len(merge_list)}/{merge_count} of *intermediate_merge.h5 files. Aborting run.\n")
+                f.write(f"Missing files: {missing}\n")
             exit(-1)
 
         if len(merge_list) > 0:
