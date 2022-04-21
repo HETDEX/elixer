@@ -6,6 +6,7 @@ changes to elixer by version
 * Update gmag_vote_thresholds() to use HDR3 calibration
 * Manually tweak the faint end gmag threshold line to hit 25.5AB at 5500AA by adjusting the slope
 * Penalize Q(z) by x (1-low voting weight correction)
+* Update DEX-g mag votes to reduce overall weight except where the EW is also extreme
 
 1.16.7a1 [2022-04-12]
 * Allow CIV + LyA (in solution_consistent_with_lae) and similar to have lower EW thredhold since may be AGN with lower

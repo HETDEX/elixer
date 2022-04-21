@@ -4238,10 +4238,27 @@ class DetObj:
 
 
                     if g_bright > gmag_faint_thresh: #vote for LyA
-                        likelihood.append(1.0)
-                        weight.append(0.5) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+
+                        if (ew is not None):
+                            if (ew-ew_err) > 80:
+                                likelihood.append(1.0)
+                                weight.append(0.5) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                            elif (ew-ew_err) > 30:
+                                likelihood.append(1.0)
+                                weight.append(0.33) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                            elif (ew+ew_err) < 15:
+                                likelihood.append(0.0)
+                                weight.append(0.10) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                            else:
+                                likelihood.append(1.0)
+                                weight.append(0.33) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                        else:
+                            likelihood.append(1.0)
+                            weight.append(0.25) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+
                         var.append(1)
                         prior.append(base_assumption)
+
                         vote_info['dex_gmag_vote'] = likelihood[-1]
                         vote_info['dex_gmag_weight'] = weight[-1]
                         log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
@@ -4253,7 +4270,7 @@ class DetObj:
                             if (ew-ew_err) > 80:
                                 #could be LyA
                                 likelihood.append(1.0)
-                                weight.append(0.25) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                weight.append(0.33) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
                                 var.append(1)
                                 prior.append(base_assumption)
                                 vote_info['dex_gmag_vote'] = likelihood[-1]
@@ -4273,7 +4290,7 @@ class DetObj:
                             elif (ew+ew_err) < 15:
                                 #could be LyA
                                 likelihood.append(0.0)
-                                weight.append(0.5) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                weight.append(0.20) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
                                 var.append(1)
                                 prior.append(base_assumption)
                                 vote_info['dex_gmag_vote'] = likelihood[-1]
@@ -4299,7 +4316,7 @@ class DetObj:
                             if (ew-ew_err) > 80:
                                 #could be LyA
                                 likelihood.append(1.0)
-                                weight.append(0.5) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                weight.append(0.4) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
                                 var.append(1)
                                 prior.append(base_assumption)
                                 vote_info['dex_gmag_vote'] = likelihood[-1]
