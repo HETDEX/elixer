@@ -6,6 +6,7 @@ changes to elixer by version
 * Update gmag_vote_thresholds() to use HDR3 calibration
 * Penalize Q(z) by x (1-low voting weight correction)
 * Update DEX-g mag votes to reduce overall weight except where the EW is also extreme
+* small tune to skx-normal estiamted run time
 
 1.16.7a1 [2022-04-12]
 * Allow CIV + LyA (in solution_consistent_with_lae) and similar to have lower EW thredhold since may be AGN with lower

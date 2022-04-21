@@ -135,6 +135,8 @@ def main():
             with open("elixer_merged_cat.fail","w") as f:
                 f.write(f"Timeout {timeout_wait:0.1f}s waiting on expected number {len(merge_list)}/{merge_count} of *intermediate_merge.h5 files. Aborting run.\n")
                 f.write(f"Missing files: {missing}\n")
+                f.write(f"Expected files: {dummy_list}\n")
+                f.write(f"Found files: {merge_list}\n")
             exit(-1)
 
         if len(merge_list) > 0:

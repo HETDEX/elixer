@@ -3198,10 +3198,15 @@ class DetObj:
 
                 #modification on Leung+2015, rather than a hard binary case, linearly evolve with wavelength
 
-                low_wave = 4000
-                low_thresh = 1.38 #Andrews's Number
-                high_wave = 4500
-                high_thresh = 10.3 #Andrews's Number
+                # low_wave = 4000
+                # low_thresh = 1.38 #Andrews's Number
+                # high_wave = 4500
+                # high_thresh = 10.3 #Andrews's Number
+
+                low_wave = 3700
+                low_thresh = 1.5
+                high_wave = 5000
+                high_thresh = 7.5
 
                 if obs_wave < low_wave:
                     return low_thresh
