@@ -3204,9 +3204,9 @@ class DetObj:
                 # high_thresh = 10.3 #Andrews's Number
 
                 low_wave = 3700
-                low_thresh = 1.5
-                high_wave = 5000
-                high_thresh = 5.5
+                low_thresh = 10.0
+                high_wave = 4600
+                high_thresh = 2.5
 
                 if obs_wave < low_wave:
                     return low_thresh
