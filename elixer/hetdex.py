@@ -172,12 +172,27 @@ def gmag_vote_thresholds(wave):
 
 
         #HDR3 values ... may want to adjust so we intercept 25.0 or 25.2 or so at the faint end,
-        bright_gmag = 0.001151 * wave + 18.000
-        faint_gmag  = 0.001001 * wave + 19.250
-        #faint_gmag  = 0.001081 * wave + 19.250  #make intercept 25.2 at 5500AA
-        #faint_gmag  = 0.001036 * wave + 19.500  #make intercept 25.2 at 5500AA different slope
-        #faint_gmag  = 0.001136 * wave + 19.250  #make intercept 25.5 at 5500AA
+        #bright_gmag = 0.001150 * wave + 18.000
+        #faint_gmag  = 0.001000 * wave + 19.250
 
+        #manually set, my opinion
+        faint_max = 25.5
+        faint_min =  24.0
+
+        bright_max = 24.0
+        bright_min = 22.5
+
+        low_wave = 3700.0
+        high_wave = 5500.0
+
+        faint_slope = (faint_max-faint_min)/(high_wave-low_wave)
+        bright_slope = (bright_max-bright_min)/(high_wave-low_wave)
+
+        faint_intercept = faint_min - faint_slope * low_wave
+        bright_intercept = bright_min - bright_slope * low_wave
+
+        faint_gmag  = faint_slope * wave + faint_intercept
+        bright_gmag = bright_slope * wave + bright_intercept
 
         return bright_gmag, faint_gmag
     except:
@@ -3203,53 +3218,23 @@ class DetObj:
                 # high_wave = 4500
                 # high_thresh = 10.3 #Andrews's Number
 
-                #
-                # low_wave = 4000
-                # low_thresh = 3.0
-                # high_wave = 5000
-                # high_thresh = 10.0
-                #
-                # if obs_wave < low_wave:
-                #     return low_thresh
-                # elif obs_wave > high_wave:
-                #     return high_thresh
-                # else:
-                #     slope = (high_thresh-low_thresh)/(high_wave-low_wave)
-                #     inter = low_thresh - slope*low_wave
-                #     return slope * obs_wave + inter
-                #
-                #
-                #weird test
-                if obs_wave < 4250:
-                    low_wave = 3700
-                    low_thresh = 1.0
-                    high_wave = 4250
-                    high_thresh = 15.0
 
-                    if obs_wave < low_wave:
-                        return low_thresh
-                    elif obs_wave > high_wave:
-                        return high_thresh
-                    else:
-                        slope = (high_thresh-low_thresh)/(high_wave-low_wave)
-                        inter = low_thresh - slope*low_wave
-                        return slope * obs_wave + inter
-                elif obs_wave < 4600:
-                    low_wave = 4250
-                    low_thresh = 15.0
-                    high_wave = 4600
-                    high_thresh = 4.0
+                low_wave = 4000
+                low_thresh = 1.4
+                high_wave = 5000
+                high_thresh = 10.0
 
-                    if obs_wave < low_wave:
-                        return low_thresh
-                    elif obs_wave > high_wave:
-                        return high_thresh
-                    else:
-                        slope = (high_thresh-low_thresh)/(high_wave-low_wave)
-                        inter = low_thresh - slope*low_wave
-                        return slope * obs_wave + inter
+                if obs_wave < low_wave:
+                    return low_thresh
+                elif obs_wave > high_wave:
+                    return high_thresh
                 else:
-                    return 4.0
+                    slope = (high_thresh-low_thresh)/(high_wave-low_wave)
+                    inter = low_thresh - slope*low_wave
+                    return slope * obs_wave + inter
+
+
+
             except:
                 log.warning("Exception! Exception in plae_poii_midpoint. Set midpoint as 1.0", exc_info=True)
 
@@ -4281,7 +4266,7 @@ class DetObj:
                         if (ew is not None):
                             if (ew-ew_err) > 80:
                                 likelihood.append(1.0)
-                                weight.append(0.5) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                weight.append(1.0) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
                             elif (ew-ew_err) > 30:
                                 likelihood.append(1.0)
                                 weight.append(0.33) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
@@ -4309,7 +4294,7 @@ class DetObj:
                             if (ew-ew_err) > 80:
                                 #could be LyA
                                 likelihood.append(1.0)
-                                weight.append(0.33) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                weight.append(0.75) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
                                 var.append(1)
                                 prior.append(base_assumption)
                                 vote_info['dex_gmag_vote'] = likelihood[-1]
@@ -4355,7 +4340,7 @@ class DetObj:
                             if (ew-ew_err) > 80:
                                 #could be LyA
                                 likelihood.append(1.0)
-                                weight.append(0.4) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                weight.append(0.75) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
                                 var.append(1)
                                 prior.append(base_assumption)
                                 vote_info['dex_gmag_vote'] = likelihood[-1]
@@ -4402,7 +4387,7 @@ class DetObj:
                             if (ew-ew_err) > 80:
                                 #could be LyA
                                 likelihood.append(1.0)
-                                weight.append(0.30) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                weight.append(0.50) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
                                 var.append(1)
                                 prior.append(base_assumption)
                                 vote_info['dex_gmag_vote'] = likelihood[-1]
