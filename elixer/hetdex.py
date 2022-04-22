@@ -3206,7 +3206,7 @@ class DetObj:
                 low_wave = 3700
                 low_thresh = 1.5
                 high_wave = 5000
-                high_thresh = 7.5
+                high_thresh = 5.5
 
                 if obs_wave < low_wave:
                     return low_thresh
