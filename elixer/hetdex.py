@@ -3203,19 +3203,53 @@ class DetObj:
                 # high_wave = 4500
                 # high_thresh = 10.3 #Andrews's Number
 
-                low_wave = 1
-                low_thresh = 3.9
-                high_wave = 2
-                high_thresh = 4.0
+                #
+                # low_wave = 4000
+                # low_thresh = 3.0
+                # high_wave = 5000
+                # high_thresh = 10.0
+                #
+                # if obs_wave < low_wave:
+                #     return low_thresh
+                # elif obs_wave > high_wave:
+                #     return high_thresh
+                # else:
+                #     slope = (high_thresh-low_thresh)/(high_wave-low_wave)
+                #     inter = low_thresh - slope*low_wave
+                #     return slope * obs_wave + inter
+                #
+                #
+                #weird test
+                if obs_wave < 4250:
+                    low_wave = 3700
+                    low_thresh = 1.0
+                    high_wave = 4250
+                    high_thresh = 15.0
 
-                if obs_wave < low_wave:
-                    return low_thresh
-                elif obs_wave > high_wave:
-                    return high_thresh
+                    if obs_wave < low_wave:
+                        return low_thresh
+                    elif obs_wave > high_wave:
+                        return high_thresh
+                    else:
+                        slope = (high_thresh-low_thresh)/(high_wave-low_wave)
+                        inter = low_thresh - slope*low_wave
+                        return slope * obs_wave + inter
+                elif obs_wave < 4600:
+                    low_wave = 4250
+                    low_thresh = 15.0
+                    high_wave = 4600
+                    high_thresh = 4.0
+
+                    if obs_wave < low_wave:
+                        return low_thresh
+                    elif obs_wave > high_wave:
+                        return high_thresh
+                    else:
+                        slope = (high_thresh-low_thresh)/(high_wave-low_wave)
+                        inter = low_thresh - slope*low_wave
+                        return slope * obs_wave + inter
                 else:
-                    slope = (high_thresh-low_thresh)/(high_wave-low_wave)
-                    inter = low_thresh - slope*low_wave
-                    return slope * obs_wave + inter
+                    return 4.0
             except:
                 log.warning("Exception! Exception in plae_poii_midpoint. Set midpoint as 1.0", exc_info=True)
 
