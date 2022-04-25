@@ -154,6 +154,15 @@ else:
     recover_mode = True
 
 
+if "--neighborhood" in args:
+    i = args.index("--queue")
+    try:
+        neighborhood = sys.argv[i + 1]
+    except:
+        neighborhood = 0
+else:
+    neighborhood = 0
+
 if "--neighborhood_only" in args:
     neighborhood_only = True
 else:
@@ -321,11 +330,15 @@ elif hostname == "stampede2":
         if recover_mode:
             if neighborhood_only:
                 MAX_TIME_PER_TASK = 0.25
+            elif neighborhood == 0:
+                MAX_TIME_PER_TASK = 0.9
             else:
                 MAX_TIME_PER_TASK = 1.2  # in recover mode, can bit more agressive in timing (easier to continue if timeout)
         else:
             if neighborhood_only:
                 MAX_TIME_PER_TASK = 0.5
+            elif neighborhood == 0:
+                MAX_TIME_PER_TASK = 2.0
             else:
                 MAX_TIME_PER_TASK = 3.0  # MINUTES max
 
@@ -349,11 +362,15 @@ elif hostname == "stampede2":
         if recover_mode:
             if neighborhood_only:
                 MAX_TIME_PER_TASK = 0.5
+            elif neighborhood == 0:
+                MAX_TIME_PER_TASK = 4.0
             else:
                 MAX_TIME_PER_TASK = 5.0  # in recover mode, can bit more agressive in timing (easier to continue if timeout)
         else:
             if neighborhood_only:
                 MAX_TIME_PER_TASK = 1.5
+            elif neighborhood == 0:
+                MAX_TIME_PER_TASK = 4.5
             else:
                 MAX_TIME_PER_TASK = 6.0  # MINUTES max
 

@@ -4072,9 +4072,19 @@ class DetObj:
             vote_info['line_sigma'] = vote_line_sigma
             vote_info['line_sigma_err'] = vote_line_sigma_unc
 
-            if (vote_line_sigma - vote_line_sigma_unc) > G.LINEWIDTH_SIGMA_TRANSITION: #unlikely OII (FHWM 16.5)
+            if (vote_line_sigma - vote_line_sigma_unc) > G.LINEWIDTH_SIGMA_MAX_OII and (self.chi2 is not None) and (self.chi2 < 2.5):
+                #there just are not any OII emitters like this
                 likelihood.append(1) #vote kind of FOR LyA (though could be CIV, MgII, other)
-                weight.append(min(vote_line_sigma / G.LINEWIDTH_SIGMA_TRANSITION - 1.0, 0.5)) #limit to 0.5 max
+                weight.append(2.0)
+                var.append(1)
+                prior.append(base_assumption)
+                vote_info['line_sigma_vote'] = likelihood[-1]
+                vote_info['line_sigma_weight'] = weight[-1]
+                log.info(f"{self.entry_id} Aggregate Classification: line sigma vote ({vote_line_sigma:0.1f} +/- {vote_line_sigma_unc:0.2f})"
+                         f": lk({likelihood[-1]}) weight({weight[-1]})")
+            elif (vote_line_sigma - vote_line_sigma_unc) > G.LINEWIDTH_SIGMA_TRANSITION: #unlikely OII (FHWM 16.5)
+                likelihood.append(1) #vote kind of FOR LyA (though could be CIV, MgII, other)
+                weight.append(min(vote_line_sigma / G.LINEWIDTH_SIGMA_TRANSITION - 1.0, 1.0)) #limit to 1.0 max
                 var.append(1)
                 prior.append(base_assumption)
                 vote_info['line_sigma_vote'] = likelihood[-1]
