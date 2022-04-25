@@ -4058,7 +4058,7 @@ class DetObj:
 
         #################################################
         # line FWHM vote (really broad is not likely OII)
-        # max 0.5 weight
+        # max 1.0 weight unless > 16.5AA, then 2.0
         #################################################
         try: #sometimes there is no central_eli (if we just can't get a fit)
 
@@ -4101,6 +4101,7 @@ class DetObj:
         ###################################
         # Straight EqWidth vote
         # does NOT consider OII or LyA distros
+        # Limit to less broad lines
         ###################################
         try:
 
@@ -4109,6 +4110,18 @@ class DetObj:
 
             vote_info['ew_rest_lya_combined'] = self.classification_dict['combined_eqw_rest_lya']
             vote_info['ew_rest_lya_combined_err'] = self.classification_dict['combined_eqw_rest_lya_err']
+
+            if (self.fwhm is not None) and (self.fwhm_unc is not None):
+                adjusted_fwhm = self.fwhm-self.fwhm_unc
+            else:
+                adjusted_fwhm = 0
+
+            if adjusted_fwhm > 16.5:
+                max_weight_adjustment = 0
+            elif adjusted_fwhm > 12.0:
+                max_weight_adjustment = max(0,(16.5 - adjusted_fwhm) / 4.5)
+            else:
+                max_weight_adjustment = 1.0
 
             if self.classification_dict['combined_eqw_rest_lya'] > 30.0:
                 #will be an LAE vote
@@ -4130,6 +4143,7 @@ class DetObj:
                     weight.append(max(0.1,min(0.5,(rat_thresh-1.0)))) #rat thresh
 
                 var.append(1)
+                weight[-1] *= max_weight_adjustment
                 prior.append(base_assumption)
                 vote_info['ew_rest_lya_combined_vote'] = likelihood[-1]
                 vote_info['ew_rest_lya_combined_weight'] = weight[-1]
@@ -4169,6 +4183,7 @@ class DetObj:
 
                 var.append(1)
                 prior.append(base_assumption)
+                weight[-1] *= max_weight_adjustment
                 vote_info['ew_rest_lya_combined_vote'] = likelihood[-1]
                 vote_info['ew_rest_lya_combined_weight'] = weight[-1]
                 log.info(f"{self.entry_id} Aggregate Classification: straight combined line EW "
@@ -4178,8 +4193,6 @@ class DetObj:
                 log.info(f"{self.entry_id} Aggregate Classification: straight combined line EW "
                          f"{self.classification_dict['combined_eqw_rest_lya']} +/- {self.classification_dict['combined_eqw_rest_lya_err']} :"
                          f"no vote")
-
-
         except:
             pass
 

@@ -10,6 +10,8 @@ changes to elixer by version
 * reduce TACC runtime estimate if neighboorhood is not being generated
 * boost simple line FWHM (sigma) vote. At exteme widths, vote can get 1.0 - 2.0 for LyA.(*note: though this could still
  be CIV, but that would be handled by the multiline solutions and clustering).
+* limit straight EW vote by FWHM. If > 16.5, weight goes to zero, liner from 1.0 to 0.0 multiplier for 12 up to 16.5,
+  else 1.0 (normal) multiplier. This helps deal with extreme FWHM lines getting a no LyA vote due to low EW of AGN.
 
 1.16.7a1 [2022-04-12]
 * Allow CIV + LyA (in solution_consistent_with_lae) and similar to have lower EW thredhold since may be AGN with lower
