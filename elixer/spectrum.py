@@ -7121,21 +7121,31 @@ class Spectrum:
                     #!!! do not impose a boost minium limit on the check for oiii_lines ... you CAN get OIII 5007 and
                     #not a significant OII line, or HBeta, so the boost criteria may be << 1 and that is okay
                     if s.score < G.MULTILINE_MIN_SOLUTION_SCORE and oiii_lines:# and boost > 0.2:
-                        log.info(f"Solution: {s.name} score {s.score} raised to minimum {G.MULTILINE_MIN_SOLUTION_SCORE} for 4959+5007")
-                        s.score = G.MULTILINE_MIN_SOLUTION_SCORE
-                        if boost > 0:
-                            s.prob_noise = min(s.prob_noise,0.5/boost)
+
+                        if s.rejected_lines is not None and \
+                            np.any(np.intersect1d([4959,5007], [rl.w_rest for rl in s.rejected_lines])):
+                            #predicated on both OIII lines being present, but at least one was rejected
+                            pass #no boost
+                        else:
+                            log.info(f"Solution: {s.name} score {s.score} raised to minimum {G.MULTILINE_MIN_SOLUTION_SCORE} for 4959+5007")
+                            s.score = G.MULTILINE_MIN_SOLUTION_SCORE
+                            if boost > 0:
+                                s.prob_noise = min(s.prob_noise,0.5/boost)
 
                     per_line_total_score += s.score
                 elif ((s.central_rest == 5007) or (s.central_rest == 4959)) and oiii_lines:
                     if s.score < G.MULTILINE_MIN_SOLUTION_SCORE:# and boost > 0.2:
-                        log.info(f"Solution: {s.name} score {s.score} raised to minimum {G.MULTILINE_MIN_SOLUTION_SCORE} for including possible OIII")
-                        s.score = G.MULTILINE_MIN_SOLUTION_SCORE
-                        if boost > 0:
-                            s.prob_noise = min(s.prob_noise,0.5)
+                        if s.rejected_lines is not None and \
+                                np.any(np.intersect1d([4959,5007], [rl.w_rest for rl in s.rejected_lines])):
+                            #predicated on both OIII lines being present, but at least one was rejected
+                            pass #no boost
+                        else:
+                            log.info(f"Solution: {s.name} score {s.score} raised to minimum {G.MULTILINE_MIN_SOLUTION_SCORE} for including possible OIII")
+                            s.score = G.MULTILINE_MIN_SOLUTION_SCORE
+                            if boost > 0:
+                                s.prob_noise = min(s.prob_noise,0.5)
 
                     per_line_total_score += s.score
-
 
                 #H&K a low-z galaxy or star
                 if G.CONTINUUM_RULES:

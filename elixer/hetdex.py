@@ -1446,6 +1446,9 @@ class DetObj:
                                 pass #we're done, both are at their limit
                             elif dex_g_limit and (adjusted_mag > dex_g_depth): #self.best_gmag):
                                 pass #also okay ... hit DEX limit and the imaging mag is fainter than the dex limit
+                            elif img_limit and ((d['mag_limit'] - self.best_gmag) > allowed_diff):
+                                #imaging limit hit DEX-g not at limit and much brighter than imaging limit
+                                new_flag = G.DETFLAG_DEX_GMAG_INCONSISTENT
                             elif img_limit and (self.best_gmag > adjusted_mag):
                                 pass #also okay ... hit the imaging limit (probably SDSS or maybe PanSTARRS) and DEX is fainter
                             elif dex_g_limit and ( (adjusted_mag+allowed_diff) < dex_g_depth):

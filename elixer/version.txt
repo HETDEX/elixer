@@ -1,6 +1,6 @@
 changes to elixer by version
 
-1.16.7a2 [2022-04-20]
+1.16.7a2 [2022-04-25]
 * Limit sibling line FWHM similarity sanity check enforcement to SNR < 5.7
 * Update AGN consistency check to use line ranks in scoring
 * Update gmag_vote_thresholds() to use HDR3 calibration
@@ -12,6 +12,9 @@ changes to elixer by version
  be CIV, but that would be handled by the multiline solutions and clustering).
 * limit straight EW vote by FWHM. If > 16.5, weight goes to zero, liner from 1.0 to 0.0 multiplier for 12 up to 16.5,
   else 1.0 (normal) multiplier. This helps deal with extreme FWHM lines getting a no LyA vote due to low EW of AGN.
+* fix missing mag mismatch condition where DEX-g is much brighter than imaging limit
+* do not boost OIII 4959+5007 solution to minimum score IF either line is rejected on better inspection due to extreme
+  variation in x0 position
 
 1.16.7a1 [2022-04-12]
 * Allow CIV + LyA (in solution_consistent_with_lae) and similar to have lower EW thredhold since may be AGN with lower
