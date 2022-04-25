@@ -988,7 +988,7 @@ LAE_EW_MAG_TRIGGER_MAX = 25.0 #if the associated EW_rest(LyA) is less than this 
 LAE_EW_MAG_TRIGGER_MIN = 15.0 #if the associated EW_rest(LyA) is greater than this value, then look at the magnitudes
 
 LINEWIDTH_SIGMA_TRANSITION = 4.5  #larger than this, is increasingly more likely to be LyA, below .. could be either
-LINEWIDTH_SIGMA_MAX_OII = 7.0 #there just are not any larger than this (FWHM > 16.5)
+LINEWIDTH_SIGMA_MAX_OII = 6.5 #there just are not any larger than this (FWHM > 16.5)
 
 SEP_FIXED_APERTURE_RADIUS = 1.5 #RADIUS in arcsec ... used at the barycenter position of SEP objects
 
