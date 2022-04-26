@@ -3760,8 +3760,8 @@ class DetObj:
                             var.append(1)  # todo: ? could do something like the spectrum noise?
                             prior.append(base_assumption)
                             log.info(
-                                f"{self.entry_id} Aggregate Classification: non-LyA weak solution: z({s.z}) lk({likelihood[-1]}) "
-                                f"weight({weight[-1]}) score({s.score}) scaled score({s.scale_score})")
+                                f"{self.entry_id} Aggregate Classification: non-LyA weak solution: z({s.z:0.4f}) {s.name}-{s.central_rest}, "
+                                f"lk({likelihood[-1]}) weight({weight[-1]:0.4f}) score({s.score}) scaled score({s.scale_score})")
 
                     # does this match with a physical size from above?
                     try:
@@ -12442,6 +12442,11 @@ class HETDEX:
 
         Y = max(Y,0.8) #set a minimum size
 
+        zeros_central_9 = 0
+        zeros_central_49 = 0
+        total_central_9 = 0
+        total_central_49 = 0
+
         fig = plt.figure(figsize=(5, Y), frameon=False)
         plt.subplots_adjust(left=0.05, right=0.95, top=1.0, bottom=0.0)
 
@@ -12501,6 +12506,13 @@ class HETDEX:
                     a = datakeep['im'][ind[i]]
                     a = np.ma.masked_where(datakeep['err'][ind[i]] == -1, a)
                     a = np.ma.filled(a, 0.0)
+
+                    #check for zeroed columns/rows
+                    zeros_central_9 += np.sum(a[9:12,23:26] == 0) * datakeep['fiber_weight'][ind[i]]
+                    #zeros_central_49 += np.sum(a[7:14,21:28] == 0)
+
+                    total_central_9 += 9  * datakeep['fiber_weight'][ind[i]]
+                    #total_central_49 += 49
 
                     summed_image += a * datakeep['fiber_weight'][ind[i]]
 
@@ -12829,6 +12841,16 @@ class HETDEX:
                                  verticalalignment='top', horizontalalignment='center')
 
 
+
+        #check for excessive zeros near the emission line, could be worth a flag
+        try:
+            #central_9 > 0.25 ... thinking at least one row or column through the middle for
+            if zeros_central_9/total_central_9 > 0.30: #weighted if 30% or more of weighted pixels (# zeros * fiber weight)
+                detobj.flags |=  G.DETFLAG_EXCESSIVE_ZERO_PIXELS #set the flag
+                detobj.flags |=  G.DETFLAG_FOLLOWUP_NEEDED #set the flag
+                log.warning(f"{detobj.entry_id} too many zero valued pixels in 2D data at emission line center.")
+        except:
+            pass
 
         #check for unique pixels (could be useful at some point in the future)
         try:

@@ -1050,6 +1050,7 @@ DETFLAG_POOR_THROUGHPUT             = 0x00080000
 DETFLAG_BAD_DITHER_NORM             = 0x00100000
 DETFLAG_POOR_SHOT                   = 0x00200000
 DETFLAG_QUESTIONABLE_DETECTION      = 0x00400000   #unable to fit a continuum (wide) and cont(n) is fairly negative
+DETFLAG_EXCESSIVE_ZERO_PIXELS       = 0x00800000   #too many zero valued pixels at the emission line center in 2D cutouts
 
 #todo: low SNR, weighted position is between fibers (i.e. distances from blue fiber center > 0.74 or 0.75 and SNR < 5.2 or so)
 

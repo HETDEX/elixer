@@ -15,6 +15,8 @@ changes to elixer by version
 * fix missing mag mismatch condition where DEX-g is much brighter than imaging limit
 * do not boost OIII 4959+5007 solution to minimum score IF either line is rejected on better inspection due to extreme
   variation in x0 position
+* added check of central 3x3 pixels in 2D fiber cutouts looking for excessive zero valued pixels (indicative of a mask
+  for a bad column or charge trap, etc). If more than 30%, by fiber weight, are zero in the top 4 fibers, a flag is raised.
 
 1.16.7a1 [2022-04-12]
 * Allow CIV + LyA (in solution_consistent_with_lae) and similar to have lower EW thredhold since may be AGN with lower
