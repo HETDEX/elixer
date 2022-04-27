@@ -5410,7 +5410,7 @@ class Spectrum:
                         score = 0.25 * snr/8.0
                 #this could be an AGN and then the continuum measure from the band pass can be way too high, and then
                 #the EW too low, so give it some room, if the continuum is a little high and the line is at least a little broad
-                elif (ew > 15.0) or (ew+ew_err) > 20.0:
+                elif (ew > 15.0) or (ew+ew_err) > 20.0 or self.fwhm > 16.0:
                     if  (line_flux[lya_idx] > 5e-17) and \
                         (lya_idx == np.argmax(line_flux)) and \
                         (SU.cgs2mag(continuum,line_obs_waves[lya_idx]) < 24.0) and \
@@ -5449,7 +5449,7 @@ class Spectrum:
                 #     pass
 
                 #last sanity check ... however, this CAN be an AGN and that throws this off, esp since this has another line
-                if score < 0.5 and (SU.cgs2mag(continuum-continuum_err,G.LyA_rest*(1+solution.z)) < (G.LAE_G_MAG_ZERO-0.5)):
+                if self.fwhm < 16.0 and score < 0.5 and (SU.cgs2mag(continuum-continuum_err,G.LyA_rest*(1+solution.z)) < (G.LAE_G_MAG_ZERO-0.5)):
                     score = min(-1.0,score) #very inconsistent with LyA, so at least -1.0 or lower
 
                 return score
@@ -6950,9 +6950,13 @@ class Spectrum:
                 all_score = [l.line_score for l in s.lines]
                 rescore = False
                 #enforce similar all_dx0
+                if self.fwhm > G.SPEC_MAX_OFFSET_SPREAD_BROAD_THRESHOLD: #allow extra slop ... the broad lines are hard to center and may have absorption in them
+                    max_offset_spread = self.fwhm/2.355 #i.e. about one sigma of the anchor line sigma
+                else:
+                    max_offset_spread = G.SPEC_MAX_OFFSET_SPREAD
                 while len(all_dx0) > 1:
                     #todo: no ... throw out the line farthest from the average and recompute ....
-                    if max(all_dx0) - min(all_dx0) > G.SPEC_MAX_OFFSET_SPREAD: #differ by more than 2 AA
+                    if max(all_dx0) - min(all_dx0) > max_offset_spread: #differ by more than 2 AA
                         #throw out lowest score? or greatest dx0?
                         i = np.argmin(all_score)
                         log.info("Removing lowest score from solution %s (%s at %0.1f) due to extremes in fit_dx0 (%f,%f)."

@@ -1,6 +1,6 @@
 changes to elixer by version
 
-1.16.7a2 [2022-04-25]
+1.16.7a2 [2022-04-27]
 * Limit sibling line FWHM similarity sanity check enforcement to SNR < 5.7
 * Update AGN consistency check to use line ranks in scoring
 * Update gmag_vote_thresholds() to use HDR3 calibration
@@ -17,6 +17,10 @@ changes to elixer by version
   variation in x0 position
 * added check of central 3x3 pixels in 2D fiber cutouts looking for excessive zero valued pixels (indicative of a mask
   for a bad column or charge trap, etc). If more than 30%, by fiber weight, are zero in the top 4 fibers, a flag is raised.
+* allow larger velocity offsets between lines in a solution and their expected positions if the anchor FWHM is broad (> 15 AA)
+  as there are few to zero OII this broad and these are genearlly AGN and the center fit is difficult and there can be
+  internal absoprtion in the lines
+
 
 1.16.7a1 [2022-04-12]
 * Allow CIV + LyA (in solution_consistent_with_lae) and similar to have lower EW thredhold since may be AGN with lower
