@@ -454,6 +454,16 @@ if i != -1:
 else:
     pass
 
+timex = 1.0
+if "--timex" in args:
+    i = args.index("--timex")
+    try:
+        timex = float(sys.argv[i + 1])
+    except:
+        timex = 1.0
+else:
+    timex = 1.0
+
 #sanity check the time ... might be just hh:mm
 #count the colons
 colons = len(time.split(":"))-1
@@ -815,11 +825,12 @@ if not time_set: #update time
             mx += gridsearch_task_boost
 
         # set a minimum time ... always AT LEAST 5 or 10 minutes requested?
-        minutes = int(TIME_OVERHEAD + MAX_TIME_PER_TASK * mx * mult * base_time_multiplier)
+        minutes = int(TIME_OVERHEAD + MAX_TIME_PER_TASK * mx * mult * base_time_multiplier * timex)
         if continuum_mode:
             minutes = int(minutes * 1.05) #small boost since continuum objects have extra processing
         time = str(timedelta(minutes=max(minutes,10.0)))
-        print(f"auto-set time: TIME_OVERHEAD {TIME_OVERHEAD} + MAX_TIME_PER_TASK {MAX_TIME_PER_TASK} x mx {mx} x mult {mult} x base_time_multiplier {base_time_multiplier}")
+        print(f"auto-set time: TIME_OVERHEAD {TIME_OVERHEAD} + MAX_TIME_PER_TASK {MAX_TIME_PER_TASK} x mx {mx} "
+              f"x mult {mult} x base_time_multiplier {base_time_multiplier} x timex {timex}")
         print("--time %s" %time)
 
     except Exception as e:

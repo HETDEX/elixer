@@ -23,6 +23,7 @@ changes to elixer by version
 * add possible planetary nebule (PN) detection if 5007 present (usually with 4959) and no imaging source matches. If
   this is the top solution, also receives a "PN" classification label in addition to DETFLAG_POSSIBLE_PN flag
 * make pyhetdex import optional
+* add --timex option to fractionally boost SLURM time
 
 
 
