@@ -3901,6 +3901,7 @@ class Classifier_Solution:
         self.name = ""
         self.color = None
         self.emission_line = None
+        self.possible_pn = 0 #the higher the number, the more "possible"
 
         self.prob_noise = 1.0
         self.lines = [] #list of EmissionLine
@@ -7138,16 +7139,21 @@ class Spectrum:
 
                     per_line_total_score += s.score
                 elif ((s.central_rest == 5007) or (s.central_rest == 4959)) and oiii_lines:
+
                     if s.score < G.MULTILINE_MIN_SOLUTION_SCORE:# and boost > 0.2:
                         if s.rejected_lines is not None and \
                                 np.any(np.intersect1d([4959,5007], [rl.w_rest for rl in s.rejected_lines])):
                             #predicated on both OIII lines being present, but at least one was rejected
+                            s.possible_pn += 1
                             pass #no boost
                         else:
                             log.info(f"Solution: {s.name} score {s.score} raised to minimum {G.MULTILINE_MIN_SOLUTION_SCORE} for including possible OIII")
                             s.score = G.MULTILINE_MIN_SOLUTION_SCORE
+                            s.possible_pn += 2 #possible planetary nebula .. still need more info (like lack of a discrete SEP source)
                             if boost > 0:
                                 s.prob_noise = min(s.prob_noise,0.5)
+                    else:
+                        s.possible_pn += 3 #possible planetary nebula .. still need more info (like lack of a discrete SEP source)
 
                     per_line_total_score += s.score
 

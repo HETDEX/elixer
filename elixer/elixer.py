@@ -45,7 +45,13 @@ import matplotlib.gridspec as gridspec
 from matplotlib.font_manager import FontProperties
 import io
 from distutils.version import LooseVersion
-import pyhetdex.tools.files.file_tools as ft
+try:
+    import pyhetdex.tools.files.file_tools as ft
+except:
+    #however, you will bomb out if you hit its use with old data
+    print("Non-fatal warning. Cannot import pyhetdex.")
+    pass #pyhetdex is not so important any more
+
 import sys
 import glob
 import os

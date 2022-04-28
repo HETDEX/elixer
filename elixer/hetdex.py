@@ -65,11 +65,16 @@ from scipy.ndimage.filters import gaussian_filter
 
 import glob
 import re
-from pyhetdex.cure.distortion import Distortion
-import pyhetdex.tools.files.file_tools as ft
-from pyhetdex.het.ifu_centers import IFUCenter
-from pyhetdex.het.fplane import FPlane
-from pyhetdex.coordinates.tangent_projection import TangentPlane as TP
+try:
+    import pyhetdex.tools.files.file_tools as ft
+    from pyhetdex.cure.distortion import Distortion
+    from pyhetdex.het.ifu_centers import IFUCenter
+    from pyhetdex.het.fplane import FPlane
+    from pyhetdex.coordinates.tangent_projection import TangentPlane as TP
+except:
+    print("Non-fatal warning. Cannot import pyhetdex.")
+    pass #pyhetdex is not used in core processing anymore, but can still fail
+
 import os
 import fnmatch
 import os.path as op
@@ -1721,6 +1726,45 @@ class DetObj:
                     self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
                     log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_UNCERTAIN_CLASSIFICATION")
 
+
+
+                ######################################################
+                # check for possible planetary nebula
+                ######################################################
+                try:
+                    #are there any PN solutions?, even if it is not the one we chose?
+                    imaging_source_found = False
+                    max_pn = 0
+                    pn = None
+                    if self.spec_obj.solutions is not None and len(self.spec_obj.solutions)> 0:
+                        pn = np.array([s.possible_pn for s in self.spec_obj.solutions]) #may want the actual value later
+                        max_pn = max(pn)
+                        if max_pn > 0:
+                            #yes, now is there an aperture detection ?
+                            for d in self.aperture_details_list:
+                                if d['filter_name'].lower() in ['g','r','f606w']:
+                                    if d['sep_objects'] is not None:
+                                        for s in d['sep_objects']:
+                                            if s['selected']:
+                                                 #yes, there is one
+                                                imaging_source_found = True
+                                                break
+
+                                if imaging_source_found:
+                                    break
+
+                    if max_pn > 0 and imaging_source_found is False:
+                        self.flags |= G.DETFLAG_POSSIBLE_PN
+
+                        if max_pn > 1 and pn[0] > 0 and self.spec_obj.solutions[0].score >= G.MULTILINE_MIN_SOLUTION_SCORE: #it is greater than 1 and it is the top solution
+                            self.spec_obj.add_classification_label("PN")
+                            log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_POSSIBLE_PN , level {max_pn}, score {self.spec_obj.solutions[0].score:0.1f}")
+                        else:
+                            log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_POSSIBLE_PN , level {max_pn}, score N/A")
+
+
+                except:
+                    log.warning(f"Exception in flag_check for {self.entry_id}. DETFLAG_POSSIBLE_PN.")
 
 
             #########################################

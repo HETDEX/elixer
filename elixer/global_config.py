@@ -1053,6 +1053,8 @@ DETFLAG_POOR_SHOT                   = 0x00200000
 DETFLAG_QUESTIONABLE_DETECTION      = 0x00400000   #unable to fit a continuum (wide) and cont(n) is fairly negative
 DETFLAG_EXCESSIVE_ZERO_PIXELS       = 0x00800000   #too many zero valued pixels at the emission line center in 2D cutouts
 
+DETFLAG_POSSIBLE_PN                 = 0x01000000    #possible planetery nebula hit (usually 5007, without an obvious source)
+
 #todo: low SNR, weighted position is between fibers (i.e. distances from blue fiber center > 0.74 or 0.75 and SNR < 5.2 or so)
 
 
