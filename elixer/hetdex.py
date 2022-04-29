@@ -199,8 +199,11 @@ def gmag_vote_thresholds(wave):
         # faint_gmag  = faint_slope * wave + faint_intercept
         # bright_gmag = bright_slope * wave + bright_intercept
 
-        bright_gmag = 0.00075 * wave + 20.50
-        faint_gmag  = 0.00075 * wave + 21.50
+        # bright_gmag = 0.00075 * wave + 20.50
+        # faint_gmag  = 0.00075 * wave + 21.50
+
+        bright_gmag = 0.00110 * wave + 18.00
+        faint_gmag  = 0.00127 * wave + 18.10
 
         return bright_gmag, faint_gmag
     except:
