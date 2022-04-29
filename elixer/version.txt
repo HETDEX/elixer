@@ -27,6 +27,9 @@ changes to elixer by version
 * fix bug where checking for SEP objects bombs if elixer apertures are used and there a NO SEP objects at all (not just
   that none were selected as the best). This creates a small bias away from LyA.
 * Updated DEX-g mag vote to be a combined gmag vote
+* allow CIII to be a solution
+* if line is broad and the top multiline solution is below the minimum score but still above 15 and there are no other
+  good options, vote for that solution rather than OII
 
 
 

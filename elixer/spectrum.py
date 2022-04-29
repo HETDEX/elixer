@@ -1359,9 +1359,10 @@ class EmissionLineInfo:
                 not ((self.fwhm < MAX_FWHM) and (self.snr > MIN_HUGE_FWHM_SNR)):
             log.debug(f"Line sigma {self.fit_sigma} in broad range {LIMIT_BROAD_SIGMA} and broad line not allowed.")
             return False
-        elif not self.absorber and not G.CONTINUUM_RULES and (self.fit_sigma > GOOD_BROADLINE_SIGMA) and (self.line_score < GOOD_BROADLINE_MIN_LINE_SCORE):
+        elif not self.absorber and not G.CONTINUUM_RULES and (self.fit_sigma > GOOD_BROADLINE_SIGMA) and \
+                (self.line_score < (1.5 * GOOD_MIN_LINE_SCORE * self.fit_sigma/GOOD_BROADLINE_SIGMA)):
             log.debug(f"Line sigma {self.fit_sigma} in broad range {GOOD_BROADLINE_SIGMA} but "
-                      f"line_score {self.line_score} below minumum {GOOD_BROADLINE_MIN_LINE_SCORE}.")
+                      f"line_score {self.line_score} below minumum {1.5 * GOOD_MIN_LINE_SCORE * self.fit_sigma/GOOD_BROADLINE_SIGMA}.")
             result = False
         # minimum to be possibly good
         elif (self.line_score >= line_score_multiplier * GOOD_MIN_LINE_SCORE) and (self.fit_sigma >= GOOD_MIN_SIGMA):
@@ -4032,7 +4033,7 @@ class Spectrum:
             # big in AGN (never alone in our range)
             EmissionLine("CIV".ljust(w), 1549, "blueviolet",solution=True,display=True,rank=3,broad=True),
             # big in AGN (alone before CIV enters from blue and after MgII exits to red) [HeII too unreliable to set max_obs_wave]
-            EmissionLine("CIII".ljust(w), 1909, "purple",solution=False,display=True,rank=3,broad=True,
+            EmissionLine("CIII".ljust(w), 1909, "purple",solution=True,display=True,rank=3,broad=True,
                          min_fwhm=12.0,min_obs_wave=3751.0-20.0,max_obs_wave=4313.0+20.0),
             #big in AGN (too weak to be alone)
             EmissionLine("CII".ljust(w),  2326, "purple",solution=False,display=True,rank=4,broad=True),  # in AGN

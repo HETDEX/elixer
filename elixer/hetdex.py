@@ -1806,16 +1806,19 @@ class DetObj:
                     multiline_top_z = self.spec_obj.solutions[0].z
                     multiline_top_score = self.spec_obj.solutions[0].score
                     multiline_top_scale_score = self.spec_obj.solutions[0].scale_score
+                    multiline_top_frac_score = self.spec_obj.solutions[0].frac_score
                     multiline_top_rest = self.spec_obj.solutions[0].central_rest
                 else:
                     multiline_top_z = -1
                     multiline_top_score = -1
                     multiline_top_scale_score = -1
+                    multiline_top_frac_score = -1
                     multiline_top_rest = -1
             except:
                 multiline_top_z = -1
                 multiline_top_score = -1
                 multiline_top_scale_score = -1
+                multiline_top_frac_score = -1
                 multiline_top_rest = -1
 
 
@@ -2038,42 +2041,54 @@ class DetObj:
                 except:
                     broad = self.fhwm > 16.0
 
-                if broad:
-                    z = self.w / G.OII_rest - 1.0
-                    rest = G.OII_rest
-                    p = min(p/2.,0.1) #remember, this is just NOT LyA .. so while OII is the most common, it is hardly the only solution
-
-                    sbl_z,sbl_name = self.spec_obj.single_broad_line_redshift(self.w,self.fwhm)
-                    if sbl_z is not None and sbl_z != (self.w/G.LyA_rest - 1.0):
-                        log.info(f"Q(z): no multiline solutions. Really broad ({self.fwhm:0.1f}AA), so not likely OII. "
-                                 f"P(LyA) favors NOT LyA. Set to single broadline ({sbl_name}) z:{sbl_z:04f} with Q(z): {p}.")
-                        z = sbl_z
-                    else:
-                        p = min(p,0.01)
-                        log.info(f"Q(z): no multiline solutions. Really broad ({self.fwhm:0.1f}AA), so not likely OII, but no other good solution. "
-                                 f"P(LyA) favors NOT LyA. Set to OII z:{z:04f} with Q(z): {p}. Could still be AGN with LyA or CIV, CIII or MgII alone.")
-
-
-                    self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
-
-                else:
-                    z = self.w / G.OII_rest - 1.0
-                    rest = G.OII_rest
-                    p = plya_for_oii*p/2. #remember, this is just NOT LyA .. so while OII is the most common, it is hardly the only solution
-                         #so the highest possible would tbe 50%: P(LyA) = 0.0 ==> abs(0.5-0.0)/0.5/2. = 0.5
-
-                    #limit p to a maximum
-                    if self.flags & G.DETFLAG_DEX_GMAG_INCONSISTENT:
+                use_multi = False
+                try:
+                    if multiline_top_scale_score > 0.5 and multiline_top_frac_score > 0.6 and self.fwhm > 15:
+                        #this is not terrible and may be better than an OII guess
+                        z = self.spec_obj.solutions[0].z
                         p = min(p,0.1)
+                        use_multi = True
+                        log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. Set to z:{z} with Q(z): {p}")
+                except:
+                    pass
+
+                if not use_multi:
+                    if broad:
+                        z = self.w / G.OII_rest - 1.0
+                        rest = G.OII_rest
+                        p = min(p/2.,0.1) #remember, this is just NOT LyA .. so while OII is the most common, it is hardly the only solution
+
+                        sbl_z,sbl_name = self.spec_obj.single_broad_line_redshift(self.w,self.fwhm)
+                        if sbl_z is not None and sbl_z != (self.w/G.LyA_rest - 1.0):
+                            log.info(f"Q(z): no multiline solutions. Really broad ({self.fwhm:0.1f}AA), so not likely OII. "
+                                     f"P(LyA) favors NOT LyA. Set to single broadline ({sbl_name}) z:{sbl_z:04f} with Q(z): {p}.")
+                            z = sbl_z
+                        else:
+                            p = min(p,0.01)
+                            log.info(f"Q(z): no multiline solutions. Really broad ({self.fwhm:0.1f}AA), so not likely OII, but no other good solution. "
+                                     f"P(LyA) favors NOT LyA. Set to OII z:{z:04f} with Q(z): {p}. Could still be AGN with LyA or CIV, CIII or MgII alone.")
+
+
+                        self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
+
                     else:
-                        p = min(p,0.8)
+                        z = self.w / G.OII_rest - 1.0
+                        rest = G.OII_rest
+                        p = plya_for_oii*p/2. #remember, this is just NOT LyA .. so while OII is the most common, it is hardly the only solution
+                             #so the highest possible would tbe 50%: P(LyA) = 0.0 ==> abs(0.5-0.0)/0.5/2. = 0.5
 
-                    #p might already be lower because of above check, but if there is a large neighbor and no other limit
-                    #reduce p
-                    if self.flags & G.DETFLAG_LARGE_NEIGHBOR:
-                        p = min(p,0.4)
+                        #limit p to a maximum
+                        if self.flags & G.DETFLAG_DEX_GMAG_INCONSISTENT:
+                            p = min(p,0.1)
+                        else:
+                            p = min(p,0.8)
 
-                    log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
+                        #p might already be lower because of above check, but if there is a large neighbor and no other limit
+                        #reduce p
+                        if self.flags & G.DETFLAG_LARGE_NEIGHBOR:
+                            p = min(p,0.4)
+
+                        log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
             elif scaled_plae_classification > 0.6:
                 z= self.w / G.LyA_rest - 1.0
                 rest = G.LyA_rest
@@ -2110,6 +2125,14 @@ class DetObj:
                 #the p value
                 if  (z < 0.6) and (self.flags & G.DETFLAG_LARGE_NEIGHBOR):
                     p = min(p,0.4)
+
+                try:
+                    if multiline_top_scale_score > 0.5 and multiline_top_frac_score > 0.6 and self.fwhm > 15:
+                        #this is not terrible and may be better than an OII guess
+                        z = self.spec_obj.solutions[0].z
+                        p = min(p,0.1)
+                except:
+                    pass
 
                 log.info(f"Q(z): no multiline solutions, no strong P(LyA). z:{z} with Q(z): {p}")
 
