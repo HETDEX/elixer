@@ -4282,22 +4282,6 @@ class DetObj:
         #########################################
 
 
-        #
-        # todo: update/repalce with combined mag vote
-        #define combined mag as :  SU.cgs2mag(combined_continuum, observed_wavelength)
-# Max idx = 300, slope = 0.001001, intercept: 19.000
-# LyA Accuracy: 0.8648, Contamination: 0.0745
-# OII Accuracy: 0.9250, Contamination: 0.0105
-#
-# Max idx = 14719, slope = 0.001073, intercept: 19.190
-# LyA Accuracy: 0.7752, Contamination: 0.0215
-# OII Accuracy: 0.9579, Contamination: 0.0275
-#
-# LyA above: 592, OII above: 13
-# LyA between: 79, OII between: 41
-# LyA below: 44, OII below: 828
-#
-
         if True:
             try:
                 if ('combined_eqw_rest_lya' in self.classification_dict) and \
@@ -4312,26 +4296,42 @@ class DetObj:
                 else:
                     ew_err = 0
 
-                if self.best_gmag is not None and self.w > G.OII_rest:
-                    g = min(self.best_gmag,G.HETDEX_CONTINUUM_MAG_LIMIT)
+                try:
+                    g = SU.cgs2mag(self.classification_dict['continuum_hat'],SU.filter_iso_dict['g'])
+                except:
+                    g = None
 
-                    if self.best_gmag_unc is not None:
-                        g_unc = self.best_gmag_unc
-                    else:
-                        g_unc = 0
-
-                    g_bright = None
+                try:
+                    g_faint =  SU.cgs2mag(self.classification_dict['continuum_hat']-self.classification_dict['continuum_hat_err'],
+                                                         SU.filter_iso_dict['g'])
+                except:
                     g_faint = None
 
+                try:
+                    g_bright=  SU.cgs2mag(self.classification_dict['continuum_hat']+self.classification_dict['continuum_hat_err'],
+                                                         SU.filter_iso_dict['g'])
+                except:
+                    g_bright = None
+
+                if g is not None and self.w > G.OII_rest:
+                    #g = min(self.best_gmag,G.HETDEX_CONTINUUM_MAG_LIMIT) no longer needed
+                    # if self.best_gmag_unc is not None:
+                    #     g_unc = self.best_gmag_unc
+                    # else:
+                    #     g_unc = 0
+
+                    # g_bright = None
+                    # g_faint = None
+
                     gmag_bright_thresh, gmag_faint_thresh = gmag_vote_thresholds(self.w)
-                    try:
-                        if g == G.HETDEX_CONTINUUM_MAG_LIMIT:
-                            g_bright = g
-                        else:
-                            g_bright = g - g_unc
-                        g_faint = g + g_unc
-                    except:
-                        pass
+                    # try:
+                    #     if g == G.HETDEX_CONTINUUM_MAG_LIMIT:
+                    #         g_bright = g
+                    #     else:
+                    #         g_bright = g - g_unc
+                    #     g_faint = g + g_unc
+                    # except:
+                    #     pass
 
                     g_str = f"{g:0.2f} ({g_faint:0.2f},{g_bright:0.2f})"
                     g_thresh_str = f"{gmag_faint_thresh:0.2f}-{gmag_bright_thresh:0.2f}"
@@ -4367,7 +4367,7 @@ class DetObj:
 
                         vote_info['dex_gmag_vote'] = likelihood[-1]
                         vote_info['dex_gmag_weight'] = weight[-1]
-                        log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                        log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
                                  f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                     elif g_faint < gmag_bright_thresh: #vote for OII
                         #Still up to 25-30% could be LyA ... so weigt very little
@@ -4381,7 +4381,7 @@ class DetObj:
                                 prior.append(base_assumption)
                                 vote_info['dex_gmag_vote'] = likelihood[-1]
                                 vote_info['dex_gmag_weight'] = weight[-1]
-                                log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
                                          f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                             elif (ew-ew_err) > 30:
                                 #could be LyA
@@ -4391,7 +4391,7 @@ class DetObj:
                                 prior.append(base_assumption)
                                 vote_info['dex_gmag_vote'] = likelihood[-1]
                                 vote_info['dex_gmag_weight'] = weight[-1]
-                                log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
                                          f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                             elif (ew+ew_err) < 15:
                                 #could be LyA
@@ -4401,7 +4401,7 @@ class DetObj:
                                 prior.append(base_assumption)
                                 vote_info['dex_gmag_vote'] = likelihood[-1]
                                 vote_info['dex_gmag_weight'] = weight[-1]
-                                log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
                                          f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                             else: #no vote
                                 log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag no vote. Mag in unclear region or EW unclear. "
@@ -4413,7 +4413,7 @@ class DetObj:
                             prior.append(base_assumption)
                             vote_info['dex_gmag_vote'] = likelihood[-1]
                             vote_info['dex_gmag_weight'] = weight[-1]
-                            log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                            log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
                                      f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                     elif (g > gmag_faint_thresh and g_faint > gmag_bright_thresh) or \
                             ((gmag_bright_thresh < g < gmag_faint_thresh) and (g_bright < gmag_bright_thresh and g_faint < gmag_faint_thresh)): #small vote for LyA
@@ -4427,7 +4427,7 @@ class DetObj:
                                 prior.append(base_assumption)
                                 vote_info['dex_gmag_vote'] = likelihood[-1]
                                 vote_info['dex_gmag_weight'] = weight[-1]
-                                log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
                                          f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                             elif (ew-ew_err) > 30:
                                 #could be LyA
@@ -4437,7 +4437,7 @@ class DetObj:
                                 prior.append(base_assumption)
                                 vote_info['dex_gmag_vote'] = likelihood[-1]
                                 vote_info['dex_gmag_weight'] = weight[-1]
-                                log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
                                          f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                             elif (ew+ew_err) < 15:
                                 #could be LyA
@@ -4447,7 +4447,7 @@ class DetObj:
                                 prior.append(base_assumption)
                                 vote_info['dex_gmag_vote'] = likelihood[-1]
                                 vote_info['dex_gmag_weight'] = weight[-1]
-                                log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
                                          f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                             else: #no vote
                                 log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag no vote. Mag in unclear region. mag ({g_str}), thresh ({g_thresh_str})"
@@ -4459,7 +4459,7 @@ class DetObj:
                             prior.append(base_assumption)
                             vote_info['dex_gmag_vote'] = likelihood[-1]
                             vote_info['dex_gmag_weight'] = weight[-1]
-                            log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                            log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
                                      f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                     elif (g < gmag_bright_thresh and g_bright < gmag_faint_thresh) or \
                         ((gmag_bright_thresh < g < gmag_faint_thresh) and (g_bright < gmag_bright_thresh and g_faint < gmag_faint_thresh)):
@@ -4474,7 +4474,7 @@ class DetObj:
                                 prior.append(base_assumption)
                                 vote_info['dex_gmag_vote'] = likelihood[-1]
                                 vote_info['dex_gmag_weight'] = weight[-1]
-                                log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
                                          f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                             elif (ew-ew_err) > 30:
                                 #could be LyA
@@ -4484,7 +4484,7 @@ class DetObj:
                                 prior.append(base_assumption)
                                 vote_info['dex_gmag_vote'] = likelihood[-1]
                                 vote_info['dex_gmag_weight'] = weight[-1]
-                                log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
                                          f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                             elif (ew+ew_err) < 15:
                                 #could be LyA
@@ -4494,7 +4494,7 @@ class DetObj:
                                 prior.append(base_assumption)
                                 vote_info['dex_gmag_vote'] = likelihood[-1]
                                 vote_info['dex_gmag_weight'] = weight[-1]
-                                log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                                log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
                                          f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                             else: #no vote
                                 log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag no vote. Mag in unclear region. mag ({g_str}), thresh ({g_thresh_str})"
@@ -4506,7 +4506,7 @@ class DetObj:
                             prior.append(base_assumption)
                             vote_info['dex_gmag_vote'] = likelihood[-1]
                             vote_info['dex_gmag_weight'] = weight[-1]
-                            log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
+                            log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
                                      f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
 
                     else: #g is in between OR error straddles both ... either way, no vote
@@ -5542,7 +5542,7 @@ class DetObj:
                                              f" magnitude with suggestion of bright, offset object. Excluding from consideration.")
                                 elif a['sep_obj_idx'] is None and a['elixer_aper_idx'] is not None: #this is an elixer aperture selection
                                     try:
-                                        if len(a['sep_objects']) > 0 and a['radius'] > min([x['dist_baryctr'] for x in a['sep_objects']]):
+                                        if a['sep_objects'] is not None and len(a['sep_objects']) > 0 and a['radius'] > min([x['dist_baryctr'] for x in a['sep_objects']]):
                                             #the elixer aperture has grown to encompass SEP objects, but none are selected as being
                                             #close enough ... we can't use the elixer aperture in this case ... it is clearly too large
                                             #and is contaiminated
@@ -5633,101 +5633,101 @@ class DetObj:
                         f" ({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) "
                         f"weight({weight[-1]:#.2f}) filter({self.best_counterpart.bid_filter.lower()}) dist({self.best_counterpart.distance})")
 
-        if False: #choosing the last argument as this is a mix of probabilites and even in the "best" case is an over counting
-            try:
-                #which aperture filter?
-                coord_dict = {} #key = catalog +_ + filter  values: ra, dec
-                for a in self.aperture_details_list:
-                    if (a['catalog_name'] is None) or (a['filter_name'] is None):
-                        continue
-                    else:
-                        coord_dict[a['catalog_name']+'_'+a['filter_name']] = {'ra': a['ra'],'dec':a['dec']}
-
-                #set the weight = 1.0 / number of possible matches
-                sel = np.where(np.array([x.bid_dec for x in self.bid_target_list]) != 666)
-                sel = np.where(np.array([x.distance for x in np.array(self.bid_target_list)[sel]]) < aperture_radius)
-
-                num_cat_match = len(sel[0])
-
-                if num_cat_match > 1:
-                    catmatch_weight = 1.0/len(sel[0])
-                else:
-                    catmatch_weight = 1.0
-
-                #nearest (that is not the explicit aperture position)
-                catalog_target_list_distances = [x.distance for x in self.bid_target_list if x.bid_dec != 666]
-                if len(catalog_target_list_distances) > 0:
-                    nearest_distance = np.min(catalog_target_list_distances)
-
-                    for b in self.bid_target_list:
-                        if (b.bid_dec == 666): #this is a measured aperture, not a catalog match
-                            continue
-
-                        #if there are multiple bid targets, which one(s) to use?
-                        #center could be off (large object), so distance is not ideal, nor is the prob_match
-                        #maybe IF the center is INSIDE the selected ExtractedObject?
-
-                        if b.distance < aperture_radius:
-                            #"best" filter already chosen, so just use it
-
-                            if (b.bid_flux_est_cgs is not None) and (b.bid_flux_est_cgs_unc is not None) and \
-                                (b.bid_flux_est_cgs > 0) and (b.bid_flux_est_cgs_unc > 0):
-
-                                #push down the weight as ratio of nearest_distance to the current match distance
-                                #the closest gets full share of its weight and the others scale down from there
-                                weight.append(catmatch_weight*nearest_distance/b.distance)
-
-                                #set a minimum variance of ~ 20% for ground (maybe less for hubble)
-                                #b.bid_flux_est_cgs_unc is the s.d. so need to square for variance
-                                variance.append(max( b.bid_flux_est_cgs*b.bid_flux_est_cgs*0.04,
-                                                        b.bid_flux_est_cgs_unc*b.bid_flux_est_cgs_unc))
-                                continuum.append(b.bid_flux_est_cgs)
-                                cont_type.append("c" + a['filter_name'])
-                                nondetect.append(0)
-                                log.debug(
-                                    f"{self.entry_id} Combine All Continuum: Added catalog bid target estimate"
-                                    f" ({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) "
-                                    f"weight({weight[-1]:#.2f}) filter({b.bid_filter}) dist({b.distance})")
-
-                        #old
-
-                        #just use b.bid_filter info? b.bid_flux_est_cgs, b.bid_flux_est_cgs_unc?
-                        if False:
-                        ##for f in b.filters:
-                            if (b.catalog_name is None) or (f.filter is None):
-                                continue
-
-                            if f.filter.lower() not in ['g','r','f606w']: #should only use one ...
-                                continue
-
-                            key = b.catalog_name + "_" + f.filter.lower()
-
-                            if key in coord_dict.keys():
-                                if utils.angular_distance(b.bid_ra,b.bid_dec,coord_dict[key]['ra'],coord_dict[key]['dec']) < 1.0:
-                                    if b.bid_flux_est_cgs is not None:
-                                        cont = b.bid_flux_est_cgs
-                                        if b.bid_flux_est_cgs_unc is not None:
-                                            cont_var = b.bid_flux_est_cgs_unc * b.bid_flux_est_cgs_unc
-                                            if cont_var == 0:
-                                                cont_var = cont * cont
-                                        else:
-                                            cont_var = cont * cont
-
-                                        weight.append(1.0)
-                                        variance.append(cont_var)
-                                        continuum.append(cont)
-
-                                        cat_idx = len(continuum)
-
-                                        log.debug(
-                                            f"{self.entry_id} Combine All Continuum: Added catalog bid target estimate"
-                                            f" ({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) "
-                                            f"weight({weight[-1]:#.2f}) filter({key})")
-                                    break #only use one
-
-            except:
-                log.debug("Exception handling catalog bid-target continuum in DetObj:combine_all_continuum", exc_info=True)
-                
+        # if False: #choosing the last argument as this is a mix of probabilites and even in the "best" case is an over counting
+        #     try:
+        #         #which aperture filter?
+        #         coord_dict = {} #key = catalog +_ + filter  values: ra, dec
+        #         for a in self.aperture_details_list:
+        #             if (a['catalog_name'] is None) or (a['filter_name'] is None):
+        #                 continue
+        #             else:
+        #                 coord_dict[a['catalog_name']+'_'+a['filter_name']] = {'ra': a['ra'],'dec':a['dec']}
+        #
+        #         #set the weight = 1.0 / number of possible matches
+        #         sel = np.where(np.array([x.bid_dec for x in self.bid_target_list]) != 666)
+        #         sel = np.where(np.array([x.distance for x in np.array(self.bid_target_list)[sel]]) < aperture_radius)
+        #
+        #         num_cat_match = len(sel[0])
+        #
+        #         if num_cat_match > 1:
+        #             catmatch_weight = 1.0/len(sel[0])
+        #         else:
+        #             catmatch_weight = 1.0
+        #
+        #         #nearest (that is not the explicit aperture position)
+        #         catalog_target_list_distances = [x.distance for x in self.bid_target_list if x.bid_dec != 666]
+        #         if len(catalog_target_list_distances) > 0:
+        #             nearest_distance = np.min(catalog_target_list_distances)
+        #
+        #             for b in self.bid_target_list:
+        #                 if (b.bid_dec == 666): #this is a measured aperture, not a catalog match
+        #                     continue
+        #
+        #                 #if there are multiple bid targets, which one(s) to use?
+        #                 #center could be off (large object), so distance is not ideal, nor is the prob_match
+        #                 #maybe IF the center is INSIDE the selected ExtractedObject?
+        #
+        #                 if b.distance < aperture_radius:
+        #                     #"best" filter already chosen, so just use it
+        #
+        #                     if (b.bid_flux_est_cgs is not None) and (b.bid_flux_est_cgs_unc is not None) and \
+        #                         (b.bid_flux_est_cgs > 0) and (b.bid_flux_est_cgs_unc > 0):
+        #
+        #                         #push down the weight as ratio of nearest_distance to the current match distance
+        #                         #the closest gets full share of its weight and the others scale down from there
+        #                         weight.append(catmatch_weight*nearest_distance/b.distance)
+        #
+        #                         #set a minimum variance of ~ 20% for ground (maybe less for hubble)
+        #                         #b.bid_flux_est_cgs_unc is the s.d. so need to square for variance
+        #                         variance.append(max( b.bid_flux_est_cgs*b.bid_flux_est_cgs*0.04,
+        #                                                 b.bid_flux_est_cgs_unc*b.bid_flux_est_cgs_unc))
+        #                         continuum.append(b.bid_flux_est_cgs)
+        #                         cont_type.append("c" + a['filter_name'])
+        #                         nondetect.append(0)
+        #                         log.debug(
+        #                             f"{self.entry_id} Combine All Continuum: Added catalog bid target estimate"
+        #                             f" ({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) "
+        #                             f"weight({weight[-1]:#.2f}) filter({b.bid_filter}) dist({b.distance})")
+        #
+        #                 #old
+        #
+        #                 #just use b.bid_filter info? b.bid_flux_est_cgs, b.bid_flux_est_cgs_unc?
+        #                 if False:
+        #                 ##for f in b.filters:
+        #                     if (b.catalog_name is None) or (f.filter is None):
+        #                         continue
+        #
+        #                     if f.filter.lower() not in ['g','r','f606w']: #should only use one ...
+        #                         continue
+        #
+        #                     key = b.catalog_name + "_" + f.filter.lower()
+        #
+        #                     if key in coord_dict.keys():
+        #                         if utils.angular_distance(b.bid_ra,b.bid_dec,coord_dict[key]['ra'],coord_dict[key]['dec']) < 1.0:
+        #                             if b.bid_flux_est_cgs is not None:
+        #                                 cont = b.bid_flux_est_cgs
+        #                                 if b.bid_flux_est_cgs_unc is not None:
+        #                                     cont_var = b.bid_flux_est_cgs_unc * b.bid_flux_est_cgs_unc
+        #                                     if cont_var == 0:
+        #                                         cont_var = cont * cont
+        #                                 else:
+        #                                     cont_var = cont * cont
+        #
+        #                                 weight.append(1.0)
+        #                                 variance.append(cont_var)
+        #                                 continuum.append(cont)
+        #
+        #                                 cat_idx = len(continuum)
+        #
+        #                                 log.debug(
+        #                                     f"{self.entry_id} Combine All Continuum: Added catalog bid target estimate"
+        #                                     f" ({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) "
+        #                                     f"weight({weight[-1]:#.2f}) filter({key})")
+        #                             break #only use one
+        #
+        #     except:
+        #         log.debug("Exception handling catalog bid-target continuum in DetObj:combine_all_continuum", exc_info=True)
+        #
         try:
             best_guess_extent = np.array(best_guess_extent)
             base_psf = np.array(base_psf)

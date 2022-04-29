@@ -1,6 +1,6 @@
 changes to elixer by version
 
-1.16.7a2 [2022-04-28]
+1.16.7a2 [2022-04-29]
 * Limit sibling line FWHM similarity sanity check enforcement to SNR < 5.7
 * Update AGN consistency check to use line ranks in scoring
 * Update gmag_vote_thresholds() to use HDR3 calibration
@@ -24,6 +24,9 @@ changes to elixer by version
   this is the top solution, also receives a "PN" classification label in addition to DETFLAG_POSSIBLE_PN flag
 * make pyhetdex import optional
 * add --timex option to fractionally boost SLURM time
+* fix bug where checking for SEP objects bombs if elixer apertures are used and there a NO SEP objects at all (not just
+  that none were selected as the best). This creates a small bias away from LyA.
+* Updated DEX-g mag vote to be a combined gmag vote
 
 
 
