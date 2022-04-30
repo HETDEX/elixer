@@ -2108,7 +2108,18 @@ class DetObj:
                 # if self.flags & G.DETFLAG_LARGE_NEIGHBOR:
                 #     p = min(p,0.4)
 
-                log.info(f"Q(z): no multiline solutions. P(LyA) favors LyA. Set to LyA z:{z} with Q(z): {p}")
+                try:
+                    if multiline_top_scale_score > 0.5 and multiline_top_frac_score > 0.6 and self.fwhm > 15:
+                        #this is not terrible and may be better than an OII guess
+                        z = self.spec_obj.solutions[0].z
+                        p = min(p,0.1)
+                        log.info(f"Q(z): weak multiline solution. P(LyA) favors LyA, but set to z:{z} with Q(z): {p}")
+                    else:
+                        log.info(f"Q(z): no multiline solutions. P(LyA) favors LyA. Set to LyA z:{z} with Q(z): {p}")
+                except:
+                    log.info(f"Q(z): no multiline solutions. P(LyA) favors LyA. Set to LyA z:{z} with Q(z): {p}")
+
+
             else: #we are in no-man's land
                 if scaled_plae_classification < 0.5:
                     z = self.w / G.OII_rest - 1.0
