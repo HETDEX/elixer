@@ -1361,6 +1361,7 @@ class EmissionLineInfo:
             return False
         elif not self.absorber and not G.CONTINUUM_RULES and (self.fit_sigma > GOOD_BROADLINE_SIGMA) and \
                 (self.line_score < (1.5 * GOOD_MIN_LINE_SCORE * self.fit_sigma/GOOD_BROADLINE_SIGMA)):
+            #and  ((self.eqw_obs - self.eqw_obs_err) < 5.0) and (abs(self.fit_dx0) > 5.0):
             log.debug(f"Line sigma {self.fit_sigma} in broad range {GOOD_BROADLINE_SIGMA} but "
                       f"line_score {self.line_score} below minumum {1.5 * GOOD_MIN_LINE_SCORE * self.fit_sigma/GOOD_BROADLINE_SIGMA}.")
             result = False

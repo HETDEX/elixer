@@ -1808,6 +1808,8 @@ class DetObj:
                     multiline_top_scale_score = self.spec_obj.solutions[0].scale_score
                     multiline_top_frac_score = self.spec_obj.solutions[0].frac_score
                     multiline_top_rest = self.spec_obj.solutions[0].central_rest
+                    log.info(f"{self.entry_id} Top solution: z={multiline_top_z:0.4f} rest={multiline_top_rest:0.1f}, "
+                             f"score={multiline_top_score:0.1f}, frac_score={multiline_top_frac_score:0.3f}")
                 else:
                     multiline_top_z = -1
                     multiline_top_score = -1
