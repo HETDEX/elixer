@@ -1801,6 +1801,8 @@ class DetObj:
             #is the multiline solution (which has been updated with catalog phot-z and spec-z)
             #consistent with lowz or high-z?
 
+            toublesome_lines = [1549,1909, 2799] #CIV, CIII, MgII
+
             try:
                 if self.spec_obj and self.spec_obj.solutions and len(self.spec_obj.solutions) > 0:
                     multiline_top_z = self.spec_obj.solutions[0].z
@@ -2045,9 +2047,16 @@ class DetObj:
 
                 use_multi = False
                 try:
-                    if multiline_top_scale_score > 0.5 and multiline_top_frac_score > 0.6 and self.fwhm > 15:
+
+                    if multiline_top_score > G.MULTILINE_MIN_SOLUTION_SCORE and multiline_top_rest in troublesome_lines:
+                        z = multiline_top_z
+                        p = min(p,0.2)
+                        use_multi = True
+                        log.info(f"Q(z): Multiline solution is weak and inconsistent, but nothing better."
+                                 f"P(LyA) favors OII {scaled_plae_classification}. Set to multiline z:{z} with Q(z): {p}")
+                    elif multiline_top_scale_score > 0.5 and multiline_top_frac_score > 0.6 and self.fwhm > 12:
                         #this is not terrible and may be better than an OII guess
-                        z = self.spec_obj.solutions[0].z
+                        z = multiline_top_z
                         p = min(p,0.1)
                         use_multi = True
                         log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. Set to z:{z} with Q(z): {p}")
@@ -2090,7 +2099,12 @@ class DetObj:
                         if self.flags & G.DETFLAG_LARGE_NEIGHBOR:
                             p = min(p,0.4)
 
-                        log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
+                        if multiline_top_score > G.MULTILINE_MIN_SOLUTION_SCORE and multiline_top_rest in troublesome_lines:
+                            z = multiline_top_z
+                            log.info(f"Q(z): Multiline solution is weak and inconsistent, but nothing better."
+                                     f"P(LyA) favors OII {scaled_plae_classification}. Set to multiline z:{z} with Q(z): {p}")
+                        else:
+                            log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
             elif scaled_plae_classification > 0.6:
                 z= self.w / G.LyA_rest - 1.0
                 rest = G.LyA_rest
@@ -2140,7 +2154,7 @@ class DetObj:
                     p = min(p,0.4)
 
                 try:
-                    if multiline_top_scale_score > 0.5 and multiline_top_frac_score > 0.6 and self.fwhm > 15:
+                    if multiline_top_scale_score > 0.5 and multiline_top_frac_score > 0.6 and self.fwhm > 12:
                         #this is not terrible and may be better than an OII guess
                         z = self.spec_obj.solutions[0].z
                         p = min(p,0.1)
