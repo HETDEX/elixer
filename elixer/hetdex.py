@@ -2248,7 +2248,7 @@ class DetObj:
                     if elixer_max_idx is not None and self.spec_obj.solutions is not None and len(self.spec_obj.solutions) > 0:
                         sol_sel = np.isclose(z,[x.z for x in self.spec_obj.solutions],atol=0.01) #solutions with matching z
                         if sum(sol_sel) > 0 and np.any(np.isclose(self.spec_obj.all_found_lines[elixer_max_idx].fit_x0,
-                                             [x.w_obs for x in np.hstack([l.lines for l in np.array(self.spec_obj.solutions )[sol_sel]])],
+                            np.concatenate(([self.w],[x.w_obs for x in np.hstack([l.lines for l in np.array(self.spec_obj.solutions )[sol_sel]])])),
                                              atol=4.0)):
                             max_line_in_solution = True
                         else:
@@ -3835,6 +3835,18 @@ class DetObj:
                             log.info(
                                 f"{self.entry_id} Aggregate Classification: LyA weak solution: z({s.z}) lk({likelihood[-1]}) "
                                 f"weight({weight[-1]}) score({s.score}) scaled score({s.scale_score})")
+
+                        elif self.fwhm > 12.0 and np.any(np.isclose(s.central_rest, [1549,1909,2799],atol=4)):
+                            #if it is broad and the solution is for CIV, CIII, or MgII
+                            w = max(w * 2.0, s.score/25.0) #boost the weight
+                            likelihood.append(0.0)  # weak solution so push likelihood "down" but not zero (maybe 0.2 or 0.25)?
+                            weight.append(w * bonus_weight)
+                            var.append(1)  # todo: ? could do something like the spectrum noise?
+                            prior.append(base_assumption)
+                            log.info(
+                                f"{self.entry_id} Aggregate Classification: broad CIV,CIII, or MgII weak solution: z({s.z:0.4f}) {s.name}-{s.central_rest}, "
+                                f"lk({likelihood[-1]}) weight({weight[-1]:0.4f}) score({s.score}) scaled score({s.scale_score})")
+
                         else:  # suggesting NOT LAE consistent
                             #likelihood.append(1. - s.scale_score)
                             #weight.append(1.0 * w)  # opinion ... has multiple lines, so the score is reasonable

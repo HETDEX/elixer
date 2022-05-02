@@ -1,6 +1,6 @@
 changes to elixer by version
 
-1.16.7a2 [2022-04-29]
+1.16.7a2 [2022-05-02]
 * Limit sibling line FWHM similarity sanity check enforcement to SNR < 5.7
 * Update AGN consistency check to use line ranks in scoring
 * Update gmag_vote_thresholds() to use HDR3 calibration
@@ -30,6 +30,8 @@ changes to elixer by version
 * allow CIII to be a solution
 * if line is broad and the top multiline solution is below the minimum score but still above 15 and there are no other
   good options, vote for that solution rather than OII
+* if line is broad and the multiline solution is below the minimum score and is for CIV, CIII, MgII, allow a down weighted
+  vote for not LyA
 
 
 
