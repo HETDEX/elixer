@@ -4386,9 +4386,9 @@ class DetObj:
                             g_bright = min(g, G.HETDEX_CONTINUUM_MAG_LIMIT)
                             log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote. Non-detect unset g_bright set to {g_bright} as limit.")
 
-                        if ew_err > ew:
-                            ew_err = ew - self.estflux / SU.mag2cgs(g_bright,self.w)
-                            log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote. Extreme EW error set to bright side only as limit. {ew} +/- {ew_err}")
+                    if ew_err > ew:
+                        ew_err = ew - np.clip(self.estflux / SU.mag2cgs(g_bright,self.w),0,ew)
+                        log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote. Extreme EW error set to bright side only as limit. {ew} +/- {ew_err}")
                 except:
                     pass
 
