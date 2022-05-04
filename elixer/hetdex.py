@@ -4375,6 +4375,23 @@ class DetObj:
                 except:
                     g_bright = None
 
+                #sanity check. g_faint can be nan or None, esp if all non-detects and super faint
+                try:
+                    if g > G.HETDEX_CONTINUUM_MAG_LIMIT:
+                        if g_faint is None or np.isnan(g_faint):
+                            g_faint = max(g,29.0)
+                            log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote. Non-detect unset g_faint set to {g_faint} as limit.")
+
+                        if g_bright is None or np.isnan(g_bright):
+                            g_bright = min(g, G.HETDEX_CONTINUUM_MAG_LIMIT)
+                            log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote. Non-detect unset g_bright set to {g_bright} as limit.")
+
+                        if ew_err > ew:
+                            ew_err = ew - self.estflux / SU.mag2cgs(g_bright,self.w)
+                            log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote. Extreme EW error set to bright side only as limit. {ew} +/- {ew_err}")
+                except:
+                    pass
+
                 if g is not None and self.w > G.OII_rest:
                     #g = min(self.best_gmag,G.HETDEX_CONTINUUM_MAG_LIMIT) no longer needed
                     # if self.best_gmag_unc is not None:
@@ -5826,7 +5843,7 @@ class DetObj:
                 try:
                     faint_detect = np.min(continuum[nondetect==0])
                 except:
-                    faint_detect = -9e99
+                    faint_detect = -9e99 #an error OR they are all non-detects
 
                 #now reselect to all detects and the deepest non-detect
                 if deepest > faint_detect:
