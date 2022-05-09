@@ -83,6 +83,24 @@ if ("--help" in args) or ("--version" in args):
     elixer.parse_commandline(auto_force=True)
     exit(0)
 
+
+if "--cluster" in args:
+    i = args.index("--cluster")
+    if i != -1:
+        try:
+            from os.path import exists
+            if exists(sys.argv[i + 1]):
+                pass #all good
+            else:
+                print(f"Warning! --cluster file does not exist: {sys.argv[i + 1]}")
+                exit(0)
+        except:
+            print("Exception processing command line for --cluster")
+            exit(-1)
+
+
+
+
 #check for --merge (if so just call elixer
 MERGE = False
 if "--merge" in args:
