@@ -1838,13 +1838,13 @@ class DetObj:
                 unsure = False #P(LyA) is near 0.500
                 num_solutions = len(self.spec_obj.solutions)
 
-                primary_solution = False
-
-                if (num_solutions > 1) and (self.spec_obj.solutions[1].frac_score > 0):
-                    if (self.spec_obj.solutions[0].frac_score / self.spec_obj.solutions[1].frac_score) > 1.9:
-                        primary_solution = True
-                else:
-                    primary_solution = True
+                # primary_solution = False
+                #
+                # if (num_solutions > 1) and (self.spec_obj.solutions[1].frac_score > 0):
+                #     if (self.spec_obj.solutions[0].frac_score / self.spec_obj.solutions[1].frac_score) > 1.9:
+                #         primary_solution = True
+                # else:
+                #     primary_solution = True
 
                 #keep the first that agrees
                 for idx,sol in enumerate(self.spec_obj.solutions):
@@ -1869,16 +1869,22 @@ class DetObj:
                          ((scaled_plae_classification > 0.6) and (rest != G.LyA_rest)):
                         #voting vs line solution mis-match
 
-                        #if the next solution is much weaker just stop, otherwise keep going
-                        if (idx+1) < num_solutions:
-                            if  (self.spec_obj.solutions[idx+1].frac_score < 0.2) or \
-                                (self.spec_obj.solutions[idx+1].score < G.MULTILINE_MIN_SOLUTION_SCORE * 0.6 ):
-                                #allow some room below the minium since we are also matching to P(LyA), say 60% of minimum?
-                                break #we've reached a point where there are no good scores
-                            else:
-                                continue
+                        #this could be an AGN on LyA though and if score is high, just accept that it can disagree
+                        if scale_score > 0.90 and self.fwhm > 12 and self.best_gmag < 23 and rest==G.LyA_rest:
+                            agree = False
+                            unsure = False
+                            break
                         else:
-                            continue #keep looking for a match
+                            #if the next solution is much weaker just stop, otherwise keep going
+                            if (idx+1) < num_solutions:
+                                if  (self.spec_obj.solutions[idx+1].frac_score < 0.2) or \
+                                    (self.spec_obj.solutions[idx+1].score < G.MULTILINE_MIN_SOLUTION_SCORE * 0.6 ):
+                                    #allow some room below the minium since we are also matching to P(LyA), say 60% of minimum?
+                                    break #we've reached a point where there are no good scores
+                                else:
+                                    continue
+                            else:
+                                continue #keep looking for a match
                     else:
                         if SU.map_multiline_score_to_confidence(scale_score) < 0.4: #low confidence
                             if z > 1.8 and self.best_gmag is not None and self.best_gmag < 23.5: #"high-z"
