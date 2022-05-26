@@ -216,6 +216,8 @@ def get_sdss_gmag(flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_SIZ
     :return: AB mag in g-band and continuum estimate (erg/s/cm2/AA)
             if flux_err is specified then also returns error on mag and error on the flux (continuum)
     """
+    #todo: in caller or here, enfore a limit based on the 1-sigma flux limits at the CCD position and the seeing FWHM
+    log.debug("++++  #todo: in caller or here, enfore a limit based on the 1-sigma flux limits at the CCD position and the seeing FWHM")
 
     try:
         mag = None
@@ -333,8 +335,12 @@ def get_hetdex_gmag(flux_density, wave, flux_density_err=None):
             if flux_err is specified then also returns error on mag and error on the flux (continuum)
     """
 
+    #todo: in caller or here, enfore a limit based on the 1-sigma flux limits at the CCD position and the seeing FWHM
+    log.debug("++++  #todo: in caller or here, enfore a limit based on the 1-sigma flux limits at the CCD position and the seeing FWHM")
+
     try:
         #use the SDSS-g wavelength if can as would be used by the get_sdss_gmag() above
+        filter_name = 'sdss2010-g'
         f_lam_iso = speclite_filters.load_filters(filter_name).effective_wavelengths[0].value
     except:
         f_lam_iso = 4726.1 #should be about this value anyway

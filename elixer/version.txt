@@ -1,6 +1,6 @@
 changes to elixer by version
 
-1.16.7a2 [2022-05-04]
+1.16.7a2 [2022-05-13]
 * Limit sibling line FWHM similarity sanity check enforcement to SNR < 5.7
 * Update AGN consistency check to use line ranks in scoring
 * Update gmag_vote_thresholds() to use HDR3 calibration
@@ -34,6 +34,7 @@ changes to elixer by version
   vote for not LyA
 * add fwhm_line_kms / _err to elixer.h5 file as a convenience
 * restrict ew error and g-mag error for faint side non-detects in gmag vote
+* fixed bug in best_z; can be LyA with low P(LyA) if multiline solution picks out broad LyA (AGN compatible)
 
 
 
