@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.16.7a3 [2022-05-27]
+* special release for HSC-NEP with commented out fields with bad WCS
+
 1.16.7a2 [2022-05-13]
 * Limit sibling line FWHM similarity sanity check enforcement to SNR < 5.7
 * Update AGN consistency check to use line ranks in scoring
