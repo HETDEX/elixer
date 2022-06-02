@@ -173,7 +173,7 @@ else:
 
 
 if "--neighborhood" in args:
-    i = args.index("--queue")
+    i = args.index("--neighborhood")
     try:
         neighborhood = sys.argv[i + 1]
     except:
