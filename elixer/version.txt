@@ -1,5 +1,12 @@
 changes to elixer by version
 
+1.16.8a1 [2022-06-13]
+* added a voting weight adjustment to down-weight line property based votes (FWHM, PLAE/POII, EW, etc) when the spectral
+  line has really poor SNR or chi2. This effectively comes in to play ONLY when EliXer is asked to fit a line at a specific
+  spot, so the normal SNR and chi2 cuts are not applied. This is not the case for the usual HETDEX provided detections.
+* replace hetdex_api calls to get_flux_for_source() with fit_circular_aperture() (still using small fixed aperture though,
+  updated from 1.0" radius to 1.5", and still at 5"-7" annulus for sky)
+
 1.16.7a3 [2022-05-27]
 * special release for HSC-NEP with commented out fields with bad WCS
 

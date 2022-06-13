@@ -21,7 +21,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.16.7a3'
+__version__ = '1.16.8a1'
 #Logging
 GLOBAL_LOGGING = True
 
@@ -1031,6 +1031,7 @@ DETFLAG_POOR_IMAGING                = 0x00000200 #poor depth (in g,r) ... like j
 
 DETFLAG_LARGE_SKY_SUB               = 0x00000400 #possibly excessive sky subtraction in g or r band
                                         #can impact the magnitude calculation (so partly redundant with others)
+                                        #NOTE: this is a reserved flag, but there is no code to check it at this time
 
 DETFLAG_EXT_CAT_QUESTIONABLE_Z      = 0x00000800 #best redshift reported is from an external catalog and might be questionable
                                                  #the redshift my by uncertain or it is unclear that it belongs to our object
