@@ -3419,6 +3419,11 @@ class DetObj:
 
         #multiply (down weight) votes based on line properties when the line is of really poor SNR or Chi2
         line_vote_weight_mul = snr_chi2_weight(self.snr, self.chi2)
+        if line_vote_weight_mul < 1.0:
+            self.flags |= G.DETFLAG_QUESTIONABLE_DETECTION
+            if line_vote_weight_mul < 0.6:
+                self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
+                self.needs_review = True
 
         reason = ""
         base_assumption = 0.5 #not used yet

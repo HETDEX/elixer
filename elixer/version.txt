@@ -6,6 +6,7 @@ changes to elixer by version
   spot, so the normal SNR and chi2 cuts are not applied. This is not the case for the usual HETDEX provided detections.
 * replace hetdex_api calls to get_flux_for_source() with fit_circular_aperture() (still using small fixed aperture though,
   updated from 1.0" radius to 1.5", and still at 5"-7" annulus for sky)
+* update default HDR to 3.0
 
 1.16.7a3 [2022-05-27]
 * special release for HSC-NEP with commented out fields with bad WCS

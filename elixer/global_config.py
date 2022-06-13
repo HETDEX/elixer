@@ -127,12 +127,12 @@ BUILD_REPORT_BY_FILTER = True #if True, multiple catalogs are used to build the 
 
 if hostname in LOCAL_DEV_HOSTNAMES:  # primary author test box
 #if False:
-    HDR_Version = "2.1"
-    HDR_Version_float = 2.1
+    HDR_Version = "3.0" #"2.1"
+    HDR_Version_float = 3.0 #2.1
     LAUNCH_PDF_VIEWER = 'qpdfview'
 else:
-    HDR_Version = "2.1"  # default HDR Version if not specified
-    HDR_Version_float = 2.1
+    HDR_Version = "3.0" #"2.1"  # default HDR Version if not specified
+    HDR_Version_float = 3.0 #2.1
 
 #look specifically (and only) for HDR version on call
 args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
@@ -1051,7 +1051,7 @@ DETFLAG_NEGATIVE_SPECTRUM           = 0x00040000
 DETFLAG_POOR_THROUGHPUT             = 0x00080000
 DETFLAG_BAD_DITHER_NORM             = 0x00100000
 DETFLAG_POOR_SHOT                   = 0x00200000
-DETFLAG_QUESTIONABLE_DETECTION      = 0x00400000   #unable to fit a continuum (wide) and cont(n) is fairly negative
+DETFLAG_QUESTIONABLE_DETECTION      = 0x00400000   #unable to fit a continuum (wide) and cont(n) is fairly negative, or bad emission line fit
 DETFLAG_EXCESSIVE_ZERO_PIXELS       = 0x00800000   #too many zero valued pixels at the emission line center in 2D cutouts
 
 DETFLAG_POSSIBLE_PN                 = 0x01000000    #possible planetery nebula hit (usually 5007, without an obvious source)
