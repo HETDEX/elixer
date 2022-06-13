@@ -39,8 +39,8 @@ LAUNCH_PDF_VIEWER = None
 
 valid_HDR_Versions = [1,2,2.1,3,3.0]
 
-HDR_Version = "2.1"
-HDR_Version_float = 2.1
+HDR_Version = "3" #"2.1"
+HDR_Version_float = 3.0
 
 WORK_BASEPATH = "/work"
 try:
@@ -196,8 +196,17 @@ def set_hdr_basepath(version=None):
             print("Invalid HDRversion configuration")
             return
 
-        try:
+        try: #might be like "hdr3.0" where "hdr3" is what is expected
             HETDEX_API_CONFIG = HDRconfig(survey=strHDRVersion)
+        except KeyError:
+            try:
+                if strHDRVersion[-2:] == ".0":
+                    HETDEX_API_CONFIG = HDRconfig(survey=strHDRVersion[:-2])
+                    strHDRVersion = strHDRVersion[:-2]
+                    version = version[:-2]
+                    HDR_Version = HDR_Version[:-2]
+            except Exception as e:
+                print(e)
         except Exception as e:
             print(e)
 
