@@ -343,7 +343,7 @@ class DECaLS(cat_base.Catalog):#DECaLS
 
             # sci.load_image(wcs_manual=True)
             cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error, window=window,
-                                                     aperture=aperture,mag_func=mag_func,return_details=True)
+                                                     aperture=aperture,mag_func=mag_func,return_details=True,detobj=detobj)
 
             if (self.MAG_LIMIT < mag < 100) and (mag_radius > 0):
                 details['fail_mag_limit'] = True
@@ -530,7 +530,7 @@ class DECaLS(cat_base.Catalog):#DECaLS
                 # master cutout needs a copy of the data since it is going to be modified  (stacked)
                 # repeat the cutout call, but get a copy
                 if self.master_cutout is None:
-                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True,reset_center=False)
+                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True,reset_center=False,detobj=detobj)
                     #self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True)
                     if sci.exptime:
                         ref_exptime = sci.exptime
@@ -986,7 +986,8 @@ class DECaLS(cat_base.Catalog):#DECaLS
     #
     #     return stacked_cutout
 
-    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,filter=None,error=None,do_sky_subtract=True):
+    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,filter=None,error=None,do_sky_subtract=True,
+                          detobj=None):
 
         d = {'cutout':None,
              'hdu':None,
@@ -1086,7 +1087,7 @@ class DECaLS(cat_base.Catalog):#DECaLS
                 cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error=error, window=window,
                                                                               aperture=aperture,
                                                                               mag_func=mag_func, copy=True,
-                                                                              return_details=True)
+                                                                              return_details=True,detobj=detobj)
                 # don't need pix_counts or mag, etc here, so don't pass aperture or mag_func
 
                 if cutout is not None:  # construct master cutout
@@ -1131,7 +1132,7 @@ class DECaLS(cat_base.Catalog):#DECaLS
 
         return d
 
-    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=None,error=None,do_sky_subtract=True):
+    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=None,error=None,do_sky_subtract=True,detobj=None):
         l = list()
 
         #filters are fixed
@@ -1162,7 +1163,7 @@ class DECaLS(cat_base.Catalog):#DECaLS
                         # if filter list provided but the image is NOT in the filter list go to next one
                         continue
 
-                    cutout = self.get_single_cutout(ra, dec, window, None, aperture,filter=f,error=error)
+                    cutout = self.get_single_cutout(ra, dec, window, None, aperture,filter=f,error=error,detobj=detobj)
                     try:
                         if 'retry' in cutout.keys():
                             if cutout['retry'] == False:
@@ -1182,7 +1183,7 @@ class DECaLS(cat_base.Catalog):#DECaLS
         else:
             for f in self.Filters:
                 try:
-                    l.append(self.get_single_cutout(ra,dec,window,None,aperture,filter=f))
+                    l.append(self.get_single_cutout(ra,dec,window,None,aperture,filter=f,detobj=detobj))
                 except:
                     log.error("Exception! collecting image cutouts.", exc_info=True)
 

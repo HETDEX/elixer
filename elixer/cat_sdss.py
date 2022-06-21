@@ -450,7 +450,7 @@ class SDSS(cat_base.Catalog):#SDSS
             G.ALLOW_EMPTY_IMAGE = True
 
             cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error, window=window,
-                                                     aperture=aperture,mag_func=mag_func,return_details=True)
+                                                     aperture=aperture,mag_func=mag_func,return_details=True,detobj=detobj)
 
             G.ALLOW_EMPTY_IMAGE = save_ALLOW_EMPTY_IMAGE
 
@@ -636,7 +636,7 @@ class SDSS(cat_base.Catalog):#SDSS
                     save_ALLOW_EMPTY_IMAGE = G.ALLOW_EMPTY_IMAGE
                     G.ALLOW_EMPTY_IMAGE = True
 
-                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True,reset_center=False)
+                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True,reset_center=False,detobj=detobj)
 #                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True)
 
                     G.ALLOW_EMPTY_IMAGE = save_ALLOW_EMPTY_IMAGE
@@ -1053,7 +1053,8 @@ class SDSS(cat_base.Catalog):#SDSS
         plt.close()
         return fig
 
-    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,filter=None,error=None,do_sky_subtract=True):
+    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,filter=None,error=None,do_sky_subtract=True,
+                          detobj=None):
 
 
         d = {'cutout':None,
@@ -1111,7 +1112,7 @@ class SDSS(cat_base.Catalog):#SDSS
                 cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error=error, window=window,
                                                                               aperture=aperture,
                                                                               mag_func=mag_func, copy=True,
-                                                                              return_details=True)
+                                                                              return_details=True,detobj=detobj)
 
                 G.ALLOW_EMPTY_IMAGE = save_ALLOW_EMPTY_IMAGE
                 # don't need pix_counts or mag, etc here, so don't pass aperture or mag_func
@@ -1158,7 +1159,7 @@ class SDSS(cat_base.Catalog):#SDSS
 
         return d
 
-    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=None,error=None,do_sky_subtract=True):
+    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=None,error=None,do_sky_subtract=True,detobj=None):
         l = list()
 
         #filters are fixed
@@ -1191,7 +1192,7 @@ class SDSS(cat_base.Catalog):#SDSS
                         # if filter list provided but the image is NOT in the filter list go to next one
                         continue
 
-                    cutout = self.get_single_cutout(ra, dec, window, None, aperture,filter=f,error=error)
+                    cutout = self.get_single_cutout(ra, dec, window, None, aperture,filter=f,error=error,detobj=detobj)
                     if first:
                         if cutout['cutout'] is not None:
                                 l.append(cutout)
@@ -1204,7 +1205,7 @@ class SDSS(cat_base.Catalog):#SDSS
         else:
             for f in self.Filters:
                 try:
-                    l.append(self.get_single_cutout(ra,dec,window,None,aperture,filter=f))
+                    l.append(self.get_single_cutout(ra,dec,window,None,aperture,filter=f,detobj=detobj))
                 except:
                     log.error("Exception! collecting image cutouts.", exc_info=True)
 

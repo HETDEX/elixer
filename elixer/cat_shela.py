@@ -762,7 +762,7 @@ class SHELA(cat_base.Catalog):
                                                              image_location=op.join(i['path'], i['name']))
                 sci = i['image']
 
-                cutout, _, _, _ = sci.get_cutout(ra, dec, error, window=window, aperture=None, mag_func=None)
+                cutout, _, _, _ = sci.get_cutout(ra, dec, error, window=window, aperture=None, mag_func=None,detobj=detobj)
                 #don't need pix_counts or mag, etc here, so don't pass aperture or mag_func
 
                 if cutout is not None:  # construct master cutout
@@ -1106,7 +1106,7 @@ class SHELA(cat_base.Catalog):
 
             # sci.load_image(wcs_manual=True)
             cutout, pix_counts, mag, mag_radius,details = sci.get_cutout(ra, dec, error, window=window,
-                                                     aperture=aperture,mag_func=mag_func,return_details=True)
+                                                     aperture=aperture,mag_func=mag_func,return_details=True,detobj=detobj)
 
             if (self.MAG_LIMIT < mag < 100) and (mag_radius > 0):
                 details['fail_mag_limit'] = True
@@ -1295,7 +1295,7 @@ class SHELA(cat_base.Catalog):
                 # master cutout needs a copy of the data since it is going to be modified  (stacked)
                 # repeat the cutout call, but get a copy
                 if self.master_cutout is None:
-                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True,reset_center=False)
+                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True,reset_center=False,detobj=detobj)
                     #self.master_cutout,_,_,_ = sci.get_cutout(ra, dec, error, window=window, copy=True)
                     if sci.exptime:
                         ref_exptime = sci.exptime
@@ -1712,7 +1712,7 @@ class SHELA(cat_base.Catalog):
 
 
 
-    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,error=None,do_sky_subtract=True):
+    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,error=None,do_sky_subtract=True,detobj=None):
 
         d = {'cutout':None,
              'hdu':None,
@@ -1756,7 +1756,7 @@ class SHELA(cat_base.Catalog):
             cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error=error, window=window,
                                                                           aperture=aperture,
                                                                           mag_func=mag_func, copy=True,
-                                                                          return_details=True)
+                                                                          return_details=True,detobj=detobj)
             # don't need pix_counts or mag, etc here, so don't pass aperture or mag_func
 
             if cutout is not None:  # construct master cutout
@@ -1801,7 +1801,7 @@ class SHELA(cat_base.Catalog):
 
         return d
 
-    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False,error=None,do_sky_subtract=True):
+    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False,error=None,do_sky_subtract=True,detobj=None):
         l = list()
 
         tile = self.find_target_tile(ra, dec,verify=False)
@@ -1847,7 +1847,7 @@ class SHELA(cat_base.Catalog):
                 if i is None:
                     continue
 
-                cutout = self.get_single_cutout(ra, dec, window, i, aperture,error)
+                cutout = self.get_single_cutout(ra, dec, window, i, aperture,error,detobj=detobj)
 
                 if first:
                     if cutout['cutout'] is not None:

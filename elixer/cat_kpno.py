@@ -542,7 +542,7 @@ class KPNO(cat_base.Catalog):#Kitt Peak
 
             # sci.load_image(wcs_manual=True)
             cutout, pix_counts, mag, mag_radius,details = sci.get_cutout(ra, dec, error, window=window,
-                                                     aperture=aperture,mag_func=mag_func,return_details=True)
+                                                     aperture=aperture,mag_func=mag_func,return_details=True,detobj=detobj)
 
             if (self.MAG_LIMIT < mag < 100) and (mag_radius > 0):
                 details['fail_mag_limit'] = True
@@ -722,7 +722,7 @@ class KPNO(cat_base.Catalog):#Kitt Peak
                 # master cutout needs a copy of the data since it is going to be modified  (stacked)
                 # repeat the cutout call, but get a copy
                 if self.master_cutout is None:
-                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True,reset_center=False)
+                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True,reset_center=False,detobj=detobj)
                     if sci.exptime:
                         ref_exptime = sci.exptime
                     total_adjusted_exptime = 1.0
@@ -1111,7 +1111,7 @@ class KPNO(cat_base.Catalog):#Kitt Peak
         plt.close()
         return fig
 
-    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,error=None,do_sky_subtract=True):
+    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,error=None,do_sky_subtract=True,detobj=None):
 
 
         d = {'cutout':None,
@@ -1154,7 +1154,7 @@ class KPNO(cat_base.Catalog):#Kitt Peak
                 error = window
 
             cutout,pix_counts, mag, mag_radius,details = sci.get_cutout(ra, dec, error=error, window=window, aperture=aperture,
-                                             mag_func=mag_func,copy=True,return_details=True)
+                                             mag_func=mag_func,copy=True,return_details=True,detobj=detobj)
             # don't need pix_counts or mag, etc here, so don't pass aperture or mag_func
 
             if cutout is not None:  # construct master cutout
@@ -1199,7 +1199,7 @@ class KPNO(cat_base.Catalog):#Kitt Peak
 
         return d
 
-    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False,error=None,do_sky_subtract=True):
+    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False,error=None,do_sky_subtract=True,detobj=None):
         l = list()
 
         tile = self.find_target_tile(ra, dec)
@@ -1247,7 +1247,7 @@ class KPNO(cat_base.Catalog):#Kitt Peak
                              if ((d['filter'] == f) and (d['tile'] == tile)))]
 
                     if i is not None:
-                        cutout = self.get_single_cutout(ra, dec, window, i, aperture,error)
+                        cutout = self.get_single_cutout(ra, dec, window, i, aperture,error,detobj=detobj)
 
                         if first:
                             if cutout['cutout'] is not None:
@@ -1275,6 +1275,6 @@ class KPNO(cat_base.Catalog):#Kitt Peak
                 if i is None:
                     continue
 
-                l.append(self.get_single_cutout(ra,dec,window,i,aperture))
+                l.append(self.get_single_cutout(ra,dec,window,i,aperture,detobj=detobj))
 
         return l

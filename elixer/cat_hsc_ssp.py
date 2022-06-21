@@ -978,7 +978,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                 #   from only HSC)
 
                 kpno = cat_kpno.KPNO()
-                kpno_cuts = kpno.get_cutouts(ra,dec,window/3600.0,aperture=kpno.mean_FWHM * 0.5 + 0.5,filter='g',first=True)
+                kpno_cuts = kpno.get_cutouts(ra,dec,window/3600.0,aperture=kpno.mean_FWHM * 0.5 + 0.5,filter='g',first=True,detobj=detobj)
 
                 if (kpno_cuts is not None) and (len(kpno_cuts) == 1):
                     index += 1
@@ -1152,7 +1152,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
             # sci.load_image(wcs_manual=True)
             cutout, pix_counts, mag, mag_radius,details = sci.get_cutout(ra, dec, error, window=window,
-                                                     aperture=aperture,mag_func=mag_func,return_details=True)
+                                                     aperture=aperture,mag_func=mag_func,return_details=True,detobj=detobj)
 
             if (self.MAG_LIMIT < mag < 100) and (mag_radius > 0):
                 log.warning(f"Cutout mag {mag} greater than limit {self.MAG_LIMIT}. Setting to limit.")
@@ -1340,7 +1340,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                 # master cutout needs a copy of the data since it is going to be modified  (stacked)
                 # repeat the cutout call, but get a copy
                 if self.master_cutout is None:
-                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True,reset_center=False)
+                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True,reset_center=False,detobj=detobj)
                     #self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True)
                     if sci.exptime:
                         ref_exptime = sci.exptime
@@ -1795,7 +1795,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
         plt.close()
         return fig
 
-    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,error=None,do_sky_subtract=True):
+    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,error=None,do_sky_subtract=True,detobj=None):
         """
 
         :param ra:
@@ -1852,7 +1852,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                 error = window
 
             cutout,pix_counts, mag, mag_radius,details = sci.get_cutout(ra, dec, error=error, window=window, aperture=aperture,
-                                             mag_func=mag_func,copy=True,return_details=True)
+                                             mag_func=mag_func,copy=True,return_details=True,detobj=detobj)
             # don't need pix_counts or mag, etc here, so don't pass aperture or mag_func
             if cutout is not None:  # construct master cutout
                 d['cutout'] = cutout
@@ -1896,7 +1896,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
         return d
 
-    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False,error=None,do_sky_subtract=True):
+    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False,error=None,do_sky_subtract=True,detobj=None):
         l = list()
 
         tile, tracts, positions = self.find_target_tile(ra, dec)
@@ -1949,7 +1949,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                         next(i for (i, d) in enumerate(self.CatalogImages)
                              if ((d['filter'] == f) and (d['tile'] == tile.replace("?",f.upper()))))]
                     if i is not None:
-                        cutout = self.get_single_cutout(ra, dec, window, i, aperture,error)
+                        cutout = self.get_single_cutout(ra, dec, window, i, aperture,error,detobj=detobj)
 
                         if first:
                             if cutout['cutout'] is not None:
@@ -1977,6 +1977,6 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                 if i is None:
                     continue
 
-                l.append(self.get_single_cutout(ra,dec,window,i,aperture))
+                l.append(self.get_single_cutout(ra,dec,window,i,aperture,detobj=detobj))
 
         return l
