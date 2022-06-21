@@ -156,6 +156,9 @@ def unc_str(tup): #helper, formats a string with exponents and uncertainty
 
 def is_in_ellipse(xp,yp,xc,yc,a,b,angle):
     """
+    NOTICE: this is COORDINATE DISTANCE ... does not attempt to adjust for underlying metric (i.e does not adjust
+    for projection on sphere with RA distances as function of cos(declination).).
+
     :param xp: x coord of point
     :param yp: y coord of point
     :param xc: x coord of ellipse center
@@ -200,6 +203,9 @@ def is_in_ellipse(xp,yp,xc,yc,a,b,angle):
 def dist_to_ellipse(xp,yp,xc,yc,a,b,angle):
     """
     Find the distance to the nearest point ON the ellipse for point OUTSIDE the ellipse.
+
+    NOTICE: this is COORDINATE DISTANCE ... does not attempt to adjust for underlying metric (i.e does not adjust
+    for projection on sphere with RA distances as function of cos(declination).).
 
     :param xp: x coord of point
     :param yp: y coord of point

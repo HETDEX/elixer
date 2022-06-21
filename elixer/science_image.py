@@ -803,7 +803,7 @@ class science_image():
 
         return gx, gy
 
-    def find_sep_objects(self,cutout,max_dist=None):
+    def find_sep_objects(self,cutout,max_dist=None,detobj=None):
         """
 
         :param cutout:
@@ -995,8 +995,9 @@ class science_image():
                 log.info("No (source extractor) objects found")
                 return img_objects, None
 
-            if selected_idx >= 0:
-                obj = objects[selected_idx]
+            # if selected_idx >= 0:
+            #     #PROBLEM. we do not know that HETDEX g-mag here, so we will revisit later in cat_base where we DO know tha
+            #     obj = objects[selected_idx]
             #check max distance
             #todo: incorporate the effective radius of the ellipse? s\t large ellipse gets a little larger max_dist?
             # and a very small ellipse gets (maybe) a little shorted max_dist?
@@ -1007,13 +1008,12 @@ class science_image():
                 return img_objects, None
 
 
-
             #selected_idx applies to the objects list
             #IT IS NOT NECESSARILY THE SAME SIZE as img_objects
 
             #mark selected item
             if selected_idx >= 0:
-                img_object_idx = map_idx[selected_idx] #xlat to img_objects index
+                img_object_idx = map_idx[selected_idx]  # xlat to img_objects index
                 img_objects[img_object_idx]['selected'] = True
                 return img_objects, img_object_idx
             else:
@@ -1082,7 +1082,7 @@ class science_image():
         return cutout
 
     def get_cutout(self,ra,dec,error,window=None,image=None,copy=False,aperture=0,mag_func=None,
-                   do_sky_subtract=True,return_details=False,reset_center=True):
+                   do_sky_subtract=True,return_details=False,reset_center=True,detobj=None):
         '''ra,dec in decimal degrees. error and window in arcsecs'''
         #error is central box (+/- from ra,dec)
         #window is the size of the entire coutout
@@ -1460,7 +1460,7 @@ class science_image():
             return_radius = None #the effective radius for that magnitude
 
             if G.USE_SOURCE_EXTRACTOR:
-                source_objects,selected_obj_idx = self.find_sep_objects(cutout,G.NUDGE_SEP_MAX_DIST)
+                source_objects,selected_obj_idx = self.find_sep_objects(cutout,G.NUDGE_SEP_MAX_DIST,detobj=detobj)
 
                 if (source_objects is not None) and (len(source_objects) > 0):
 
@@ -1524,36 +1524,81 @@ class science_image():
                         except:
                             log.debug("Exception converting source extrator x,y to RA, Dec", exc_info=True)
 
-                        if sobj['selected']:
-                            # the shift in AA from center
-                            self.last_x0_center = sobj['x'] #* self.pixel_size
-                            self.last_y0_center = sobj['y'] #* self.pixel_size
-                            # the shift in AA from lower left
-                            self.last_x_center = (sobj['x']/self.pixel_size  + cutout.center_cutout[0]) * self.pixel_size
-                            self.last_y_center = (sobj['y']/self.pixel_size  + cutout.center_cutout[1]) * self.pixel_size
-
-                            #details['radius'] = radius
-                            try:
-                                details['radius'] = 0.5*np.sqrt(sobj['a']*sobj['b']) #0.5 * because a,b are diameters, not radii
-                            except:
-                                details['radius'] = -1.0
-
-                            details['aperture_counts'] = counts #Already Sky subtracted
-                            #todo: modify find_sep_objects to get this extra info
-                            details['area_pix'] = None
-                            details['sky_area_pix'] = None
-                            details['sky_average'] = None
-                            details['sky_counts'] = None
-                            details['mag'] = mag
-                            details['mag_err'] = mag_err
-                            details['mag_bright'] = mag_bright
-                            details['mag_faint'] = mag_faint
-                            details['ra'] = sobj['ra']
-                            details['dec'] = sobj['dec']
 
                             #matplotlib plotting later needs these in sky units (arcsec) not pixels
-                    details['sep_objects']  = source_objects
+
+                    if detobj is not None:
+                        try:
+                            if (abs(detobj.best_gmag - source_objects[selected_obj_idx]['mag']) < 0.5) or \
+                                    ((detobj.best_gmag < 22) and (source_objects[selected_obj_idx]['mag'] < 22)) or \
+                                    ((source_objects[selected_obj_idx]['mag'] > detobj.best_gmag) and (
+                                            detobj.best_gmag > G.HETDEX_CONTINUUM_MAG_LIMIT)):
+                                # yep, compatible, so keep this one
+                                pass
+                            else:
+                                target_dist = source_objects[selected_obj_idx]['dist_curve'] if \
+                                    source_objects[selected_obj_idx]['dist_curve'] > 0 else \
+                                    source_objects[selected_obj_idx]['dist_baryctr']
+                                target_dist += 0.5  # allow up to 0.5"
+                                best_idx = selected_obj_idx
+                                best_dist = 999.9
+                                best_dmag = 999.9
+
+                                for i, s in enumerate(source_objects):
+                                    bid_dist = s['dist_curve'] if s['dist_curve'] > 0 else s['dist_baryctr']
+                                    bid_dmag = abs(detobj.best_gmag - s['mag'])
+                                    if bid_dist <= target_dist:  # sufficiently close
+                                        if (bid_dmag < 0.5) or \
+                                                ((detobj.best_gmag < 22) and (s['mag'] < 22)) or \
+                                                ((s['mag'] > detobj.best_gmag) and (
+                                                        detobj.best_gmag > G.HETDEX_CONTINUUM_MAG_LIMIT)):
+                                            # they are compatible
+                                            if (bid_dist < best_dist) and (bid_dmag < best_dmag):
+                                                #unset the old one
+                                                source_objects[best_idx]['selected'] = False
+
+                                                #set the new one
+                                                best_idx = i
+                                                best_dist = bid_dist
+                                                best_dmag = bid_dmag
+                                                source_objects[best_idx]['selected'] = True
+
+                                selected_obj_idx = best_idx
+                        except:
+                            log.info("Exception in science_image.py get_cutout().", exc_info=True)
+
+                    details['sep_objects'] = source_objects
                     details['sep_obj_idx'] = selected_obj_idx
+
+
+                    if selected_obj_idx is not None:
+                        sobj = source_objects[selected_obj_idx]
+                        # the shift in AA from center
+                        self.last_x0_center = sobj['x']  # * self.pixel_size
+                        self.last_y0_center = sobj['y']  # * self.pixel_size
+                        # the shift in AA from lower left
+                        self.last_x_center = (sobj['x'] / self.pixel_size + cutout.center_cutout[0]) * self.pixel_size
+                        self.last_y_center = (sobj['y'] / self.pixel_size + cutout.center_cutout[1]) * self.pixel_size
+
+                        # details['radius'] = radius
+                        try:
+                            details['radius'] = 0.5 * np.sqrt(
+                                sobj['a'] * sobj['b'])  # 0.5 * because a,b are diameters, not radii
+                        except:
+                            details['radius'] = -1.0
+
+                        details['aperture_counts'] = counts  # Already Sky subtracted
+                        # todo: modify find_sep_objects to get this extra info
+                        details['area_pix'] = None
+                        details['sky_area_pix'] = None
+                        details['sky_average'] = None
+                        details['sky_counts'] = None
+                        details['mag'] = mag
+                        details['mag_err'] = mag_err
+                        details['mag_bright'] = mag_bright
+                        details['mag_faint'] = mag_faint
+                        details['ra'] = sobj['ra']
+                        details['dec'] = sobj['dec']
 
                     if selected_obj_idx is not None:
                         return_counts = details['aperture_counts']
@@ -1628,7 +1673,7 @@ class science_image():
 
     def get_circular_aperture_photometry(self,cutout,ra,dec,error,mag_func,position,image,do_sky_subtract,
                                          sky_image,sky_inner_radius,sky_outer_radius,aperture,
-                                         details,return_details,check_cutout_empty=True):
+                                         details,return_details,check_cutout_empty=True,detobj=None):
         """
 
         :param position:

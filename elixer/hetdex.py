@@ -2171,7 +2171,7 @@ class DetObj:
 
 
             #sanity check --- override negative z
-            if z < 0: #unless this is a star, kick it out
+            if z < -0.0005: #unless this is a star, kick it out
                 z = self.w / G.LyA_rest - 1.0
                 if scaled_plae_classification > 0.5:
                     p = scaled_plae_classification
@@ -2825,7 +2825,8 @@ class DetObj:
                 pass
 
 
-            dither_norm_x = 1.0
+            dither_norm_x = 1.0 #this is the ratio of largeest over smallest dither to dither
+            #the actual (three) values are in self.relflux_virus
             if (np.isnan(self.dither_norm) or (self.dither_norm > 2.0)):
                 # log.info(f"DetObj::check_for_meteor(). Cannot check for meteor due to bad dither normalization ({self.dither_norm})")
                 # return 0
@@ -2834,9 +2835,6 @@ class DetObj:
                 else:
                     dither_norm_x = self.dither_norm
                 log.info(f"DetObj::check_for_meteor(). Dither norm limitations in place due to bad dither normalization ({self.dither_norm})")
-
-
-
 
             num_exp = len(np.unique([f.expid for f in self.fibers]))
             if num_exp < 2:
@@ -2876,6 +2874,9 @@ class DetObj:
 
             exp = np.zeros((num_exp,len(G.CALFIB_WAVEGRID)))
             exp_err = np.zeros((num_exp,len(G.CALFIB_WAVEGRID)))
+            exp_fiber_ct = np.zeros(num_exp)
+            exp_linefinder = np.full(num_exp,None)
+            spec_idx_range = np.arange(115,965,1) #3700 to 5400
 
             #fibers are sorted by weight
 
@@ -2889,8 +2890,46 @@ class DetObj:
             for f in self.fibers:
                 idx = f.panacea_idx
                 exp[f.expid-1] += f.fits.calfib[idx]
-                exp_err[f.expid-1] += f.fits.calfibe[idx]
+                exp_err[f.expid-1] += f.fits.calfibe[idx]**2 #adding in quadrature, will do the sqrt in the next block below
+                exp_fiber_ct[f.expid-1] += 1
                 # weight_dict[f.expid-1] += f.relative_weight
+
+            for i in range(len(exp)):
+                if exp_fiber_ct[i] > 0:
+                    exp[i] /= exp_fiber_ct[i]
+                    exp_err[i] = np.sqrt(exp_err[i])/exp_fiber_ct[i]
+
+                    #run the line finder over all (three) exposures
+                    try:
+                        exp_linefinder[i] = elixer_spectrum.sn_peakdet_no_fit(G.CALFIB_WAVEGRID, exp[i],exp_err[i],
+                                                                              dx=4, rx=3, dv=2.5, dvmx=5.0)
+                                                                    #values_units=-17,enforce_good=False)
+                    except:
+                        log.info("Exception in DetObj::check_for_meteor()",exc_info=True)
+
+            all_exp_pos = np.unique(sorted(np.concatenate(exp_linefinder))).astype(int)
+            if len(all_exp_pos) == 0: #no lines are found ... we do REQUIRE lines for meteor, so skip out now
+                log.debug(f"Meteor check ({self.entry_id}). No emission lines found in per-exposure check. Cannot qualify "
+                          f"as a meteor under current definition.")
+                return 0
+
+            #all_exp_waves = G.CALFIB_WAVEGRID[all_exp_pos]
+            #add bin to either side of each position
+            all_exp_pos_wide = np.unique(sorted(np.concatenate((all_exp_pos-1,all_exp_pos,all_exp_pos+1)))).astype(int).clip(0,len(G.CALFIB_WAVEGRID))
+
+            #how many are in the common lines?
+
+            # # # dummy plot
+            # plt.close('all')
+            # plt.figure(figsize=(12,3))
+            # for i in range(len(exp)):
+            #     plt.plot(G.CALFIB_WAVEGRID, exp[i]/exp_err[i], label=f"{i}")
+            # plt.axhline(0,color='k')
+            # plt.legend()
+            # plt.tight_layout()
+            # plt.savefig("meteor_test.png")
+            # plt.show()
+
 
             # try:
             #     max_exposure_weight = max(weight_dict.values())
@@ -2909,8 +2948,10 @@ class DetObj:
             common_sum = np.zeros(num_exp)
             common_sume = np.zeros(num_exp)
             for i in range(num_exp):
-                common_sum[i] = np.nansum(exp[i][common_line_idx])
+                common_sum[i] = np.nansum(exp[i][common_line_idx])  #this are already means, so don't divide by num fibers again
                 common_sume[i] = np.sqrt(np.nansum(exp_err[i][common_line_idx]**2))
+
+
 
             # which has the minimum (so can subtract off)
             #forces the lowest to be zero and keeps everything non-negative
@@ -2947,8 +2988,20 @@ class DetObj:
                 ssum = np.zeros(num_exp)
                 ssume = np.zeros(num_exp)
                 for i in range(num_exp):
-                    ssum[i] = np.nansum(exp[i])
-                    ssume[i] = np.sqrt(np.nansum(exp_err[i]**2))
+                    #ssum[i] = np.nansum(exp[i][spec_idx_range])
+
+                    #was summing over all or nearly all the spectrum, but
+                    #this really washes out the impact from emission lines or possible lines and gets dominated
+                    #by the average level (kind of like why emission lines often don't matter much to the continuum estimate
+                    #and we just use the gmag ... unless they are broad)
+
+                    # ssum[i] = np.nansum(abs(exp[i][spec_idx_range]))
+                    # ssume[i] = np.sqrt(np.nansum(exp_err[i][spec_idx_range]**2))
+
+                    #so NOW, use possible line centers (+/- 1 since meteor lines are usually not super broad)
+                    #from all dithers independently insted of just the full spectrum width
+                    ssum[i] = np.nansum(abs(exp[i][all_exp_pos_wide]))
+                    ssume[i] = np.sqrt(np.nansum(exp_err[i][all_exp_pos_wide]**2))
 
                 #which has the minimum (so can subtract off)
                 ssum -= min(ssum)
@@ -2982,7 +3035,8 @@ class DetObj:
                 # so ignore this and just use the 'common' values at the end
                 # checking that the indices are the same in both methods AND
                 # the middle sum is not so close to either the min or the max that they could reasonably be confused
-                if ((cmx_expid != mx_expid) or (cmn_expid != mn_expid)):
+                #if ((cmx_expid != mx_expid) or (cmn_expid != mn_expid)):
+                if (cmx_expid != mx_expid):# only check the max exposures or (cmn_expid != mn_expid)):
 
 
                 # if ((cmx_expid != mx_expid) and \
@@ -3052,7 +3106,7 @@ class DetObj:
             meteor = 0
             spec_ratio_trigger = 3.0 * dither_norm_x
             full_spec_ratio_trigger = 5.0 * dither_norm_x
-            bright_obj_spec_ratio_trigger = 2.5 * dither_norm_x
+            bright_obj_spec_ratio_trigger = 2.0 * dither_norm_x
 
             if cmx_sum > cn2_sum > 0:
                 full_ratio = mx_sum / n2_sum
@@ -3063,7 +3117,9 @@ class DetObj:
                # if ((full_ratio > 2 ) or (common_ratio > 4)): #maybe need more checking
                 #minimum gate check, just to warrant addtional steps
                 pos = []
-                log.debug(f"Meteor check. full_ratio = {full_ratio:0.2f}, spec_ratio = {spec_ratio:0.2f}, near_bright = {near_bright_obj}")
+                log.debug(f"Meteor check ({self.entry_id}). full_ratio = {full_ratio:0.2f} ({full_spec_ratio_trigger:0.2f}),"
+                          f" spec_ratio = {spec_ratio:0.2f} ({spec_ratio_trigger:0.2f}) ({bright_obj_spec_ratio_trigger:0.2f}),"
+                          f" near_bright = {near_bright_obj}")
                 if ( (full_ratio > full_spec_ratio_trigger) or (spec_ratio > spec_ratio_trigger ) or \
                         ((near_bright_obj and (spec_ratio > bright_obj_spec_ratio_trigger)))):
                     #or \
@@ -3075,9 +3131,12 @@ class DetObj:
                         #are going to be the brighter/stronger lines anyway,
                         #there is no need to run the "no fit" lines and risk a shotgun match
                         if len(waves) < 4 and self.best_gmag > 22.5:
-                            pos = elixer_spectrum.sn_peakdet_no_fit(G.CALFIB_WAVEGRID, exp[cmx_expid - 1],
-                                                                    exp_err[cmx_expid - 1],
-                                                                    dx=3, rx=2, dv=3.0, dvmx=5.0)
+                            #this is now essentially done higher up, so just reference it
+                            # pos = elixer_spectrum.sn_peakdet_no_fit(G.CALFIB_WAVEGRID, exp[cmx_expid - 1],
+                            #                                         exp_err[cmx_expid - 1],
+                            #                                         dx=3, rx=2, dv=3.0, dvmx=5.0)
+
+                            pos = exp_linefinder[cmx_expid - 1] #from the extreme exposure
                             quick_waves = G.CALFIB_WAVEGRID[pos]
                             for q in quick_waves:
                                 if not np.any(np.isclose(q, waves, atol=6.0)):
@@ -3126,6 +3185,8 @@ class DetObj:
                                              ((waves >= 4224) & (waves <= 4230)) |
                                              ((waves >= 5170) & (waves <= 5186))  )[0]
 
+                    log.debug(f"Meteor check ({self.entry_id}). Bright Mg lines ({len(bright_mg_line)}), common lines ({len(common_lines)}).")
+
                     weighted_line_count = len(bright_mg_line) * 2 + len(common_lines)
 
                     #other lines CaII at 3934
@@ -3134,15 +3195,15 @@ class DetObj:
                     #            MgI  at 5173,5184
                     #            FeI  at 5330  (weak)
 
-
-
-
-
-                    if near_bright_obj and weighted_line_count < 4:
+                    if near_bright_obj and weighted_line_count < 3:
                         pass
                     elif len(waves) > 30:
-                        #too many to trust
-                        meteor = 0
+                        #might be too many to trust (scatter shot)
+                        if max(full_ratio,spec_ratio) > 5.0 and min(full_ratio,spec_ratio) > 1.5:
+                            meteor = 1
+                        else:
+                            meteor = 0
+
                     elif len(common_lines) > 3: #got most of the common lines
                         if (len(waves) < 10):  # check for total waves (too many results in shotgun match)
                             meteor = 5 #common trigger
@@ -3162,20 +3223,23 @@ class DetObj:
                                 log.debug("+++++ meteor condition 1")
                             elif len(waves) < 20: #getting close to shotgun
                                 meteor = 2
-                                log.debug("+++++ meteor condition 2")
+                                log.debug("+++++ meteor condition 2a")
                             elif len(waves) < 30: #getting close to shotgun
                                 meteor = 1
-                                log.debug("+++++ meteor condition 2")
+                                log.debug("+++++ meteor condition 2b")
 
                         elif (full_ratio > (0.75 * full_spec_ratio_trigger)):
                             if (len(bright_mg_line) > 0) : #only got a bright line
                                 #if (len(waves) < 4):
                                 #    log.debug("+++++ no enough other lines for meteor. condition 3")
-                                if weighted_line_count < 4:
+                                if weighted_line_count < 3:
                                     pass #just not enough lines
+                                elif weighted_line_count < 5:
+                                    meteor = 1
+                                    log.debug("+++++ meteor condition 3a")
                                 elif (len(waves) < 10):  # check for total waves (too many results in shotgun match)
                                     meteor = 2 #occasional trigger
-                                    log.debug("+++++ meteor condition 3")
+                                    log.debug("+++++ meteor condition 3b")
                                 elif len(waves) < 20:  # getting close to shotgun
                                     meteor = 1
                                     log.debug("+++++ meteor condition 4")
@@ -3190,11 +3254,14 @@ class DetObj:
                     elif near_bright_obj and (spec_ratio > bright_obj_spec_ratio_trigger) and \
                             (full_spec_ratio_trigger > 0.75 * full_spec_ratio_trigger):
                         if (len(bright_mg_line) > 0) and (len(common_lines) > 1):
-                            if weighted_line_count < 4:
+                            if weighted_line_count < 3:
                                 pass #just not enough lines
+                            elif weighted_line_count < 5:
+                                meteor = 1
+                                log.debug("+++++ meteor condition 1b1")
                             elif (len(waves) < 10):  # check for total waves (too many results in shotgun match)
                                 meteor = 2
-                                log.debug("+++++ meteor condition 1b")
+                                log.debug("+++++ meteor condition 1b2")
                             elif len(waves) < 20:
                                 meteor = 1
                                 log.debug("+++++ meteor condition 2b")
@@ -3222,9 +3289,9 @@ class DetObj:
                     #     log.debug("+++++ meteor condition 6a")
                     #     meteor = 0.5
                     else:
-                        log.debug("Failed to meet additional meteor criteria. Likely not a meteor.")
+                        log.debug("Failed to meet strong additional meteor criteria.")
 
-                    #final check
+                    #final checks
                     if (meteor == 0)  and  (weighted_line_count > 3) \
                             and (((spec_ratio > 20) and (full_ratio > 5)) or ((spec_ratio > 40) and (full_ratio > 2.5))) \
                             and (len(waves) <= 20):
@@ -3236,6 +3303,13 @@ class DetObj:
                     #         meteor = 0.5
                     #         log.debug("+++++ meteor condition 1d")
 
+                    if (meteor == 0) and ((near_bright_obj is False) and (len(bright_mg_line) > 0) and \
+                        ((full_ratio > 1.3 * full_spec_ratio_trigger) or (spec_ratio > 1.3 * spec_ratio_trigger))) or \
+                        ((near_bright_obj is True) and (len(bright_mg_line) > 0) and \
+                        ((full_ratio > 1.3 * full_spec_ratio_trigger) and (spec_ratio > bright_obj_spec_ratio_trigger))):
+                            self.flags |= G.DETFLAG_POSSIBLE_LOCAL_TRANSIENT
+                            meteor = 1
+                            log.debug("+++++ meteor condition 1c2")
 
                     if meteor > 0:
                         log.debug(f"Meteor check score: {meteor}")
@@ -3260,6 +3334,8 @@ class DetObj:
                         return 1
                     # elif spec_ratio > 2*spec_ratio_trigger or full_ratio > 2*full_spec_ratio_trigger:
                     #     self.flags |= G.DETFLAG_POSSIBLE_LOCAL_TRANSIENT
+                    else:
+                        log.debug("Failed to meet meteor criteria. Likely not a meteor.")
                 else:
                     log.debug(f"Did not trigger initial meteor check. Targetted spec ratio {spec_ratio}. Full ratio {full_ratio}.")
 
@@ -3478,8 +3554,22 @@ class DetObj:
                 vote_info['size_in_psf'] = self.classification_dict['size_in_psf']
                 vote_info['diam_in_arcsec'] = self.classification_dict['diam_in_arcsec']
 
-                z_oii = self.w/G.OII_rest - 1
-                diam_kpc = SU.physical_diameter(z_oii,self.classification_dict['diam_in_arcsec'])
+                # if -2 < (self.w - G.OII_rest) < 40:
+                #     log.info(f"{self.entry_id} Aggregate Classification, low observed wavelength ({self.w:0.2f}). Using minimum redshift value for size info.")
+                #     z_oii = 0.05
+                #     diam_kpc = SU.physical_diameter(z_oii, self.classification_dict['diam_in_arcsec'])
+                #     if diam_kpc > 5.0:
+                #         self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
+                #         self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
+                #     #record the actual value though
+                #     vote_info['oii_size_in_kpc'] = SU.physical_diameter(self.w/G.OII_rest - 1, self.classification_dict['diam_in_arcsec'])
+                # else:
+                #     z_oii = self.w/G.OII_rest - 1
+                #     diam_kpc = SU.physical_diameter(z_oii,self.classification_dict['diam_in_arcsec'])
+                #     vote_info['oii_size_in_kpc'] = diam_kpc
+
+                z_oii = self.w / G.OII_rest - 1
+                diam_kpc = SU.physical_diameter(z_oii, self.classification_dict['diam_in_arcsec'])
                 vote_info['oii_size_in_kpc'] = diam_kpc
 
                 if diam_kpc is None:
@@ -4052,6 +4142,16 @@ class DetObj:
                 #         w *=
                 except:
                     pass
+
+
+                # #if the observed wave is very low, close to 3727, this can be highly skewed
+                # if -2 < (self.w - G.OII_rest) < 40:
+                #     log.info(f"{self.entry_id} Aggregate Classification: low observed wavelength ({self.w:0.2f}). Down weighting MC PLAE/POII.")
+                #
+                #     if -2 < (self.w - G.OII_rest) < 5:
+                #         w = min(w, 0.05)
+                #     else:
+                #         w = min(w,(self.w - G.OII_rest)/40 * 0.1 )
                 weight.append(w)
                 var.append(1)  # todo: use the sd (scaled?) #can't use straight up here since the variances are not
                                # on the same scale
