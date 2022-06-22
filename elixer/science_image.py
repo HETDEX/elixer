@@ -1527,7 +1527,7 @@ class science_image():
 
                             #matplotlib plotting later needs these in sky units (arcsec) not pixels
 
-                    if detobj is not None and selected_obj_idx is not None:
+                    if detobj is not None and selected_obj_idx is not None and False:
                         try:
                             if (abs(detobj.best_gmag - source_objects[selected_obj_idx]['mag']) < 0.5) or \
                                     ((detobj.best_gmag < 22) and (source_objects[selected_obj_idx]['mag'] < 22)) or \
@@ -1593,10 +1593,10 @@ class science_image():
                         details['sky_area_pix'] = None
                         details['sky_average'] = None
                         details['sky_counts'] = None
-                        details['mag'] = mag
-                        details['mag_err'] = mag_err
-                        details['mag_bright'] = mag_bright
-                        details['mag_faint'] = mag_faint
+                        details['mag'] = sobj['mag']
+                        details['mag_err'] = sobj['mag_err']
+                        details['mag_bright'] = sobj['mag_bright']
+                        details['mag_faint'] = sobj['mag_faint']
                         details['ra'] = sobj['ra']
                         details['dec'] = sobj['dec']
 

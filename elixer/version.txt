@@ -1,6 +1,6 @@
 changes to elixer by version
 
-1.16.8a2 [2022-06-21]
+1.16.8a2 [2022-06-22]
 * update meteor logic to check flat means (no PSF) of individually stacked exposures for emission lines
 * updated SEP object selection to also consider matching to DEX-gmag. Best selection is now closest (within ellipse or
   nearest to ellipse boundary) with compatible gmag. Nearest wins if next better gmag match is > 0.5" more distant.
