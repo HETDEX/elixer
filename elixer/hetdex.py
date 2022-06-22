@@ -4525,6 +4525,10 @@ class DetObj:
                 except:
                     g_bright = None
 
+                vote_info['dex_gmag'] = g
+                vote_info['dex_gmag_bright'] = g_bright
+                vote_info['dex_gmag_faint'] = g_faint
+
                 #sanity check. g_faint can be nan or None, esp if all non-detects and super faint
                 try:
                     if g > G.HETDEX_CONTINUUM_MAG_LIMIT:
@@ -4565,9 +4569,6 @@ class DetObj:
                     g_str = f"{g:0.2f} ({g_faint:0.2f},{g_bright:0.2f})"
                     g_thresh_str = f"{gmag_faint_thresh:0.2f}-{gmag_bright_thresh:0.2f}"
 
-                    vote_info['dex_gmag'] = g
-                    vote_info['dex_gmag_bright'] = g_bright
-                    vote_info['dex_gmag_faint'] = g_faint
                     vote_info['gmag_thresh_bright'] = gmag_bright_thresh
                     vote_info['gmag_thresh_faint'] = gmag_faint_thresh
 

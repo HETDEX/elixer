@@ -1564,6 +1564,9 @@ def append_entry(fileh,det,overwrite=False):
                     row['dex_gmag'] = det.vote_info['dex_gmag']
                     row['dex_gmag_bright'] = det.vote_info['dex_gmag_bright']
                     row['dex_gmag_faint'] = det.vote_info['dex_gmag_faint']
+                except:
+                    pass
+                try:
                     row['gmag_thresh_bright'] = det.vote_info['gmag_thresh_bright']
                     row['gmag_thresh_faint'] = det.vote_info['gmag_thresh_faint']
                 except:
