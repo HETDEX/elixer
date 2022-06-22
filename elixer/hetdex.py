@@ -1801,7 +1801,7 @@ class DetObj:
             #is the multiline solution (which has been updated with catalog phot-z and spec-z)
             #consistent with lowz or high-z?
 
-            toublesome_lines = [1549,1909, 2799] #CIV, CIII, MgII
+            troublesome_lines = [1549,1909, 2799] #CIV, CIII, MgII
 
             try:
                 if self.spec_obj and self.spec_obj.solutions and len(self.spec_obj.solutions) > 0:
@@ -1892,6 +1892,7 @@ class DetObj:
                             else:
                                 agree = True
                                 unsure = True
+                                self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
                         elif SU.map_multiline_score_to_confidence(scale_score) < 0.6: #iffy confidence
                             if z > 1.8 and self.best_gmag is not None and self.best_gmag < 23.5: #"high-z"
                                 if self.best_gmag < 23.0:

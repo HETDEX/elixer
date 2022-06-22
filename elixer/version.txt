@@ -4,6 +4,9 @@ changes to elixer by version
 * update meteor logic to check flat means (no PSF) of individually stacked exposures for emission lines
 * updated SEP object selection to also consider matching to DEX-gmag. Best selection is now closest (within ellipse or
   nearest to ellipse boundary) with compatible gmag. Nearest wins if next better gmag match is > 0.5" more distant.
+* since CIII (1909) and CII (2326) are semi-forbidden and can be harder to see in AGN where CIV is quite strong, remove
+  the requirement for AGN consistency check on CIV to see CIII and CII. However, if we pick up CIII or CII and this is
+  an AGN, CIV should be strong, so make CIV a requirement on CIII and CII.
 
 1.16.8a1 [2022-06-13]
 * added a voting weight adjustment to down-weight line property based votes (FWHM, PLAE/POII, EW, etc) when the spectral

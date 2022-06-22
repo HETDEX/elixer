@@ -1527,7 +1527,7 @@ class science_image():
 
                             #matplotlib plotting later needs these in sky units (arcsec) not pixels
 
-                    if detobj is not None and selected_obj_idx is not None and False:
+                    if detobj is not None and selected_obj_idx is not None:
                         try:
                             if (abs(detobj.best_gmag - source_objects[selected_obj_idx]['mag']) < 0.5) or \
                                     ((detobj.best_gmag < 22) and (source_objects[selected_obj_idx]['mag'] < 22)) or \
