@@ -29,11 +29,19 @@ from scipy.optimize import curve_fit
 
 try:
     from hetdex_tools.get_spec import get_spectra as hda_get_spectra
-    from hetdex_api import survey as hda_survey
-    from hetdex_api.extract import Extract
-    #from hetdex_api.shot import get_fibers_table as hda_get_fibers_table
 except Exception as e:
-    print("WARNING!!!! CANNOT IMPORT hetdex_api tools: ",e)
+    print("WARNING!!!! CANNOT IMPORT hetdex_api tools get_spectra: ",e)
+
+try:
+    from hetdex_api import survey as hda_survey
+except Exception as e:
+    print("WARNING!!!! CANNOT IMPORT hetdex_api survey: ",e)
+
+try:
+    from hetdex_api.extract import Extract
+    # from hetdex_api.shot import get_fibers_table as hda_get_fibers_table
+except Exception as e:
+    print("WARNING!!!! CANNOT IMPORT hetdex_api extract: ", e)
 
 import copy
 from mpl_toolkits.mplot3d import Axes3D
@@ -108,6 +116,147 @@ MULTILINE_CONFIDENCE = [0.00, 0.01, 0.02, 0.03, 0.04, 0.05, 0.10, 0.25, 0.45, 0.
 MULTILINE_SCORE      = [0.00, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.85, 0.90, 0.93, 1.00]
 INTERP_MULTILINE_SCORE = np.linspace(0.0,1.0,100)
 INTERP_MULTILINE_CONFIDENCE = np.interp(INTERP_MULTILINE_SCORE,MULTILINE_SCORE,MULTILINE_CONFIDENCE)
+
+#from hetdex_api.survey import Survey
+from astropy import time, coordinates as Coord
+from astropy import constants as Const
+
+McDonald_Coord = Coord.EarthLocation.of_site('mcdonald')
+
+#cloned with minor changes from Erin Cooper's HETDEX_API
+def get_bary_corr(shotid, units='km/s'):
+    """
+    For a given HETDEX observation, return the barycentric radial velocity
+    correction.
+
+    Parameters
+    ----------
+    shotid
+        interger observation ID
+    units
+        string indicating units to be used. Must be readable to astropy units.
+        Defaults to km/s
+
+    Return
+    ------
+    vcor
+        radial velocity correction in units
+    """
+
+    S = hda_survey.Survey(G.HETDEX_API_CONFIG.LATEST_HDR_NAME) #make G.survey
+
+    sel_shot = S.shotid == shotid
+    coords = S.coords[sel_shot]
+    mjds = S.mjd[sel_shot]
+    t = time.Time(np.average(mjds), format='mjd')
+
+    vcor = coords.radial_velocity_correction(kind='barycentric', obstime=t, location=McDonald_Coord).to(units)
+
+    return vcor.value
+
+
+# def vac_to_air(w_vac):
+#     #http: // www.sdss3.org / dr9 / spectro / spectro_basics.php
+#     return w_vac / (1 + 2.73518e-4 + 131.418 / w_vac ** 2 + 2.76249e8 / w_vac ** 4)
+
+#directly lifted from specutils with some modifications
+def air_to_vac(wavelength):
+    """
+    Implements the air to vacuum wavelength conversion described in eqn 65 of
+    Griesen 2006
+    """
+
+    try:
+
+        if not hasattr(wavelength,"value"):
+            wavelength = wavelength * U.angstrom
+            strip_unit = True
+        else:
+            strip_unit = False
+
+        wlum = wavelength.to(U.um).value
+        val = (1+1e-6*(287.6155+1.62887/wlum**2+0.01360/wlum**4)) * wavelength
+
+        if strip_unit:
+            val = val.value
+        return val
+    except:
+        log.warning("Exception in spectrum_utilities air_to_vac().",exc_info=True)
+        return None
+
+def vac_to_air(wavelength):
+    """
+    Griesen 2006 reports that the error in naively inverting Eqn 65 is less
+    than 10^-9 and therefore acceptable.  This is therefore eqn 67
+    """
+    try:
+        if not hasattr(wavelength,"value"):
+            wavelength = wavelength * U.angstrom
+            strip_unit = True
+        else:
+            strip_unit = False
+
+        wlum = wavelength.to(U.um).value
+        nl = (1+1e-6*(287.6155+1.62887/wlum**2+0.01360/wlum**4))
+        val = wavelength/nl
+        if strip_unit:
+            val = val.value
+
+        return val
+    except:
+        log.warning("Exception in spectrum_utilities vac_to_air().", exc_info=True)
+        return None
+
+
+def z_correction(z,w_obs,vcor=None,shotid=None):#,*args):
+    """
+    Correct the computed redshift, which uses air wavelengths, etc to vacuum and make other corrections for:
+        #todo: list applied corrections like There are 3-4 other corrections to the wavelength solution that we are not considering.
+        These are, in order of importance:
+            heliocentric correction. This is the most important of all. Early on I was doing this, but then stopped for some reason. In any table, we need to give the information to calculate this. Thus we need UTC, RA, DEC. As long as we have UTC in the table, then we are good to state there is no helio correction
+            transform to vacuum (as discussed above). I’m in the camp that we report air wavelengths, and then give the correction to vacuum.
+            calibrate twilight using solar spectrum. This can have a small effect that I haven’t measured
+            use sun-disk integrated spectrum compared to kpno. smaller effect
+            correction due to GR redshift of earth-sun: 0.6 km/s
+
+
+
+    This needs to adjust the z which used AIR observed and AIR rest wavelengths. So we need to convert the observered wavelength
+    to vacuum AND the rest wavelegth to vacuum
+
+    # so here is the correction for the observed_corrected_wavelength to use for the redshift estimate:
+    wave_air+1.+(wave_air-3500)/4000.+vcor/(3e5/wave_air)
+    where wave_air is what we measure (3500-5500) and vcor is the value that Erin just calculated. Double check I did this correctly.
+
+    :param z:
+    :param w_obs:
+    :param vcor: velocity correction for earth orbit
+    :param args:
+    :return:
+    """
+    try:
+
+        # def air_to_vacuum(w_obs,vcor): #only valid in 3500 to 5500 ish range
+        #     return w_obs + 1. + (w_obs - 3500.) / 4000. + vcor/(3e5/w_obs)
+
+        if vcor is None:
+            if shotid is not None:
+                vcor = get_bary_corr(shotid)
+            else:
+                vcor = 0
+
+        w_vac = air_to_vac(w_obs) + vcor/(3e5/w_obs) #observed wavelength corrected from air to vacuum
+        w_rest = w_obs / (z + 1.0) #the line's rest wavelength as used is encoded in the w_obs (uncorrected) and the uncorrected redshift
+        if w_rest < G.AirVacuumThresh: #else, already is in vacuum
+            w_rest = air_to_vac(w_rest) #rest-frame wavelength corrected from air to vacuum (don't want vcor here)
+
+        z_cor = w_vac / w_rest - 1.0
+        # todo: other steps
+
+        return z_cor
+    except:
+        log.warning("Exception in spectrum_utilities z_correction().",exc_info=True)
+        return None
 
 def map_multiline_score_to_confidence(score):
     """
@@ -624,11 +773,11 @@ def check_oiii(z,flux,flux_err,wave,delta=0,cont=0,cont_err=0):
             cont = 0 #to subtract
             cont_err = 0
 
-        i4959,*_ = getnearpos(wave,(1+z)*4959)
+        i4959,*_ = getnearpos(wave,(1+z)*G.OIII_4959)
         f4959 = np.sum(flux[i4959-delta:i4959+delta+1]) - cont*(1+2*delta)
         e4959 = np.sqrt(np.sum(flux_err[i4959-delta:i4959+delta+1]**2) + (cont_err*(1+2*delta))**2 )
 
-        i5007,*_ = getnearpos(wave,(1+z)*5007)
+        i5007,*_ = getnearpos(wave,(1+z)*G.OIII_5007)
         f5007 = np.sum(flux[i5007-delta:i5007+delta+1]) - cont*(1+2*delta)
         e5007 = np.sqrt(np.sum(flux_err[i5007-delta:i5007+delta+1]**2  + (cont_err*(1+2*delta))**2))
 

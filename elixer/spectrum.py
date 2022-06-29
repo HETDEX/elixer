@@ -2711,7 +2711,7 @@ def check_for_doublet(eli,wavelengths,values,errors,central,values_units,values_
             obs_miss = 4.0 #allowd to miss by 4.0 AA observed
 
             #NV (dont'really expect to ever see this one by itself)
-            zp1 = central/1241.
+            zp1 = central/G.NV_1241
             miss = obs_miss/zp1
             p1 = 1238.8
             p2 = 1242.8
@@ -2721,12 +2721,12 @@ def check_for_doublet(eli,wavelengths,values,errors,central,values_units,values_
                 (abs(red_mu/zp1 - p2) < miss) and \
                 (abs((red_mu-blue_mu)/zp1 - (p2-p1)) < miss):
                     #todo: any other conditions like blue area > red area etc
-                    list_doublets.append(1241.0)
+                    list_doublets.append(G.NV_1241)
                     log.info("Possible fit to NV as doublet.")
 
 
             #MgII (can be by itself)
-            zp1 = central/2799.0
+            zp1 = central/G.MgII_2799
             miss = obs_miss/zp1
             p1 = 2795.5
             p2 = 2802.7
@@ -2737,11 +2737,11 @@ def check_for_doublet(eli,wavelengths,values,errors,central,values_units,values_
                 (abs((red_mu-blue_mu)/zp1 - (p2-p1)) < miss) and\
                 (ratio_A > 1.0):
                 #MgII blue peak supposedly larger than red
-                list_doublets.append(2799.0)
+                list_doublets.append(G.MgII_2799)
                 log.info("Possible fit to MgII as doublet.")
 
             #CIV
-            zp1 = central/1549.0
+            zp1 = central/G.CIV_1549
             miss = obs_miss/zp1
             p1 = 1548.2
             p2 = 1550.8
@@ -2752,11 +2752,11 @@ def check_for_doublet(eli,wavelengths,values,errors,central,values_units,values_
                 (abs((red_mu-blue_mu)/zp1 - (p2-p1)) < miss) and \
                 (ratio_A > 1.0):
                 #MgII blue peak supposedly larger than red
-                list_doublets.append(1549.0)
+                list_doublets.append(G.CIV_1549)
                 log.info("Possible fit to CIV as doublet.")
 
             #OVI
-            zp1 = central/1035.0
+            zp1 = central/G.OVI_1035
             miss = obs_miss/zp1
             p1 = 1031.9
             p2 = 1037.6
@@ -2766,7 +2766,7 @@ def check_for_doublet(eli,wavelengths,values,errors,central,values_units,values_
                 (abs(red_mu/zp1 - p2) < miss) and \
                 (abs((red_mu-blue_mu)/zp1 - (p2-p1)) < miss):
 
-                list_doublets.append(1035.0)
+                list_doublets.append(G.OVI_1035)
                 log.info("Possible fit to OVI as doublet.")
 
 
@@ -4029,64 +4029,64 @@ class Spectrum:
 
             EmissionLine("OII".ljust(w), G.OII_rest, 'green',rank=1,broad=True), #not as broad, but can be > 20AA
             #EmissionLine("OIII".ljust(w), 3132, "lime",rank=3),
-            EmissionLine("OIII".ljust(w), 4959, "lime",rank=3),#4960.295 (vacuum) 4958.911 (air)
-            EmissionLine("OIII".ljust(w), 5007, "lime",rank=1), #5008.240 (vacuum) 5006.843 (air)
+            EmissionLine("OIII".ljust(w), G.OIII_4959, "lime",rank=3),#4960.295 (vacuum) 4958.911 (air)
+            EmissionLine("OIII".ljust(w), G.OIII_5007, "lime",rank=1), #5008.240 (vacuum) 5006.843 (air)
             #EmissionLine("OIV".ljust(w), 1400, "lime", solution=False, display=True, rank=4),  # or 1393-1403 also OIV]
             # (alone after LyA falls off red end, no max wave)
             #OVI doublet 1032 and 1037
-            EmissionLine("OVI".ljust(w), 1035, "lime",solution=False,display=True,rank=3,
-                         min_fwhm=12.0,min_obs_wave=4861.0-20.,max_obs_wave=5540.0+20.),
+            EmissionLine("OVI".ljust(w), G.OVI_1035, "lime",solution=False,display=True,rank=3,
+                         min_fwhm=12.0,min_obs_wave=G.Hbeta_4861-20.,max_obs_wave=5540.0+20.),
 
             # big in AGN (never alone in our range)
-            EmissionLine("CIV".ljust(w), 1549, "blueviolet",solution=True,display=True,rank=3,broad=True),
+            EmissionLine("CIV".ljust(w), G.CIV_1549, "blueviolet",solution=True,display=True,rank=3,broad=True),
             # big in AGN (alone before CIV enters from blue and after MgII exits to red) [HeII too unreliable to set max_obs_wave]
-            EmissionLine("CIII".ljust(w), 1909, "purple",solution=True,display=True,rank=3,broad=True,
+            EmissionLine("CIII".ljust(w), G.CIII_1909, "purple",solution=True,display=True,rank=3,broad=True,
                          min_fwhm=12.0,min_obs_wave=3751.0-20.0,max_obs_wave=4313.0+20.0),
             #big in AGN (too weak to be alone)
-            EmissionLine("CII".ljust(w),  2326, "purple",solution=False,display=True,rank=4,broad=True),  # in AGN
+            EmissionLine("CII".ljust(w), G.CII_2326, "purple",solution=False,display=True,rank=4,broad=True),  # in AGN
 
             #big in AGN (alone before CIII enters from the blue )  this MgII is a doublet, 2795, 2802 ... can sometimes
             #  see the doublet in the HETDEX spectrum
             # What about when combined with OII 3277 (MgII maybe broad, but OII is not?)
-            EmissionLine("MgII".ljust(w), 2799, "magenta",solution=True,display=True,rank=2,broad=True,
+            EmissionLine("MgII".ljust(w), G.MgII_2799, "magenta",solution=True,display=True,rank=2,broad=True,
                          min_fwhm=12.0,min_obs_wave=3500.0-20.0, max_obs_wave=5131.0+20.0),
 
             #thse H_x lines are never alone (OIII or OII are always present)
-            EmissionLine("H$\\beta$".ljust(w), 4861, "blue",solution=True,rank=3), #4862.68 (vacuum) 4861.363 (air)
-            EmissionLine("H$\\gamma$".ljust(w), 4340, "royalblue",solution=True,rank=4),
+            EmissionLine("H$\\beta$".ljust(w), G.Hbeta_4861, "blue",solution=True,rank=3), #4862.68 (vacuum) 4861.363 (air)
+            EmissionLine("H$\\gamma$".ljust(w), G.Hgamma_4340, "royalblue",solution=True,rank=4),
 
-            EmissionLine("H$\\delta$".ljust(w), 4101, "royalblue", solution=False,display=False,rank=4),
-            EmissionLine("H$\\epsilon$".ljust(w), 3970, "royalblue", solution=False,display=False,rank=5), #very close to CaII(3968)
-            EmissionLine("H$\\zeta$".ljust(w), 3889, "royalblue", solution=False,display=False,rank=5),
-            EmissionLine("H$\\eta$".ljust(w), 3835, "royalblue", solution=False,display=False,rank=5),
+            EmissionLine("H$\\delta$".ljust(w), G.Hdelta_4101, "royalblue", solution=False,display=False,rank=4),
+            EmissionLine("H$\\epsilon$".ljust(w), G.Hepsilon_3970, "royalblue", solution=False,display=False,rank=5), #very close to CaII(3968)
+            EmissionLine("H$\\zeta$".ljust(w), G.Hzeta_3889, "royalblue", solution=False,display=False,rank=5),
+            EmissionLine("H$\\eta$".ljust(w), G.Heta_3835, "royalblue", solution=False,display=False,rank=5),
 
             # big in AGN, but never alone in our range
-            EmissionLine("NV".ljust(w), 1241, "teal", solution=False,display=True,rank=3,broad=True,score_multiplier=0.25),
+            EmissionLine("NV".ljust(w), G.NV_1241, "teal", solution=False,display=True,rank=3,broad=True,score_multiplier=0.25),
 
             #XX is a similar odd complex in OII galaxies we commonly see (don't know what lines)
             #EmissionLine("XX".ljust(w), 3800, "green", solution=False,display=True,rank=3,broad=True),
 
-            EmissionLine("SiII".ljust(w), 1260, "gray", solution=False,display=True,rank=4),
-            EmissionLine("SiIV".ljust(w), 1400, "gray", solution=False, display=True, rank=4), #or 1393-1403 also OIV]
+            EmissionLine("SiII".ljust(w), G.SiII_1260, "gray", solution=False,display=True,rank=4),
+            EmissionLine("SiIV".ljust(w), G.SiIV_1400, "gray", solution=False, display=True, rank=4), #or 1393-1403 also OIV]
 
             #big in AGN, but never alone in our range
-            EmissionLine("HeII".ljust(w), 1640, "orange", solution=True,display=True,rank=3),
+            EmissionLine("HeII".ljust(w), G.HeII_1640, "orange", solution=True,display=True,rank=3),
             ## maybe add HeII 2733 as well??? don't know how strong it is
 
-            EmissionLine("NeIII".ljust(w), 3869, "deeppink", solution=False,display=False,rank=4),
-            EmissionLine("NeIII".ljust(w), 3967, "deeppink", solution=False,display=False,rank=4),  #very close to CaII(3970)
-            EmissionLine("NeV".ljust(w), 3347, "deeppink", solution=False,display=False,rank=4),
-            EmissionLine("NeVI".ljust(w), 3427, "deeppink", solution=False, display=False,rank=4),
+            EmissionLine("NeIII".ljust(w), G.NeIII_3869, "deeppink", solution=False,display=False,rank=4),
+            EmissionLine("NeIII".ljust(w), G.NeIII_3967, "deeppink", solution=False,display=False,rank=4),  #very close to CaII(3970)
+            EmissionLine("NeV".ljust(w), G.NeV_3347, "deeppink", solution=False,display=False,rank=4),
+            EmissionLine("NeVI".ljust(w), G.NeVI_3427, "deeppink", solution=False, display=False,rank=4),
 
-            EmissionLine("NaI".ljust(w),4980,"lightcoral",solution=False, display=False,rank=4),  #4978.5 + 4982.8
-            EmissionLine("NaI".ljust(w),5153,"lightcoral",solution=False, display=False,rank=4),  #5148.8 + 5153.4
+            EmissionLine("NaI".ljust(w),G.NaI_4980,"lightcoral",solution=False, display=False,rank=4),  #4978.5 + 4982.8
+            EmissionLine("NaI".ljust(w),G.NaI_5153,"lightcoral",solution=False, display=False,rank=4),  #5148.8 + 5153.4
 
             #########################
             #ABSORBERS
             ########################
             #stars, red galaxies
-            EmissionLine("(K)CaII".ljust(w), 3934, "skyblue", solution=True, display=False,rank=1,absorber=True),
-            EmissionLine("(H)CaII".ljust(w), 3968, "skyblue", solution=True, display=False,rank=1,absorber=True),
+            EmissionLine("(K)CaII".ljust(w), G.CaII_K_3934, "skyblue", solution=True, display=False,rank=1,absorber=True),
+            EmissionLine("(H)CaII".ljust(w), G.CaII_H_3968, "skyblue", solution=True, display=False,rank=1,absorber=True),
 
             #add as absorber
             # EmissionLine("SiII".ljust(w), 1260, "gray", solution=False,display=True,rank=4,absorber=True),
@@ -4097,7 +4097,7 @@ class Spectrum:
             #EmissionLine("CaII".ljust(w), 3970, "skyblue", solution=False, display=False)  #very close to NeIII(3967)
            ]
 
-        self.h_and_k_waves = [3934,3968]
+        self.h_and_k_waves = [G.CaII_K_3934,G.CaII_H_3968]
         self.h_and_k_mcmc = None
 
         self.wavelengths = []
@@ -4550,7 +4550,8 @@ class Spectrum:
             #
             # This should cover the DA and DAB types
             #
-            hydrogen_series = np.array([3750.158, 3770.637, 3797.904, 3835.391, 3889.000,    3970.79, 4101.742, 4340.471, 4861.333])
+            hydrogen_series = np.array([3750.158, 3770.637, 3797.904, G.Heta_3835, G.Hzeta_3889, G.Hepsilon_3970,
+                                        G.Hdelta_4101, G.Hgamma_4340, G.Hbeta_4861])
             #                         12         11      10        9       He_I + H_8    epsilon,  delta,     gamma,   beta
             hydrogen_points = np.array([1,1,1,1,2,2,2,3,3])
             #others = [3888.647,3933.66,3967.470,3968.47]
@@ -4566,7 +4567,7 @@ class Spectrum:
             #
             # DQ types (mostly Carbon and Oxygen)
             #
-            oxygen_series = np.array([3727.8, 4317.139, 4363.210, 4414.899, 4650.0, 4958.911, 5006.843])
+            oxygen_series = np.array([G.OII_rest, 4317.139, 4363.210, 4414.899, 4650.0, 4958.911, 5006.843])
             #                                                               4650 = CIII
             oxygen_points = np.array([1,1,1,1,1,1,1])
 
@@ -4621,8 +4622,8 @@ class Spectrum:
 
 
             try:
-                k = np.where(line_waves==3934.0)[0][0]
-                h = np.where(line_waves==3968.0)[0][0]
+                k = np.where(line_waves==G.CaII_K_3934)[0][0]
+                h = np.where(line_waves==G.CaII_H_3968)[0][0]
             except:
                 #did not find them
                 return score
@@ -4665,7 +4666,8 @@ class Spectrum:
             #               OII      NeV  NeIV H_eta   -NeIII-   H_zeta  CaII  H_eps  H_del  H_gam H_beta   -NaI-     -OIII-
             #rest_waves = [G.OII_rest,3347,3427,3835,  3869,3967, 3889,   3935, 3970,  4101,  4340, 4861,  4980,5153, 4959,5007]
             #                       OII       H_eta  H_zeta H_eps H_del  H_gam H_beta   -OIII-
-            rest_waves = np.array([G.OII_rest, 3835,  3889,  3970, 4101,  4340, 4861,  4959, 5007])
+            rest_waves = np.array([G.OII_rest, G.Heta_3835,  G.Hzeta_3889,  G.Hepsilon_3970, G.Hdelta_4101,
+                                   G.Hgamma_4340, G.Hbeta_4861,  G.OIII_4959, G.OIII_5007])
             #                         0         1      2      3     4     5     6      7     8
             obs_waves  = rest_waves * (1. + solution.z)
 
@@ -4822,10 +4824,10 @@ class Spectrum:
                                               f"{min_ratio:0.2f} < {ratio:0.2f} +/- {ratio_err:0.2f} < {max_ratio:0.2f} "
                                               f"FWHM {fwhm_j}, {fwhm_i}")
 
-                                    if rest_waves[rest_idx[j]] == 3727 and rest_waves[rest_idx[i]] == 5007:
+                                    if rest_waves[rest_idx[j]] == G.OII_rest and rest_waves[rest_idx[i]] == G.OIII_5007:
                                         if 1/ratio > 5.0:
                                             self.add_classification_label("o32")
-                                    elif rest_waves[rest_idx[j]] == 5007 and rest_waves[rest_idx[i]] == 3727:
+                                    elif rest_waves[rest_idx[j]] == G.OIII_5007 and rest_waves[rest_idx[i]] == G.OII_rest:
                                         if ratio > 5.0:
                                             self.add_classification_label("o32")
 
@@ -4881,20 +4883,20 @@ class Spectrum:
             v = 3e5 * w/fwhm
 
             if   3470 <= w < 3760:
-                return w/2799. - 1.0 , "MgII" #MgII
+                return w/G.MgII_2799 - 1.0 , "MgII" #MgII
             elif 3760 <= w < 4314:
                 #MgII or CIII?
                 #semi arbitrary
                 if v > 1200:
-                    return w/1909. -1, "CIII" #CIII
+                    return w/G.CIII_1909 -1, "CIII" #CIII
                 else:
-                    return w/2799. - 1.0, "MgII" #MgII
+                    return w/G.MgII_2799 - 1.0, "MgII" #MgII
             elif 4314 <= w < 4421:
                 #MgII or LyA??
                 if v > 1200:
                     return w/G.LyA_rest -1, "LyA" #LyA
                 else:
-                    return w/2799. - 1.0, "MgII" #MgII
+                    return w/G.MgII_2799 - 1.0, "MgII" #MgII
             # elif 4421 <= w < 4520:
             #     #Lya or MgII
                  #after CIV falls off
@@ -4903,7 +4905,7 @@ class Spectrum:
                 if v > 1200:
                     return w/G.LyA_rest - 1.0, "LyA"
                 else:
-                    return w/2799. - 1.0, "MgII" #MgII
+                    return w/G.MgII_2799 - 1.0, "MgII" #MgII
             elif w >= 5120:
                 return w/G.LyA_rest - 1.0, "LyA"
 
@@ -4920,18 +4922,18 @@ class Spectrum:
         """
         try:
 
-            if line.w_rest == G.LyA_rest or line.w_rest == G.OII_rest or np.isclose(line.w_rest,5007,atol=2):
+            if line.w_rest == G.LyA_rest or line.w_rest == G.OII_rest or np.isclose(line.w_rest,G.OIII_5007,atol=2):
                 #always allowed to be a single line (even OIII-5007 ... extreme O32 objects)
                 return True
-            elif np.isclose(line.w_rest,2799,atol=2):
+            elif np.isclose(line.w_rest,G.MgII_2799,atol=2):
                 #MgII
                 if (3470 <= w < 5120):
                     return True
-            elif np.isclose(line.w_rest,1909,atol=2):
+            elif np.isclose(line.w_rest,G.CIII_1909,atol=2):
                 #CIII
                 if 3760 <= w < 4314:
                     return True
-            elif np.isclose(line.w_rest,1549,atol=2):
+            elif np.isclose(line.w_rest,G.CIV_1549,atol=2):
                 #CIV (technially never alone but in this narrow range, CIII can be at extreme red or LyA at extreme blue
                 # and we don't do a good job of picking it up
                 if  4460 <= w < 4492:
@@ -4961,7 +4963,7 @@ class Spectrum:
 
         #check the lines, are they consistent with AGN?
         try: #todo: for MgII, OII can also be present
-            rest_waves = np.array([G.LyA_rest,1549.,1909.,2326.,2799.,1241.,1260.,1400.,1640.,1035., G.OII_rest])
+            rest_waves = np.array([G.LyA_rest,G.CIV_1549,G.CIII_1909,G.CII_2326,G.MgII_2799,G.NV_1241,G.SiII_1260,G.SiIV_1400,G.HeII_1640,G.OVI_1035, G.OII_rest])
             #aka                     LyA,      CIV, CIII, CII,   MgII,  NV,  SiII, SiIV, HeII, OVI,  OII
             obs_waves = rest_waves * (1. + solution.z)
 
@@ -5130,7 +5132,7 @@ class Spectrum:
                     #self.add_classification_label("AGN")
                     try:
                         if (np.mean([line_fwhm[i] for i in line_idx]) > 12.0) and\
-                                len(np.intersect1d(overlap,np.array([G.LyA_rest,1549.,1909.,2799.])) > 0):
+                                len(np.intersect1d(overlap,np.array([G.LyA_rest,G.CIV_1549,G.CIII_1909,G.MgII_2799])) > 0):
                             #allowed singles: LyA, MgII, CIV, CIII (and really not CIV by itself in our range)
                             return 0.25  # still give a little boost to AGN classification?
                     except:
@@ -5249,7 +5251,7 @@ class Spectrum:
 
         #check the lines, are they consistent with AGN?
         try: #todo: for MgII, OII can also be present
-            rest_waves = np.array([G.LyA_rest,1549.,1909.,2326.,2799.,1241.,1260.,1400.,1640.,1035., G.OII_rest])
+            rest_waves = np.array([G.LyA_rest,G.CIV_1549,G.CIII_1909,G.CII_2326,G.MgII_2799,G.NV_1241,G.SiII_1260,G.SiIV_1400,G.HeII_1640,G.OVI_1035, G.OII_rest])
             #aka                     LyA,      CIV, CIII, CII,   MgII,  NV,  SiII, SiIV, HeII, OVI,  OII
             obs_waves = rest_waves * (1. + solution.z)
 
@@ -6619,7 +6621,7 @@ class Spectrum:
                                    central_z = central_z, values_units=values_units, spectrum=self,
                                    show_plot=False, do_mcmc=False,min_fit_sigma=min_sigma,
                                    allow_broad= (a.broad and e.broad),
-                                   relax_fit=(e.w_rest==5007)and(a.w_rest==4959),absorber=a.see_in_absorption,
+                                   relax_fit=(e.w_rest==G.OIII_5007)and(a.w_rest==G.OIII_4959),absorber=a.see_in_absorption,
                                    test_solution=sol)
 
                 if eli and a.broad and e.broad and (eli.fit_sigma < eli.fit_sigma_err) and \
@@ -6706,7 +6708,7 @@ class Spectrum:
                 #specifically check for 5007 and 4959 as nasty LAE contaminatant
                 if eli and not good:
                     try:
-                        if (np.isclose(a.w_rest,4959,atol=1.0) and np.isclose(e.w_rest,5007,atol=1.0)):
+                        if (np.isclose(a.w_rest,G.OIII_4959,atol=1.0) and np.isclose(e.w_rest,G.OIII_5007,atol=1.0)):
                             ratio = self.central_eli.fit_a / eli.fit_a
                             ratio_err = abs(ratio) * np.sqrt( (eli.fit_a_err / eli.fit_a) ** 2 +
                                                     (self.central_eli.fit_a_err / self.central_eli.fit_a) ** 2)
@@ -6714,7 +6716,7 @@ class Spectrum:
                             if (ratio - ratio_err) < 3 < (ratio + ratio_err):
                                 good = True
 
-                        elif (np.isclose(a.w_rest,5007,atol=1.0) and np.isclose(e.w_rest,4959,atol=1.0)):
+                        elif (np.isclose(a.w_rest,G.OIII_5007,atol=1.0) and np.isclose(e.w_rest,G.OIII_4959,atol=1.0)):
                             ratio = eli.fit_a / self.central_eli.fit_a
                             ratio_err = abs(ratio) * np.sqrt( (eli.fit_a_err / eli.fit_a) ** 2 +
                                                     (self.central_eli.fit_a_err / self.central_eli.fit_a) ** 2)
@@ -7044,9 +7046,9 @@ class Spectrum:
                 # the pair of lines being checked are 4959 and 5007 (or the solution contains those pair of lines)
                 # or with OII or H_beta
                 try:
-                    if (np.isclose(s.central_rest,4959,atol=1.0) or np.isclose(s.central_rest,5007,atol=1.0)) and \
-                        ( np.any( [(np.isclose(x.w_rest,4959,atol=1.0) or np.isclose(x.w_rest,5007,atol=1.0)  or
-                                  np.isclose(x.w_rest,G.OII_rest,atol=1.0) or np.isclose(x.w_rest,4861,atol=1.0))
+                    if (np.isclose(s.central_rest,G.OIII_4959,atol=1.0) or np.isclose(s.central_rest,G.OIII_5007,atol=1.0)) and \
+                        ( np.any( [(np.isclose(x.w_rest,G.OIII_4959,atol=1.0) or np.isclose(x.w_rest,G.OIII_5007,atol=1.0)  or
+                                  np.isclose(x.w_rest,G.OII_rest,atol=1.0) or np.isclose(x.w_rest,G.Hbeta_4861,atol=1.0))
                                   and abs(x.fit_dx0) < 2.0 for x in s.lines])  ):
                         #we've got 5007 or 4959 with the other mate OR H_beta or OII
                         #but still enforce flux 5007/4959 of 3
@@ -7109,7 +7111,7 @@ class Spectrum:
                         #however, only apply the label if at least one line is broad
                         line_fwhm = np.array([central_eli.fit_sigma*2.355] + [l.sigma * 2.355 for l in s.lines])
                         line_fwhm_err = np.array([central_eli.fit_sigma_err*2.355] + [l.sigma_err * 2.355 for l in s.lines])
-                        if max(line_fwhm+line_fwhm_err) > 14.0 and s.emission_line.w_rest != 2799:
+                        if max(line_fwhm+line_fwhm_err) > 14.0 and s.emission_line.w_rest != G.MgII_2799:
                             self.add_classification_label("agn")
                         else:
                             log.info(f"Solution: {s.name} 'agn' label omitted, but boost applied.")
@@ -7136,7 +7138,7 @@ class Spectrum:
                     if s.score < G.MULTILINE_MIN_SOLUTION_SCORE and oiii_lines:# and boost > 0.2:
 
                         if s.rejected_lines is not None and \
-                            np.any(np.intersect1d([4959,5007], [rl.w_rest for rl in s.rejected_lines])):
+                            np.any(np.intersect1d([G.OIII_4959,G.OIII_5007], [rl.w_rest for rl in s.rejected_lines])):
                             #predicated on both OIII lines being present, but at least one was rejected
                             pass #no boost
                         else:
@@ -7146,11 +7148,11 @@ class Spectrum:
                                 s.prob_noise = min(s.prob_noise,0.5/boost)
 
                     per_line_total_score += s.score
-                elif ((s.central_rest == 5007) or (s.central_rest == 4959)) and oiii_lines:
+                elif ((s.central_rest == G.OIII_5007) or (s.central_rest == G.OIII_4959)) and oiii_lines:
 
                     if s.score < G.MULTILINE_MIN_SOLUTION_SCORE:# and boost > 0.2:
                         if s.rejected_lines is not None and \
-                                np.any(np.intersect1d([4959,5007], [rl.w_rest for rl in s.rejected_lines])):
+                                np.any(np.intersect1d([G.OIII_4959,G.OIII_5007], [rl.w_rest for rl in s.rejected_lines])):
                             #predicated on both OIII lines being present, but at least one was rejected
                             s.possible_pn += 1
                             pass #no boost
@@ -7312,9 +7314,9 @@ class Spectrum:
             # low-z galaxy
             if z < 1.0:
                 try:
-                    if (np.isclose(s.central_rest,4959,atol=1.0) or np.isclose(s.central_rest,5007,atol=1.0)) and \
-                            ( np.any( [(np.isclose(x.fit_x0/(1+z),4959,atol=1.0) or np.isclose(x.fit_x0/(1+z),5007,atol=1.0)  or
-                                        np.isclose(x.fit_x0/(1+z),G.OII_rest,atol=1.0) or np.isclose(x.fit_x0/(1+z),4861,atol=1.0))
+                    if (np.isclose(s.central_rest,G.OIII_4959,atol=1.0) or np.isclose(s.central_rest,G.OIII_5007,atol=1.0)) and \
+                            ( np.any( [(np.isclose(x.fit_x0/(1+z),G.OIII_4959,atol=1.0) or np.isclose(x.fit_x0/(1+z),G.OIII_5007,atol=1.0)  or
+                                        np.isclose(x.fit_x0/(1+z),G.OII_rest,atol=1.0) or np.isclose(x.fit_x0/(1+z),G.Hbeta_4861,atol=1.0))
                                        and abs(x.fit_dx0) < 2.0 for x in self.all_found_lines])  ):
                         #we've got 5007 or 4959 with the other mate OR H_beta or OII
                         #but still enforce flux 5007/4959 of 3
@@ -7330,7 +7332,7 @@ class Spectrum:
                 #H&K a low-z galaxy or star
                 if G.CONTINUUM_RULES or solution.emission_line.absorber:
                     hk_boost = self.scale_consistency_score_to_solution_score_factor(self.solution_consistent_with_H_and_K(s))
-                    if (solution.emission_line.w_rest in [3934,3968]) and (hk_boost <= 1.0) : #explicitly H or K
+                    if (solution.emission_line.w_rest in [G.CaII_K_3934,G.CaII_H_3968]) and (hk_boost <= 1.0) : #explicitly H or K
                         #the line would have to be H or K, but we cannot fit H&k to it
                         boost_list.append(0)
                     else:

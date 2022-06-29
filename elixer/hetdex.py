@@ -1722,7 +1722,7 @@ class DetObj:
             if self.spec_obj.solutions is not None and len(self.spec_obj.solutions)> 0:
                 #want to be really clear condition here, so both have to be > MULTILINE_FULL_SOLUTION_SCORE
                 #not just > MAX_OK_UNMATCHED_LINES_SCORE
-                questionable_solutions = [1549.0,1909.0,2799.0,G.OII_rest,5007.0]
+                questionable_solutions = [G.CIV_1549,G.CIII_1909,G.MgII_2799,G.OII_rest,G.OIII_5007]
                 if (0.5 < self.spec_obj.solutions[0].scale_score < 0.9) and (self.best_z != None) and \
                    (self.spec_obj.solutions[0].z != self.best_z) and (self.spec_obj.solutions[0].central_rest in questionable_solutions):
 
@@ -1801,7 +1801,7 @@ class DetObj:
             #is the multiline solution (which has been updated with catalog phot-z and spec-z)
             #consistent with lowz or high-z?
 
-            troublesome_lines = [1549,1909, 2799] #CIV, CIII, MgII
+            troublesome_lines = [G.CIV_1549,G.CIII_1909,G.MgII_2799] #CIV, CIII, MgII
 
             try:
                 if self.spec_obj and self.spec_obj.solutions and len(self.spec_obj.solutions) > 0:
@@ -2000,7 +2000,7 @@ class DetObj:
                         self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
                         p = max(0.05,p - pscore)
 
-                        troublesome_lines = [1549,1909, 2799] #CIV, CIII, MgII
+                        troublesome_lines = [G.CIV_1549,G.CIII_1909,G.MgII_2799]#CIV, CIII, MgII
 
                         if multiline_top_score > G.MULTILINE_MIN_SOLUTION_SCORE and multiline_top_rest in troublesome_lines:
                             z = multiline_top_z
@@ -2336,8 +2336,13 @@ class DetObj:
             except:
                 pass
 
-            self.best_z = z
+            self.best_z_uncorrected = z
             self.best_p_of_z = p
+
+            #correction for air vs vac and orbital velocitym etc
+            z = SU.z_correction(z,self.w,shotid=self.survey_shotid)
+            self.best_z = z
+            log.info(f"{self.entry_id} Applied redshift corection. Old z = {self.best_z_uncorrected}. New z = {self.best_z}.")
 
             return z,p
         except:
@@ -2611,7 +2616,7 @@ class DetObj:
                         lines = self.spec_obj.match_lines(self.w,z,aa_error=5.0) #emission only
                         for line in lines:
                             #specific check for OIII 4959 or 5007
-                            if line.w_rest == 4959: #this is more dodgy ... 5007 might be strong but fail to match
+                            if line.w_rest == G.OIII_4959: #this is more dodgy ... 5007 might be strong but fail to match
                                 if SU.check_oiii(z,self.sumspec_flux,self.sumspec_fluxerr,self.sumspec_wavelength,
                                               cont=self.cont_cgs,cont_err=self.cont_cgs_unc) == 0:
                                     #explicit NO
@@ -3988,7 +3993,7 @@ class DetObj:
                                 f"{self.entry_id} Aggregate Classification: LyA weak solution: z({s.z}) lk({likelihood[-1]}) "
                                 f"weight({weight[-1]}) score({s.score}) scaled score({s.scale_score})")
 
-                        elif self.fwhm > 12.0 and np.any(np.isclose(s.central_rest, [1549,1909,2799],atol=4)):
+                        elif self.fwhm > 12.0 and np.any(np.isclose(s.central_rest, [G.CIV_1549,G.CIII_1909,G.MgII_2799],atol=4)):
                             #if it is broad and the solution is for CIV, CIII, or MgII
                             w = max(w * 2.0, s.score/25.0) #boost the weight
                             likelihood.append(0.0)  # weak solution so push likelihood "down" but not zero (maybe 0.2 or 0.25)?

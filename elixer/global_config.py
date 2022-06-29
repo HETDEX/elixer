@@ -21,7 +21,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.16.8a2'
+__version__ = '1.17.0a1'
 #Logging
 GLOBAL_LOGGING = True
 
@@ -715,10 +715,56 @@ def getnearpos(array,value):
     idx = (np.abs(array-value)).argmin()
     return idx
 
+#convert vacuum (usually for wavelengths < 2000A) to air for consistency
+# def vac_to_air(w_vac):
+#     return w_vac / (1 + 2.73518e-4 + 131.418 / w_vac ** 2 + 2.76249e8 / w_vac ** 4)
 
 FOV_RADIUS_DEGREE = 0.16 #HETDEX FOV (radius) in degrees (approximately)
-LyA_rest = 1215.67 #1216. #A 1215.668 and 1215.674
+
+AirVacuumThresh = 2000.0 #AA ... below 2000 values are in vacuum, above 2000 in air
+
+LyA_rest = 1215.67 #vacuum 1216. #A 1215.668 and 1215.674
 OII_rest = 3727.8
+
+
+#all other lines (in air) (from http://astronomy.nmsu.edu/drewski/tableofemissionlines.html)
+OIII_4959 = 4958.111
+OIII_5007 = 5006.843
+OVI_1035 = 1034.7625  #*** vacuum 1031.912 + 1037.613, equal weight
+
+CIV_1549 = 1549.4115 #*** vacuum 1548.187 + 1550.772, 1000 + 900 Weight
+CIII_1909 =1908.734 #*** vacuum 1908.734
+CII_2326 = 2324.095 # 2323.500 + 2324.690, equal weight
+
+MgII_2799 = 2798.6944 #triplet   2795.528 + 2797.998 + 2802.705, (13 + 10 + 12 weights)
+
+Hbeta_4861 = 4861.333
+Hgamma_4340 = 4340.471
+Hdelta_4101 = 4101.742
+Hepsilon_3970 = 3970.079
+Hzeta_3889 = 3889.064 #aka H8
+Heta_3835 = 3835.391 #aka H9
+
+HeI_3888 = 3888.647 #not currently used
+
+NV_1241 = 1240.7077 #*** vacuum 1238.821 + 1242.804 (1000 + 900 weights, but close enough to be equal)
+SiII_1260 = 1263.40075 #*** vacuum 1260.422 +  1264.730 + 1265.002 (1000 + 2000 + 200 weights)
+SiIV_1400 = 1397.7617 #*** vacuum 1393.755 + 1402.770 (15 + 12 weights)
+
+HeII_1640 = 1640.420 #*** vacuum
+
+NeIII_3869 = 3868.760
+NeIII_3967 = 3967.470
+NeV_3347 = 3345.821
+NeVI_3427 = 3425.881
+
+NaI_4980 = 4981.3894 # 4975.3 + 4978.5414 + 4982.8134  as 0 + 1 + 2 weights
+NaI_5153 = 5153.4024 #
+#NaI_5071 = 5071.2 # might be stronger than others
+
+#absorption
+CaII_K_3934 = 3933.6614
+CaII_H_3968 = 3968.4673
 
 #FLUX_CONVERSION = (1./60)*1e-17
 HETDEX_FLUX_BASE_CGS = 1e-17

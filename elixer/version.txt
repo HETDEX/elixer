@@ -1,5 +1,10 @@
 changes to elixer by version
 
+1.17.0a1 [2022-06-29]
+* Replace emission/absorption line wavelengths with vacuum values (< 2000A) and air (> 2000A) with updated precision
+* Apply redshift corrections to best_z based on observed wavelength to vacuum and orbital velocity
+
+
 1.16.8a2 [2022-06-22]
 * update meteor logic to check flat means (no PSF) of individually stacked exposures for emission lines
 * updated SEP object selection to also consider matching to DEX-gmag. Best selection is now closest (within ellipse or
