@@ -239,17 +239,31 @@ def z_correction(z,w_obs,vcor=None,shotid=None):#,*args):
         if vcor is None:
             if shotid is not None:
                 vcor = get_bary_corr(shotid)
+                # can come back as an array
+                try:
+                    vcor = vcor[0]
+                except:
+                    pass
             else:
                 vcor = 0
 
-        w_vac = air_to_vac(w_obs) + vcor/(3e5/w_obs) #observed wavelength corrected from air to vacuum and corrected for Earth's velocity
+        w_vac = air_to_vac(w_obs)
+        w_vel = vcor/(3e5/w_obs) #observed wavelength corrected from air to vacuum and corrected for Earth's velocity
         w_rest = w_obs / (z + 1.0) #the line's rest wavelength as used is encoded in the w_obs (uncorrected) and the uncorrected redshift
-        if w_rest < G.AirVacuumThresh: #else, already is in vacuum
+        if w_rest > G.AirVacuumThresh: #else, already is in vacuum
             w_rest = air_to_vac(w_rest) #rest-frame wavelength corrected from air to vacuum (don't want vcor here)
+
+
+        #log updates
+        log.debug(f"Redshift corrections: w_obs {w_obs:0.2f} to {w_vac + w_vel:0.2f}: vac corr {w_vac - w_obs:0.2f} + "
+                  f"Earth velocity corr ({vcor:0.2f}km/s,{w_vel:0.2f}AA); rest {w_rest:0.2f}")
+
+        #combine updates to new observed wavelength (now in vacuum and with velocity correction)
+        w_vac = w_vac + w_vel
 
         z_cor = w_vac / w_rest - 1.0 #now both are in vacuum and the observed also corrected for Earth's velocity
 
-        # todo: other steps ??
+        log.debug(f"Redshift corrections: old z {z:0.4f} to new z {z_cor:0.4f}")
 
         return z_cor
     except:
