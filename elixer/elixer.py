@@ -4518,6 +4518,13 @@ def main():
                     for d in hdf5_detectid_list:
                         plt.close('all')
 
+                        #for safety
+                        try:
+                            d = np.array(d)
+                            d[d==None] = '0'
+                        except: #this really should never happen
+                            log.warning("Exception checking hdf5_detectid_list for None-types",exc_info=True)
+
                         if isinstance(d,np.int64): #this is a detetid, not list of values RA, Dec, ...
                             hd = hetdex.HETDEX(args, fcsdir_list=None, hdf5_detectid_list=[d], basic_only=basic_only,cluster_list=cluster_list)
                             if hd.status == 0:
