@@ -213,11 +213,11 @@ def z_correction(z,w_obs,vcor=None,shotid=None):#,*args):
     Correct the computed redshift, which uses air wavelengths, etc to vacuum and make other corrections for:
         #todo: list applied corrections like There are 3-4 other corrections to the wavelength solution that we are not considering.
         These are, in order of importance:
-            heliocentric correction. This is the most important of all. Early on I was doing this, but then stopped for some reason. In any table, we need to give the information to calculate this. Thus we need UTC, RA, DEC. As long as we have UTC in the table, then we are good to state there is no helio correction
-            transform to vacuum (as discussed above). I’m in the camp that we report air wavelengths, and then give the correction to vacuum.
-            calibrate twilight using solar spectrum. This can have a small effect that I haven’t measured
-            use sun-disk integrated spectrum compared to kpno. smaller effect
-            correction due to GR redshift of earth-sun: 0.6 km/s
+           * heliocentric correction. This is the most important of all. Early on I was doing this, but then stopped for some reason. In any table, we need to give the information to calculate this. Thus we need UTC, RA, DEC. As long as we have UTC in the table, then we are good to state there is no helio correction
+           * transform to vacuum (as discussed above). I’m in the camp that we report air wavelengths, and then give the correction to vacuum.
+           * calibrate twilight using solar spectrum. This can have a small effect that I haven’t measured
+           * use sun-disk integrated spectrum compared to kpno. smaller effect
+           * correction due to GR redshift of earth-sun: 0.6 km/s
 
 
 
@@ -236,22 +236,20 @@ def z_correction(z,w_obs,vcor=None,shotid=None):#,*args):
     """
     try:
 
-        # def air_to_vacuum(w_obs,vcor): #only valid in 3500 to 5500 ish range
-        #     return w_obs + 1. + (w_obs - 3500.) / 4000. + vcor/(3e5/w_obs)
-
         if vcor is None:
             if shotid is not None:
                 vcor = get_bary_corr(shotid)
             else:
                 vcor = 0
 
-        w_vac = air_to_vac(w_obs) + vcor/(3e5/w_obs) #observed wavelength corrected from air to vacuum
+        w_vac = air_to_vac(w_obs) + vcor/(3e5/w_obs) #observed wavelength corrected from air to vacuum and corrected for Earth's velocity
         w_rest = w_obs / (z + 1.0) #the line's rest wavelength as used is encoded in the w_obs (uncorrected) and the uncorrected redshift
         if w_rest < G.AirVacuumThresh: #else, already is in vacuum
             w_rest = air_to_vac(w_rest) #rest-frame wavelength corrected from air to vacuum (don't want vcor here)
 
-        z_cor = w_vac / w_rest - 1.0
-        # todo: other steps
+        z_cor = w_vac / w_rest - 1.0 #now both are in vacuum and the observed also corrected for Earth's velocity
+
+        # todo: other steps ??
 
         return z_cor
     except:

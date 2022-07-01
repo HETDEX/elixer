@@ -724,7 +724,7 @@ FOV_RADIUS_DEGREE = 0.16 #HETDEX FOV (radius) in degrees (approximately)
 AirVacuumThresh = 2000.0 #AA ... below 2000 values are in vacuum, above 2000 in air
 
 LyA_rest = 1215.67 #vacuum 1216. #A 1215.668 and 1215.674
-OII_rest = 3727.8
+OII_rest = 3727.8 #3726.032 + 3728.815  or  3727.319 + 3729.221 (27 + 14 weights?) = 3727.96846
 
 
 #all other lines (in air) (from http://astronomy.nmsu.edu/drewski/tableofemissionlines.html)

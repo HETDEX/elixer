@@ -4590,7 +4590,7 @@ def main():
                                 if hd.status == 0:
                                     hd_list.append(hd)
                         except:
-                            log.error(f"Unable to build hetdex object for ra ({args.ra}), dec ({args.dec}), shot ({args.shotid})")
+                            log.error(f"Unable to build hetdex object for ra ({args.ra}), dec ({args.dec}), shot ({args.shotid})",exc_info=True)
                             print(f"Unable to build hetdex object for ra ({args.ra}), dec ({args.dec}), shot ({args.shotid})")
                             args.ra = None
                             args.dec = None
