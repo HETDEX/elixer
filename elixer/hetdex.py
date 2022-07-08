@@ -1795,7 +1795,8 @@ class DetObj:
         try:
             #aka P(LyA)
             scaled_plae_classification = self.classification_dict['scaled_plae']
-            p = abs(0.5 - scaled_plae_classification)/0.5 #so, peaks near 0 and 1 and is zero at 0.5 (this is a confidence in classification)
+            p = abs(0.5 - scaled_plae_classification)/0.5#so, peaks near 0 and 1 and is zero at 0.5 (this is a confidence in classification)
+            base_p = p #i.e. from plya only
             plya_for_oii = 0.7 #with no other evidence other than P(LyA) that favors OII, since it can be other lines
                                #not just OII, rescale by this factor when assuming OII
             rest = 0
@@ -2066,7 +2067,10 @@ class DetObj:
                     elif multiline_top_scale_score > 0.5 and multiline_top_frac_score > 0.6 and self.fwhm > 12:
                         #this is not terrible and may be better than an OII guess
                         z = multiline_top_z
-                        p = min(p,0.1)
+                        if base_p < 0.1: #all we have is the P(LyA) p and it is near the mid-point, so highly uncertain
+                            p = 0.1
+                        else:
+                            p = min(p,0.1)
                         use_multi = True
                         log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. Set to z:{z} with Q(z): {p}")
                 except:
@@ -2135,7 +2139,10 @@ class DetObj:
                     if multiline_top_scale_score > 0.5 and multiline_top_frac_score > 0.6 and self.fwhm > 15:
                         #this is not terrible and may be better than an OII guess
                         z = self.spec_obj.solutions[0].z
-                        p = min(p,0.1)
+                        if base_p < 0.1: #all we have is the P(LyA) p and it is near the mid-point, so highly uncertain
+                            p = 0.1
+                        else:
+                            p = min(p,0.1)
                         log.info(f"Q(z): weak multiline solution. P(LyA) favors LyA, but set to z:{z} with Q(z): {p}")
                     else:
                         log.info(f"Q(z): no multiline solutions. P(LyA) favors LyA. Set to LyA z:{z} with Q(z): {p}")
@@ -2166,7 +2173,10 @@ class DetObj:
                     if multiline_top_scale_score > 0.5 and multiline_top_frac_score > 0.6 and self.fwhm > 12:
                         #this is not terrible and may be better than an OII guess
                         z = self.spec_obj.solutions[0].z
-                        p = min(p,0.1)
+                        if base_p < 0.1: #all we have is the P(LyA) p and it is near the mid-point, so highly uncertain
+                            p = 0.1
+                        else:
+                            p = min(p,0.1)
                 except:
                     pass
 
@@ -2269,10 +2279,14 @@ class DetObj:
                         max_line_score = 0
 
                     if elixer_max_idx is not None and self.spec_obj.solutions is not None and len(self.spec_obj.solutions) > 0:
-                        sol_sel = np.isclose(z,[x.z for x in self.spec_obj.solutions],atol=0.01) #solutions with matching z
-                        if sum(sol_sel) > 0 and np.any(np.isclose(self.spec_obj.all_found_lines[elixer_max_idx].fit_x0,
-                            np.concatenate(([self.w],[x.w_obs for x in np.hstack([l.lines for l in np.array(self.spec_obj.solutions )[sol_sel]])])),
-                                             atol=4.0)):
+                        #sol_sel = np.isclose(z,[x.z for x in self.spec_obj.solutions],atol=0.01) #solutions with matching z
+                        #if sum(sol_sel) > 0 and np.any(np.isclose(self.spec_obj.all_found_lines[elixer_max_idx].fit_x0,
+                        #    np.concatenate(([self.w],[x.w_obs for x in np.hstack([l.lines for l in np.array(self.spec_obj.solutions )[sol_sel]])])),
+                        #                     atol=4.0)):
+                        #do any of the multi-line solutions include the main line?
+                        if np.any(np.isclose(self.spec_obj.all_found_lines[elixer_max_idx].fit_x0,
+                            np.concatenate(([self.w], [x.w_obs for x in np.hstack(
+                                [l.lines for l in np.array(self.spec_obj.solutions )])])),atol=4.0)):
                             max_line_in_solution = True
                         else:
                             max_line_in_solution = False

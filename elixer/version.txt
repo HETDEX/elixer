@@ -4,6 +4,12 @@ changes to elixer by version
 * Replace emission/absorption line wavelengths with vacuum values (< 2000A) and air (> 2000A) with updated precision
 * Apply redshift corrections to best_z based on observed wavelength to vacuum and orbital velocity
 * Add explicit galactic dust correction to spectra (from h5 and from hetdex_api.get_spectra())
+* Update compatibitlity check with lzg to weight the missing lines (not just count). i.e. if claim h_delta, it is REALLY
+  bad if h_gamma and h_beta not found, but if claim OIII-5007, it is not that bad if OII-3272 not found (could be high 032
+  and OII is weak))
+* For compatibility checks, start at G.HETDEX_BLUE_SAFE_WAVE (3600AA) rather than 3500AA. Just too many problems in the
+  deep blue.
+
 
 
 1.16.8a2 [2022-06-22]

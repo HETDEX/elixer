@@ -4683,14 +4683,17 @@ class Spectrum:
 
             #required match matrix ... if line at row (x) is found and line at column (y) is in range, it MUST be found too
             #this is in order of the lines in rest_waves
+            # 1 for youself along the diagnonal
+            # 1 also for a line that probably should be found, but is not catastrophic if not found
+            # > 1 for lines that really must be found
             match_matrix =[[1,0,0,0,0,0,0,0,0],  #0 [OII]
-                           [1,1,1,1,1,1,1,0,0],  #1 H_eta
-                           [1,0,1,1,1,1,1,0,0],  #2 H_zeta
-                           [1,0,0,1,1,1,1,0,0],  #3 H_epsilon
-                           [1,0,0,0,1,1,1,0,0],  #4 H_delta
-                           [0,0,0,0,0,1,1,0,0],  #5 H_gamma
+                           [1,1,1,1,2,3,5,0,0],  #1 H_eta
+                           [1,0,1,1,2,3,5,0,0],  #2 H_zeta
+                           [1,0,0,1,2,3,5,0,0],  #3 H_epsilon
+                           [1,0,0,0,1,3,5,0,0],  #4 H_delta
+                           [0,0,0,0,0,1,5,0,0],  #5 H_gamma
                            [0,0,0,0,0,0,1,0,0],  #6 H_beta
-                           [1,0,0,0,0,0,0,1,1],  #7 OIII 4959
+                           [1,0,0,0,0,0,0,1,2],  #7 OIII 4959
                            [1,0,0,0,0,0,0,0,1]]  #8 OIII 5007
             match_matrix = np.array(match_matrix)
 
@@ -4749,14 +4752,16 @@ class Spectrum:
 
             #check the match_matrix
             missing = []
-            in_range = np.where((obs_waves > 3500.) & (obs_waves < 5500.))[0]
+            missing_weight = 0
+            in_range = np.where((obs_waves > G.HETDEX_BLUE_SAFE_WAVE) & (obs_waves < 5500.))[0]
             for i in range(len(overlap)):
                 if np.sum(match_matrix[rest_idx[i]]) > 1:
                     #at least one other line must be found (IF the obs_wave is in the HETDEX range)
                     sel = np.intersect1d(in_range,np.where(match_matrix[rest_idx[i]])[0])
                     missing = np.union1d(missing,np.setdiff1d(sel,rest_idx)).astype(int)
+                    missing_weight += np.sum(match_matrix[rest_idx[i]][sel]) -1 #the -1 is so we don't count the line we assume we are
 
-            score = -1 * len(missing)
+            score = -1 * max(missing_weight,len(missing))
 
             if score < 0:
                 log.info(f"LzG consistency failure. Initial Score = {score}. "
@@ -5060,15 +5065,16 @@ class Spectrum:
 
             # check the match_matrix
             missing = []
-            in_range = np.where((obs_waves > 3500.) & (obs_waves < 5500.))[0]
+            #missing_weight = 0 #handled by the match_matrix_weights
+
+            #can be really hard in the blue, so start a bit red of blue most
+            in_range = np.where((obs_waves > G.HETDEX_BLUE_SAFE_WAVE) & (obs_waves < 5500.))[0]
             for i in range(len(overlap)):
                 if np.sum(match_matrix[rest_idx[i]]) > 1:
                     # at least one other line must be found (IF the obs_wave is in the HETDEX range)
                     sel = np.intersect1d(in_range, np.where(match_matrix[rest_idx[i]])[0])
                     missing = np.union1d(missing, np.setdiff1d(sel, rest_idx)).astype(int)
-
-
-
+                    #missing_weight += np.sum(match_matrix[rest_idx[i]][sel]) - 1  # the -1 is so we don't count the line we assume we are
 
             #LyA COULD be there even if not found
             if 0 in missing:
@@ -5507,7 +5513,7 @@ class Spectrum:
 
 
                 missing = []
-                in_range = np.where((obs_waves > 3500.) & (obs_waves < 5500.))[0]
+                in_range = np.where((obs_waves > G.HETDEX_BLUE_SAFE_WAVE) & (obs_waves < 5500.))[0]
                 for i in range(len(overlap)):
                     if np.sum(match_matrix[rest_idx[i]]) > 1:
                         # at least one other line must be found (IF the obs_wave is in the HETDEX range)
