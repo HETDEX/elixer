@@ -178,6 +178,7 @@ class DistancePrior:
                 out = np.genfromtxt(file, dtype=None, comments="#",encoding=None)
         except:
             log.error("Cannot read distance prior file: %s" % file, exc_info=True)
+            return
 
         try:
             #reduce 2nd through nth column values by divid by num_trials, cap at 1.0

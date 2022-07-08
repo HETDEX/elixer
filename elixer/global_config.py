@@ -766,6 +766,9 @@ NaI_5153 = 5153.4024 #
 CaII_K_3934 = 3933.6614
 CaII_H_3968 = 3968.4673
 
+
+APPLY_GALACTIC_DUST_CORRECTION = True
+
 #FLUX_CONVERSION = (1./60)*1e-17
 HETDEX_FLUX_BASE_CGS = 1e-17
 # 1.35e-18 ~ 24.0 mag in g-band
@@ -1051,6 +1054,10 @@ SEP_FIXED_APERTURE_RADIUS = 1.5 #RADIUS in arcsec ... used at the barycenter pos
 FWHM_TYPE1_AGN_VELOCITY_THRESHOLD = 1500.0 #km/s #FWHM velocity in emission line above this value might be a type 1 AGN
 
 
+PLYA_VOTE_THRESH = 0.5 # >= vote for LyA, below for not LyA
+PLYA_VOTE_LO = PLYA_VOTE_THRESH - PLYA_VOTE_THRESH * 0.2 # lower bound for a somewhat "uncertain" region
+PLYA_VOTE_HI = PLYA_VOTE_THRESH + (1 - PLYA_VOTE_THRESH) * 0.2 # upper bound for a somewhat "uncertain" region
+
 ##################################
 #Detection Flags (DF) (32 bit)
 ##################################
@@ -1110,6 +1117,7 @@ DETFLAG_QUESTIONABLE_DETECTION      = 0x00400000   #unable to fit a continuum (w
 DETFLAG_EXCESSIVE_ZERO_PIXELS       = 0x00800000   #too many zero valued pixels at the emission line center in 2D cutouts
 
 DETFLAG_POSSIBLE_PN                 = 0x01000000    #possible planetery nebula hit (usually 5007, without an obvious source)
+DETFLAG_NO_DUST_CORRECTION          = 0x02000000
 
 #todo: low SNR, weighted position is between fibers (i.e. distances from blue fiber center > 0.74 or 0.75 and SNR < 5.2 or so)
 

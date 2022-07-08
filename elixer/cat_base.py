@@ -1138,7 +1138,8 @@ class Catalog:
                             selected_idx = None
                         break
             except:
-                log.warning("Exception attempting to identify best counterpart match in cat_base::build_cat_summary_pdf_section()",
+                if detobj is not None:
+                    log.warning("Exception attempting to identify best counterpart match in cat_base::build_cat_summary_pdf_section()",
                             exc_info=True)
 
             if selected_idx is not None:
@@ -1292,7 +1293,10 @@ class Catalog:
 
 
             except:
-                log.warning("Exception building line image",exc_info=True)
+                if detobj is not None:
+                    log.warning("Exception building line image",exc_info=True)
+                else:
+                    log.warning("detobj is None. Cannot build line image.")
 
 
             #

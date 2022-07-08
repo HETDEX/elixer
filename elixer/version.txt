@@ -3,6 +3,7 @@ changes to elixer by version
 1.17.0a1 [2022-06-29]
 * Replace emission/absorption line wavelengths with vacuum values (< 2000A) and air (> 2000A) with updated precision
 * Apply redshift corrections to best_z based on observed wavelength to vacuum and orbital velocity
+* Add explicit galactic dust correction to spectra (from h5 and from hetdex_api.get_spectra())
 
 
 1.16.8a2 [2022-06-22]

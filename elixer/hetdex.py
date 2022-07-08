@@ -33,6 +33,7 @@ except:
 
 from hetdex_tools.get_spec import get_spectra as hda_get_spectra
 from hetdex_api.shot import get_fibers_table as hda_get_fibers_table
+from hetdex_api.extinction import *
 
 from astropy.coordinates import SkyCoord
 import astropy.units as U
@@ -731,6 +732,7 @@ class DetObj:
         self.sumspec_flux = []
         self.sumspec_flux_unit_scale = G.HETDEX_FLUX_BASE_CGS #cgs
         self.sumspec_fluxerr = []
+        self.dust_corr = None
 
         self.sumspec_apcor = []
 
@@ -6849,6 +6851,16 @@ class DetObj:
 
                 # get the zoomed in part (slice around the central wavelength)
 
+                if G.APPLY_GALACTIC_DUST_CORRECTION:
+                    try:
+                        self.dust_corr = deredden_spectra(self.sumspec_wavelength,
+                                                          SkyCoord(self.wra, self.wdec, unit='deg'))
+                        self.sumspec_flux *= self.dust_corr
+                        self.sumspec_fluxerr *= self.dust_corr
+                    except:
+                        self.flags |= G.DETFLAG_NO_DUST_CORRECTION
+                        log.warning("Exception. Unable to apply galatic exintction correction.", exc_info=True)
+
                 if self.w is not None and self.w != 0:
                     idx = elixer_spectrum.getnearpos(self.sumspec_wavelength, self.w)
                 else:
@@ -7600,6 +7612,18 @@ class DetObj:
             self.sumspec_flux = np.nan_to_num(apt['spec'][0]) * G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)
             self.sumspec_fluxerr = np.nan_to_num(apt['spec_err'][0]) * G.FLUX_WAVEBIN_WIDTH
             self.sumspec_wavelength = np.array(apt['wavelength'][0])
+
+            if G.APPLY_GALACTIC_DUST_CORRECTION:
+                try:
+                    self.dust_corr = deredden_spectra(self.sumspec_wavelength,coord)
+                    self.sumspec_flux *= self.dust_corr
+                    self.sumspec_fluxerr *= self.dust_corr
+                except:
+                    self.flags |= G.DETFLAG_NO_DUST_CORRECTION
+                    log.warning("Exception. Unable to apply galatic exintction correction.",exc_info=True)
+
+
+
             try: #name change in HDR3
                 self.sumspec_apcor =  np.array(apt['apcor'][0]) #this is the apcor ... the fiber_weights are the PSF weights
             except:
@@ -7805,11 +7829,15 @@ class DetObj:
                         already_read = False
                         for fi in self.fibers:
                             #same filename (same DateVshot + observation) + same (IFU address) + same exposure
-                            if (fi.fits.filename == fits.filename) and (fi.fits.multiframe == fits.multiframe) \
-                                and (fi.fits.expid == fits.expid):
-                                fiber.fits = fi.fits
-                                already_read = True
-                                break
+                            try:
+                                if (fi.fits.filename == fits.filename) and (fi.fits.multiframe == fits.multiframe) \
+                                    and (fi.fits.expid == fits.expid):
+                                    fiber.fits = fi.fits
+                                    already_read = True
+                                    break
+                            except:
+                                if fi.fits is not None:
+                                    log.error("Exception in DetObj.forced_extraction.",exc_info=True)
 
                         if not already_read:
                             fits.read_hdf5()
@@ -8409,6 +8437,15 @@ class DetObj:
             self.sumspec_flux = row['spec1d'] #DOES NOT have units attached, but is 10^17 (so *1e-17 to get to real units)
             self.sumspec_fluxerr = row['spec1d_err']
             self.sumspec_apcor = row['apcor'] #aperture correction
+
+            if G.APPLY_GALACTIC_DUST_CORRECTION:
+                try:
+                    self.dust_corr = deredden_spectra(self.sumspec_wavelength, SkyCoord(self.wra,self.wdec,unit='deg'))
+                    self.sumspec_flux *= self.dust_corr
+                    self.sumspec_fluxerr *= self.dust_corr
+                except:
+                    self.flags |= G.DETFLAG_NO_DUST_CORRECTION
+                    log.warning("Exception. Unable to apply galatic exintction correction.", exc_info=True)
 
             # # #test:
             # print("!!!!!!!!!!!!!!!!!!!!!!! TEST: REMOVE ME !!!!!!!!!!!!!!!!!!!!!")

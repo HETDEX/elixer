@@ -1239,7 +1239,8 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                             try:  # no downstream edits so they can both point to same bid_target
                                 detobj.bid_target_list.append(bid_target)
                             except:
-                                log.warning("Unable to append bid_target to detobj.", exc_info=True)
+                                if detobj is not None:
+                                    log.warning("Unable to append bid_target to detobj.", exc_info=True)
 
                             try:
                                 cutouts[0]['counterparts'].append(bid_target)

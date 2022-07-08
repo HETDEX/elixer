@@ -4142,11 +4142,14 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                 plt.axvline(x= emis[i],linestyle="--",zorder=1,color=neighbor_color,linewidth=1.0,alpha=0.5)
             plt.xlim((G.CALFIB_WAVEGRID[0],G.CALFIB_WAVEGRID[-1]))
 
-            if (cwave is not None) and (3550.0 < cwave < 5450) and (3550.0 < emis[i] < 5450):
-                ymx = np.max(spec[i][40:991])
-                ymn = np.min(spec[i][40:991])
-                rn = ymx - ymn
-                plt.ylim(ymx-rn*1.1, ymn+rn*1.1)
+            try:
+                if (cwave is not None) and (3550.0 < cwave < 5450) and (3550.0 < emis[i] < 5450):
+                    ymx = np.max(spec[i][40:991])
+                    ymn = np.min(spec[i][40:991])
+                    rn = ymx - ymn
+                    plt.ylim(ymx-rn*1.1, ymn+rn*1.1)
+            except:
+                log.warning("Unable to set ylim for 1D spectrum in build_neighborhood_map().")
 
             #todo: check the specta lines (each detection's main line ... if 3600 to 5400, do not include
             #todo: ends in the y-limit calculation (to avoid run-away range values)
