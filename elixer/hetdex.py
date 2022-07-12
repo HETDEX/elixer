@@ -3960,11 +3960,11 @@ class DetObj:
         # can't distinguish between them, but in either case, is very inconsistent with LAE
         # Mostly a BOOLEAN value (yes or no, LAE)
         try:
-            vote_info['multiline_votes'] = []
-            vote_info['multiline_weights'] = []
+            vote_info['multiline_votes'] = [-1,-1,-1,-1,-1,-1,-1,-1,-1] #to match the definition in elixer_hdf5
+            vote_info['multiline_weights'] = [-1,-1,-1,-1,-1,-1,-1,-1,-1]
 
             if (self.spec_obj is not None) and (self.spec_obj.solutions is not None):
-                for s in self.spec_obj.solutions:
+                for vi,s in enumerate(self.spec_obj.solutions):
                     bonus_weight = 1.0 #multiplier
                     #if this is a really high score and there are 2 or more additional lines (3+ total with the main line)
                     #or a slightly lower score and more lines, then
@@ -4047,8 +4047,11 @@ class DetObj:
                                 f"{self.entry_id} Aggregate Classification: non-LyA weak solution: z({s.z:0.4f}) {s.name}-{s.central_rest}, "
                                 f"lk({likelihood[-1]}) weight({weight[-1]:0.4f}) score({s.score}) scaled score({s.scale_score})")
 
-                    vote_info['multiline_votes'].append(likelihood[-1])
-                    vote_info['multiline_weights'].append(weight[-1])
+                    try:
+                        vote_info['multiline_votes'][vi] = likelihood[-1]
+                        vote_info['multiline_weights'][vi] = weight[-1]
+                    except:
+                        pass #could go past 9 and that would throw exception
 
                     # does this match with a physical size from above?
                     try:
