@@ -3904,6 +3904,9 @@ class DetObj:
         #################################
         try:
         #basically, if bright and many lines and no line with large EW, this is probably a low-z galaxy
+            vote_info['bright_continuum_vote'] = -1
+            vote_info['bright_continuum_weight'] = 0
+
             if (self.best_gmag is not None and self.best_gmag < 21 and self.spec_obj is not None):
                 all_emis = 0
                 all_absb = 0
@@ -3929,8 +3932,18 @@ class DetObj:
                             prior.append(base_assumption)
                             log.info(
                                 f"{self.entry_id} Aggregate Classification: LzG likely: lk({likelihood[-1]}) weight({weight[-1]})")
+
+                            vote_info['bright_continuum_vote'] = likelihood[-1]
+                            vote_info['bright_continuum_weight'] = weight[-1]
                     except:
-                        pass
+                        log.debug(
+                            f"{self.entry_id} Aggregate Classification: Bright continuum -- no vote")
+                else:
+                    log.debug(
+                        f"{self.entry_id} Aggregate Classification: Bright continuum -- no vote")
+            else:
+                log.debug(
+                    f"{self.entry_id} Aggregate Classification: Bright continuum -- no vote")
 
         except:
             log.debug("Exception in aggregate_classification for LZG check",exc_info=True)

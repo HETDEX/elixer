@@ -1,6 +1,6 @@
 changes to elixer by version
 
-1.17.0a1 [2022-06-29]
+1.17.0a1 [2022-07-08]
 * Replace emission/absorption line wavelengths with vacuum values (< 2000A) and air (> 2000A) with updated precision
 * Apply redshift corrections to best_z based on observed wavelength to vacuum and orbital velocity
 * Add explicit galactic dust correction to spectra (from h5 and from hetdex_api.get_spectra())
@@ -9,8 +9,6 @@ changes to elixer by version
   and OII is weak))
 * For compatibility checks, start at G.HETDEX_BLUE_SAFE_WAVE (3600AA) rather than 3500AA. Just too many problems in the
   deep blue.
-
-
 
 1.16.8a2 [2022-06-22]
 * update meteor logic to check flat means (no PSF) of individually stacked exposures for emission lines

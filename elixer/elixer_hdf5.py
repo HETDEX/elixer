@@ -243,9 +243,8 @@ class ClassificationExtraFeatures(tables.IsDescription):
     line_sigma_vote = tables.Float32Col(dflt=UNSET_FLOAT)
     line_sigma_weight = tables.Float32Col(dflt=UNSET_FLOAT)
 
-
-
-
+    bright_continuum_vote  = tables.Float32Col(dflt=UNSET_FLOAT)
+    bright_continuum_weight= tables.Float32Col(dflt=UNSET_FLOAT)
 
 #Only used when G.LyC is True ... special table for Lyman Continuum project
 #there is some duplicated data, but this is meant to be self contained
@@ -1616,6 +1615,11 @@ def append_entry(fileh,det,overwrite=False):
                 except:
                     pass
 
+                try:
+                    row['bright_continuum_vote'] = det.vote_info['bright_continuum_vote']
+                    row['bright_continuum_weight'] = det.vote_info['bright_continuum_weight']
+                except:
+                    pass
 
 
                 row.append()
