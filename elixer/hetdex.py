@@ -3960,6 +3960,9 @@ class DetObj:
         # can't distinguish between them, but in either case, is very inconsistent with LAE
         # Mostly a BOOLEAN value (yes or no, LAE)
         try:
+            vote_info['multiline_votes'] = []
+            vote_info['multiline_weights'] = []
+
             if (self.spec_obj is not None) and (self.spec_obj.solutions is not None):
                 for s in self.spec_obj.solutions:
                     bonus_weight = 1.0 #multiplier
@@ -4043,6 +4046,9 @@ class DetObj:
                             log.info(
                                 f"{self.entry_id} Aggregate Classification: non-LyA weak solution: z({s.z:0.4f}) {s.name}-{s.central_rest}, "
                                 f"lk({likelihood[-1]}) weight({weight[-1]:0.4f}) score({s.score}) scaled score({s.scale_score})")
+
+                    vote_info['multiline_votes'].append(likelihood[-1])
+                    vote_info['multiline_weights'].append(weight[-1])
 
                     # does this match with a physical size from above?
                     try:

@@ -246,6 +246,9 @@ class ClassificationExtraFeatures(tables.IsDescription):
     bright_continuum_vote  = tables.Float32Col(dflt=UNSET_FLOAT)
     bright_continuum_weight= tables.Float32Col(dflt=UNSET_FLOAT)
 
+    multiline_votes = tables.Float32Col(shape=(9,),dflt=[np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan,np.nan] )
+    multiline_weights = tables.Float32Col(shape=(9,),dflt=[-1,-1,-1,-1,-1,-1,-1,-1,-1] )
+
 #Only used when G.LyC is True ... special table for Lyman Continuum project
 #there is some duplicated data, but this is meant to be self contained
 class NeighborSpectra(tables.IsDescription):
@@ -1618,6 +1621,12 @@ def append_entry(fileh,det,overwrite=False):
                 try:
                     row['bright_continuum_vote'] = det.vote_info['bright_continuum_vote']
                     row['bright_continuum_weight'] = det.vote_info['bright_continuum_weight']
+                except:
+                    pass
+
+                try:
+                    row['multiline_votes'] = det.vote_info['multiline_votes']
+                    row['multiline_weights'] = det.vote_info['multiline_weights']
                 except:
                     pass
 
