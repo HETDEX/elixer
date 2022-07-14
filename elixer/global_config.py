@@ -21,7 +21,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.17.0a1'
+__version__ = '1.17.0a2'
 #Logging
 GLOBAL_LOGGING = True
 
@@ -1118,6 +1118,7 @@ DETFLAG_EXCESSIVE_ZERO_PIXELS       = 0x00800000   #too many zero valued pixels 
 
 DETFLAG_POSSIBLE_PN                 = 0x01000000    #possible planetery nebula hit (usually 5007, without an obvious source)
 DETFLAG_NO_DUST_CORRECTION          = 0x02000000
+DETFLAG_BAD_PIXELS                  = 0x04000000    #hot column, maybe bad sky subtraction, etc ... possible false detection
 
 #todo: low SNR, weighted position is between fibers (i.e. distances from blue fiber center > 0.74 or 0.75 and SNR < 5.2 or so)
 

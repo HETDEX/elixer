@@ -2610,6 +2610,8 @@ class DetObj:
         if G.CHECK_FOR_METEOR:
             self.check_for_meteor()
 
+        self.check_for_bad_pixel()
+
         try:
             possible_lines = []
             flag_galaxy_mask = False
@@ -2818,6 +2820,44 @@ class DetObj:
 
             except:
                 log.warning("Failed to check GAIA_DEX catalog",exc_info=True)
+
+
+    def check_for_bad_pixel(self):
+        """
+        Examine the emission line for the possibility that it is an artifact of "bad pixels"
+
+        So, far, specifically, we look at 3003173114 as an example, where the line is very narrow and dips strongly negative
+        to one side
+
+        :return:
+        """
+
+        try:
+            #3003173114 example type ... narrow line with strong negative dip
+            if (self.fwhm < 4.5) and (self.fwhm + self.fwhm_unc < 6.0):
+                #check blue and red sides for strong negative dip (vs what is predicted)
+                #look at 3sigma to 5 sigma?
+                eli = self.spec_obj.central_eli
+                #peak_bin = SU.getnearpos(eli.raw_wave,eli.fit_x0)
+                blue_start,*_ = SU.getnearpos(eli.raw_wave, eli.fit_x0 - eli.fit_sigma * 5) #an index is returned
+                blue_stop,*_ = SU.getnearpos(eli.raw_wave, eli.fit_x0 - eli.fit_sigma * 3)
+
+                red_start,*_ = SU.getnearpos(eli.raw_wave, eli.fit_x0 + eli.fit_sigma * 3)  # an index is returned
+                red_stop,*_ = SU.getnearpos(eli.raw_wave, eli.fit_x0 + eli.fit_sigma * 5)
+
+                blue_side = np.mean(eli.raw_vals[blue_start:blue_stop+1]) - eli.fit_y
+                red_side = np.mean(eli.raw_vals[red_start:red_stop+1]) - eli.fit_y
+
+                #either or both sides must be negative and the difference / mean
+                if ((blue_side < 0) or (red_side < 0)) and (abs((blue_side-red_side)/np.mean([blue_side ,red_side])) > 2.0):
+                    self.flags |= G.DETFLAG_BAD_PIXELS
+                    self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
+                    log.info(f"{self.entry_id} detection possibly caused by bad pixels.")
+
+        except:
+            #not a severe exception so just log an move on
+            log.info("Exception in hetdex.py check_for_bad_pixels.",exc_info=True)
+
 
     def check_for_meteor(self):
         """
