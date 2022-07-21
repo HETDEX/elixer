@@ -316,7 +316,7 @@ def parse_commandline(auto_force=False):
                         required=False, action='store_true', default=False)
 
     parser.add_argument('-t', '--time', help="Max runtime as hh:mm:ss for in SLURM queue",required=False)
-    parser.add_argument('--timex', help="Multiplier on the time for SLURM. i.e. 1.1 would increase the time by 10%",
+    parser.add_argument('--timex', help="Multiplier on the time for SLURM. i.e. 1.1 would increase the time by 10%%",
                         required=False,type=float,default=1.0)
     parser.add_argument('--email', help="If populated, sends SLURM status to this email address", required=False)
 

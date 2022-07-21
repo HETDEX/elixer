@@ -692,7 +692,7 @@ def snr(flux,noise,flux_err=None,wave=None,center=None,delta=None):
     return None, None
 
 
-def chi_sqr(obs, exp, error=None, c=None,dof=3):
+def chi_sqr(obs, exp, error=None, c=None, dof=2):#, reduced=True):
     """
 
     :param obs: (data)
@@ -729,7 +729,7 @@ def chi_sqr(obs, exp, error=None, c=None,dof=3):
     #     dof -= 1
 
     try:
-        if dof is not None and (len(obs)-dof) > 0:
+        if dof is not None and (len(obs)-dof) > 0: #using dof to also imply this is a reduced chi2
             chisqr =  1./(len(obs)-dof) * np.sum(((obs - c * exp) / error) ** 2)
         else:
             chisqr = np.sum( ((obs - c*exp)/error)**2 )
