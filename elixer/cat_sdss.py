@@ -109,16 +109,27 @@ class SDSS(cat_base.Catalog):#SDSS
 #     20.5
 
 
+ #update from https://www.sdss.org/dr16/imaging/other_info/
+#u = 22.15
+# g = 23.13
+# r = 22.70
+# i = 22.20
+# z = 20.71
+#median seeing in 'r' 1.32"
+
     MAG_LIMIT = 22.5
 
     # class variables
     CONT_EST_BASE = None
 
     mean_FWHM = 1.67 #at 75% quartile for g-band ... varies also by filter, but this is good middle of the road limit
-    MainCatalog = None #there is no Main Catalog ... must load individual catalog tracts
+    MainCatalog = "SDSS" #there is no Main Catalog ... must load individual catalog tracts
     Name = "SDSS"
     Filters = ['u','g','r','i','z'] #case is important ... needs to be lowercase
     WCS_Manual = True
+
+    SDSS_CAT_PATH = G.SDSS_CAT_PATH #while the imaging is online, this is a local copy of a FITS catalog
+    apt_zcat = None #astropy table z-catalog
 
     def __init__(self):
         super(SDSS, self).__init__()
@@ -129,6 +140,8 @@ class SDSS(cat_base.Catalog):#SDSS
         self.num_targets = 0
         self.master_cutout = None
 
+        self.read_main_catalog() #catalog is loaded to the class, not the object
+
     def get_filters(self,ra=None,dec=None):
         return ['u','g', 'r', 'i', 'z']
 
@@ -136,6 +149,106 @@ class SDSS(cat_base.Catalog):#SDSS
         #todo:
         print("get_filter_flux not defined yet")
         return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
+
+    @classmethod
+    def read_main_catalog(cls): #override base_cat.py
+        """
+
+        :return:
+        """
+        if cls.apt_zcat is not None:
+            log.debug("Already built SDSS z-catalog")
+            return
+
+        try:
+            cls.apt_zcat = astropy.table.Table.read(cls.SDSS_CAT_PATH)
+            #todo: only keep certain columns?
+            keep_cols = ["PLUG_RA","PLUG_DEC","Z","Z_ERR","CLASS"]
+            drop_cols = [c not in keep_cols for c in cls.apt_zcat.colnames]
+            cls.apt_zcat.remove_columns(np.array(cls.apt_zcat.colnames)[drop_cols])
+            cls.apt_zcat.rename_column("PLUG_RA","RA")
+            cls.apt_zcat.rename_column("PLUG_DEC","DEC")
+            #(np.array(t.colnames)[drop_cols]
+        except:
+            log.error(f"Exception loading SDSS z-catalog {cls.SDSS_CAT_PATH}")
+
+    @classmethod #so you don't have to instantiate an object
+    def redshift(cls,ra,dec,error=5.0):
+        """
+        Return redshifts (if present) within error arcsec of the target RA, DEC
+
+        :param ra:  in decimal degrees
+        :param dec: in decimal degrees
+        :param error: in arcsecs
+        :return: list of redshifts within error and the separation and the classification label
+        """
+
+        try:
+            if cls.apt_zcat is None:
+                cls.read_main_catalog()
+
+            if cls.apt_zcat is None: #still None
+                log.error("Cannot load SDSS z-catalog")
+                return [],[],[],[]
+
+            if error is None or error == 0:
+                error = 10.0
+                variable_error = True
+            else:
+                variable_error = False
+
+            deg_err = error/3600.
+            sel = (cls.apt_zcat["RA"] > (ra-deg_err)) * (cls.apt_zcat["RA"] < (ra+deg_err)) * \
+                  (cls.apt_zcat["DEC"] > (dec-deg_err)) * (cls.apt_zcat["DEC"] < (dec+deg_err))
+
+            t = cls.apt_zcat[sel] #subselected
+
+            z = [] #redshift
+            e = []
+            s = [] #separation in arcsec
+            c = [] #class
+
+            xlat_label = {"GALAXY":"gal","QSO":"agn","STAR":"star"}
+
+            #notice: all 'Z' are capital
+            #should only be a few, may want to iterate over in case there are errors
+            for r in t:
+                try:
+                    if -0.2 < r["Z"] < 10.0:
+                        #todo: get the magnitude in g for the SDSS object (should be brigher than 22.5 or so)
+                        # and allow the "error" to float, become larger with brigher g-mag ... see SPEC1_G, SPEC2_G in
+                        # SDSS table original data
+                        #and (not variable_error or (variable_error and utilities.angular_distance(ra,dec,r["RA"],r["DEC"])):
+                        add = True
+                        #check that it is unique (not really close in z-space to another already
+                        for i in range(len(z)):#,e1 in zip(z,e):
+                            if abs(z[i]-r["Z"])/(.5 * (z[i] + r["Z"])) < 0.05:
+                                #these are similar
+
+                                #keep the better error
+                                if e[i] > r["Z_ERR"]:
+                                    del z[i]
+                                    del s[i]
+                                    del c[i]
+                                    del e[i]
+                                else:
+                                    add = False
+                                break
+
+                        if add:
+                            z.append(r["Z"])
+                            s.append(utilities.angular_distance(ra,dec,r["RA"],r["DEC"]))
+                            c.append(xlat_label[r["CLASS"]])
+                            e.append(r["Z_ERR"])
+                except:
+                    log.info("Exception! Exception in cat_sdss::redshift()",exc_info=True)
+
+            ss = np.argsort(s) #sort by separation and return the arrays in that sort order
+            return np.array(z)[ss],np.array(e)[ss],np.array(s)[ss],np.array(c)[ss]
+
+        except:
+            log.warning("Exception in cat_sdss::redshift()",exc_info=True)
+            return [],[],[],[]
 
 
     def build_list_of_bid_targets(self, ra, dec, error):
@@ -159,7 +272,13 @@ class SDSS(cat_base.Catalog):#SDSS
 
         # display the exact (target) location
         if G.SINGLE_PAGE_PER_DETECT:
-            entry = self.build_cat_summary_figure(cat_match,target_ra, target_dec, error, ras, decs,
+            if G.BUILD_REPORT_BY_FILTER:
+                #here we return a list of dictionaries (the "cutouts" from this catalog)
+                return self.build_cat_summary_details(cat_match,target_ra, target_dec, error, ras, decs,
+                                              target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux,
+                                              detobj=detobj)
+            else:
+                entry = self.build_cat_summary_figure(cat_match,target_ra, target_dec, error, ras, decs,
                                                   target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux,
                                                   detobj=detobj)
 
@@ -331,7 +450,7 @@ class SDSS(cat_base.Catalog):#SDSS
             G.ALLOW_EMPTY_IMAGE = True
 
             cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error, window=window,
-                                                     aperture=aperture,mag_func=mag_func,return_details=True)
+                                                     aperture=aperture,mag_func=mag_func,return_details=True,detobj=detobj)
 
             G.ALLOW_EMPTY_IMAGE = save_ALLOW_EMPTY_IMAGE
 
@@ -425,14 +544,16 @@ class SDSS(cat_base.Catalog):#SDSS
                             lineFlux_err = 0.
 
                     #build EW error from lineFlux_err and aperture estimate error
-                    ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
-                    try:
-                        ew_obs_err =  abs(ew_obs * np.sqrt(
-                                        (lineFlux_err / target_flux) ** 2 +
-                                        (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
-                    except:
-                        ew_obs_err = 0.
+                    # ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
+                    # try:
+                    #     ew_obs_err =  abs(ew_obs * np.sqrt(
+                    #                     (lineFlux_err / target_flux) ** 2 +
+                    #                     (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
+                    # except:
+                    #     ew_obs_err = 0.
 
+                    ew_obs, ew_obs_err = SU.ew_obs(target_flux,lineFlux_err,target_w, bid_target.bid_filter,
+                               bid_target.bid_flux_est_cgs,bid_target.bid_flux_est_cgs_unc)
                     # bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii,plae_errors = \
                     #     line_prob.prob_LAE(wl_obs=target_w, lineFlux=target_flux,
                     #                        ew_obs=ew_obs,
@@ -448,8 +569,8 @@ class SDSS(cat_base.Catalog):#SDSS
                             wl_obs=target_w,
                             lineFlux=target_flux,
                             lineFlux_err=lineFlux_err,
-                            continuum=bid_target.bid_flux_est_cgs,
-                            continuum_err=bid_target.bid_flux_est_cgs_unc,
+                            continuum=bid_target.bid_flux_est_cgs * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
+                            continuum_err=bid_target.bid_flux_est_cgs_unc * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
                             c_obs=None, which_color=None,
                             addl_wavelengths=addl_waves,
                             addl_fluxes=addl_flux,
@@ -515,7 +636,8 @@ class SDSS(cat_base.Catalog):#SDSS
                     save_ALLOW_EMPTY_IMAGE = G.ALLOW_EMPTY_IMAGE
                     G.ALLOW_EMPTY_IMAGE = True
 
-                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True)
+                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True,reset_center=False,detobj=detobj)
+#                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True)
 
                     G.ALLOW_EMPTY_IMAGE = save_ALLOW_EMPTY_IMAGE
 
@@ -627,8 +749,8 @@ class SDSS(cat_base.Catalog):#SDSS
             rx = (xr - xl) * box_ratio / 2.0
             ry = (yt - yb) * box_ratio / 2.0
 
-            plt.gca().add_patch(plt.Rectangle((zero_x - rx,  zero_y - ry), width=rx * 2, height=ry * 2,
-                                              angle=0, color='red', fill=False,linewidth=3))
+            plt.gca().add_patch(plt.Rectangle((zero_x - rx,  zero_y - ry), width=rx * 2 , height=ry * 2,
+                                              angle=0, color='red', fill=False,linewidth=8))
 
             buf = io.BytesIO()
             plt.savefig(buf, format='png', dpi=300,transparent=True)
@@ -784,16 +906,27 @@ class SDSS(cat_base.Catalog):#SDSS
                             bid_target.bid_mag_err_faint = filter_mag_faint
                             bid_target.bid_flux_est_cgs_unc = filter_fl_cgs_unc
 
+                            lineFlux_err = 0.
+                            if detobj is not None:
+                                try:
+                                    lineFlux_err = detobj.estflux_unc
+                                except:
+                                    lineFlux_err = 0.
                             try:
-                                ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
-                                ew_u = abs(ew * np.sqrt(
-                                    (detobj.estflux_unc / target_flux) ** 2 +
-                                    (filter_fl_err / filter_fl) ** 2))
+                                # ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+                                # ew_u = abs(ew * np.sqrt(
+                                #     (detobj.estflux_unc / target_flux) ** 2 +
+                                #     (filter_fl_err / filter_fl) ** 2))
+                                #
+                                # bid_target.bid_ew_lya_rest = ew
+                                # bid_target.bid_ew_lya_rest_err = ew_u
 
-                                bid_target.bid_ew_lya_rest = ew
-                                bid_target.bid_ew_lya_rest_err = ew_u
+                                bid_target.bid_ew_lya_rest, bid_target.bid_ew_lya_rest_err = \
+                                    SU.lya_ewr(target_flux,lineFlux_err,target_w, bid_target.bid_filter,
+                                               bid_target.bid_flux_est_cgs,bid_target.bid_flux_est_cgs_unc)
 
-                                text = text + utilities.unc_str((ew, ew_u)) + "$\AA$\n"
+                                text = text + utilities.unc_str(( bid_target.bid_ew_lya_rest, bid_target.bid_ew_lya_rest_err)) + "$\AA$\n"
+
                             except:
                                 log.debug("Exception computing catalog EW: ", exc_info=True)
                                 text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
@@ -816,13 +949,16 @@ class SDSS(cat_base.Catalog):#SDSS
                                     lineFlux_err = 0.
 
                             # build EW error from lineFlux_err and aperture estimate error
-                            ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
-                            try:
-                                ew_obs_err = abs(ew_obs * np.sqrt(
-                                    (lineFlux_err / target_flux) ** 2 +
-                                    (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
-                            except:
-                                ew_obs_err = 0.
+                            # ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
+                            # try:
+                            #     ew_obs_err = abs(ew_obs * np.sqrt(
+                            #         (lineFlux_err / target_flux) ** 2 +
+                            #         (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
+                            # except:
+                            #     ew_obs_err = 0.
+
+                            ew_obs, ew_obs_err = SU.ew_obs(target_flux,lineFlux_err,target_w, bid_target.bid_filter,
+                                                           bid_target.bid_flux_est_cgs,bid_target.bid_flux_est_cgs_unc)
 
                             # bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii, plae_errors = \
                             #     line_prob.prob_LAE(wl_obs=target_w,
@@ -843,8 +979,8 @@ class SDSS(cat_base.Catalog):#SDSS
                                     wl_obs=target_w,
                                     lineFlux=target_flux,
                                     lineFlux_err=lineFlux_err,
-                                    continuum=bid_target.bid_flux_est_cgs,
-                                    continuum_err=bid_target.bid_flux_est_cgs_unc,
+                                    continuum=bid_target.bid_flux_est_cgs * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
+                                    continuum_err=bid_target.bid_flux_est_cgs_unc * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
                                     c_obs=None, which_color=None,
                                     addl_wavelengths=addl_waves,
                                     addl_fluxes=addl_flux,
@@ -917,7 +1053,8 @@ class SDSS(cat_base.Catalog):#SDSS
         plt.close()
         return fig
 
-    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,filter=None):
+    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,filter=None,error=None,do_sky_subtract=True,
+                          detobj=None):
 
 
         d = {'cutout':None,
@@ -928,6 +1065,7 @@ class SDSS(cat_base.Catalog):#SDSS
              'mag':None,
              'aperture':None,
              'ap_center': None,
+             'mag_limit':None,
              'details': None}
 
         try:
@@ -963,23 +1101,55 @@ class SDSS(cat_base.Catalog):#SDSS
 
                 # to here, window is in degrees so ...
                 window = 3600. * window
+                if not error:
+                    error = window
 
                 #if we are down to SDSS, take what you can get (plus the SDSS resolution is low to the point
                 #the we can trip the empty image condition when it is not warranted
                 save_ALLOW_EMPTY_IMAGE = G.ALLOW_EMPTY_IMAGE
                 G.ALLOW_EMPTY_IMAGE = True
 
-                cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error=window, window=window,
+                cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error=error, window=window,
                                                                               aperture=aperture,
                                                                               mag_func=mag_func, copy=True,
-                                                                              return_details=True)
+                                                                              return_details=True,detobj=detobj)
 
                 G.ALLOW_EMPTY_IMAGE = save_ALLOW_EMPTY_IMAGE
                 # don't need pix_counts or mag, etc here, so don't pass aperture or mag_func
 
                 if cutout is not None:  # construct master cutout
                     d['cutout'] = cutout
+                    details['catalog_name']=self.name
+                    details['filter_name']=filter
+                    d['mag_limit']=self.get_mag_limit(None,mag_radius*2.)
+                    try:
+                        if d['mag_limit']:
+                            details['mag_limit']=d['mag_limit']
+                        else:
+                            details['mag_limit'] = None
+                    except:
+                        details['mag_limit'] = None
+
                     if (mag is not None) and (mag < 999):
+                        if d['mag_limit'] and (d['mag_limit'] < mag < 100):
+                            log.warning(f"Cutout mag {mag} greater than limit {d['mag_limit']}. Setting to limit.")
+                            details['fail_mag_limit'] = True
+                            details['raw_mag'] = mag
+                            details['raw_mag_bright'] = details['mag_bright']
+                            details['raw_mag_faint'] = details['mag_faint']
+                            details['raw_mag_err'] = details['mag_err']
+                            mag = d['mag_limit']
+                            details['mag'] = mag
+
+                            try:
+                                details['mag_bright'] = min(mag,details['mag_bright'])
+                            except:
+                                details['mag_bright'] = mag
+                            try:
+                                details['mag_faint'] = max(mag,G.MAX_MAG_FAINT)
+                            except:
+                                details['mag_faint'] = G.MAX_MAG_FAINT
+
                         d['mag'] = mag
                         d['aperture'] = mag_radius
                         d['ap_center'] = (sci.last_x0_center, sci.last_y0_center)
@@ -989,7 +1159,7 @@ class SDSS(cat_base.Catalog):#SDSS
 
         return d
 
-    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=None):
+    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=None,error=None,do_sky_subtract=True,detobj=None):
         l = list()
 
         #filters are fixed
@@ -1000,6 +1170,14 @@ class SDSS(cat_base.Catalog):#SDSS
         else:
             outer = self.Filters
             inner = None
+
+
+        if aperture == -1:
+            try:
+                aperture = self.mean_FWHM * 0.5 + 0.5
+            except:
+                pass
+
 
         wild_filters = iter(self.Filters)
 
@@ -1014,7 +1192,7 @@ class SDSS(cat_base.Catalog):#SDSS
                         # if filter list provided but the image is NOT in the filter list go to next one
                         continue
 
-                    cutout = self.get_single_cutout(ra, dec, window, None, aperture,filter=f)
+                    cutout = self.get_single_cutout(ra, dec, window, None, aperture,filter=f,error=error,detobj=detobj)
                     if first:
                         if cutout['cutout'] is not None:
                                 l.append(cutout)
@@ -1027,7 +1205,7 @@ class SDSS(cat_base.Catalog):#SDSS
         else:
             for f in self.Filters:
                 try:
-                    l.append(self.get_single_cutout(ra,dec,window,None,aperture,filter=f))
+                    l.append(self.get_single_cutout(ra,dec,window,None,aperture,filter=f,detobj=detobj))
                 except:
                     log.error("Exception! collecting image cutouts.", exc_info=True)
 

@@ -18,8 +18,11 @@ import os.path as op
 from astropy.coordinates import SkyCoord
 from astropy import units as U
 from astropy.stats import sigma_clipped_stats
-from hetdex_api.shot import get_fibers_table as hda_get_fibers_table
-from hetdex_tools.get_spec import get_spectra as hda_get_spectra
+try:
+    from hetdex_api.shot import get_fibers_table as hda_get_fibers_table
+    from hetdex_tools.get_spec import get_spectra as hda_get_spectra
+except Exception as e:
+    print("WARNING!!!! CANNOT IMPORT hetdex_api tools: ",e)
 #import copy
 
 log = G.Global_Logger('obs_logger')
@@ -163,7 +166,10 @@ class SyntheticObservation():
 
                     fiber.d_aperture_local_calfib = row['calfib']
                     fiber.d_aperture_calfibe =  row['calfibe']
-                    fiber.d_aperture_ffsky_calfib =  row['spec_fullsky_sub']
+                    try: #name change in HDR3
+                        fiber.d_aperture_ffsky_calfib =  row['calfib_ffsky']
+                    except:
+                        fiber.d_aperture_ffsky_calfib =  row['spec_fullsky_sub']
 
 
 
@@ -184,9 +190,8 @@ class SyntheticObservation():
 
                         if len(apt) == 1: #should be a single fiber
                             # print(f"No spectra for ra ({self.ra}) dec ({self.dec})")
-                            fiber.d_fiber_sumspec_flux = np.nan_to_num(apt['spec'][0],
-                                                              nan=0.000) * G.FLUX_WAVEBIN_WIDTH  # in 1e-17 units (like HDF5 read)
-                            fiber.d_fiber_sumspec_fluxerr = np.nan_to_num(apt['spec_err'][0], nan=0.000) * G.FLUX_WAVEBIN_WIDTH
+                            fiber.d_fiber_sumspec_flux = np.nan_to_num(apt['spec'][0]) * G.FLUX_WAVEBIN_WIDTH  # in 1e-17 units (like HDF5 read)
+                            fiber.d_fiber_sumspec_fluxerr = np.nan_to_num(apt['spec_err'][0]) * G.FLUX_WAVEBIN_WIDTH
 
                            # self.sumspec_wavelength = np.array(apt['wavelength'][0])
                         else:

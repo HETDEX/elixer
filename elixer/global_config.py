@@ -1,6 +1,7 @@
 from __future__ import print_function
 import logging
 import os.path as op
+from os import getenv
 from datetime import datetime
 import numpy as np
 
@@ -20,7 +21,9 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.10.0'
+__version__ = '1.16.5'
+#Logging
+GLOBAL_LOGGING = True
 
 #python version
 import sys
@@ -31,15 +34,26 @@ if sys.byteorder == 'big':
 else:
     BIG_ENDIAN = False
 
+
 LAUNCH_PDF_VIEWER = None
 
-valid_HDR_Versions = [1,2,2.1]
+valid_HDR_Versions = [1,2,2.1,3,3.0]
 
-HDR_Version = "2.1"
-HDR_Version_float = 2.1
+HDR_Version = "3" #"2.1"
+HDR_Version_float = 3.0
 
+WORK_BASEPATH = "/work"
+try:
+    WORK_BASEPATH = getenv("WORK_BASEPATH")
+    if WORK_BASEPATH is None or len(WORK_BASEPATH) == 0:
+        WORK_BASEPATH = "/work"
+except:
+    pass
+
+
+ELIXER_SPECIAL = 0 #integer, triggers special behavior in code
 #HDR_DATA_BASEPATH = "/data/03946/hetdex" #defunct 2020-10-01 #TACC wrangler:/data removed
-HDR_WORK_BASEPATH = "/work/03946/hetdex/"
+HDR_WORK_BASEPATH = op.join(WORK_BASEPATH,"03946/hetdex/")
 HDR_SCRATCH_BASEPATH = "/scratch/03946/hetdex/"
 #HDR_DATA_BASEPATH = HDR_SCRATCH_BASEPATH
 HDR_BASEPATH = HDR_WORK_BASEPATH
@@ -47,6 +61,7 @@ HDR_BASEPATH = HDR_WORK_BASEPATH
 HDF5_DETECT_FN = None
 HDF5_CONTINUUM_FN = None
 CONTINUUM_RULES = False #use continuum rules instead of emission line rules
+CONTNIUUM_RULES_THRESH = 5e-17 #about 20 mag
 HDF5_BROAD_DETECT_FN = None
 HDF5_SURVEY_FN = None
 OBSERVATIONS_BASEDIR = None
@@ -57,6 +72,8 @@ PANACEA_RED_BASEDIR = None
 PANACEA_RED_BASEDIR_DEFAULT = None
 PANACEA_HDF5_BASEDIR = None
 PIXFLT_LOC = None
+FORCE_MCMC = False
+FORCE_MCMC_MIN_SNR = 4.0
 
 CANDELS_EGS_Stefanon_2016_BASE_PATH = None
 EGS_CFHTLS_PATH = None
@@ -74,6 +91,7 @@ COSMOS_EXTRA_PATH = None
 COSMOS_LAIGLE_BASE_PATH = None
 COSMOS_LAIGLE_CAT_PATH = None
 
+GAIA_DEX_BASE_PATH = None
 DECAM_IMAGE_PATH = None
 SHELA_BASE_PATH = None
 
@@ -86,21 +104,35 @@ HSC_CAT_PATH = None
 HSC_IMAGE_PATH = None
 #HSC_AUX_IMAGE_PATH = None #not used anymore
 
+HSC_SSP_BASE_PATH = None
+HSC_SSP_CAT_PATH = None
+HSC_SSP_IMAGE_PATH = None
+
 KPNO_BASE_PATH = None
 KPNO_CAT_PATH = None
 KPNO_IMAGE_PATH = None
 
+CFHTLS_BASE_PATH = None
+
+SDSS_CAT_PATH = None
+
 HETDEX_API_CONFIG = None
 
-LOCAL_DEV_HOSTNAME = "z50"
 
-if hostname == LOCAL_DEV_HOSTNAME:  # primary author test box
-    HDR_Version = "2.1"
-    HDR_Version_float = 2.1
+LOCAL_DEV_HOSTNAMES = ["z50","dg5"]
+
+
+BUILD_REPORT_BY_FILTER = True #if True, multiple catalogs are used to build the report, with the deepest survey by filter
+                           #if False, then the single deepest catalog that overlaps is used with what ever filters it has
+
+if hostname in LOCAL_DEV_HOSTNAMES:  # primary author test box
+#if False:
+    HDR_Version = "3.0" #"2.1"
+    HDR_Version_float = 3.0 #2.1
     LAUNCH_PDF_VIEWER = 'qpdfview'
 else:
-    HDR_Version = "2.1"  # default HDR Version if not specified
-    HDR_Version_float = 2.1
+    HDR_Version = "3.0" #"2.1"  # default HDR Version if not specified
+    HDR_Version_float = 3.0 #2.1
 
 #look specifically (and only) for HDR version on call
 args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
@@ -158,14 +190,23 @@ def set_hdr_basepath(version=None):
     if HETDEX_API_CONFIG is None:
         if version_float != 0:
             strHDRVersion = f"hdr{version}"
-        elif hostname == LOCAL_DEV_HOSTNAME:
+        elif hostname in LOCAL_DEV_HOSTNAMES:
             strHDRVersion = f"hdr{HDR_Version}"
         else: #this is a problem
             print("Invalid HDRversion configuration")
             return
 
-        try:
+        try: #might be like "hdr3.0" where "hdr3" is what is expected
             HETDEX_API_CONFIG = HDRconfig(survey=strHDRVersion)
+        except KeyError:
+            try:
+                if strHDRVersion[-2:] == ".0":
+                    HETDEX_API_CONFIG = HDRconfig(survey=strHDRVersion[:-2])
+                    strHDRVersion = strHDRVersion[:-2]
+                    version = version[:-2]
+                    HDR_Version = HDR_Version[:-2]
+            except Exception as e:
+                print(e)
         except Exception as e:
             print(e)
 
@@ -177,7 +218,7 @@ def set_hdr_basepath(version=None):
         HDR_SCRATCH_BASEPATH = op.join(HDR_SCRATCH_BASEPATH,hdr_dir)
         HDR_WORK_BASEPATH = op.join(HDR_WORK_BASEPATH,hdr_dir)
         HDR_BASEPATH = op.join(HDR_BASEPATH,hdr_dir)
-    elif hostname == LOCAL_DEV_HOSTNAME: #author test box
+    elif hostname in LOCAL_DEV_HOSTNAMES: #author test box
         hdr_dir = "hdr1"
         print(f"*** using {hdr_dir}")
         #HDR_DATA_BASEPATH = op.join(HDR_DATA_BASEPATH, hdr_dir)
@@ -229,6 +270,7 @@ def select_hdr_version(version):
     global COSMOS_EXTRA_PATH
     global COSMOS_LAIGLE_BASE_PATH
     global COSMOS_LAIGLE_CAT_PATH
+    global GAIA_DEX_BASE_PATH
 
     global DECAM_IMAGE_PATH
     global SHELA_BASE_PATH
@@ -237,19 +279,30 @@ def select_hdr_version(version):
     global SHELA_PHOTO_Z_COMBINED_PATH
     global SHELA_PHOTO_Z_MASTER_PATH
 
+
     global HSC_BASE_PATH
     global HSC_CAT_PATH
     global HSC_IMAGE_PATH
     global HSC_S15A
     #global HSC_AUX_IMAGE_PATH
 
+    global HSC_SSP_BASE_PATH
+    global HSC_SSP_CAT_PATH
+    global HSC_SSP_IMAGE_PATH
+
     global KPNO_BASE_PATH
     global KPNO_CAT_PATH
     global KPNO_IMAGE_PATH
 
+    global CFHTLS_BASE_PATH
+
+    global SDSS_CAT_PATH
+
     global LAUNCH_PDF_VIEWER #for debug machine only
 
     global HETDEX_API_CONFIG
+
+    global USE_MASKED_CONTINUUM_FOR_BEST_EW
 
 
     try:
@@ -271,7 +324,7 @@ def select_hdr_version(version):
     HDR_Version_float = version_float
     set_hdr_basepath(version)
 
-    BAD_AMP_LIST = "/work/03261/polonius/maverick/catalogs/bad_amp_list.txt" #not really used anymore
+    BAD_AMP_LIST = op.join(WORK_BASEPATH,"03261/polonius/maverick/catalogs/bad_amp_list.txt") #not really used anymore
 
     normal_build = True
     # if (hostname == LOCAL_DEV_HOSTNAME) and (version == 0):  #author test box:
@@ -349,10 +402,18 @@ def select_hdr_version(version):
             HDF5_RAW_DIR = HETDEX_API_CONFIG.raw_dir #local to this function only
             HDF5_REDUCTION_DIR = HETDEX_API_CONFIG.red_dir #local to this function only
 
-            if HDR_Version_float == 1:
-                PIXFLT_LOC = op.join(CONFIG_BASEDIR, "virus_config/PixelFlats")
-            else:
-                PIXFLT_LOC = HETDEX_API_CONFIG.pixflat_dir
+            try:
+                if HDR_Version_float == 1:
+                    PIXFLT_LOC = op.join(CONFIG_BASEDIR, "virus_config/PixelFlats")
+                #elif HDR_Version_float < 3:
+                elif op.exists(HETDEX_API_CONFIG.pixflat_dir):
+                    PIXFLT_LOC = HETDEX_API_CONFIG.pixflat_dir
+                else:
+                    common = op.commonpath([HDF5_CONTINUUM_FN,HDF5_SURVEY_FN,HDF5_REDUCTION_DIR])
+                    PIXFLT_LOC = op.join(common,"/lib_calib/lib_pflat")
+            except:
+                common = op.commonpath([HDF5_CONTINUUM_FN,HDF5_SURVEY_FN,HDF5_REDUCTION_DIR])
+                PIXFLT_LOC = op.join(common,"/lib_calib/lib_pflat")
 
         else: #defunct
             HDF5_DETECT_FN = op.join(HDR_BASEPATH, "detect/detect_hdr1.h5")
@@ -382,8 +443,10 @@ def select_hdr_version(version):
             print("***** using /data/03261/polonius/hdr2 for imaging *****")
             hdr_imaging_basepath = "/data/03261/polonius/hdr2/"
 
+        remote_imaging_basepath = hdr_imaging_basepath
+
         try:
-            if (hostname == LOCAL_DEV_HOSTNAME) and op.exists("/media/dustin/Seagate8TB/hetdex/hdr2/imaging/"):
+            if (hostname in LOCAL_DEV_HOSTNAMES) and op.exists("/media/dustin/Seagate8TB/hetdex/hdr2/imaging/"):
                 print("***** using /media/dustin/Seagate8TB/hetdex/hdr2/imaging/ for base imaging *****")
                 hdr_imaging_basepath = "/media/dustin/Seagate8TB/hetdex/hdr2/imaging/"
         except:
@@ -407,6 +470,16 @@ def select_hdr_version(version):
         COSMOS_LAIGLE_BASE_PATH = op.join(hdr_imaging_basepath, "cosmos/laigle2015")
         COSMOS_LAIGLE_CAT_PATH = op.join(hdr_imaging_basepath, "cosmos/laigle2015")
 
+        try:
+            if HETDEX_API_CONFIG:
+                GAIA_DEX_BASE_PATH = HETDEX_API_CONFIG.gaiacat
+            else:
+                if op.exists("/work/03946/hetdex/gaia_hetdex_value_added_catalog/HDR2.1_Gaia_final_table.fits"):
+                    GAIA_DEX_BASE_PATH  = "/work/03946/hetdex/gaia_hetdex_value_added_catalog/HDR2.1_Gaia_final_table.fits"
+                else:
+                    print("WARNING! Cannot find GAIA HETDEX value added catalog.")
+        except:
+            print("WARNING! Cannot find GAIA HETDEX value added catalog.")
 
         DECAM_IMAGE_PATH = op.join(hdr_imaging_basepath, "shela/nano/")
         SHELA_BASE_PATH = op.join(hdr_imaging_basepath, "shela/nano/")
@@ -418,8 +491,8 @@ def select_hdr_version(version):
         if HDR_Version_float < 2:
             if op.exists(op.join(hdr_imaging_basepath,"hsc")):
                 if HDR_Version_float == 1:
-                    if op.exists("/work/03946/hetdex/hdr2/imaging/hsc"):
-                        HSC_BASE_PATH = "/work/03946/hetdex/hdr2/imaging/hsc"
+                    if op.exists(op.join(WORK_BASEPATH,"03946/hetdex/hdr2/imaging/hsc")):
+                        HSC_BASE_PATH = op.join(WORK_BASEPATH,"03946/hetdex/hdr2/imaging/hsc")
                         HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
                         HSC_IMAGE_PATH = HSC_BASE_PATH + "/image_tract_patch"
                     else: #us the actual HSC data available at HDR1 time
@@ -432,28 +505,45 @@ def select_hdr_version(version):
                     HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
                     HSC_IMAGE_PATH = HSC_BASE_PATH + "/image_tract_patch"
                 #HSC_AUX_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
-            elif op.exists("/work/03946/hetdex/hdr2/imaging/hsc"):
-                HSC_BASE_PATH = "/work/03946/hetdex/hdr2/imaging/hsc"
+            elif op.exists(op.join(WORK_BASEPATH,"03946/hetdex/hdr2/imaging/hsc")):
+                HSC_BASE_PATH = op.join(WORK_BASEPATH,"03946/hetdex/hdr2/imaging/hsc")
                 HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
                 HSC_IMAGE_PATH = HSC_BASE_PATH + "/image_tract_patch"
                 #HSC_AUX_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
             else:
-                HSC_BASE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced"
-                HSC_CAT_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/catalog_tracts"
-                HSC_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
+                HSC_BASE_PATH = op.join(WORK_BASEPATH,"03946/hetdex/hdr1/imaging/hsc/S15A/reduced")
+                HSC_CAT_PATH = op.join(WORK_BASEPATH,"03946/hetdex/hdr1/imaging/hsc/S15A/reduced/catalog_tracts")
+                HSC_IMAGE_PATH = op.join(WORK_BASEPATH,"03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images")
                 #HSC_AUX_IMAGE_PATH = "/work/03946/hetdex/hdr1/imaging/hsc/S15A/reduced/images"
         else:
             HSC_BASE_PATH = op.join(hdr_imaging_basepath,"hsc")
             HSC_CAT_PATH = HSC_BASE_PATH + "/cat_tract_patch"
             HSC_IMAGE_PATH = HSC_BASE_PATH + "/image_tract_patch"
 
+            #these are always remote, regardless of the workstation
+            HSC_SSP_BASE_PATH = op.join(remote_imaging_basepath,"hsc_ssp")
+            HSC_SSP_CAT_PATH = HSC_SSP_BASE_PATH
+            HSC_SSP_IMAGE_PATH = HSC_SSP_BASE_PATH #cosmos/g, cosmos/r, w01/g , w01/r, etc ....)
+
         # KPNO_BASE_PATH = "/work/03261/polonius/hetdex/catalogs/KPNO_Mosaic"
         if op.exists(op.join(hdr_imaging_basepath, "KMImaging")):
             KPNO_BASE_PATH = op.join(hdr_imaging_basepath, "KMImaging")
         else:
-            KPNO_BASE_PATH = "/work/03233/jf5007/maverick/KMImaging/"
+            KPNO_BASE_PATH = op.join(WORK_BASEPATH,"03233/jf5007/maverick/KMImaging/")
         KPNO_CAT_PATH = KPNO_BASE_PATH
         KPNO_IMAGE_PATH = KPNO_BASE_PATH
+
+        #always on TACC (not stored locally), imaging and catalog tiles are together in same directory
+        CFHTLS_BASE_PATH = op.join(HETDEX_API_CONFIG.imaging_dir,"cfhtls")
+        # print("!!!!! Temporary CFHTLS BASE PATH !!!!!!!")
+        # CFHTLS_BASE_PATH = "/scratch/03261/polonius/hdr2.1.2/imaging/cfhtls"
+        if op.exists(op.join(HETDEX_API_CONFIG.imaging_dir,"cfhtls/photozCFHTLS-W3_270912.out")):
+            CFHTLS_PHOTOZ_CAT = op.join(HETDEX_API_CONFIG.imaging_dir,"cfhtls/photozCFHTLS-W3_270912.out")
+        else:
+            CFHTLS_PHOTOZ_CAT = op.join(hdr_imaging_basepath, "candles_egs/CFHTLS/photozCFHTLS-W3_270912.out")
+
+
+        SDSS_CAT_PATH = op.join(hdr_imaging_basepath,"sdss/specObj-dr16-trim.fits")
 
     return True  # end select_hdr_version
 
@@ -482,7 +572,7 @@ REPORT_ELIXER_MCMC_FIT = False
 RELATIVE_PATH_UNIVERSE_CONFIG = "line_classifier/universe.cfg"
 RELATIVE_PATH_FLUX_LIM_FN = "line_classifier/Line_flux_limit_5_sigma_baseline.dat"
 
-if hostname == LOCAL_DEV_HOSTNAME:  # primary author test box
+if hostname in LOCAL_DEV_HOSTNAMES:  # primary author test box
     LOG_LEVEL = logging.DEBUG
 else:
     LOG_LEVEL = logging.INFO
@@ -524,8 +614,13 @@ LOG_FILENAME = "elixer.log"
 
 class Global_Logger:
     FIRST_LOG = True
+    DO_LOG = True
 
     def __init__(self,id): #id is a string identifier
+        if not GLOBAL_LOGGING:
+            self.__class__.DO_LOG = False
+            return
+
         self.logger = logging.getLogger(id)
         self.logger.setLevel(LOG_LEVEL)
 
@@ -564,44 +659,50 @@ class Global_Logger:
 
     def setlevel(self,level):
         try:
-            self.logger.setLevel(level)
+            if self.__class__.DO_LOG:
+                self.logger.setLevel(level)
         except:
-            print("Exception in logger....")
+            print("Exception in logger (setlevel) ...")
 
     def debug(self,msg,exc_info=False):
         try:
-            msg = self.add_time(msg)
-            self.logger.debug(msg,exc_info=exc_info)
+            if self.__class__.DO_LOG:
+                msg = self.add_time(msg)
+                self.logger.debug(msg,exc_info=exc_info)
         except:
-            print("Exception in logger....")
+            print("Exception in logger (debug) ...")
 
     def info(self,msg,exc_info=False):
         try:
-            msg = self.add_time(msg)
-            self.logger.info(msg,exc_info=exc_info)
+            if self.__class__.DO_LOG:
+                msg = self.add_time(msg)
+                self.logger.info(msg,exc_info=exc_info)
         except:
-            print("Exception in logger....")
+            print("Exception in logger (info) ...")
 
     def warning(self,msg,exc_info=False):
         try:
-            msg = self.add_time(msg)
-            self.logger.warning(msg,exc_info=exc_info)
+            if self.__class__.DO_LOG:
+                msg = self.add_time(msg)
+                self.logger.warning(msg,exc_info=exc_info)
         except:
-            print("Exception in logger....")
+            print("Exception in logger (warning) ...")
 
     def error(self,msg,exc_info=False):
         try:
-            msg = self.add_time(msg)
-            self.logger.error(msg,exc_info=exc_info)
+            if self.__class__.DO_LOG:
+                msg = self.add_time(msg)
+                self.logger.error(msg,exc_info=exc_info)
         except:
-            print("Exception in logger....")
+            print("Exception in logger (error) ...")
 
     def critical(self, msg, exc_info=False):
         try:
-            msg = self.add_time(msg)
-            self.logger.critical(msg, exc_info=exc_info)
+            if self.__class__.DO_LOG:
+                msg = self.add_time(msg)
+                self.logger.critical(msg, exc_info=exc_info)
         except:
-            print("Exception in logger....")
+            print("Exception in logger (critical) ....")
 
 
 def python2():
@@ -616,28 +717,35 @@ def getnearpos(array,value):
 
 
 FOV_RADIUS_DEGREE = 0.16 #HETDEX FOV (radius) in degrees (approximately)
-LyA_rest = 1216. #A 1215.668 and 1215.674
-OII_rest = 3727.
+LyA_rest = 1215.67 #1216. #A 1215.668 and 1215.674
+OII_rest = 3727.8
 
 #FLUX_CONVERSION = (1./60)*1e-17
 HETDEX_FLUX_BASE_CGS = 1e-17
 # 1.35e-18 ~ 24.0 mag in g-band
 # 8.52e-19 ~ 24.5 mag in g-band,
 # 5.38e-19 ~ 25.0 mag in g-band
-HETDEX_CONTINUUM_MAG_LIMIT = 25.0 #generous, truth is closer to 24.few
+HETDEX_CONTINUUM_MAG_LIMIT = 25.0 #24.5 #generous, truth is closer to 24.few
 HETDEX_CONTINUUM_FLUX_LIMIT =  5.38e-19 #flux-density based on 25 mag limit (really more like 24.5)
 
+HETDEX_BLUE_SAFE_WAVE = 3600.0 #65; 3600 [idx 6] #use when summing over or fitting to spectrum as whole
+HETDEX_RED_SAFE_WAVE = 5400.0 #index 965
+
 CONTINUUM_FLOOR_COUNTS = 6.5 #5 sigma * 6 counts / sqrt(40 angstroms/1.9 angs per pixel)
+
+CONTINUUM_THRESHOLD_FOR_ABSORPTION_CHECK = 2.0e-17 # erg/s/cm2/AA (near gmag 21)
+
+USE_MASKED_CONTINUUM_FOR_BEST_EW = False #if true use the emission/aborption masked spectrum, else use as a band-pass
 
 Fiber_Radius = 0.75 #arcsec
 IFU_Width = 47.26 #arcsec ... includes 2x fiber radius ... more narrow part fiber 1 - 19, else is 49.8
 IFU_Height = 49.98 #arcsec
-Fiber_1_X = -22.88
-Fiber_1_Y = -24.24
-Fiber_19_X = 22.88
-Fiber_19_Y = -24.24
-Fiber_430_X = -22.88
-Fiber_430_Y = 24.24
+# Fiber_1_X = -22.88
+# Fiber_1_Y = -24.24
+# Fiber_19_X = 22.88
+# Fiber_19_Y = -24.24
+# Fiber_430_X = -22.88
+# Fiber_430_Y = 24.24
 PreferCosmicCleaned = True #use cosmic cleaned FITS data if available (note: assumes filename is 'c' + filename)
 
 Figure_DPI = 300
@@ -647,6 +755,7 @@ GRID_SZ_X = 3 # equivalent figure_sz_x for a grid width (e.g. one column)
 GRID_SZ_Y = 3 # equivalent figure_sz_y for a grid height (e.g. one row)
 
 LyC = False #switch for Lyman Continuum specialized code
+VoteFeaturesTable = True #if true, include the P(LyA) extra voting features table
 PLOT_FULLWIDTH_2D_SPEC = False #if true, show the combined full-width 2D spectra just under the 1D plot
 
 FIT_FULL_SPEC_IN_WINDOW = False #if true, allow y-axis range to fit entire spectrum, not just the emission line
@@ -659,6 +768,7 @@ MAX_COMBINE_BID_TARGETS = 3 #if SINGLE_PAGE_PER_DETECT is true, this is the max 
 SINGLE_PAGE_PER_DETECT = True #if true, a single pdf page per emission line detection is made
 FORCE_SINGLE_PAGE = True
 SHOW_SKYLINES = True
+PENALIZE_FOR_EMISSION_IN_SKYLINE = False #since HDR 2.1.x the skyline removal has been quite good and this is no longer needed
 
 #1 fiber (the edge-most) fiber
 CCD_EDGE_FIBERS_BOTTOM = range(1,20)
@@ -721,19 +831,23 @@ MC_PLAE_CONF_INTVL = 0.68 #currently supported 0.68, 0.95, 0.99
 
 CLASSIFY_WITH_OTHER_LINES = True
 SPEC_MAX_OFFSET_SPREAD = 2.75 #AA #maximum spread in (velocity) offset (but in AA) across all lines in a solution
+SPEC_MAX_OFFSET_SPREAD_BROAD_THRESHOLD = 15.0 #kick in broad classification (there are effectively no OII with FWHM > 15)
 MIN_MCMC_SNR = 0.0 #minium SNR from an MCMC fit to accept as a real line (if 0.0, do not MCMC additional lines)
 MIN_ADDL_EMIS_LINES_FOR_CLASSIFY = 1
 
 DISPLAY_ABSORPTION_LINES = False
 MAX_SCORE_ABSORPTION_LINES = 0.0 #the most an absorption line can contribute to the score (set to 0 to turn off)
 
+MAXIMUM_LINE_SCORE_CAP = 100.0 #emission and absorption lines are capped to this maximum
+
+MULTILINE_GOOD_LINE_SCORE = 8.0
 MULTILINE_USE_ERROR_SPECTRUM_AS_NOISE = False #if False, uses the whole amp to estimate noise, if possible
 MULTILINE_MIN_GOOD_ABOVE_NOISE = 3.0 #below this is not consider a possibly good line
 MULTILINE_SCORE_NORM_ABOVE_NOISE = 5.0 #get full 1x score at this level
 MULTILINE_SCORE_ABOVE_NOISE_MAX_BONUS = 3.0 #maximum multiplier as max of (peak/noise/NORM, BONUS)
 MULTILINE_MIN_SOLUTION_SCORE = 25.0  #remember, this does NOT include the main line's score (about p(noise) = 0.01)
 MULTILINE_FULL_SOLUTION_SCORE = 50.0 #scores at or above get full credit for the weight
-MULTILINE_MIN_WEAK_SOLUTION_CONFIDENCE = 0.5
+MULTILINE_MIN_WEAK_SOLUTION_CONFIDENCE = 0.6
 MULTILINE_USE_CONSISTENCY_CHECKS = True #if True, apply consistency checks (line ratios for AGN, vs low-z, etc)
 
 MULTILINE_WEIGHT_PROB_REAL = 0.4 #probabilty of real (0-.999) makes up 40% of score
@@ -741,10 +855,11 @@ MULTILINE_WEIGHT_SOLUTION_SCORE = 0.5 #related to probability of real, makes 50%
 MULTILINE_WEIGHT_FRAC_SCORE = 0.1 #fraction of total score for all solutions makes up 10%
 
 MULTILINE_MIN_SOLUTION_CONFIDENCE = 0.95 * MULTILINE_WEIGHT_PROB_REAL + MULTILINE_WEIGHT_SOLUTION_SCORE + 0.5 * MULTILINE_WEIGHT_FRAC_SCORE
+                                  #about 0.93
 MULTILINE_MIN_NEIGHBOR_SCORE_RATIO = 1.5 #if two top scores are possible, the best solution must be this multiplier higher in score
 
 MULTILINE_MAX_PROB_NOISE_TO_PLOT = 0.2 #plot dashed line on spectrum if p(noise) < 0.1
-MULTILINE_ALWAYS_SHOW_BEST_GUESS = True #if true, show the best guess even if it does not meet the miniumum requirements
+MULTILINE_ALWAYS_SHOW_BEST_GUESS = False #if true, show the best guess even if it does not meet the miniumum requirements
 ADDL_LINE_SCORE_BONUS = 5.0 #add for each line at 2+ lines (so 1st line adds nothing)
                             #this is rather "hand-wavy" but gives a nod to having more lines beyond just their score
 
@@ -762,18 +877,19 @@ FIXED_MAG_APERTURE = 1.5 #radius in arcsec (default: each catalog can set its ow
 MAX_DYNAMIC_MAG_APERTURE = 3.0 #maximum growth in dynamic mag
 
 NUDGE_MAG_APERTURE_MAX_DATE = 20180601 #nudge center only BEFORE this date (using as a proxy for the number of active IFUs)
-NUDGE_MAG_APERTURE_CENTER = 1.5  #allow the center of the mag aperture to drift to the 2D Gaussian centroid
+NUDGE_MAG_APERTURE_CENTER = 0.0 #0.5  #allow the center of the mag aperture to drift to the 2D Gaussian centroid
                                  #up to this distance in x and y in arcsec (if 0.0 then no drift is allowed)
 
-NUDGE_SEP_MAX_DIST_EARLY_DATA = 1.5 #allow source extractor found objects to be matched to the HETDEX target up to this distances
+NUDGE_SEP_MAX_DIST_EARLY_DATA = 0.75 #1.5 #allow source extractor found objects to be matched to the HETDEX target up to this distances
                           #in arcsec (for early data, 2017 and fist part of 2018 when # of IFUs was low and astrometric
                           #solution was not great
 
-NUDGE_SEP_MAX_DIST_LATER_DATA = 1.0 #allow source extractor found objects to be matched to the HETDEX target up to this distances
+NUDGE_SEP_MAX_DIST_LATER_DATA = 0.5 #1.0 #allow source extractor found objects to be matched to the HETDEX target up to this distances
                           #in arcsec
 
-NUDGE_SEP_MAX_DIST = 1.0 #allow source extractor found objects to be matched to the HETDEX target up to this distances
-                          #in arcsec
+NUDGE_SEP_MAX_DIST = 0.5 # 1.0 allow source extractor found objects to be matched to the HETDEX target up to this distances
+                          #in arcsec. NOTICE. this takes one of the above values (set in elixer.py) based on the observation
+                          #date
 
 MAX_SKY_SUBTRACT_MAG = 2.0 #if local sky subtraction results in a magnitude change greater than this value, do not apply it
 
@@ -791,23 +907,32 @@ INCLUDE_ALL_AMPS = True #ie. if true, ignore the bad amp list
 RECOVERY_RUN = False
 
 ALLOW_EMPTY_IMAGE = False #do not return cutout if it is empty or a simple gradient (essentially, if it has no data)
-FRAC_UNIQUE_PIXELS_MINIMUM = 0.70 #bare minumum unique pixels (no other condition included)
-FRAC_UNIQUE_PIXELS_NOT_EMPTY = 0.75 #less than --> empty (or bad) (combined with FRAC_DUPLICATE_PIXELS)
+FRAC_UNIQUE_PIXELS_MINIMUM = 0.70 #0.7 bare minumum unique pixels (no other condition included)
+FRAC_UNIQUE_PIXELS_NOT_EMPTY = 0.75 #.75 less than --> empty (or bad) (combined with FRAC_DUPLICATE_PIXELS)
 FRAC_DUPLICATE_PIXELS = 0.20 #if 0.25 of pixels are all the same (or in the same few) this may be bad
 #this only counts up to the top 3 values, so if there are a lot of duplicate pixel values (but only in sets of a few)
 #this does not trigger
 FRAC_UNIQUE_PIXELS_AUTOCORRELATE = 0.75 #less than --> empty (with an autocorrelation)
-FRAC_NONZERO_PIXELS = 0.66 #less than --> empty
+FRAC_NONZERO_PIXELS = 0.66 #0.66 #less than --> empty
 
 #note: Pan-STARRS is prioritized over SDSS (since Pan-STARRS is deeper 23.3 vs 22.0)
-DECALS_WEB_ALLOW = True #if no other catalogs match, try DECaLS as online query (default if not dispatch mode)
+DECALS_WEB_ALLOW = False #if no other catalogs match, try DECaLS as online query (default if not dispatch mode)
 DECALS_WEB_FORCE = False #ignore local catalogs and Force the use of only DECaLS
 
-PANSTARRS_ALLOW = True #if no other catalogs match, try Pan-STARRS as online query (default if not dispatch mode)
+PANSTARRS_ALLOW = False #if no other catalogs match, try Pan-STARRS as online query (default if not dispatch mode)
 PANSTARRS_FORCE = False  #ignore local catalogs and Force the use of only Pan-STARRS
 
-SDSS_ALLOW = True #if no other catalogs match, try SDSS as online query (default if not dispatch mode)
+SDSS_ALLOW = False #if no other catalogs match, try SDSS as online query (default if not dispatch mode)
 SDSS_FORCE = False  #ignore local catalogs and Force the use of only SDSS
+SDSS_SCORE_BOOST = MULTILINE_MIN_SOLUTION_SCORE #specficically for the SDSS z Catalog (other local catalogs are below)
+CHECK_SDSS_Z_CATALOG  = True #set to True to check the SDSS z-catalog
+# (similar in function to galaxy mask in that if a known z is close and it matches an emission line, associated that z)
+CHECK_GAIA_DEX_CATALOG = False
+
+#these are for the non-web catalogs we have, so it excludes SDSS (which is controlled separately just above)
+CHECK_ALL_CATALOG_BID_Z = True
+ALL_CATATLOG_SPEC_Z_BOOST = MULTILINE_FULL_SOLUTION_SCORE * 2.0 #i.e. +100.0 #addititive to the base solution score
+ALL_CATATLOG_PHOT_Z_BOOST = 5.0        #ie. +5; some are more reliable than others but this is a broad brush
 
 USE_PHOTO_CATS = True  #default normal is True .... use photometry catalogs (if False only generate the top (HETDEX) part)
 
@@ -834,11 +959,23 @@ PIXEL_FLAT_ABSOLUTE_BAD_VALUE = 0.7 #values at or below this in the flat are "ba
                                     #a -1 turns it off (code will ignore this global)
 #note: 2 means there is one set of duplicates: ie. [1,2,1,3] would be 2 (1 and 1 are duplicated)
 
-MAX_MAG_FAINT = 28.0 #set as nominal "faint" mag if flux limit reached
+MAX_MAG_FAINT = 28.0 #set as nominal "faint" mag if flux limit reached (if not set by specific catalog ... which, unless
+                     # this is an HST catalog, this is pretty good (HST is 29-30)
 
-PLAE_POII_GAUSSIAN_WEIGHT_SIGMA = 5.0
+PLAE_POII_GAUSSIAN_WEIGHT_SIGMA = 5.0 #10.0 s|t by sigma or 1/sigma you get to 80% weight
 
 CHECK_FOR_METEOR = True #if true, check the exposure fiber data for meteor pattern
+CHECK_GALAXY_MASK = True #if true, check for detection inclusion in galaxy mask
+GALAXY_MASK_D25_SCALE = 3.0 #check withing this x D25 curve to be inside galaxy ellipse
+GALAXY_MASK_D25_SCORE_NORM = 2.0 #scoring scale normalization (xxx_D25_scale/score_norm) see hetdex.py DetObj::check_transients_and_flags
+GALAXY_MASK_SCORE_BOOST = 100.0 # boost to the solution score if line found to match in a galaxy, mutliplied by
+                                # scaled emission line rank and D25 distance, see hetdex.py DetObj::check_transients_and_flags
+
+CLUSTER_POS_SEARCH = 15.0 #not really radius but +/- arcsecs from center position
+CLUSTER_WAVE_SEARCH = 2.0 #in AA from line center
+CLUSTER_MAG_THRESH = 23.0 #must be brighter than this to be a cluster parent
+CLUSTER_SELF_MAG_THRESH = 22.0 #if brighter than this don't bother (unless there are flags)
+CLUSTER_SCORE_BOOST = 100.0
 
 ALLOW_BROADLINE_FIT = True
 
@@ -847,3 +984,95 @@ SUBTRACT_HETDEX_SKY_RESIDUAL = False #if true compute a per-shot sky residual, c
 # requires --aperture xx  --ffsky --sky_residual
 
 GET_SPECTRA_MULTIPROCESS = True #auto sets to False if in SLURM/dispatch mode
+
+R_BAND_UV_BETA_SLOPE = -2.5 #UV slope (beta) for star forming galaxies used to adjust r-band to g-band near the
+                            #supposed LyA line;  to turn off the correction, set to flat -2.0
+                            #really varies with galaxy SFR, history, z, dust, etc
+                            #but seems to run -2.4 to -2.7 or so for star forming galaxies around cosmic noon
+
+LAE_G_MAG_ZERO = 24.2 #@ 4500 somewhat empirical:   looks to swing from about (23.0 @3500) 23.2 @ 3727 to 25.4 @ 5500
+LAE_R_MAG_ZERO = 24.0 #somewhat empirical: . .. also using -0.2 or -0.3 mag from g-band per Leung+2017
+LAE_MAG_SLOPE = 1.2 # per 1000AA in wave, centered at 4500AA
+LAE_MAG_SIGMA = 0.5 #building a Gaussian as probablilty that mag > LAE_X_MAG_ZERO is an LAE
+LAE_EW_MAG_TRIGGER_MAX = 25.0 #if the associated EW_rest(LyA) is less than this value, then look at the magnitudes
+LAE_EW_MAG_TRIGGER_MIN = 15.0 #if the associated EW_rest(LyA) is greater than this value, then look at the magnitudes
+
+LINEWIDTH_SIGMA_TRANSITION = 4.5  #larger than this, is increasingly more likely to be LyA, below .. could be either
+LINEWIDTH_SIGMA_MAX_OII = 6.5 #there just are not any larger than this (FWHM > 16.5)
+
+SEP_FIXED_APERTURE_RADIUS = 1.5 #RADIUS in arcsec ... used at the barycenter position of SEP objects
+
+FWHM_TYPE1_AGN_VELOCITY_THRESHOLD = 1500.0 #km/s #FWHM velocity in emission line above this value might be a type 1 AGN
+
+
+##################################
+#Detection Flags (DF) (32 bit)
+##################################
+
+DETFLAG_FOLLOWUP_NEEDED             = 0x00000001  #unspecified reason, catch-all, but human visual inspection recommended
+DETFLAG_IMAGING_MAG_INCONSISTENT    = 0x00000002  #large differences in bandpass mags of overlapping imaging (of adequate depth)
+DETFLAG_DEX_GMAG_INCONSISTENT       = 0x00000004  #the g-mag from the DEX spectrum is very different from g or r band aperture mag
+                                            #where the DEX g-mag is 24.5 or brighter and the imaging is at least as deep
+
+DETFLAG_UNCERTAIN_CLASSIFICATION    = 0x00000008  #contradictory information in classification
+                                                  #usually echoed in P(LyA) near 0.5 or Q(z) < 0.5, OR
+                                                  #there is a weak to moderate line solution that needs visual inspetion
+                                                  #typically this is an OIII-5007 or MgII solution that can be confused
+                                                  #with LyA
+DETFLAG_BLENDED_SPECTRA             = 0x00000010
+                                        #due to extra emission lines, there maybe two or more different objects in the spectrum
+                                        #or two or more objects in the central 1.5"radius  region
+
+DETFLAG_COUNTERPART_NOT_FOUND       = 0x00000020
+                                        #there is continuum or bright emission in the HETDEX spectrum, but nothing shows
+                                        # in imaging; this is partly redundant with DETFLAG_DEX_GMAG_INCONSISTENT
+DETFLAG_DISTANT_COUNTERPART         = 0x00000040
+                                        #there are SEP ellipses in imaging BUT the nearest SEP ellipse is far away (+0.5")
+                                        #may need inspection to see if associated with large object OR is a faint
+                                        #detection or even lensed
+
+DETFLAG_COUNTERPART_MAG_MISMATCH    = 0x00000080 #r,g magnitude of catalog counterpart varies significantly from the
+                                        #aperture magnitude AND is fainter than 22
+
+DETFLAG_NO_IMAGING                  = 0x00000100 #no overlapping imaging at all
+DETFLAG_POOR_IMAGING                = 0x00000200 #poor depth (in g,r) ... like just SDSS or PanSTARRS (worse than 24.5)
+                                                 #AND the object is not bright (fainter than 23)
+
+DETFLAG_LARGE_SKY_SUB               = 0x00000400 #possibly excessive sky subtraction in g or r band
+                                        #can impact the magnitude calculation (so partly redundant with others)
+                                        #NOTE: this is a reserved flag, but there is no code to check it at this time
+
+DETFLAG_EXT_CAT_QUESTIONABLE_Z      = 0x00000800 #best redshift reported is from an external catalog and might be questionable
+                                                 #the redshift my by uncertain or it is unclear that it belongs to our object
+
+DETFLAG_Z_FROM_NEIGHBOR             = 0x00001000 #the original redshift was replaced by that of a neighbor
+                                                 #as a better redshift
+
+DETFLAG_DEXSPEC_GMAG_INCONSISTENT   = 0x00002000 #the straight gmag from the DEX spectrum and from SDSS filter do not agree
+
+DETFLAG_LARGE_NEIGHBOR              = 0x00004000 #imaging and SEP show/suggest a large, bright neighbor that could be
+                                                 #messing up the classification and continuum measure
+DETFLAG_POSSIBLE_LOCAL_TRANSIENT    = 0x00008000 #meteor or satellite ... a single bright dither, etc
+
+DETFLAG_BAD_PIXEL_FLAT              = 0x00010000
+DETFLAG_DUPLICATE_FIBERS            = 0x00020000
+DETFLAG_NEGATIVE_SPECTRUM           = 0x00040000
+DETFLAG_POOR_THROUGHPUT             = 0x00080000
+DETFLAG_BAD_DITHER_NORM             = 0x00100000
+DETFLAG_POOR_SHOT                   = 0x00200000
+DETFLAG_QUESTIONABLE_DETECTION      = 0x00400000   #unable to fit a continuum (wide) and cont(n) is fairly negative, or bad emission line fit
+DETFLAG_EXCESSIVE_ZERO_PIXELS       = 0x00800000   #too many zero valued pixels at the emission line center in 2D cutouts
+
+DETFLAG_POSSIBLE_PN                 = 0x01000000    #possible planetery nebula hit (usually 5007, without an obvious source)
+
+#todo: low SNR, weighted position is between fibers (i.e. distances from blue fiber center > 0.74 or 0.75 and SNR < 5.2 or so)
+
+
+#todo:
+
+#todo: possible flags?
+# out of bounds: Seeing FWHM, throughput, or other shot issue?
+# out of bounds fiber profile/chi2,etc?
+# non-image or empty image or detected corrupt image?
+# unusually high sky correction in image
+#

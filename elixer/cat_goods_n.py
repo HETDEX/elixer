@@ -90,7 +90,7 @@ class GOODS_N(cat_base.Catalog):
     # class variables
     MainCatalog = GOODS_N_CAT
     Name = "GOODS-N"
-    MAG_LIMIT = 29.0 #not quite ...
+    MAG_LIMIT = 30.0 # associated catalog goes deeper, but this is a general limit 29-30 mag
     mean_FWHM = 0.15 #typical use for photometric aperture, but is too good here ... objects that are point
                     #sources may be resolved with HST
 
@@ -100,7 +100,7 @@ class GOODS_N(cat_base.Catalog):
 
     WCS_Manual = True
     EXPTIME_F606W = 236118.0 #289618.0
-    CONT_EST_BASE = 2.8e-21#3.3e-21
+    CONT_EST_BASE = 2.8e-21#3.3e-21 #about 30 mag)
     BidCols = ["ID", "IAU_designation", "RA", "DEC",
                "CFHT_U_FLUX", "CFHT_U_FLUXERR",
                "IRAC_CH1_FLUX", "IRAC_CH1_FLUXERR", "IRAC_CH2_FLUX", "IRAC_CH2_FLUXERR",
@@ -311,10 +311,10 @@ class GOODS_N(cat_base.Catalog):
         try:
             if keep_f:
                 df = pd.read_csv(f, names=header,
-                                 delim_whitespace=True, header=None, index_col=None, skiprows=0)
+                                 delim_whitespace=True, header=None, index_col=False, skiprows=0)
             else:
                 df = pd.read_csv(catalog_loc, names=header,
-                                 delim_whitespace=True, header=None, index_col=None, skiprows=skip)
+                                 delim_whitespace=True, header=None, index_col=False, skiprows=skip)
 
             old_names = ['ID (H-band SExtractor ID)', 'IAU_Name','RA (J2000, H-band)', 'DEC (J2000, H-band)']
             new_names = ['ID', 'IAU_designation','RA', 'DEC']
@@ -338,12 +338,21 @@ class GOODS_N(cat_base.Catalog):
         mag_plus = None
         mag_minus = None
         filter_str = 'ACS_F606W_FLUX'
+        filter_name = 'f606w'
         try:
             filter_fl = df[filter_str].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
             filter_fl_err = df['ACS_F606W_FLUXERR'].values[0]
             mag, mag_plus, mag_minus = self.micro_jansky_to_mag(filter_fl, filter_fl_err)
         except:  # not the EGS df, try the CFHTLS
-            pass
+            try: # try f435 (~ g-band)
+                filter_str = 'ACS_F435W_FLUX' #used to lookup
+                filter_name= 'f435w'
+                filter_fl = df[filter_str].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+                filter_fl_err = df['ACS_F435W_FLUXERR'].values[0]
+                mag, mag_plus, mag_minus = self.micro_jansky_to_mag(filter_fl,filter_fl_err)
+            except:
+                filter_str = None
+                filter_name = None
 
         if filter_fl is None:
             try:
@@ -352,7 +361,7 @@ class GOODS_N(cat_base.Catalog):
             except:
                 pass
 
-        return filter_fl, filter_fl_err, mag, mag_plus, mag_minus, filter_str
+        return filter_fl, filter_fl_err, mag, mag_plus, mag_minus, filter_name
 
 
     def build_list_of_bid_targets(self, ra, dec, error):
@@ -413,7 +422,7 @@ class GOODS_N(cat_base.Catalog):
         self.clear_pages()
         num_targets, _, _ = self.build_list_of_bid_targets(target_ra, target_dec, error)
 
-        if (self.dataframe_of_bid_targets is None):
+        if (self.dataframe_of_bid_targets is None) or (len(self.dataframe_of_bid_targets)==0):
             return None
 
         ras = self.dataframe_of_bid_targets.loc[:, ['RA']].values
@@ -421,8 +430,13 @@ class GOODS_N(cat_base.Catalog):
 
         # display the exact (target) location
         if G.SINGLE_PAGE_PER_DETECT:
-
-            entry = self.build_cat_summary_figure(cat_match, target_ra, target_dec, error, ras, decs,
+            if G.BUILD_REPORT_BY_FILTER:
+                #here we return a list of dictionaries (the "cutouts" from this catalog)
+                return self.build_cat_summary_details(cat_match,target_ra, target_dec, error, ras, decs,
+                                              target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux,
+                                              detobj=detobj)
+            else:
+                entry = self.build_cat_summary_figure(cat_match, target_ra, target_dec, error, ras, decs,
                                                   target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux,
                                                   detobj=detobj)
         else:
@@ -479,6 +493,257 @@ class GOODS_N(cat_base.Catalog):
                 log.error("Error in get_stacked_cutout.",exc_info=True)
 
         return stacked_cutout
+
+
+    def build_cat_summary_details(self,cat_match, ra, dec, error, bid_ras, bid_decs, target_w=0,
+                                  fiber_locs=None, target_flux=None,detobj=None):
+        """
+        similar to build_cat_summary_figure, but rather than build up an image section to be displayed in the
+        elixer report, this builds up a dictionary of information to be aggregated later over multiple catalogs
+
+        ***note: here we call the base class implementation to get the cutouts and then update those cutouts with
+        any catalog specific changes
+
+        :param cat_match: a match summary object (contains info about the PDF location, etc)
+        :param ra:  the RA of the HETDEX detection
+        :param dec:  the Dec of the HETDEX detection
+        :param error: radius (or half-side of a box) in which to search for matches (the cutout is 3x this on a side)
+        :param bid_ras: RAs of potential catalog counterparts
+        :param bid_decs: Decs of potential catalog counterparts
+        :param target_w: observed wavelength (from HETDEX)
+        :param fiber_locs: array (or list) of 6-tuples that describe fiber locations (which fiber, position, color, etc)
+        :param target_flux: HETDEX integrated line flux in CGS flux units (erg/s/cm2)
+        :param detobj: the DetObj instance
+        :return: cutouts list of dictionaries with bid-target objects as well
+        """
+
+        cutouts = super().build_cat_summary_details(cat_match, ra, dec, error, bid_ras, bid_decs, target_w,
+                                                    fiber_locs, target_flux,detobj,do_sky_subtract=False)
+
+        if not cutouts:
+            return cutouts
+
+        #####################################################
+        # Nothing unique for the imaging needed here for candels
+        #####################################################
+
+        # for c in cutouts:
+        #     try:
+        #         details = c['details']
+        #     except:
+        #         pass
+
+
+        #####################################################
+        # BidTarget format is Unique to each child catalog
+        #####################################################
+        #now the bid targets
+        #2. catalog entries as a new key under cutouts (like 'details') ... 'counterparts'
+        #    this should be similar to the build_multiple_bid_target_figures_one_line()
+
+        if not cutouts or len(cutouts) == 0:
+            cutouts = [{}]
+
+        cutouts[0]['counterparts'] = []
+
+        target_count = 0
+        for r, d in zip(bid_ras, bid_decs):
+            target_count += 1
+            if target_count > G.MAX_COMBINE_BID_TARGETS:
+                break
+
+            spec_z = -1.0
+
+            try:
+                df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
+                                                       (self.dataframe_of_bid_targets['DEC'] == d[0])]
+
+                idnum = df['ID'].values[0]  # to matchup in photoz catalog
+            except:
+                log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
+                continue  # this must be here, so skip to next ra,dec
+
+            try:
+                # note cannot dirctly use RA,DEC as the recorded precission is different (could do a rounded match)
+                # but the idnums match up, so just use that
+                df_photoz = self.dataframe_of_bid_targets_photoz.loc[
+                    self.dataframe_of_bid_targets_photoz['ID'] == idnum]
+
+                if len(df_photoz) == 0:
+                    log.debug("No conterpart found in photoz catalog; RA=%f , Dec =%f" % (r[0], d[0]))
+                    df_photoz = None
+            except:
+                log.error("Exception attempting to find object in dataframe_of_bid_targets", exc_info=True)
+                df_photoz = None
+
+            if df_photoz is not None:
+                try:
+                    photoz_file = df_photoz['file'].values[0]
+                    z_best = df_photoz['z_best'].values[0]
+                    z_best_type = df_photoz['z_best_type'].values[0]  # s = spectral , p = photometric?
+                    z_photoz_weighted = df_photoz['mFDa4_z_weight'].values[0]
+                except:
+                    z_photoz_weighted = -1
+                    log.error("Exception!", exc_info=True)
+
+            if df is not None:
+
+                if z_best_type is not None and z_best_type.lower() == 's':
+                    spec_z = z_best
+
+                try:
+
+                    filter_fl, filter_fl_err, filter_mag, filter_mag_bright, filter_mag_faint, filter_str = self.get_filter_flux(df)
+                except:
+                    filter_fl = 0.0
+                    filter_fl_err = 0.0
+                    filter_mag = 0.0
+                    filter_mag_bright = 0.0
+                    filter_mag_faint = 0.0
+                    filter_str = "NA"
+
+                bid_target = None
+                if (target_flux is not None) and (filter_fl != 0.0):
+                    if (filter_fl is not None):# and (filter_fl > 0):
+                        filter_fl_cgs = self.micro_jansky_to_cgs(filter_fl,SU.filter_iso(filter_str,target_w))
+                        # filter_fl * 1e-29 * 3e18 / (target_w ** 2)  # 3e18 ~ c in angstroms/sec
+                        filter_fl_cgs_unc = self.micro_jansky_to_cgs(filter_fl_err, SU.filter_iso(filter_str,target_w))
+                        # assumes no error in wavelength or c
+
+                        # bid target info is only of value if we have a flux from the emission line
+                        bid_target = match_summary.BidTarget()
+                        bid_target.catalog_name = self.Name
+                        bid_target.bid_ra = df['RA'].values[0]
+                        bid_target.bid_dec = df['DEC'].values[0]
+                        bid_target.distance = df['distance'].values[0] * 3600
+                        bid_target.prob_match = df['dist_prior'].values[0]
+                        bid_target.bid_flux_est_cgs = filter_fl_cgs
+                        bid_target.bid_filter = filter_str
+                        bid_target.bid_mag = filter_mag
+                        bid_target.bid_mag_err_bright = filter_mag_bright
+                        bid_target.bid_mag_err_faint = filter_mag_faint
+                        bid_target.bid_flux_est_cgs_unc = filter_fl_cgs_unc
+                        if spec_z >= 0.0:
+                            bid_target.spec_z = spec_z
+
+                        if z_photoz_weighted >= 0.0:
+                            bid_target.phot_z = z_photoz_weighted
+
+                        lineFlux_err = 0.
+                        if detobj is not None:
+                            try:
+                                lineFlux_err = detobj.estflux_unc
+                            except:
+                                lineFlux_err = 0.
+
+                        try:
+                            # ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+                            # ew_u = abs(ew * np.sqrt(
+                            #     (detobj.estflux_unc / target_flux) ** 2 +
+                            #     (filter_fl_err / filter_fl) ** 2))
+                            #
+                            # bid_target.bid_ew_lya_rest = ew
+                            # bid_target.bid_ew_lya_rest_err = ew_u
+
+                            bid_target.bid_ew_lya_rest, bid_target.bid_ew_lya_rest_err = \
+                                SU.lya_ewr(target_flux,lineFlux_err,target_w, bid_target.bid_filter,
+                                           bid_target.bid_flux_est_cgs,bid_target.bid_flux_est_cgs_unc)
+
+                        except:
+                            log.debug("Exception computing catalog EW: ", exc_info=True)
+
+                        addl_waves = None
+                        addl_flux = None
+                        addl_ferr = None
+                        try:
+                            addl_waves = cat_match.detobj.spec_obj.addl_wavelengths
+                            addl_flux = cat_match.detobj.spec_obj.addl_fluxes
+                            addl_ferr = cat_match.detobj.spec_obj.addl_fluxerrs
+                        except:
+                            pass
+
+                        # lineFlux_err = 0.
+                        # if detobj is not None:
+                        #     try:
+                        #         lineFlux_err = detobj.estflux_unc
+                        #     except:
+                        #         lineFlux_err = 0.
+
+                        # build EW error from lineFlux_err and aperture estimate error
+                        # ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
+                        # try:
+                        #     ew_obs_err = abs(ew_obs * np.sqrt(
+                        #         (lineFlux_err / target_flux) ** 2 +
+                        #         (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
+                        # except:
+                        #     ew_obs_err = 0.
+
+                        ew_obs, ew_obs_err = SU.ew_obs(target_flux,lineFlux_err,target_w, bid_target.bid_filter,
+                                                       bid_target.bid_flux_est_cgs,bid_target.bid_flux_est_cgs_unc)
+
+                        bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii, plae_errors = \
+                            line_prob.mc_prob_LAE(
+                                wl_obs=target_w,
+                                lineFlux=target_flux,
+                                lineFlux_err=lineFlux_err,
+                                continuum=bid_target.bid_flux_est_cgs * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
+                                continuum_err=bid_target.bid_flux_est_cgs_unc * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
+                                c_obs=None, which_color=None,
+                                addl_wavelengths=addl_waves,
+                                addl_fluxes=addl_flux,
+                                addl_errors=addl_ferr,
+                                sky_area=None,
+                                cosmo=None, lae_priors=None,
+                                ew_case=None, W_0=None,
+                                z_OII=None, sigma=None)
+
+                        try:
+                            if plae_errors:
+                                bid_target.p_lae_oii_ratio_min = plae_errors['ratio'][1]
+                                bid_target.p_lae_oii_ratio_max = plae_errors['ratio'][2]
+                        except:
+                            pass
+
+                        for c in self.CatalogImages:
+                            try:
+                                bid_target.add_filter(c['instrument'], c['filter'],
+                                                      self.micro_jansky_to_cgs(df[c['cols'][0]].values[0],
+                                                                               SU.filter_iso(c['filter'],target_w)),
+                                                      self.micro_jansky_to_cgs(df[c['cols'][1]].values[0],
+                                                                               SU.filter_iso(c['filter'],target_w)))
+                            except:
+                                log.debug('Could not add filter info to bid_target.')
+
+
+                # add photo_z plot
+                # if the z_best_type is 'p' call it photo-Z, if s call it 'spec-Z'
+                # alwasy read in file for "file" and plot column 1 (z as x) vs column 9 (pseudo-probability)
+                # get 'file'
+                # z_best  # 6 z_best_type # 7 z_spec # 8 z_spec_ref
+                #overplot photo Z lines
+
+                if bid_target and photoz_file is not None:
+                    z_cat = self.read_catalog(op.join(self.SupportFilesLocation, photoz_file), "z_cat")
+                    if z_cat is not None:
+                        bid_target.phot_z_pdf_z = z_cat['z'].values
+                        bid_target.phot_z_pdf_pz = z_cat['mFDa4'].values
+                        #(spec_z already assigned)
+
+
+                if bid_target:
+                    cat_match.add_bid_target(bid_target)
+                    try: # no downstream edits so they can both point to same bid_target
+                        detobj.bid_target_list.append(bid_target)
+                    except:
+                        log.warning("Unable to append bid_target to detobj.",exc_info=True)
+                    try:
+                        cutouts[0]['counterparts'].append(bid_target)
+                    except:
+                        log.warning("Unable to append bid_target to cutouts.", exc_info=True)
+
+
+        return cutouts
+
 
     def build_cat_summary_figure (self, cat_match,ra, dec, error,bid_ras, bid_decs, target_w=0,
                                   fiber_locs=None, target_flux=None,detobj=None):
@@ -574,7 +839,7 @@ class GOODS_N(cat_base.Catalog):
             #log.info("Reminder: aperture issue with .drz fits file, so no forced aperture magnitude.")
             cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error, window=window,
                                                      aperture=aperture, mag_func=mag_func,
-                                                    do_sky_subtract=do_sky_subtract,return_details=True)
+                                                    do_sky_subtract=do_sky_subtract,return_details=True,detobj=detobj)
 
             if (self.MAG_LIMIT < mag < 100) and (mag_radius > 0):
                 details['fail_mag_limit'] = True
@@ -665,13 +930,16 @@ class GOODS_N(cat_base.Catalog):
                             lineFlux_err = 0.
 
                     #build EW error from lineFlux_err and aperture estimate error
-                    ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
-                    try:
-                        ew_obs_err =  abs(ew_obs * np.sqrt(
-                                        (lineFlux_err / target_flux) ** 2 +
-                                        (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
-                    except:
-                        ew_obs_err = 0.
+                    # ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
+                    # try:
+                    #     ew_obs_err =  abs(ew_obs * np.sqrt(
+                    #                     (lineFlux_err / target_flux) ** 2 +
+                    #                     (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
+                    # except:
+                    #     ew_obs_err = 0.
+                    #
+                    ew_obs, ew_obs_err = SU.ew_obs(target_flux,lineFlux_err,target_w, bid_target.bid_filter,
+                               bid_target.bid_flux_est_cgs,bid_target.bid_flux_est_cgs_unc)
 
                     # bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii,plae_errors = \
                     #     line_prob.prob_LAE(wl_obs=target_w, lineFlux=target_flux,
@@ -687,8 +955,8 @@ class GOODS_N(cat_base.Catalog):
                             wl_obs=target_w,
                             lineFlux=target_flux,
                             lineFlux_err=lineFlux_err,
-                            continuum=bid_target.bid_flux_est_cgs,
-                            continuum_err=bid_target.bid_flux_est_cgs_unc,
+                            continuum=bid_target.bid_flux_est_cgs * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
+                            continuum_err=bid_target.bid_flux_est_cgs_unc * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
                             c_obs=None, which_color=None,
                             addl_wavelengths=addl_waves,
                             addl_fluxes=addl_flux,
@@ -746,7 +1014,8 @@ class GOODS_N(cat_base.Catalog):
                 # master cutout needs a copy of the data since it is going to be modified  (stacked)
                 # repeat the cutout call, but get a copy
                 if self.master_cutout is None:
-                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True)
+                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True,reset_center=False,detobj=detobj)
+                    #self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True)
                     ref_exptime = sci.exptime
                     total_adjusted_exptime = 1.0
                 else:
@@ -854,8 +1123,8 @@ class GOODS_N(cat_base.Catalog):
             rx = (xr - xl) * box_ratio / 2.0
             ry = (yt - yb) * box_ratio / 2.0
 
-            plt.gca().add_patch(plt.Rectangle((zero_x - rx,  zero_y - ry), width=rx * 2, height=ry * 2,
-                                              angle=0, color='red', fill=False,linewidth=3))
+            plt.gca().add_patch(plt.Rectangle((zero_x - rx,  zero_y - ry), width=rx * 2 , height=ry * 2,
+                                              angle=0, color='red', fill=False,linewidth=8))
 
             buf = io.BytesIO()
             plt.savefig(buf, format='png', dpi=300,transparent=True)
@@ -1051,17 +1320,26 @@ class GOODS_N(cat_base.Catalog):
                         if (z_photoz_weighted is not None) and (z_photoz_weighted >= 0.0):
                             bid_target.phot_z = z_photoz_weighted
 
-
+                        lineFlux_err = 0.
+                        if detobj is not None:
+                            try:
+                                lineFlux_err = detobj.estflux_unc
+                            except:
+                                lineFlux_err = 0.
                         try:
-                            ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
-                            ew_u = abs(ew * np.sqrt(
-                                        (detobj.estflux_unc / target_flux) ** 2 +
-                                        (filter_fl_err / filter_fl) ** 2))
+                            # ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+                            # ew_u = abs(ew * np.sqrt(
+                            #             (detobj.estflux_unc / target_flux) ** 2 +
+                            #             (filter_fl_err / filter_fl) ** 2))
+                            #
+                            # bid_target.bid_ew_lya_rest = ew
+                            # bid_target.bid_ew_lya_rest_err = ew_u
 
-                            bid_target.bid_ew_lya_rest = ew
-                            bid_target.bid_ew_lya_rest_err = ew_u
+                            bid_target.bid_ew_lya_rest, bid_target.bid_ew_lya_rest_err = \
+                                SU.lya_ewr(target_flux,lineFlux_err,target_w, bid_target.bid_filter,
+                                           bid_target.bid_flux_est_cgs,bid_target.bid_flux_est_cgs_unc)
 
-                            text = text + utilities.unc_str((ew,ew_u)) + "$\AA$\n"
+                            text = text + utilities.unc_str(( bid_target.bid_ew_lya_rest, bid_target.bid_ew_lya_rest_err)) + "$\AA$\n"
                         except:
                             log.debug("Exception computing catalog EW: ",exc_info=True)
                             text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
@@ -1079,21 +1357,20 @@ class GOODS_N(cat_base.Catalog):
                         except:
                             pass
 
-                        lineFlux_err = 0.
-                        if detobj is not None:
-                            try:
-                                lineFlux_err = detobj.estflux_unc
-                            except:
-                                lineFlux_err = 0.
+
 
                         # build EW error from lineFlux_err and aperture estimate error
-                        ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
-                        try:
-                            ew_obs_err = abs(ew_obs * np.sqrt(
-                                (lineFlux_err / target_flux) ** 2 +
-                                (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
-                        except:
-                            ew_obs_err = 0.
+                        # ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
+                        # try:
+                        #     ew_obs_err = abs(ew_obs * np.sqrt(
+                        #         (lineFlux_err / target_flux) ** 2 +
+                        #         (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
+                        # except:
+                        #     ew_obs_err = 0.
+
+                        ew_obs, ew_obs_err = SU.ew_obs(target_flux,lineFlux_err,target_w, bid_target.bid_filter,
+                                                       bid_target.bid_flux_est_cgs,bid_target.bid_flux_est_cgs_unc)
+
 
                         # bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii, plae_errors = \
                         #     line_prob.prob_LAE(wl_obs=target_w,
@@ -1111,8 +1388,8 @@ class GOODS_N(cat_base.Catalog):
                                 wl_obs=target_w,
                                 lineFlux=target_flux,
                                 lineFlux_err=lineFlux_err,
-                                continuum=bid_target.bid_flux_est_cgs,
-                                continuum_err=bid_target.bid_flux_est_cgs_unc,
+                                continuum=bid_target.bid_flux_est_cgs * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
+                                continuum_err=bid_target.bid_flux_est_cgs_unc * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
                                 c_obs=None, which_color=None,
                                 addl_wavelengths=addl_waves,
                                 addl_fluxes=addl_flux,
@@ -1213,7 +1490,7 @@ class GOODS_N(cat_base.Catalog):
                             plt.gca().legend(handles=legend, loc='lower center', ncol=len(legend), frameon=False,
                                                  fontsize='small', borderaxespad=0, bbox_to_anchor=(0.5, -0.25))
 
-                    plt.title("Photo z PDF")
+                    plt.title("Phot z PDF")
                     plt.gca().yaxis.set_visible(False)
                     #plt.xlabel("z")
 

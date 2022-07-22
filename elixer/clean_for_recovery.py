@@ -17,6 +17,7 @@ import numpy as np
 import sys
 
 MINIMUM_PDF_FILESIZE = 100000 #100k bytes
+MINIMUM_PNG_FILESIZE = 430000 #43k bytes
 
 alldets = None
 args = list(map(str.lower,sys.argv))
@@ -35,11 +36,15 @@ check_mini = False
 remove_no_imaging = False
 remove_no_png = False
 remove_pdf_too_small = False
+remove_files = True #set to false if only want to list the files that would be removed
 
 if os.path.exists("elixer_merged_cat.h5"):
     print("elixer_merged_cat.h5 exists ... will compare with PDFs")
 
 
+i = input("Remove Files (Y)  or List only (N)?")
+if len(i) > 0 and i.upper() == "Y":
+    remove_files = True
 
 i = input("Remove if PDF too small (y/n)?")
 if len(i) > 0 and i.upper() == "Y":
@@ -48,6 +53,11 @@ if len(i) > 0 and i.upper() == "Y":
 i = input("Remove if no report png (y/n)?")
 if len(i) > 0 and i.upper() == "Y":
     remove_no_png = True
+
+i = input("Remove if PNG too small (y/n)?")
+if len(i) > 0 and i.upper() == "Y":
+    remove_png_too_small = True
+    remove_no_png = True #force to check if removing if too small
 
 i = input("Remove if no imaging (y/n)?")
 if len(i) > 0 and i.upper() == "Y":
@@ -115,6 +125,8 @@ ct_no_nei = 0
 ct_no_mini = 0
 ct_no_pdf = 0
 
+would_be_removed = [] #list of detectIDs that would be removed (or are to be removed)
+
 if remove_no_imaging:
     for d in alldets:
         rows = apt.read_where("detectid==d",field="detectid")
@@ -125,15 +137,17 @@ if remove_no_imaging:
     ct_no_imaging = len(missing)
     h5.close()
 
-    for d in missing:
-        files = glob.glob("dispatch_*/*/"+str(d)+"*")
-        if len(files) > 0:
-            print("Removing " + str(d) + "...")
-            for f in files:
-                try:
-                    os.remove(f)
-                except:
-                    pass
+    would_be_removed += missing
+    if remove_files:
+        for d in missing:
+            files = glob.glob("dispatch_*/*/"+str(d)+"*")
+            if len(files) > 0:
+                print("Removing " + str(d) + "...")
+                for f in files:
+                    try:
+                        os.remove(f)
+                    except:
+                        pass
 # else:
 #     print(f"{len(missing)} reports without imaging ... ")
 #     for d in missing:
@@ -201,9 +215,11 @@ for d in alldets:
 
     #check the PDF filesize ... if too small, it was generated but missing data
     #is that ever okay?
+    pdf_sz = None
     if remove_pdf_too_small:
         try:
-            if os.path.getsize(pdf_path) < MINIMUM_PDF_FILESIZE:
+            pdf_sz = os.path.getsize(pdf_path)
+            if pdf_sz < MINIMUM_PDF_FILESIZE:
                 #this is a problem ... the main reports should be 500k-1000k or so
                 pdf_okay = False
         except:
@@ -233,6 +249,23 @@ for d in alldets:
     try:
         rpt_idx = names_rpt.index(str(d) + ".png")
         rpt_path = all_rpt[rpt_idx]
+
+        if remove_png_too_small:
+            try:
+                png_sz = os.path.getsize(rpt_path)
+                if png_sz < MINIMUM_PNG_FILESIZE and pdf_sz and pdf_sz > MINIMUM_PNG_FILESIZE * 0.8:
+                    # this is a problem ... the main reports should be 43k+ or so
+                    rpt_idx = -1
+                    ct_no_png += 1
+                    pdf_okay = False  # technically, the PDF is fine, it is the PNG that has a problem
+                    # todo:
+                    # try:
+                    #
+                    #
+                    # except: #try to regenerate the PNG?
+                    #     pdf_okay = False  # technically, the PDF is fine, it is the PNG that has a problem
+            except Exception as e:
+                print(e)
     except:
         rpt_idx = -1
         ct_no_png += 1
@@ -241,30 +274,34 @@ for d in alldets:
 
     if not (mini_okay and nei_okay and pdf_okay and h5_okay):
         #remove the report for recovery
-        print("Removing " + str(d) + " ...")
-        try:
-            if pdf_path:
-                os.remove(pdf_path) # this is the only one that really matters (the others will be overwritten)
-            else:
-                print(f"Warning! No pdf path for {d}: {pdf_path}")
+        if remove_files:
+            would_be_removed.append(d)
+            print("Removing " + str(d) + " ...")
+            try:
+                if pdf_path:
+                    os.remove(pdf_path) # this is the only one that really matters (the others will be overwritten)
+                else:
+                    print(f"Warning! No pdf path for {d}: {pdf_path}")
 
-            if rpt_path:
-                os.remove(rpt_path)
-            if nei_path:
-                os.remove(nei_path)
-            if mini_path:
-                os.remove(mini_path)
+                if rpt_path:
+                    os.remove(rpt_path)
+                if nei_path:
+                    os.remove(nei_path)
+                if mini_path:
+                    os.remove(mini_path)
 
-        except:
-           pass
+            except:
+               pass
 
     elif not png_okay and (pdf_idx > -1):
         if remove_no_png:
-            print("Removing " + str(d) + " ...")
-            try:
-                os.remove(pdf_path)
-            except:
-                pass
+            would_be_removed.append(d)
+            if remove_files:
+                print("Removing " + str(d) + " ...")
+                try:
+                    os.remove(pdf_path)
+                except:
+                    pass
         else:
             #try to build png from os call
             print("OS call to pdftoppm for " + str(d) + "...")
@@ -276,6 +313,7 @@ for d in alldets:
     elif (pdf_idx == -1) and png_okay:
         #the pdf was not found, but there is a png? weird, should not happen:
         #there is a png BUT it is of the wrong PDF?
+        would_be_removed.append(d)
         print(f"PDF/PNG mismatch: {d}")
         try:
             os.remove(rpt_path)
@@ -304,10 +342,19 @@ for d in alldets:
     except Exception as e:
         print(e)
 
-
+would_be_removed = np.unique(would_be_removed)
 print(f"Missing h5 entry: {len(missing_h5_entries)}")
 print(f"Missing PDF: {ct_no_pdf}")
 print(f"Missing imaging: {ct_no_imaging}")
 print(f"Missing report png: {ct_no_png}")
 print(f"Missing nei png: {ct_no_nei}")
 print(f"Missing mini png: {ct_no_mini}")
+print(f"Total # DetectIDs that should be re-run: {len(would_be_removed)}")
+
+try:
+    np.savetxt("elixer_recovery_list.dets",would_be_removed,fmt="%d")
+    print("Wrote: elixer_recovery_list.dets")
+except:
+    pass
+
+

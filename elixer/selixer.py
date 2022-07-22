@@ -14,6 +14,7 @@ import numpy as np
 from math import ceil
 from datetime import timedelta
 import socket
+from os import getenv
 
 #python version
 PYTHON_MAJOR_VERSION = sys.version_info[0]
@@ -27,6 +28,14 @@ except:
     python_cmd = "python "
 
 pre_python_cmd = ""
+
+workbasedir = "/work"
+try:
+    workbasedir = getenv("WORK_BASEPATH")
+    if workbasedir is None or len(workbasedir) == 0:
+        workbasedir = "/work"
+except:
+    pass
 
 hostname = socket.gethostname()
 #print("+++++++++++++ put this BACK !!!!! ")
@@ -74,6 +83,24 @@ if ("--help" in args) or ("--version" in args):
     elixer.parse_commandline(auto_force=True)
     exit(0)
 
+
+if "--cluster" in args:
+    i = args.index("--cluster")
+    if i != -1:
+        try:
+            from os.path import exists
+            if exists(sys.argv[i + 1]):
+                pass #all good
+            else:
+                print(f"Warning! --cluster file does not exist: {sys.argv[i + 1]}")
+                exit(0)
+        except:
+            print("Exception processing command line for --cluster")
+            exit(-1)
+
+
+
+
 #check for --merge (if so just call elixer
 MERGE = False
 if "--merge" in args:
@@ -88,16 +115,71 @@ if "--merge" in args:
     #     exit(0)
 
 
+#Continuum sanity check
+#for a sanity check later:
+continuum_mode = False
+if "--dets" in args:
+    i = args.index("--dets")
+    if i != -1:
+        try:
+            det_file_name = sys.argv[i + 1]
+            if os.path.isfile(det_file_name):
+                has_continuum_id = False
+
+                #check the top and bottom for possible continuum objects
+                #for simplicity, just read the whole column and read as int for size
+                dets = np.loadtxt(det_file_name,dtype=int,usecols=0)#,max_rows=1)
+
+                #look for 3rd character as 9
+                if str(dets[0])[2] == '9' or str(dets[-1])[2] == '9':
+                    has_continuum_id = True
+
+                del dets
+
+                if "--continuum" in args:
+                    continuum_mode = True
+                else:
+                    continuum_mode = False
+
+                prompt = None
+                if has_continuum_id and not continuum_mode:
+                    prompt = "Apparent continuum detectIDs in --dets file, but --continuum not specified. Continue anyway? (y/n)"
+                elif not has_continuum_id and continuum_mode:
+                    prompt = "No apparent continuum detectIDs in --dets file, but --continuum IS specified. Continue anyway? (y/n)"
+                #else all is okay
+
+                if prompt is not None:
+                    r = input(prompt) #assumes Python3 or greater
+                    print()
+                    if len(r) > 0 and r.upper() !=  "Y":
+                        print ("Cancelled.\n")
+                        exit(0)
+                    else:
+                        print("Continuing ... \n")
+        except Exception as e:
+            pass
+
+
 if "--ooops" in args:
     ooops_mode = True
 else:
     ooops_mode = False
 
-if "--recover" in args:
-    recover_mode = True
-else:
+#--recover is now the default unless --no_recover is set
+if "--no_recover" in args:
     recover_mode = False
+else:
+    recover_mode = True
 
+
+if "--neighborhood" in args:
+    i = args.index("--neighborhood")
+    try:
+        neighborhood = sys.argv[i + 1]
+    except:
+        neighborhood = 0
+else:
+    neighborhood = 0
 
 if "--neighborhood_only" in args:
     neighborhood_only = True
@@ -134,6 +216,8 @@ if i != -1:
 else:
     pass
 
+
+
 base_time_multiplier = 1.0
 gridsearch_task_boost = 0.0
 if "--gridsearch" in args:
@@ -156,6 +240,22 @@ if "--gridsearch" in args:
         base_time_multiplier = 3.0 #just to put something in
         gridsearch_task_boost = None
     #just an average guess; the actual time depends on the grid width, cell size and number of shots
+
+if "--mcmc" in args: #impacts the base_time_multiplier
+    base_time_multiplier *= 4.0
+    print("Warning! Force mcmc increases overall time by roughtly 4x")
+#else:
+#    force_mcmc = False
+
+if "--lyc" in args: #some extra processing
+    base_time_multiplier *= 1.2 #20% bump in time
+
+
+if "--cluster" in args: #runs a clustering search per detectid but only re-runs a handful after that
+    base_time_multiplier *= 0.2
+    CLUSTER = True
+else:
+    CLUSTER = False
 
 if MERGE:
     base_time_multiplier = 0.05
@@ -248,11 +348,15 @@ elif hostname == "stampede2":
         if recover_mode:
             if neighborhood_only:
                 MAX_TIME_PER_TASK = 0.25
+            elif neighborhood == 0:
+                MAX_TIME_PER_TASK = 0.9
             else:
-                MAX_TIME_PER_TASK = 1.0  # in recover mode, can bit more agressive in timing (easier to continue if timeout)
+                MAX_TIME_PER_TASK = 1.2  # in recover mode, can bit more agressive in timing (easier to continue if timeout)
         else:
             if neighborhood_only:
                 MAX_TIME_PER_TASK = 0.5
+            elif neighborhood == 0:
+                MAX_TIME_PER_TASK = 2.0
             else:
                 MAX_TIME_PER_TASK = 3.0  # MINUTES max
 
@@ -269,18 +373,22 @@ elif hostname == "stampede2":
             else:
                 MAX_TASKS = 10000
                 MAX_NODES = 20
-                MAX_TASKS_PER_NODE = 40 #still some memory issues ... this gives us a little more room
+                MAX_TASKS_PER_NODE = 48 #still some memory issues ... this gives us a little more room
             #MAX_TASKS = MAX_NODES * MAX_TASKS_PER_NODE #800
     else: #knl (much slower than SKX and much less memory (96 GB per node)
         cores_per_node = 68
         if recover_mode:
             if neighborhood_only:
                 MAX_TIME_PER_TASK = 0.5
+            elif neighborhood == 0:
+                MAX_TIME_PER_TASK = 4.0
             else:
                 MAX_TIME_PER_TASK = 5.0  # in recover mode, can bit more agressive in timing (easier to continue if timeout)
         else:
             if neighborhood_only:
                 MAX_TIME_PER_TASK = 1.5
+            elif neighborhood == 0:
+                MAX_TIME_PER_TASK = 4.5
             else:
                 MAX_TIME_PER_TASK = 6.0  # MINUTES max
 
@@ -308,7 +416,7 @@ elif hostname == "stampede2":
 
     tasks = 0
 
-elif hostname == "z50":
+elif hostname in ["z50","dg5"]:
     host = HOST_LOCAL
     MAX_TASKS = 100 # #dummy value just for testing
     TIME_OVERHEAD = 1.0  # MINUTES of overhead to get started (per task call ... just a safety)
@@ -328,12 +436,6 @@ else:
     email = "##SBATCH --mail-user\n##SBATCH --mail-type all"
     queue = "gpu"
     tasks = 1
-
-
-
-
-
-
 
 
 #check for name agument (mandatory)
@@ -369,6 +471,16 @@ if i != -1:
        pass
 else:
     pass
+
+timex = 1.0
+if "--timex" in args:
+    i = args.index("--timex")
+    try:
+        timex = float(sys.argv[i + 1])
+    except:
+        timex = 1.0
+else:
+    timex = 1.0
 
 #sanity check the time ... might be just hh:mm
 #count the colons
@@ -469,6 +581,7 @@ if i != -1:
         print("Redfinining MAX_NODES to ", max_nodes)
 else:
     print(f"--nodes not specified. Auto set maximum nodes {hostname}:{MAX_NODES} ...")
+
 
 if not MERGE:
     if not os.path.isdir(basename):
@@ -615,8 +728,6 @@ else: # multiple tasks
                         ntasks_per_node = min(target_tasks,MAX_TASKS_PER_NODE)
                         tasks = min(target_tasks,MAX_TASKS)
 
-
-
             else:
                 ntasks_per_node = tasks
                 nodes = 1
@@ -638,7 +749,7 @@ else: # multiple tasks
             exit(0)
         dirs_per_file = len(subdirs) // tasks  # int(floor(float(len(subdirs)) / float(tasks)))
 
-        if not MERGE and (dirs_per_file > MAX_DETECTS_PER_CPU):
+        if not (MERGE or CLUSTER) and (dirs_per_file > MAX_DETECTS_PER_CPU):
             print("Maximum allowed CPU loading exceeded. Each CPU set to process %d detections." % dirs_per_file)
             print("The maximum configured limit is %d" % MAX_DETECTS_PER_CPU)
             print("Reduce the number of detections input and try again.")
@@ -732,8 +843,12 @@ if not time_set: #update time
             mx += gridsearch_task_boost
 
         # set a minimum time ... always AT LEAST 5 or 10 minutes requested?
-        minutes = int(TIME_OVERHEAD + MAX_TIME_PER_TASK * mx * mult * base_time_multiplier)
+        minutes = int(TIME_OVERHEAD + MAX_TIME_PER_TASK * mx * mult * base_time_multiplier * timex)
+        if continuum_mode:
+            minutes = int(minutes * 1.05) #small boost since continuum objects have extra processing
         time = str(timedelta(minutes=max(minutes,10.0)))
+        print(f"auto-set time: TIME_OVERHEAD {TIME_OVERHEAD} + MAX_TIME_PER_TASK {MAX_TIME_PER_TASK} x mx {mx} "
+              f"x mult {mult} x base_time_multiplier {base_time_multiplier} x timex {timex}")
         print("--time %s" %time)
 
     except Exception as e:
@@ -804,9 +919,9 @@ elif host == HOST_WRANGLER:
         # slurm += "set_io_param 1 45.00, 35.00, 20.00, 50.00 \n"
 
         # updated 02-12-2020 to match stamped2
-        slurm += "module use /work/01255/siliu/stampede2/ooops/modulefiles/ \n"
+        slurm += "module use " + workbasedir + "/01255/siliu/stampede2/ooops/modulefiles/ \n"
         slurm += "module load ooops \n" #"/1.0 \n"
-        slurm += "export IO_LIMIT_CONFIG=/work/01255/siliu/stampede2/ooops/1.0/conf/config_low \n"
+        slurm += "export IO_LIMIT_CONFIG=" + workbasedir + "/01255/siliu/stampede2/ooops/1.0/conf/config_low \n"
         slurm += "set_io_param 0 low\n"
 
     #slurm += "module unload xalt \n"
@@ -853,9 +968,9 @@ elif host == HOST_STAMPEDE2:
         # slurm += "set_io_param 1\n"
 
         #updated 01-23-2020
-        slurm += "module use /work/01255/siliu/stampede2/ooops/modulefiles/ \n"
+        slurm += "module use " + workbasedir + "/01255/siliu/stampede2/ooops/modulefiles/ \n"
         slurm += "module load ooops \n" #"/1.0 \n"
-        slurm += "export IO_LIMIT_CONFIG=/work/01255/siliu/stampede2/ooops/1.0/conf/config_low \n"
+        slurm += "export IO_LIMIT_CONFIG=" + workbasedir + "/01255/siliu/stampede2/ooops/1.0/conf/config_low \n"
         slurm += "set_io_param 0 low\n"
         #slurm += "/work/01255/siliu/stampede2/ooops/1.0/bin/set_io_param 0 low \n"
 
@@ -883,7 +998,7 @@ elif host == HOST_LOCAL:
     launch_str = "nothing to launch"
 
 #added per https://portal.tacc.utexas.edu/tutorials/managingio#ooops
-slurm += "export LD_PRELOAD=/work/00410/huang/share/patch/myopen.so \n"
+slurm += "export LD_PRELOAD=" + workbasedir +"/00410/huang/share/patch/myopen.so \n"
 
 #add the common logging/basic error checking to the end
 slurm += "\

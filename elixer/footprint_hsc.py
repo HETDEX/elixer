@@ -103,10 +103,16 @@ def main():
     #files = os.listdir(img_path)
     files = glob2.glob(img_path + "/**/*.fits")
 
+    #2021-03-17: HSC3 this tile is bad, remove it
+    bad_list = ["calexp-HSC-R-16817-70.fits",]
+
     for f in files:
         #img = fits.open(os.path.join(img_path,f))
         #footprint = WCS.calc_footprint(build_wcs_manually_1(img))
         fname = os.path.basename(f)
+        if fname in bad_list:
+            continue
+
         footprint = WCS.calc_footprint(build_wcs_automatically(f))
 
         ra_lo = np.min(footprint[:, 0]) #min ra

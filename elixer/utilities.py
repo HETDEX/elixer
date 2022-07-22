@@ -30,6 +30,9 @@ def angular_distance(ra1,dec1,ra2,dec2):
     """
     dist = -1
     try:
+        if (ra1 is None) or (dec1 is None) or (ra2 is None) or (dec2 is None):
+            return -1
+
         c1 = SkyCoord(ra=ra1 * units.deg, dec=dec1* units.deg)
         c2 = SkyCoord(ra=ra2 * units.deg, dec=dec2* units.deg)
         dist = c1.separation(c2).value * 3600.
@@ -153,6 +156,9 @@ def unc_str(tup): #helper, formats a string with exponents and uncertainty
 
 def is_in_ellipse(xp,yp,xc,yc,a,b,angle):
     """
+    NOTICE: this is COORDINATE DISTANCE ... does not attempt to adjust for underlying metric (i.e does not adjust
+    for projection on sphere with RA distances as function of cos(declination).).
+
     :param xp: x coord of point
     :param yp: y coord of point
     :param xc: x coord of ellipse center
@@ -197,6 +203,9 @@ def is_in_ellipse(xp,yp,xc,yc,a,b,angle):
 def dist_to_ellipse(xp,yp,xc,yc,a,b,angle):
     """
     Find the distance to the nearest point ON the ellipse for point OUTSIDE the ellipse.
+
+    NOTICE: this is COORDINATE DISTANCE ... does not attempt to adjust for underlying metric (i.e does not adjust
+    for projection on sphere with RA distances as function of cos(declination).).
 
     :param xp: x coord of point
     :param yp: y coord of point
@@ -451,3 +460,77 @@ def reformat_input_id(input_id):
         return id
     except:
         return None
+
+
+def gaussian_uncertainty(val,x,mu,mu_err,sigma,sigma_err,A, A_err, y, y_err):
+    """
+    Returns error (uncertiainty) on a Gaussian output value
+
+    :param val: the value of the output of the Gaussian (the y value, not be be confused with the y-offset that is
+                listed here as y)
+    :param x:   the x coordinates fed in
+    :param mu:
+    :param mu_err:
+    :param sigma:
+    :param sigma_err:
+    :param A:
+    :param A_err:
+    :param y:
+    :param y_err:
+    :return:
+    """
+
+    sr2pi = np.sqrt(2*np.pi)
+
+    def partial_mu(x,mu,sigma,A):
+        return A * (x-mu) / (sigma**3 * sr2pi) * np.exp(-np.power((x - mu) / sigma, 2.) / 2.)
+
+    def partial_sigma(x,mu,sigma,A):
+        return A * (sigma**2 - (x-mu)**2)/(sigma**4 * sr2pi) * np.exp(-np.power((x - mu) / sigma, 2.) / 2.)
+
+    def partial_A(x,mu,sigma,A):
+        return 1/(sigma*sr2pi)* np.exp(-np.power((x - mu) / sigma, 2.) / 2.)
+
+    def partial_y():
+        return 1
+
+    return np.sqrt( (partial_mu(x,mu,sigma,A)*mu_err)**2 +
+                    (partial_sigma(x,mu,sigma,A)*sigma_err)**2 +
+                    (partial_A(x,mu,sigma,A)*A_err)**2 +
+                    (partial_y()*y+y_err)**2   )
+
+def getnearpos(array,value):
+    """
+    Nearest, but works best (with less than and greater than) if monotonically increasing. Otherwise,
+    lt and gt are (almost) meaningless
+
+    :param array:
+    :param value:
+    :return: nearest index, nearest index less than the value, nearest index greater than the value
+            None if there is no less than or greater than
+    """
+    if type(array) == list:
+        array = np.array(array)
+
+    idx = (np.abs(array-value)).argmin()
+
+    if array[idx] == value:
+        lt = idx
+        gt = idx
+    elif array[idx] < value:
+        lt = idx
+        gt = idx + 1
+    else:
+        lt = idx - 1
+        gt = idx
+
+    if lt < 0:
+        lt = None
+
+    if gt > len(array) -1:
+        gt = None
+
+
+    return idx, lt, gt
+
+

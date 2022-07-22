@@ -12,6 +12,7 @@ import glob
 import os
 import sys
 import time
+import numpy as np
 
 try:
     from elixer import elixer_hdf5
@@ -84,6 +85,7 @@ def main():
     if i != -1:
         try:
             merge_list_fn = sys.argv[i + 1]
+            print(f"merge_list_fn = {merge_list_fn}")
         except:
             print("Error! Cannot find mandatory parameter --dispatch")
             exit(-1)
@@ -99,14 +101,43 @@ def main():
         #this is the top level final merge
         #find all previous generation merges files AND includ the elixer_merge.cat, if present
         still_waiting = True
-        while still_waiting: #could sleep until the entire job times out if there is a problem
+        print("Beginning final merge ... ")
+
+        #how many do we expect?
+        try:
+            merge_count = len(get_base_merge_files(".","dispatch_*/merge_*"))
+        except:
+            merge_count = -1
+
+        timeout_wait = 60.0 #seconds
+        while still_waiting and timeout_wait > 0.0: #could sleep until the entire job times out if there is a problem
             merge_list = get_base_merge_files(".","dispatch_*/*intermediate_merge.working")
             if len(merge_list) > 0:
+                print(f"Waiting on *working files to complete ...")
                 time.sleep(10.0) #sleep 10 secs
+                timeout_wait = 60.0 #seconds #reset to full timeout
             else:
                 #get the final list
                 merge_list = get_base_merge_files(".", "dispatch_*/*intermediate_merge.h5")
-                still_waiting = False
+                if len(merge_list) < merge_count: #the final job could get kicked off before all the prior jobs are complete or even started
+                    print(f"Waiting on merge_count to match. Current {len(merge_list)}, expected {merge_count} ...")
+                    time.sleep(10.0)             #so all the .working files might not even have been created yet
+                    timeout_wait -= 10.0
+                else:
+                    still_waiting = False
+                    print(f"Final Merge List {len(merge_list)}: {merge_list}")
+
+        if still_waiting: #we timed out
+            print(f"Timeout {timeout_wait:0.1f}s waiting on expected number {len(merge_list)}/{merge_count} of *intermediate_merge.h5 files. Aborting run.")
+            dummy_list = [f"dispatch_{str(n).zfill(4)}/elixer_intermediate_merge.h5" for n in range(merge_count)]
+            missing = np.setdiff1d(dummy_list,merge_list)
+            print(f"Missing files: {missing}")
+            with open("elixer_merged_cat.fail","w") as f:
+                f.write(f"Timeout {timeout_wait:0.1f}s waiting on expected number {len(merge_list)}/{merge_count} of *intermediate_merge.h5 files. Aborting run.\n")
+                f.write(f"Missing files: {missing}\n")
+                f.write(f"Expected files: {dummy_list}\n")
+                f.write(f"Found files: {merge_list}\n")
+            exit(-1)
 
         if len(merge_list) > 0:
             needs_unique = False
@@ -134,29 +165,49 @@ def main():
                 os.remove("elixer_merged_cat_old.h5")
 
     else: #this is a generational merge
+
+        #this could be a re-run
+        #first check if intermediate.working exists ... if so, delete it and continue
+        #if it does not exist, see if intermetediate.h5 exists, if so, this one is already done so skip
+
+        do_merge = True
         try:
-            with open(merge_list_fn) as f:
-                for line in f:
-                    line = line.rstrip("\n")
-                    # based on being one level above dispatch_xxxx
-                    if os.path.exists(line):
-                        merge_list.append(line)
-                    elif os.path.exists("../"+line):
-                        merge_list.append("../" + line)
+            if os.path.exists("elixer_intermediate_merge.working"):
+                os.remove("elixer_intermediate_merge.working")
+                print(f"{merge_list_fn}: Incomplete. Delete working file and re-run.")
+            elif not os.path.exists("elixer_intermediate_merge.h5"):
+                pass #continue to merge
+            else: #this one is already done
+                do_merge = False
+                print(f"{merge_list_fn}: already done. Skipping.")
+        except:
+            print("Exception checking for recover conditions.")
 
-        except Exception as e:
-            print("Could not open merge_list file")
-            print(e)
-            exit(-1)
 
-        if len(merge_list)==0:
-            print("No files to merge")
-            exit(0)
+        if do_merge:
+            try:
+                with open(merge_list_fn) as f:
+                    for line in f:
+                        line = line.rstrip("\n")
+                        # based on being one level above dispatch_xxxx
+                        if os.path.exists(line):
+                            merge_list.append(line)
+                        elif os.path.exists("../"+line):
+                            merge_list.append("../" + line)
 
-        print(f"Merging {len(merge_list)} files ... ")
-        print(merge_list)
-        merge_hdf5(merge_list)
-        print("Intermediate merge complete")
+            except Exception as e:
+                print("Could not open merge_list file")
+                print(e)
+                exit(-1)
+
+            if len(merge_list)==0:
+                print("No files to merge")
+                exit(0)
+
+            print(f"Merging {len(merge_list)} files ... ")
+            print(merge_list)
+            merge_hdf5(merge_list)
+            print("Intermediate merge complete")
 
 
 if __name__ == '__main__':

@@ -12,6 +12,9 @@
 # load file
 # get status
 # get cutout (takes ra,dec,error) returns cutout_image (the cutout is just another science image)
+import sys
+
+import scipy.ndimage
 
 try:
     from elixer import global_config as G
@@ -56,8 +59,193 @@ PIXEL_APERTURE_METHOD='exact' #'exact' 'center' 'subpixel'
 log = G.Global_Logger('sciimg_logger')
 log.setlevel(G.LOG_LEVEL)
 
+#can't import here ... becomes a circular reference since phot_tools is accessing elixer's catalogs
+# try:
+#     from hetdex_tools import phot_tools
+#     plt.style.use('default') #restore plot style
+# except:
+#     log.error("Exception importing hetdex_tools phot_tools",exc_info=True)
 
-def is_cutout_empty(cutout):
+phot_tools = None
+
+def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, subcont=True, convolve_image=False,
+                   pixscale=0.25, imsize=9.0, wave_range=None, sigma=None,return_coords=False):
+    """
+    Wrapper for hetdex_api.hetdex_tools.phot_tools get_line_image()
+    A synthetic image from fibers using region around the emission line
+
+
+    NOTICE!!! this cutout has some extra attributes that the typical science cutout does not have
+    (like preset vmin, vmax, wave, d_wave)
+
+    :return: a cutout like the science cutouts (mostly an astropy HDU)
+    """
+
+    global phot_tools
+
+    #if "phot_tools" not in sys.modules:
+    if phot_tools is None:
+        try:
+            from hetdex_tools import phot_tools
+            plt.style.use('default') #restore plot style
+        except:
+            log.error("Cannot import hetdex_tools phot_tools.", exc_info=True)
+            plt.style.use('default') #restore plot style
+            return None
+
+    cutout = None
+
+    try:
+
+        dw = (wave_range[1]-wave_range[0])/2.0 #this is +/-3 sigma and so this (dw) is now half that range to get the midpoint
+        w = wave_range[0]+dw
+
+        #now change to the dw that the phot_tools API wants
+        if sigma is not None:
+            dw = sigma #the call to phot_tools.xxx turns this into +/- 2*sigma
+        else:
+            dw /= 3.0 #assumes wave_range is -3*sigma to +3*sigma and dw made half that range just above
+
+        # if False: #
+        # #if imsize >= 20:
+        #     #currently hetdex_api forces the get_flux_for_source to go to 20"
+        #     #if want smaller, have to make separate calls
+        #
+        #     flux, flux_err, bkg_stddev, apcor, hdu  = phot_tools.get_flux_for_source(detectid=None,
+        #                                                                              coords=coords,
+        #                                                                              shotid=shotid,
+        #                                                                              survey=f"hdr{G.HDR_Version}",
+        #                                                                              radius=1.0*ap_units.arcsec, #aperture to get flux (not the size)
+        #                                                                              wave=w,
+        #                                                                              linewidth=dw,
+        #                                                                              annulus=[5.0, 7.0] * ap_units.arcsec, #for "sky"
+        #                                                                              convolve_image=convolve_image,return_hdu=True)
+        #
+        #     cutout = cp.deepcopy(hdu[0])
+        #     cutout.wcs = WCS(cutout.header)
+        #     cutout.flux = flux
+        #     cutout.flux_err = flux_err
+        #     cutout.bkg_stddev = bkg_stddev
+        #     cutout.apcor = apcor
+        #     cutout.wave = w
+        #     cutout.d_wave = dw
+        #
+        #     #cutout.vmax = np.max(hdu[0].data)
+        #     #cutout.vmin = np.min(hdu[0].data)
+        #
+        #     #subtract off the avg
+        #     hdu[0].data -= np.median(hdu[0].data)
+        #
+        #
+        #     std = np.std(hdu[0].data)
+        #     cutout.vmax = 4 * std
+        #     cutout.vmin = max( np.min(hdu[0].data),  -1 * std) #None
+        # else:
+
+        adjusted_imsize = max(imsize,30.0) #select a minimum size for better statistics, can trim down after the call
+        if adjusted_imsize != imsize:
+            log.debug("Extra call to phot_tools.get_line_image for larger cutout and better statistics...")
+            hdu_big = phot_tools.get_line_image(#friendid=friendid,
+                detectid=detectid,
+                survey=f"hdr{G.HDR_Version}",
+                coords=coords,
+                shotid=shotid,
+                subcont=subcont,
+                convolve_image=convolve_image,
+                pixscale=pixscale,
+                imsize=adjusted_imsize,
+                wave_range=wave_range,
+                return_coords=return_coords)
+
+            hdu_median = np.nanmedian(np.where(hdu_big[0].data == 0, np.nan,hdu_big[0].data))#np.median(hdu[0].data)
+            hud_std = np.std(hdu_big[0].data)
+        else:
+            hdu_median = None
+            hud_std = None
+            hdu_big = None
+
+        hdu = phot_tools.get_line_image(#friendid=friendid,
+                                        detectid=detectid,
+                                        survey=f"hdr{G.HDR_Version}",
+                                        coords=coords,
+                                        shotid=shotid,
+                                        subcont=subcont,
+                                        convolve_image=convolve_image,
+                                        pixscale=pixscale,
+                                        imsize=imsize,
+                                        wave_range=wave_range,
+                                        return_coords=return_coords)
+
+        #there are 4 extensions in the HDU ... the 0th is the image we want
+        cutout = cp.deepcopy(hdu[0])
+
+        #if north is down, flip everything
+        #this is the rotation between up in the plot and North ...
+        #NOTE: if CDx_x instead of PCx_x use -np.pi/2 (for CD) instead of + np.pi/2 (for PC)
+        theta = np.arctan2(cutout.header['PC1_2'], cutout.header['PC1_1']) + np.pi/2.
+        if 0 < theta < np.pi:
+            pass #do nothing
+        else:
+            #rotate the image and negate rotation matrix
+            cutout.data = scipy.ndimage.rotate(cutout.data,180.0,reshape=False)
+            cutout.header['PC1_1'] = cutout.header['PC1_1'] * -1
+            cutout.header['PC1_2'] = cutout.header['PC1_2'] * -1
+            cutout.header['PC2_1'] = cutout.header['PC2_1'] * -1
+            cutout.header['PC2_2'] = cutout.header['PC2_2'] * -1
+
+        cutout.wcs = WCS(cutout.header)
+        cutout.flux, cutout.flux_err, cutout.bkg_stddev, cutout.apcor = None, None, None, None
+
+        if hdu_median is None:
+            hdu_median = np.nanmedian(np.where(hdu[0].data == 0, np.nan,hdu[0].data))#np.median(hdu[0].data)
+            hud_std = np.std(hdu[0].data)
+
+        #subtract off the avg
+        hdu[0].data -= hdu_median
+
+        cutout.vmax = 4 * hud_std
+        cutout.vmin = max( np.min(hdu[0].data), -1 * hud_std) #None
+        cutout.wave = w
+        cutout.d_wave = dw
+
+        # if imsize != adjusted_imsize:
+        #     trim = int(0.5 * (adjusted_imsize - imsize) * pixscale)
+        #     hdu[0].data = hdu[0].data[trim:-trim,trim:-trim]
+
+        # cutout.flux, cutout.flux_err, cutout.bkg_stddev, cutout.apcor  = phot_tools.get_flux_for_source(detectid=None,
+        #                                                                                                 coords=coords,
+        #                                                                                                 shotid=shotid,
+        #                                                                                                 survey=f"hdr{G.HDR_Version}",
+        #                                                                                                 radius=1.5*ap_units.arcsec, #aperture to get flux (not the size)
+        #                                                                                                 wave=w,
+        #                                                                                                 linewidth=dw,
+        #                                                                                                 annulus=[5.0, 7.0] * ap_units.arcsec, #for "sky"
+        #                                                                                                 convolve_image=convolve_image,
+        #                                                                                                 return_hdu=False)
+
+        cutout.flux, cutout.flux_err, cutout.bkg_stddev, cutout.apcor, sky_sigma = phot_tools.fit_circular_aperture(
+                                                                                    hdu if hdu_big is None else hdu_big,
+                                                                                    coords,
+                                                                                    radius=1.5*ap_units.arcsec,
+                                                                                    annulus=[5.0, 7.0]*ap_units.arcsec,
+                                                                                    plot=False,return_sky_sigma=True)
+
+        #not expecting units later, so remove them
+        cutout.flux = cutout.flux.value
+        cutout.flux_err = cutout.flux_err.value
+        cutout.bkg_stddev = cutout.bkg_stddev.value
+        #cutout.apcor = cutout.apcor
+
+    except:
+        if log.logger.level > 10: #i.e. if INFO or greater, don't log the exception details
+            log.error("Exception calling hetdex_api's get_line_image().  Exception report masked due to logging level. ", exc_info=False)
+        else:
+            log.error("Exception calling hetdex_api's get_line_image(): ", exc_info=True)
+
+    plt.style.use('default') #restore plot style
+    return cutout
+
+def is_cutout_empty(cutout,check_unique_fraction=False):
     """
     Either all values the same or a simple horizontal or vertical gradient
     (currently, any other gradient would be missed ... assumes perpendicular to gradient is constant, min==max)
@@ -205,6 +393,8 @@ def is_cutout_empty(cutout):
                 #     rc = True
                 elif frac_uniq < 0.9:
                     log.info(f"Low fraction of unique pixels ({frac_uniq}). Image may be bad.")
+                    if check_unique_fraction:
+                        rc = True
                     #print(f"Low fraction of unique pixels ({frac_uniq}). Image may be bad.")
             except:
                 log.debug("*** Exception! Exception in science_image::is_cutout_empty()", exc_info=True)
@@ -212,6 +402,7 @@ def is_cutout_empty(cutout):
         log.debug("*** Exception! Exception in science_image::is_cutout_empty()", exc_info=True)
 
     return rc
+
 
 
 class science_image():
@@ -329,8 +520,13 @@ class science_image():
             self.build_wcs_manually()
         else:
             try:
-                #self.wcs = WCS(header=self.hdulist[self.wcs_idx].header,fobj=self.image_location)
-                self.wcs = WCS(self.image_location,relax = astropy.wcs.WCSHDR_CD00i00j | astropy.wcs.WCSHDR_PC00i00j)
+                if (self.wcs_idx is not None) and (self.wcs_idx > 0):
+                    f = fits.open(self.image_location)
+                    self.wcs = WCS(f[self.wcs_idx].header,relax = astropy.wcs.WCSHDR_CD00i00j | astropy.wcs.WCSHDR_PC00i00j)
+                    f.close()
+                else:
+                    #self.wcs = WCS(header=self.hdulist[self.wcs_idx].header,fobj=self.image_location)
+                    self.wcs = WCS(self.image_location,relax = astropy.wcs.WCSHDR_CD00i00j | astropy.wcs.WCSHDR_PC00i00j)
             except:
                 log.error("Unable to use WCS constructor. Will attempt to build manually.", exc_info=True)
                 self.build_wcs_manually()
@@ -368,10 +564,21 @@ class science_image():
         #check the footprint
         try:
             if (self.footprint is not None) and (self.pixel_size is not None):
-                ra_range = (max(self.footprint[:,0])-min(self.footprint[:,0])) * 3600.0
+                #could wrap around
+                ra_mx = max(self.footprint[:,0])
+                ra_mn = min(self.footprint[:,0])
+
+                if ra_mx - ra_mn > 30.0: #just pick 30 deg as a huge value
+                    old_mn = ra_mn
+                    ra_mn = ra_mx - 360.
+                    ra_mx = old_mn
+                # ra_range = (max(self.footprint[:,0])-min(self.footprint[:,0])) * 3600.0
+                ra_range = (ra_mx-ra_mn) * 3600.0
                 dec_range = (max(self.footprint[:,1])-min(self.footprint[:,1])) * 3600.0
+
+                mean_dec = 0.5 * (max(self.footprint[:,1]) + min(self.footprint[:,1]))
                 #ignore keystoning from dec for now
-                footprint_area = ra_range * dec_range / (self.pixel_size**2)
+                footprint_area = ra_range * dec_range / (self.pixel_size**2) * np.cos(mean_dec * np.pi / 180)
                 pixel_area = self.wcs.pixel_shape[0] * self.wcs.pixel_shape[1]
 
                 #should be close in size:
@@ -427,8 +634,17 @@ class science_image():
             self.wcs.wcs.crval = [hdulist[self.wcs_idx].header['CRVAL1'], hdulist[self.wcs_idx].header['CRVAL2']]
             self.wcs.wcs.ctype = [hdulist[self.wcs_idx].header['CTYPE1'], hdulist[self.wcs_idx].header['CTYPE2']]
             # self.wcs.wcs.cdelt = [None,None]#[hdu1[0].header['CDELT1O'],hdu1[0].header['CDELT2O']]
-            self.wcs.wcs.cd = [[hdulist[self.wcs_idx].header['CD1_1'], hdulist[self.wcs_idx].header['CD1_2']],
-                               [hdulist[self.wcs_idx].header['CD2_1'], hdulist[self.wcs_idx].header['CD2_2']]]
+            try:
+                self.wcs.wcs.cd = [[hdulist[self.wcs_idx].header['CD1_1'], hdulist[self.wcs_idx].header['CD1_2']],
+                                   [hdulist[self.wcs_idx].header['CD2_1'], hdulist[self.wcs_idx].header['CD2_2']]]
+            except:
+                log.info("Missing common CDx_x keys. Assume just CD1_1 and CD2_2")
+                try:
+                    self.wcs.wcs.cd = [[hdulist[self.wcs_idx].header['CD1_1'], 0],
+                                       [0, hdulist[self.wcs_idx].header['CD2_2']]]
+                except:
+                    log.error("Failed to build WCS manually.", exc_info=True)
+                    self.wcs = None
             # self.wcs._naxis1 = hdulist[self.wcs_idx].header['NAXIS1']
             # self.wcs._naxis2 = hdulist[self.wcs_idx].header['NAXIS2']
 
@@ -489,7 +705,7 @@ class science_image():
         if rc and verify:
             try:
                 cutout = Cutout2D(hdulist[self.wcs_idx].data, SkyCoord(ra, dec, unit="deg", frame=self.frame), (1, 1),
-                                  wcs=self.wcs, copy=False)#,mode='partial')
+                                  wcs=self.wcs, copy=False,mode="partial",fill_value=0)#,mode='partial')
             except:
                 log.debug("position (%f, %f) is not in image." % (ra,dec), exc_info=False)
                 rc = False
@@ -504,7 +720,7 @@ class science_image():
         if hasattr(wcs.wcs,'cd'):
             return np.sqrt(wcs.wcs.cd[0, 0] ** 2 + wcs.wcs.cd[0, 1] ** 2) * 3600.0
         elif hasattr(wcs.wcs,'cdelt'): #like Pan-STARRS (assume both directions are the same)
-            return wcs.wcs.cdelt[0] * 3600.0
+            return abs(wcs.wcs.cdelt[0]) * 3600.0
         else: #we have a problem
             log.warning("Warning! Unable to determine pixel scale in science_image::calc_pixel_size. WCS does not have cd or cdelt keywords.")
             return None
@@ -526,8 +742,10 @@ class science_image():
             zscale = ZScaleInterval(contrast=contrast,krej=2.5) #nsamples=len(vals)
             self.vmin, self.vmax = zscale.get_limits(values=cpvals)
             log.info("Vrange = %f, %f" %(self.vmin,self.vmax))
+        except IndexError:
+            log.info("Failed science_image::get_vrange(). IndexError")#, exc_info=True)
         except:
-            log.info("Exception in science_image::get_vrange:",exc_info =True)
+            log.warning("Exception in science_image::get_vrange:",exc_info =True)
 
         return self.vmin,self.vmax
 
@@ -585,7 +803,7 @@ class science_image():
 
         return gx, gy
 
-    def find_sep_objects(self,cutout,max_dist=None):
+    def find_sep_objects(self,cutout,max_dist=None,detobj=None):
         """
 
         :param cutout:
@@ -636,7 +854,27 @@ class science_image():
 
             if not G.BIG_ENDIAN:
                 data = cutout.data.byteswap().newbyteorder()
-            bkg = sep.Background(data)
+            else:
+                data = cutout.data
+            try:
+                bkg = sep.Background(data)
+            except Exception as e:
+                if type(e) == ValueError:
+                    log.debug("sep.Background() value error. May be ENDIAN issue. Swapping...")
+                    try:
+                        if not G.BIG_ENDIAN:
+                            #the inverse of the above assignment (for zipped data the decompression may already handle the
+                            #flip so doing it again would have put it in the wrong ENDIAN order
+                            data =  cutout.data
+                        else:
+                            data = cutout.data.byteswap().newbyteorder()
+
+                        bkg = sep.Background(data)
+
+                    except:
+                        log.warning("Exception in science_image::find_sep_objects",exc_info=True)
+                        return img_objects, None
+
             data_sub = data - bkg
             data_err = bkg.globalrms #use the background RMS as the error (assume sky dominated)
             objects = sep.extract(data_sub, 1.5, err=bkg.globalrms)
@@ -645,6 +883,7 @@ class science_image():
             inside_objs = []  # (index, dist_to_barycenter)
             outside_objs = []  # (index, dist_to_barycenter, dist_to_curve)
 
+            map_idx = np.full(len(objects),-1) #holds the index of img_objects for each objects entry (if no image object, the value is -1)
             idx = -1
             for obj in objects:
                 idx += 1
@@ -656,7 +895,7 @@ class science_image():
                 d = initialize_dict()
                 d['idx'] = idx
                 # convert to image center as 0,0 (needed later in plotting) and to arcsecs
-                d['x'] = (obj['x'] - cx) * self.pixel_size
+                d['x'] = (obj['x'] - cx) * self.pixel_size  #want as distance in arcsec so pixels * arcsec/pixel
                 d['y'] = (obj['y'] - cy) * self.pixel_size
                 # the 6.* factor is from source extractor using 6 isophotal diameters
                 d['a'] = 6. * obj['a'] * self.pixel_size
@@ -685,8 +924,12 @@ class science_image():
                         flux, fluxerr, flag = sep.sum_ellipse(data_sub, obj['x'], obj['y'],
                                                               obj['a'], obj['b'], obj['theta'],
                                                               2.5 * kronrad, subpix=1,err=data_err)
-                except:
-                    log.warning("Exception with source extractor",exc_info=True)
+                except Exception as e:
+                    try:
+                        if e.args[0] == "invalid aperture parameters":
+                            pass #do nothing ... not important
+                    except:
+                        log.warning(f"Exception with source extractor. {e}")
                     continue
 
                 try:  # flux, fluxerr, flag may be ndarrays but of size zero (a bit weird)
@@ -701,7 +944,35 @@ class science_image():
                 d['flags'] = flag
                 d['selected'] = False
 
+                #And now get the flux for a fixed 2" diameter aperture
+                try:
+                    # SEP_FIXED_APERTURE_RADIUS is in arcsec and we need pixels, so divide by pixel_size in arcsec/pixel
+                    radius = G.SEP_FIXED_APERTURE_RADIUS / self.pixel_size
+                    # now, get the flux
+                    flux, fluxerr, flag = sep.sum_circle(data_sub, obj['x'], obj['y'],
+                                                         radius, subpix=1,err=data_err)
+                except:
+                    log.warning("Exception with source extractor",exc_info=True)
+                    continue
+
+                try:  # flux, fluxerr, flag may be ndarrays but of size zero (a bit weird)
+                    flux = float(flux)
+                    fluxerr = float(fluxerr)
+                    flag = int(flag)
+                except:
+                    log.debug("Exception casting results from sep.sum", exc_info=True)
+
+                d['fixed_aper_radius'] = G.SEP_FIXED_APERTURE_RADIUS
+                d['fixed_aper_flux_cts'] = flux
+                d['fixed_aper_flux_cts_err'] = fluxerr
+                d['fixed_aper_flags'] = flag
+                d['fixed_aper_mag'] = None
+                d['fixed_aper_mag_bright'] = None
+                d['fixed_aper_mag_faint'] = None
+                d['fixed_aper_mag_err'] = None
+
                 img_objects.append(d)
+                map_idx[idx]=len(img_objects) -1
 
                 if success:  # this is outside
                     outside_objs.append((idx, dist2bary, dist2curve))
@@ -724,7 +995,9 @@ class science_image():
                 log.info("No (source extractor) objects found")
                 return img_objects, None
 
-            obj = objects[selected_idx]
+            # if selected_idx >= 0:
+            #     #PROBLEM. we do not know that HETDEX g-mag here, so we will revisit later in cat_base where we DO know tha
+            #     obj = objects[selected_idx]
             #check max distance
             #todo: incorporate the effective radius of the ellipse? s\t large ellipse gets a little larger max_dist?
             # and a very small ellipse gets (maybe) a little shorted max_dist?
@@ -734,9 +1007,17 @@ class science_image():
                          %(dist_to_curve_aa,max_dist))
                 return img_objects, None
 
+
+            #selected_idx applies to the objects list
+            #IT IS NOT NECESSARILY THE SAME SIZE as img_objects
+
             #mark selected item
-            img_objects[selected_idx]['selected'] = True
-            return img_objects, selected_idx
+            if selected_idx >= 0:
+                img_object_idx = map_idx[selected_idx]  # xlat to img_objects index
+                img_objects[img_object_idx]['selected'] = True
+                return img_objects, img_object_idx
+            else:
+                return img_objects, None
 
             # # for obj in objects:
             # # now, get the flux
@@ -793,7 +1074,7 @@ class science_image():
             pix_window = int(np.ceil(error / self.pixel_size))
             hdulist = fits.open(path, memmap=False, lazy_load_hdus=True)
             cutout = Cutout2D(hdulist[self.wcs_idx].data, position, (pix_window, pix_window),
-                                   wcs=self.wcs, copy=False)
+                                   wcs=self.wcs, copy=False,mode="partial",fill_value=0)
             hdulist.close()
         except:
             log.info(f"Could not get mask cutout", exc_info=True)
@@ -801,7 +1082,7 @@ class science_image():
         return cutout
 
     def get_cutout(self,ra,dec,error,window=None,image=None,copy=False,aperture=0,mag_func=None,
-                   do_sky_subtract=True,return_details=False):
+                   do_sky_subtract=True,return_details=False,reset_center=True,detobj=None):
         '''ra,dec in decimal degrees. error and window in arcsecs'''
         #error is central box (+/- from ra,dec)
         #window is the size of the entire coutout
@@ -818,19 +1099,30 @@ class science_image():
                    'aperture_eqw_rest_lya':None,'aperture_eqw_rest_lya_err':None,'aperture_plae':None,
                    'elixer_apertures':None,'elixer_aper_idx':None,
                    'sep_objects':None,'sep_obj_idx':None,
-                   'fail_mag_limit':False,'raw_mag':None,'raw_mag_bright':None,'raw_mag_faint':None,'raw_mag_err':None}
+                   'fail_mag_limit':False,'raw_mag':None,'raw_mag_bright':None,'raw_mag_faint':None,'raw_mag_err':None,
+                   'exptime':None}
 
 
         self.window = None
-        self.last_x_center = None
-        self.last_y_center = None
-        self.last_x0_center = None
-        self.last_y0_center = None
+        if reset_center:
+            self.last_x_center = None
+            self.last_y_center = None
+            self.last_x0_center = None
+            self.last_y0_center = None
+
         cutout = None
         counts = None #raw data counts in aperture
         mag = 10000. #aperture converted to mag_AB
 
         if (aperture is not None) and (mag_func is not None):
+            if aperture == -1:
+                #in most cases this should be set to the calling catalog's best starting aperture
+                #but as s safety, reset here to at least 0.5"
+                if G.DYNAMIC_MAG_APERTURE:
+                    aperture = 0.5
+                else:
+                    aperture= G.FIXED_MAG_APERTURE
+
             radius = aperture
 
             # aperture-radius is not allowed to grow past the error-radius in the dynamic case
@@ -862,10 +1154,7 @@ class science_image():
             else:
                 return cutout, counts, mag, radius
 
-        if window is None or window < error:
-            window = float(max(2.0*error,5.0)) #should be at least 5 arcsecs
 
-        self.window = window
         #sanity check (shouold be of order few to maybe 100 arcsec, certainly no more than a few arcmin
         #so, greater than that implies a bad degree to arcsec conversion (degree assumed when arcsec passed)
 
@@ -876,11 +1165,16 @@ class science_image():
         #the number is huge now, but really was arcsec to begin with, so /3600
         if window > 1000: #so the max expected is 999 arcsec (given that the window is 3x the request, 333 arcsec is max)
             msg = f"Unexpectedly high cutout size requested ({window} ). Assume arcsec passed instead of degrees " \
-                        f"and will convert back to degrees. Changing to ({window/3600.0}) degrees"
+                  f"and will convert back to degrees. Changing to ({window/3600.0}) degrees"
             log.warning(msg)
             print(msg)
             window /= 3600.0
-            self.window = window
+
+
+        if window is None or window < error:
+            window = float(max(2.0*error,5.0)) #should be at least 5 arcsecs
+
+        self.window = window
 
         #data = None
         #pix_size = None
@@ -932,7 +1226,7 @@ class science_image():
                     while retries < max_retries:
                         try:
                             cutout = Cutout2D(hdulist[self.wcs_idx].data, position, (pix_window, pix_window),
-                                              wcs=self.wcs, copy=copy)
+                                              wcs=self.wcs, copy=copy,mode="partial",fill_value=0)
 
                             image = cutout  # now that we have a cutout, the rest of this func works on it
 
@@ -948,10 +1242,11 @@ class science_image():
                                     #else, just use the original cutout (e.g. if the window is large, but the aperture is small
                                     try:
                                         sky_image = Cutout2D(hdulist[self.wcs_idx].data, position, (sky_pix_window, sky_pix_window),
-                                                      wcs=self.wcs, copy=False) #don't need a copy, will not persist beyond
+                                                      wcs=self.wcs, copy=False,mode="partial",fill_value=0) #don't need a copy, will not persist beyond
                                                                                 #this call
                                     except:
-                                        log.warning("Exception attempting to get larger sky_image. science_image::get_cutout",
+                                        log.warning(f"Exception attempting to get larger sky_image. science_image::get_cutout "
+                                                    f"({sky_pix_window} pix sq.) or ({self.pixel_size * sky_pix_window} arcsec sq.)",
                                                     exc_info=True)
                                         sky_image = image
                                 else:
@@ -1001,6 +1296,9 @@ class science_image():
 
                         except NoOverlapError:
                             log.info("Unable to load cutout (NoOverlapError).", exc_info=False)
+                            retries = max_retries
+                        except ValueError:
+                            log.error("Exception. Unable to load cutout. Value error.",exc_info=True)
                             retries = max_retries
                         except Exception as ex:
                             if "Arrays do not overlap" in str(ex):
@@ -1107,7 +1405,7 @@ class science_image():
                 position = SkyCoord(ra, dec, unit="deg")#, frame='fk5')
                 #self.pixel_size = self.calc_pixel_size(image.wcs)
                 pix_window = float(window) / self.calc_pixel_size(image.wcs)  # now in pixels
-                cutout = Cutout2D(image.data, position, (pix_window, pix_window), wcs=image.wcs, copy=copy)
+                cutout = Cutout2D(image.data, position, (pix_window, pix_window), wcs=image.wcs, copy=copy,mode="partial",fill_value=0)
                 self.get_vrange(cutout.data)
             except NoOverlapError:
                 log.info("Warning (NoOverlapError) in science_image::get_cutout(). "
@@ -1127,6 +1425,7 @@ class science_image():
 
 
         details['pixel_scale'] = self.pixel_size
+        details['exptime'] = self.exptime
 
         #We have the cutout info, now get aperture photometry
 
@@ -1161,13 +1460,39 @@ class science_image():
             return_radius = None #the effective radius for that magnitude
 
             if G.USE_SOURCE_EXTRACTOR:
-                source_objects,selected_obj_idx = self.find_sep_objects(cutout,G.NUDGE_SEP_MAX_DIST)
+                source_objects,selected_obj_idx = self.find_sep_objects(cutout,G.NUDGE_SEP_MAX_DIST,detobj=detobj)
 
                 if (source_objects is not None) and (len(source_objects) > 0):
 
                     #get the mag for all
                     for sobj in source_objects:
-                    #selected_obj_idx = sep_info[0]
+
+                        #start with the the fixed aperture (since we re-use the varaiables: counts, etc later
+                        #from the elliptical apertures
+                        if 'fixed_aper_flux_cts' in sobj.keys():
+                            counts = sobj['fixed_aper_flux_cts'] #sep_info[1]
+                            count_err = sobj['fixed_aper_flux_cts_err'] #sep_info[2]
+
+                            mag, mag_faint, mag_bright,mag_err = None, None, None, None
+                            try:
+                                mag = mag_func(counts, cutout, self.headers)
+                                mag_faint = mag_func(counts-count_err, cutout, self.headers)
+                                mag_bright = mag_func(counts+count_err, cutout, self.headers)
+                                if mag_faint < 99:
+                                    mag_err = max(mag_faint - mag, mag - mag_bright)
+                                else:
+                                    mag_err = mag - mag_bright
+                            except:
+                                log.error("Exception calling mag_func.",exc_info=True)
+
+                            sobj['fixed_aper_mag'] = mag
+                            sobj['fixed_aper_mag_faint'] = mag_faint
+                            sobj['fixed_aper_mag_bright'] = mag_bright
+                            sobj['fixed_aper_mag_err'] = mag_err
+
+
+                        #and now the elliptical, fitted aperture
+                        #selected_obj_idx = sep_info[0]
                         counts = sobj['flux_cts'] #sep_info[1]
                         count_err = sobj['flux_cts_err'] #sep_info[2]
 
@@ -1190,44 +1515,90 @@ class science_image():
 
                         try:
                             #this assumes lower-left is 0,0 but the object x,y uses center as 0,0
-                            sc = wcs_utils.pixel_to_skycoord(sobj['x'] + cutout.center_cutout[0],
-                                                             sobj['y'] + cutout.center_cutout[1],
+                            #sobj['x'] and y ARE IN ARCSEC ... need to be in pixels for this cal
+                            sc = wcs_utils.pixel_to_skycoord(sobj['x']/self.pixel_size + cutout.center_cutout[0],
+                                                             sobj['y']/self.pixel_size + cutout.center_cutout[1],
                                                              cutout.wcs, origin=0)
                             sobj['ra'] = sc.ra.value
                             sobj['dec'] = sc.dec.value
                         except:
                             log.debug("Exception converting source extrator x,y to RA, Dec", exc_info=True)
 
-                        if sobj['selected']:
-                            # the shift in AA from center
-                            self.last_x0_center = sobj['x'] * self.pixel_size
-                            self.last_y0_center = sobj['y'] * self.pixel_size
-                            # the shift in AA from lower left
-                            self.last_x_center = (sobj['x'] + cutout.center_cutout[0]) * self.pixel_size
-                            self.last_y_center = (sobj['y'] + cutout.center_cutout[1]) * self.pixel_size
-
-                            #details['radius'] = radius
-                            try:
-                                details['radius'] = 0.5*np.sqrt(sobj['a']*sobj['b']) #0.5 * because a,b are diameters, not radii
-                            except:
-                                details['radius'] = -1.0
-
-                            details['aperture_counts'] = counts #Already Sky subtracted
-                            #todo: modify find_sep_objects to get this extra info
-                            details['area_pix'] = None
-                            details['sky_area_pix'] = None
-                            details['sky_average'] = None
-                            details['sky_counts'] = None
-                            details['mag'] = mag
-                            details['mag_err'] = mag_err
-                            details['mag_bright'] = mag_bright
-                            details['mag_faint'] = mag_faint
-                            details['ra'] = sobj['ra']
-                            details['dec'] = sobj['dec']
 
                             #matplotlib plotting later needs these in sky units (arcsec) not pixels
-                    details['sep_objects']  = source_objects
+
+                    if detobj is not None and selected_obj_idx is not None and False:
+                        try:
+                            if (abs(detobj.best_gmag - source_objects[selected_obj_idx]['mag']) < 0.5) or \
+                                    ((detobj.best_gmag < 22) and (source_objects[selected_obj_idx]['mag'] < 22)) or \
+                                    ((source_objects[selected_obj_idx]['mag'] > detobj.best_gmag) and (
+                                            detobj.best_gmag > G.HETDEX_CONTINUUM_MAG_LIMIT)):
+                                # yep, compatible, so keep this one
+                                pass
+                            else:
+                                target_dist = source_objects[selected_obj_idx]['dist_curve'] if \
+                                    source_objects[selected_obj_idx]['dist_curve'] > 0 else \
+                                    source_objects[selected_obj_idx]['dist_baryctr']
+                                target_dist += 0.5  # allow up to 0.5"
+                                best_idx = selected_obj_idx
+                                best_dist = 999.9
+                                best_dmag = 999.9
+
+                                for i, s in enumerate(source_objects):
+                                    bid_dist = s['dist_curve'] if s['dist_curve'] > 0 else s['dist_baryctr']
+                                    bid_dmag = abs(detobj.best_gmag - s['mag'])
+                                    if bid_dist <= target_dist:  # sufficiently close
+                                        if (bid_dmag < 0.5) or \
+                                                ((detobj.best_gmag < 22) and (s['mag'] < 22)) or \
+                                                ((s['mag'] > detobj.best_gmag) and (
+                                                        detobj.best_gmag > G.HETDEX_CONTINUUM_MAG_LIMIT)):
+                                            # they are compatible
+                                            if (bid_dist < best_dist) and (bid_dmag < best_dmag):
+                                                #unset the old one
+                                                source_objects[best_idx]['selected'] = False
+
+                                                #set the new one
+                                                best_idx = i
+                                                best_dist = bid_dist
+                                                best_dmag = bid_dmag
+                                                source_objects[best_idx]['selected'] = True
+
+                                selected_obj_idx = best_idx
+                        except:
+                            log.info("Exception in science_image.py get_cutout().", exc_info=True)
+
+                    details['sep_objects'] = source_objects
                     details['sep_obj_idx'] = selected_obj_idx
+
+
+                    if selected_obj_idx is not None:
+                        sobj = source_objects[selected_obj_idx]
+                        # the shift in AA from center
+                        self.last_x0_center = sobj['x']  # * self.pixel_size
+                        self.last_y0_center = sobj['y']  # * self.pixel_size
+                        # the shift in AA from lower left
+                        self.last_x_center = (sobj['x'] / self.pixel_size + cutout.center_cutout[0]) * self.pixel_size
+                        self.last_y_center = (sobj['y'] / self.pixel_size + cutout.center_cutout[1]) * self.pixel_size
+
+                        # details['radius'] = radius
+                        try:
+                            details['radius'] = 0.5 * np.sqrt(
+                                sobj['a'] * sobj['b'])  # 0.5 * because a,b are diameters, not radii
+                        except:
+                            details['radius'] = -1.0
+
+                        details['aperture_counts'] = counts  # Already Sky subtracted
+                        # todo: modify find_sep_objects to get this extra info
+                        details['area_pix'] = None
+                        details['sky_area_pix'] = None
+                        details['sky_average'] = None
+                        details['sky_counts'] = None
+                        details['mag'] = sobj['mag']
+                        details['mag_err'] = sobj['mag_err']
+                        details['mag_bright'] = sobj['mag_bright']
+                        details['mag_faint'] = sobj['mag_faint']
+                        details['ra'] = sobj['ra']
+                        details['dec'] = sobj['dec']
 
                     if selected_obj_idx is not None:
                         return_counts = details['aperture_counts']
@@ -1243,7 +1614,7 @@ class science_image():
                     #         return cutout, counts, return_mag, return_radius
 
 
-            #TODO: !!!!!
+
             cutout, counts, mag, radius, details = self.get_circular_aperture_photometry(cutout,ra,dec,error,mag_func,
                                                     position,image,do_sky_subtract,sky_image,
                                                     sky_inner_radius,sky_outer_radius,aperture,
@@ -1302,7 +1673,7 @@ class science_image():
 
     def get_circular_aperture_photometry(self,cutout,ra,dec,error,mag_func,position,image,do_sky_subtract,
                                          sky_image,sky_inner_radius,sky_outer_radius,aperture,
-                                         details,return_details,check_cutout_empty=True):
+                                         details,return_details,check_cutout_empty=True,detobj=None):
         """
 
         :param position:
@@ -1325,6 +1696,7 @@ class science_image():
         self.last_x0_center = (x_center - cutout.center_cutout[0]) * self.pixel_size  # the shift in AA from center
         self.last_y0_center = (y_center - cutout.center_cutout[1]) * self.pixel_size
         source_aperture_area = 0.0
+
 
         elixer_aperture_list = []
         elixer_aper_idx = None #the selected index
@@ -1356,6 +1728,14 @@ class science_image():
             sky_coord_center = wcs_utils.pixel_to_skycoord(x_center, y_center, cutout.wcs, origin=0)
         except:
             log.warning("Exception! getting aperture RA,Dec.", exc_info=True)
+
+        try:
+            distance_to_center = utilities.angular_distance(ra,dec,sky_coord_center.ra.value,sky_coord_center.dec.value)
+        except:
+            try:
+                distance_to_center = np.sqrt(self.last_x0_center*self.last_x0_center + self.last_y0_center*self.last_y0_center)
+            except:
+                distance_to_center = 0
 
         if G.DYNAMIC_MAG_APERTURE:
             if aperture and (aperture > 0.0):
@@ -1464,6 +1844,7 @@ class science_image():
                     elixer_aperture['mag'] = mag
                     elixer_aperture['aperture_counts'] = counts
                     elixer_aperture['area_pix'] = source_aperture_area
+                    elixer_aperture['dist_to_center'] = distance_to_center
                     elixer_aperture_list.append(elixer_aperture)
                     #don't set the elixer_aper_idx yet, this one might not be accepted
 
@@ -1475,6 +1856,8 @@ class science_image():
                         elif (mag > max_bright) or (abs(mag - max_bright) < 0.01):  # < 0.0005):
                             break
 
+                    # elif (counts <= 0) and (radius < G.MAX_DYNAMIC_MAG_APERTURE):
+                    #     pass #ignore this and keep going
                     elif (radius >= aperture) or (abs(radius - aperture) < 1e-5) or (
                             radius > G.MAX_DYNAMIC_MAG_APERTURE):
                         # weirdness in floats, difference when "==" is non-zero ~ 1e-16
@@ -1597,7 +1980,8 @@ class science_image():
 
         #if we have a magnitude and it is fainter than a minimum, subtract the sky from a surrounding annulus
         #s|t we have ~ 3x pixels in the sky annulus as in the source aperture, so 2x the radius
-        if do_sky_subtract and (mag < 99) and (mag > G.SKY_ANNULUS_MIN_MAG):
+        if do_sky_subtract and (mag > G.SKY_ANNULUS_MIN_MAG): #and (mag < 99)
+            #do it anyway, even if mag = 99.9 as the counts might be negative, but the local sky might be negative too
             try:
 
                 #todo: note in photutils, pixel x,y is the CENTER of the pixel and [0,0] is the center of the
@@ -1680,21 +2064,34 @@ class science_image():
                         mag_err = max((sky_mag_faint-sky_mag),(sky_mag-sky_mag_bright))
                     elif sky_mag < 99:
                         mag_err = sky_mag-sky_mag_bright
+                    elif sky_mag_bright < 99:
+                        mag_err = abs(base_mag-sky_mag_bright)
                     else: #can't get mag on the sky only ... below limit
                         #todo: this should be related to the mag limit of the imaging
                         mag_err = 0.0 #something kind of reasonable, 100x in flux?
+
+                    if not (sky_mag < 99):
+                        if sky_mag_bright < 99:
+                            sky_mag = sky_mag_bright
+                        elif sky_mag_faint < 99: #odd case if sky_avg is negative (and sky_err is positive)
+                            sky_mag = sky_mag_faint
 
                     #mag should now be fainter (usually ... could have slightly negative sky?)
                     #the photometry should have pretty good sky subtration ... but what if we are on a faint object
                     #that is near large object ... could be we don't get enough sky pixels or the average is skewed high
                     #so if we make much of a change, at least log a warning
-                    if abs(sky_mag - base_mag) > G.MAX_SKY_SUBTRACT_MAG:
+
+                    mag = sky_mag #1.11.0a9 2021-04-13 ... do it anyway, even if we go negative or below limit
+                                  # it can mean there is something wrong
+                    if (base_mag < 99.9) and (abs(sky_mag - base_mag) > G.MAX_SKY_SUBTRACT_MAG):
                        # print("Warning! Unexepectedly large sky subtraction impact to magnitude: %0.2f to %0.2f at (%f,%f)"
                        #             %(base_mag,sky_mag,ra,dec))
                         log.warning("Warning! Unexepectedly large sky subtraction impact to magnitude: %0.2f to %0.2f at (%f,%f)"
                                     %(base_mag,sky_mag,ra,dec))
-                    else: #todo: !!!! temporary ... just to see what happens if we keep the original base mag
-                        mag = sky_mag
+                        elixer_aperture['warn_sky'] = 1
+                    # elif sky_mag < 99.9:
+                    #     mag = sky_mag
+                    #else the mag remains unchanged
 
                     log.info("Sky subtracted imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Sky = (%f/pix %f tot). Counts = %s Mag_AB = %g"
                              % (elixer_aperture['radius'],ra,dec,sky_avg, sky_cts,str(counts),mag))
@@ -1854,7 +2251,7 @@ class science_image():
             if hasattr(cutout.wcs.wcs, 'cd'):
                 theta = np.arctan2(cutout.wcs.wcs.cd[0, 1], cutout.wcs.wcs.cd[0, 0]) - np.pi/2.
             elif hasattr(cutout.wcs.wcs,'pc'):
-                theta = np.arctan2(cutout.wcs.wcs.pc[0, 1], cutout.wcs.wcs.pc[0, 0]) - np.pi/2.
+                theta = np.arctan2(cutout.wcs.wcs.pc[0, 1], cutout.wcs.wcs.pc[0, 0]) + np.pi/2.
 
             #theta = np.pi/2. - np.arctan2(cutout.wcs.wcs.cd[0, 1], cutout.wcs.wcs.cd[0, 0])
 

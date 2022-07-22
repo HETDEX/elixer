@@ -37,6 +37,7 @@ import astropy.table
 from astropy import coordinates as coords
 from astropy import units as u
 import requests
+from requests.exceptions import Timeout, ConnectionError
 
 
 #log = G.logging.getLogger('Cat_logger')
@@ -78,6 +79,8 @@ class DECaLS(cat_base.Catalog):#DECaLS
     # class variables
     CONT_EST_BASE = None
 
+    #from https://arxiv.org/pdf/1804.08657.pdf, FWHM in g = 1.29, r = 1.18" so will call it 1.3
+
     mean_FWHM = 1.67 #at 75% quartile for g-band ... varies also by filter, but this is good middle of the road limit
     MainCatalog = None #there is no Main Catalog ... must load individual catalog tracts
     Name = "DECaLS"
@@ -85,7 +88,7 @@ class DECaLS(cat_base.Catalog):#DECaLS
     #Filters = ['g','z'] #case is important ... needs to be lowercase
     #Filters = ['r','z'] #case is important ... needs to be lowercase
     WCS_Manual = False
-    MAG_LIMIT = 24.5 #closer to 24 for g (23.few for r)
+    MAG_LIMIT = 24.0 #closer to 24 for g (23.5 for r)
 
     # Cat_Coord_Range = {'RA_min': 188.915597, 'RA_max': 192.563471, 'Dec_min': 0.091438, 'Dec_max': 2.388316}
     # Image_Coord_Range = {'RA_min': 0.0, 'RA_max': 358.9563471, 'Dec_min': -80.0, 'Dec_max': 80.0}
@@ -152,7 +155,13 @@ class DECaLS(cat_base.Catalog):#DECaLS
 
         # display the exact (target) location
         if G.SINGLE_PAGE_PER_DETECT:
-            entry = self.build_cat_summary_figure(cat_match,target_ra, target_dec, error, ras, decs,
+            if G.BUILD_REPORT_BY_FILTER:
+                #here we return a list of dictionaries (the "cutouts" from this catalog)
+                return self.build_cat_summary_details(cat_match,target_ra, target_dec, error, ras, decs,
+                                              target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux,
+                                              detobj=detobj)
+            else:
+                entry = self.build_cat_summary_figure(cat_match,target_ra, target_dec, error, ras, decs,
                                                   target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux,
                                                   detobj=detobj)
 
@@ -276,7 +285,7 @@ class DECaLS(cat_base.Catalog):#DECaLS
             log.info("DECaLS query (%f,%f) at %f arcsec for band %s ..." % (ra, dec, query_radius, f))
 
             #build up the request URL
-            url = "http://legacysurvey.org/viewer/fits-cutout?ra=%f&dec=%f&layer=%s&bands=%s" %(ra,dec,"dr8",f)
+            url = "http://legacysurvey.org/viewer/fits-cutout?ra=%f&dec=%f&layer=%s&bands=%s" %(ra,dec,"ls-dr9",f)
 
             #from http://legacysurvey.org/dr8/description/
             # The maximum size for cutouts( in number of pixels) is currently 512.
@@ -285,24 +294,34 @@ class DECaLS(cat_base.Catalog):#DECaLS
             # appears to be 256x256 maximum and NOT specifying &pixscale=%f   where %f=0.262  seems to give the maximum resolution
 
             try:
-                response = requests.get(url, allow_redirects=True)
+                response = requests.get(url, allow_redirects=True,timeout=(10.0,120.0)) #10sec connnect timeout, 120 sec fetch
                 if response.status_code != 200: #"OK" response
-                    log.debug("DECaLS http response code = %d (%s)" %(response.status_code,response.reason))
+                    log.info("DECaLS http response code = %d (%s)" %(response.status_code,response.reason))
                     continue
                 if len(response.content) < 5000: #should normally be 200k+
-                    log.debug("Bad (short) response (no image?) from DECaLS")
+                    log.info(f"Bad (short) response (no image?) from DECaLS. Content = {response.content}")
                     continue
 
                 hdulist = fits.open(io.BytesIO(response.content))
 
                 if hdulist[0].header['NAXIS'] != 2:
-                    log.debug("Bad response (no image?) from DECaLS. Missing NAXIS in header.")
+                    log.info("Bad response (no image?) from DECaLS. Missing NAXIS in header.")
                     continue
 
                 hdulist_array = [hdulist]
-            except:
-                log.debug("Exception in DECaLS",exc_info=True)
+
+            except Timeout:
+                log.info("Exception (Timeout) in DECaLS",exc_info=False)
+                return None
+            except ConnectionError:
+                log.info("Exception (ConnectionError) in DECaLS",exc_info=False)
+                return None
+            except Exception as e:
+                log.info("Exception in DECaLS",exc_info=True)
                 continue
+            # else:
+            #     log.info("Exception in DECaLS",exc_info=True)
+            #     continue
 
             if hdulist_array is None:
                 log.info("DECaLS query (%f,%f) at %f arcsec for band %s returned None" %(ra,dec,query_radius,f))
@@ -324,7 +343,7 @@ class DECaLS(cat_base.Catalog):#DECaLS
 
             # sci.load_image(wcs_manual=True)
             cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error, window=window,
-                                                     aperture=aperture,mag_func=mag_func,return_details=True)
+                                                     aperture=aperture,mag_func=mag_func,return_details=True,detobj=detobj)
 
             if (self.MAG_LIMIT < mag < 100) and (mag_radius > 0):
                 details['fail_mag_limit'] = True
@@ -416,13 +435,16 @@ class DECaLS(cat_base.Catalog):#DECaLS
                             lineFlux_err = 0.
 
                     #build EW error from lineFlux_err and aperture estimate error
-                    ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
-                    try:
-                        ew_obs_err =  abs(ew_obs * np.sqrt(
-                                        (lineFlux_err / target_flux) ** 2 +
-                                        (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
-                    except:
-                        ew_obs_err = 0.
+                    # ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
+                    # try:
+                    #     ew_obs_err =  abs(ew_obs * np.sqrt(
+                    #                     (lineFlux_err / target_flux) ** 2 +
+                    #                     (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
+                    # except:
+                    #     ew_obs_err = 0.
+
+                    ew_obs, ew_obs_err = SU.ew_obs(target_flux,lineFlux_err,target_w, bid_target.bid_filter,
+                                                   bid_target.bid_flux_est_cgs,bid_target.bid_flux_est_cgs_unc)
 
                     # bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii,plae_errors = \
                     #     line_prob.prob_LAE(wl_obs=target_w, lineFlux=target_flux,
@@ -438,8 +460,8 @@ class DECaLS(cat_base.Catalog):#DECaLS
                             wl_obs=target_w,
                             lineFlux=target_flux,
                             lineFlux_err=lineFlux_err,
-                            continuum=bid_target.bid_flux_est_cgs,
-                            continuum_err=bid_target.bid_flux_est_cgs_unc,
+                            continuum=bid_target.bid_flux_est_cgs * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
+                            continuum_err=bid_target.bid_flux_est_cgs_unc * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
                             c_obs=None, which_color=None,
                             addl_wavelengths=addl_waves,
                             addl_fluxes=addl_flux,
@@ -508,7 +530,8 @@ class DECaLS(cat_base.Catalog):#DECaLS
                 # master cutout needs a copy of the data since it is going to be modified  (stacked)
                 # repeat the cutout call, but get a copy
                 if self.master_cutout is None:
-                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True)
+                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True,reset_center=False,detobj=detobj)
+                    #self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True)
                     if sci.exptime:
                         ref_exptime = sci.exptime
                     else:
@@ -640,8 +663,8 @@ class DECaLS(cat_base.Catalog):#DECaLS
             rx = (xr - xl) * box_ratio / 2.0
             ry = (yt - yb) * box_ratio / 2.0
 
-            plt.gca().add_patch(plt.Rectangle((zero_x - rx,  zero_y - ry), width=rx * 2, height=ry * 2,
-                                              angle=0, color='red', fill=False,linewidth=3))
+            plt.gca().add_patch(plt.Rectangle((zero_x - rx,  zero_y - ry), width=rx * 2 , height=ry * 2,
+                                              angle=0, color='red', fill=False,linewidth=8))
 
             buf = io.BytesIO()
             plt.savefig(buf, format='png', dpi=300,transparent=True)
@@ -797,16 +820,26 @@ class DECaLS(cat_base.Catalog):#DECaLS
                             bid_target.bid_mag_err_faint = filter_mag_faint
                             bid_target.bid_flux_est_cgs_unc = filter_fl_cgs_unc
 
+                            lineFlux_err = 0.
+                            if detobj is not None:
+                                try:
+                                    lineFlux_err = detobj.estflux_unc
+                                except:
+                                    lineFlux_err = 0.
                             try:
-                                ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
-                                ew_u = abs(ew * np.sqrt(
-                                    (detobj.estflux_unc / target_flux) ** 2 +
-                                    (filter_fl_err / filter_fl) ** 2))
+                                # ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+                                # ew_u = abs(ew * np.sqrt(
+                                #     (detobj.estflux_unc / target_flux) ** 2 +
+                                #     (filter_fl_err / filter_fl) ** 2))
+                                #
+                                # bid_target.bid_ew_lya_rest = ew
+                                # bid_target.bid_ew_lya_rest_err = ew_u
 
-                                bid_target.bid_ew_lya_rest = ew
-                                bid_target.bid_ew_lya_rest_err = ew_u
+                                bid_target.bid_ew_lya_rest, bid_target.bid_ew_lya_rest_err = \
+                                    SU.lya_ewr(target_flux,lineFlux_err,target_w, bid_target.bid_filter,
+                                               bid_target.bid_flux_est_cgs,bid_target.bid_flux_est_cgs_unc)
 
-                                text = text + utilities.unc_str((ew, ew_u)) + "$\AA$\n"
+                                text = text + utilities.unc_str((bid_target.bid_ew_lya_rest, bid_target.bid_ew_lya_rest_err)) + "$\AA$\n"
                             except:
                                 log.debug("Exception computing catalog EW: ", exc_info=True)
                                 text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
@@ -821,21 +854,19 @@ class DECaLS(cat_base.Catalog):#DECaLS
                             except:
                                 pass
 
-                            lineFlux_err = 0.
-                            if detobj is not None:
-                                try:
-                                    lineFlux_err = detobj.estflux_unc
-                                except:
-                                    lineFlux_err = 0.
+
 
                             # build EW error from lineFlux_err and aperture estimate error
-                            ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
-                            try:
-                                ew_obs_err = abs(ew_obs * np.sqrt(
-                                    (lineFlux_err / target_flux) ** 2 +
-                                    (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
-                            except:
-                                ew_obs_err = 0.
+                            # ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
+                            # try:
+                            #     ew_obs_err = abs(ew_obs * np.sqrt(
+                            #         (lineFlux_err / target_flux) ** 2 +
+                            #         (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
+                            # except:
+                            #     ew_obs_err = 0.
+
+                            ew_obs, ew_obs_err = SU.ew_obs(target_flux,lineFlux_err,target_w, bid_target.bid_filter,
+                                                           bid_target.bid_flux_est_cgs,bid_target.bid_flux_est_cgs_unc)
 
                             # bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii, plae_errors = \
                             #     line_prob.prob_LAE(wl_obs=target_w,
@@ -853,8 +884,8 @@ class DECaLS(cat_base.Catalog):#DECaLS
                                     wl_obs=target_w,
                                     lineFlux=target_flux,
                                     lineFlux_err=lineFlux_err,
-                                    continuum=bid_target.bid_flux_est_cgs,
-                                    continuum_err=bid_target.bid_flux_est_cgs_unc,
+                                    continuum=bid_target.bid_flux_est_cgs * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
+                                    continuum_err=bid_target.bid_flux_est_cgs_unc * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
                                     c_obs=None, which_color=None,
                                     addl_wavelengths=addl_waves,
                                     addl_fluxes=addl_flux,
@@ -955,7 +986,8 @@ class DECaLS(cat_base.Catalog):#DECaLS
     #
     #     return stacked_cutout
 
-    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,filter=None):
+    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,filter=None,error=None,do_sky_subtract=True,
+                          detobj=None):
 
         d = {'cutout':None,
              'hdu':None,
@@ -965,6 +997,7 @@ class DECaLS(cat_base.Catalog):#DECaLS
              'mag':None,
              'aperture':None,
              'ap_center': None,
+             'mag_limit':None,
              'details': None}
 
         try:
@@ -985,29 +1018,54 @@ class DECaLS(cat_base.Catalog):#DECaLS
 
             log.info("DECaLS query (%f,%f) at %f arcsec for band %s ..." % (ra, dec, query_radius, filter))
             #build up the request URL
-            url = "http://legacysurvey.org/viewer/fits-cutout?ra=%f&dec=%f&layer=%s&bands=%s" %(ra,dec,"dr8",filter)
+            url = "http://legacysurvey.org/viewer/fits-cutout?ra=%f&dec=%f&layer=%s&bands=%s" %(ra,dec,"ls-dr9",filter)
 
             try:
-                response = requests.get(url, allow_redirects=True)
+                response = requests.get(url, allow_redirects=True,timeout=(10.0,120.0))
 
                 if response.status_code != 200:  # "OK" response
-                    log.debug("DECaLS http response code = %d (%s)" % (response.status_code, response.reason))
+                    log.info("DECaLS http response code = %d (%s)" % (response.status_code, response.reason))
                     hdulist_array = None
+                    d['error'] = response.status_code
+                    if response.status_code == 504: #timeout
+                        d['retry'] = False
+                    else:
+                        d['retry'] = True
 
                 if len(response.content) < 5000:  # should normally be 200k+
-                    log.debug("Bad response (no image?) from DECaLS")
+                    log.info(f"Bad (short) response (no image?) from DECaLS. Content = {response.content}")
                     hdulist_array = None
 
                 hdulist = fits.open(io.BytesIO(response.content))
 
                 if hdulist[0].header['NAXIS'] != 2:
-                    log.debug("Bad response (no image?) from DECaLS")
+                    log.info("Bad response (no image?) from DECaLS")
                     hdulist_array = None
 
                 hdulist_array = [hdulist]
-            except:
-                log.debug("Exception in DECaLS",exc_info=True)
+
+            except Timeout:
+                log.info("Exception (Timeout) in DECaLS",exc_info=False)
                 hdulist_array = None
+                d['retry'] = False
+            except ConnectionError:
+                log.info("Exception (ConnectionError) in DECaLS",exc_info=False)
+                hdulist_array = None
+                d['retry'] = True
+            except OSError as e:
+                try:
+                    extra = e.args[0]
+                except:
+                    extra = ""
+                log.info(f"Exception (OSError) in DECaLS: {extra}",exc_info=False)
+                hdulist_array = None
+                d['retry'] = False
+            except Exception as e:
+                log.info("Exception in DECaLS",exc_info=True)
+                d['retry'] = True
+            # else:
+            #     log.debug("Exception in DECaLS",exc_info=True)
+            #     hdulist_array = None
 
             if hdulist_array is None:
                 log.info("DECaLS query (%f,%f) at %f arcsec for band %s returned None" % (ra, dec, query_radius, filter))
@@ -1023,26 +1081,58 @@ class DECaLS(cat_base.Catalog):#DECaLS
 
                 # to here, window is in degrees so ...
                 window = 3600. * window
+                if not error:
+                    error = window
 
-                cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error=window, window=window,
+                cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error=error, window=window,
                                                                               aperture=aperture,
                                                                               mag_func=mag_func, copy=True,
-                                                                              return_details=True)
+                                                                              return_details=True,detobj=detobj)
                 # don't need pix_counts or mag, etc here, so don't pass aperture or mag_func
 
                 if cutout is not None:  # construct master cutout
                     d['cutout'] = cutout
+                    details['catalog_name']=self.name
+                    details['filter_name']=filter
+                    d['mag_limit']=self.get_mag_limit(None,mag_radius*2.)
+                    try:
+                        if d['mag_limit']:
+                            details['mag_limit']=d['mag_limit']
+                        else:
+                            details['mag_limit'] = None
+                    except:
+                        details['mag_limit'] = None
+
                     if (mag is not None) and (mag < 999):
-                        d['mag'] = mag
-                        d['aperture'] = mag_radius
-                        d['ap_center'] = (sci.last_x0_center, sci.last_y0_center)
-                        d['details'] = details
+                        if d['mag_limit'] and (d['mag_limit'] < mag < 100):
+                            log.warning(f"Cutout mag {mag} greater than limit {d['mag_limit']}. Setting to limit.")
+                            details['fail_mag_limit'] = True
+                            details['raw_mag'] = mag
+                            details['raw_mag_bright'] = details['mag_bright']
+                            details['raw_mag_faint'] = details['mag_faint']
+                            details['raw_mag_err'] = details['mag_err']
+                            mag = d['mag_limit']
+                            details['mag'] = mag
+
+                            try:
+                                details['mag_bright'] = min(mag,details['mag_bright'])
+                            except:
+                                details['mag_bright'] = mag
+                            try:
+                                details['mag_faint'] = max(mag,G.MAX_MAG_FAINT)
+                            except:
+                                details['mag_faint'] = G.MAX_MAG_FAINT
+
+                    d['mag'] = mag
+                    d['aperture'] = mag_radius
+                    d['ap_center'] = (sci.last_x0_center, sci.last_y0_center)
+                    d['details'] = details
         except:
             log.error("Error in get_single_cutout.", exc_info=True)
 
         return d
 
-    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=None):
+    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=None,error=None,do_sky_subtract=True,detobj=None):
         l = list()
 
         #filters are fixed
@@ -1053,6 +1143,12 @@ class DECaLS(cat_base.Catalog):#DECaLS
         else:
             outer = self.Filters
             inner = None
+
+        if aperture == -1:
+            try:
+                aperture = self.mean_FWHM * 0.5 + 0.5
+            except:
+                pass
 
         wild_filters = iter(self.Filters)
 
@@ -1067,7 +1163,14 @@ class DECaLS(cat_base.Catalog):#DECaLS
                         # if filter list provided but the image is NOT in the filter list go to next one
                         continue
 
-                    cutout = self.get_single_cutout(ra, dec, window, None, aperture,filter=f)
+                    cutout = self.get_single_cutout(ra, dec, window, None, aperture,filter=f,error=error,detobj=detobj)
+                    try:
+                        if 'retry' in cutout.keys():
+                            if cutout['retry'] == False:
+                                log.info(f"Fatal error in web request. Aborting web calls for {self.name}")
+                                break
+                    except:
+                        pass
                     if first:
                         if cutout['cutout'] is not None:
                                 l.append(cutout)
@@ -1080,7 +1183,7 @@ class DECaLS(cat_base.Catalog):#DECaLS
         else:
             for f in self.Filters:
                 try:
-                    l.append(self.get_single_cutout(ra,dec,window,None,aperture,filter=f))
+                    l.append(self.get_single_cutout(ra,dec,window,None,aperture,filter=f,detobj=detobj))
                 except:
                     log.error("Exception! collecting image cutouts.", exc_info=True)
 

@@ -44,8 +44,9 @@ class BidTarget:
         self.catalog_name = None
         self.spec_z = None
         self.phot_z = None
-        #self.phot_z_pdf_pz = [] #p(z) or y-axis #todo: future use? record in HDF5 catalog?
-        #self.phot_z_pdf_z = [] #z array or x-axis
+        self.phot_z_pdf_pz = [] #p(z) or y-axis #todo: future use? record in HDF5 catalog?
+        self.phot_z_pdf_z = [] #z array or x-axis
+        self.selected = False #Elixer chosen best
         # todo: filter exposure time??
 
         self.filters = []
@@ -149,7 +150,7 @@ class Match:
 
         #at the moment, this is all that is in place
         #todo: replace with a call to the DetObj that aggregates all the info and establishes a best_z
-        good, confidence = emis.multiline_solution_score()
+        good, _, confidence = emis.multiline_solution_score()
         if good:
             self.addtl_line_names = ""
             self.addtl_line_obs = ""

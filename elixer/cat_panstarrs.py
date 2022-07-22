@@ -167,7 +167,7 @@ def getcolorim(ra, dec, size=240, output_size=None, filters="grizy", format="jpg
     if format not in ("jpg", "png"):
         raise ValueError("format must be jpg or png")
     url = geturl(ra, dec, size=size, filters=filters, output_size=output_size, format=format, color=True)
-    r = requests.get(url)
+    r = requests.get(url, allow_redirects=True,timeout=(10.0,120.0))
     im = Image.open(BytesIO(r.content))
     return im
 
@@ -189,7 +189,7 @@ def getgrayim(ra, dec, size=240, output_size=None, filter="g", format="jpg"):
     if filter not in list("grizy"):
         raise ValueError("filter must be one of grizy")
     url = geturl(ra, dec, size=size, filters=filter, output_size=output_size, format=format)
-    r = requests.get(url[0])
+    r = requests.get(url[0],allow_redirects=True,timeout=(10.0,120.0))
     im = Image.open(BytesIO(r.content))
     return im
 
@@ -296,7 +296,13 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
 
         # display the exact (target) location
         if G.SINGLE_PAGE_PER_DETECT:
-            entry = self.build_cat_summary_figure(cat_match,target_ra, target_dec, error, ras, decs,
+            if G.BUILD_REPORT_BY_FILTER:
+                #here we return a list of dictionaries (the "cutouts" from this catalog)
+                return self.build_cat_summary_details(cat_match,target_ra, target_dec, error, ras, decs,
+                                              target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux,
+                                              detobj=detobj)
+            else:
+                entry = self.build_cat_summary_figure(cat_match,target_ra, target_dec, error, ras, decs,
                                                   target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux,
                                                   detobj=detobj)
 
@@ -459,7 +465,7 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
 
             # sci.load_image(wcs_manual=True)
             cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error, window=window,
-                                                     aperture=aperture,mag_func=mag_func,return_details=True)
+                                                     aperture=aperture,mag_func=mag_func,return_details=True,detobj=detobj)
 
             if (self.MAG_LIMIT < mag < 100) and (mag_radius > 0):
                 details['fail_mag_limit'] = True
@@ -551,13 +557,16 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
                             lineFlux_err = 0.
 
                     #build EW error from lineFlux_err and aperture estimate error
-                    ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
-                    try:
-                        ew_obs_err =  abs(ew_obs * np.sqrt(
-                                        (lineFlux_err / target_flux) ** 2 +
-                                        (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
-                    except:
-                        ew_obs_err = 0.
+                    # ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
+                    # try:
+                    #     ew_obs_err =  abs(ew_obs * np.sqrt(
+                    #                     (lineFlux_err / target_flux) ** 2 +
+                    #                     (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
+                    # except:
+                    #     ew_obs_err = 0.
+
+                    ew_obs, ew_obs_err = SU.ew_obs(target_flux,lineFlux_err,target_w, bid_target.bid_filter,
+                                                   bid_target.bid_flux_est_cgs,bid_target.bid_flux_est_cgs_unc)
 
                     # bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii,plae_errors = \
                     #     line_prob.prob_LAE(wl_obs=target_w, lineFlux=target_flux,
@@ -573,8 +582,8 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
                             wl_obs=target_w,
                             lineFlux=target_flux,
                             lineFlux_err=lineFlux_err,
-                            continuum=bid_target.bid_flux_est_cgs,
-                            continuum_err=bid_target.bid_flux_est_cgs_unc,
+                            continuum=bid_target.bid_flux_est_cgs * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
+                            continuum_err=bid_target.bid_flux_est_cgs_unc * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
                             c_obs=None, which_color=None,
                             addl_wavelengths=addl_waves,
                             addl_fluxes=addl_flux,
@@ -628,7 +637,8 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
                 # master cutout needs a copy of the data since it is going to be modified  (stacked)
                 # repeat the cutout call, but get a copy
                 if self.master_cutout is None:
-                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True)
+                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True,reset_center=False,detobj=detobj)
+                    #self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True)
                     if sci.exptime:
                         ref_exptime = sci.exptime
                     total_adjusted_exptime = 1.0
@@ -740,8 +750,8 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
             rx = (xr - xl) * box_ratio / 2.0
             ry = (yt - yb) * box_ratio / 2.0
 
-            plt.gca().add_patch(plt.Rectangle((zero_x - rx,  zero_y - ry), width=rx * 2, height=ry * 2,
-                                              angle=0, color='red', fill=False,linewidth=3))
+            plt.gca().add_patch(plt.Rectangle((zero_x - rx,  zero_y - ry), width=rx * 2 , height=ry * 2,
+                                              angle=0, color='red', fill=False,linewidth=8))
 
             buf = io.BytesIO()
             plt.savefig(buf, format='png', dpi=300,transparent=True)
@@ -898,16 +908,26 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
                             bid_target.bid_mag_err_faint = filter_mag_faint
                             bid_target.bid_flux_est_cgs_unc = filter_fl_cgs_unc
 
+                            lineFlux_err = 0.
+                            if detobj is not None:
+                                try:
+                                    lineFlux_err = detobj.estflux_unc
+                                except:
+                                    lineFlux_err = 0.
                             try:
-                                ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
-                                ew_u = abs(ew * np.sqrt(
-                                    (detobj.estflux_unc / target_flux) ** 2 +
-                                    (filter_fl_err / filter_fl) ** 2))
+                                # ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+                                # ew_u = abs(ew * np.sqrt(
+                                #     (detobj.estflux_unc / target_flux) ** 2 +
+                                #     (filter_fl_err / filter_fl) ** 2))
+                                #
+                                # bid_target.bid_ew_lya_rest = ew
+                                # bid_target.bid_ew_lya_rest_err = ew_u
 
-                                bid_target.bid_ew_lya_rest = ew
-                                bid_target.bid_ew_lya_rest_err = ew_u
+                                bid_target.bid_ew_lya_rest, bid_target.bid_ew_lya_rest_err = \
+                                    SU.lya_ewr(target_flux,lineFlux_err,target_w, bid_target.bid_filter,
+                                               bid_target.bid_flux_est_cgs,bid_target.bid_flux_est_cgs_unc)
 
-                                text = text + utilities.unc_str((ew, ew_u)) + "$\AA$\n"
+                                text = text + utilities.unc_str(( bid_target.bid_ew_lya_rest, bid_target.bid_ew_lya_rest_err)) + "$\AA$\n"
                             except:
                                 log.debug("Exception computing catalog EW: ", exc_info=True)
                                 text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
@@ -922,21 +942,19 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
                             except:
                                 pass
 
-                            lineFlux_err = 0.
-                            if detobj is not None:
-                                try:
-                                    lineFlux_err = detobj.estflux_unc
-                                except:
-                                    lineFlux_err = 0.
+
 
                             # build EW error from lineFlux_err and aperture estimate error
-                            ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
-                            try:
-                                ew_obs_err = abs(ew_obs * np.sqrt(
-                                    (lineFlux_err / target_flux) ** 2 +
-                                    (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
-                            except:
-                                ew_obs_err = 0.
+                            # ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
+                            # try:
+                            #     ew_obs_err = abs(ew_obs * np.sqrt(
+                            #         (lineFlux_err / target_flux) ** 2 +
+                            #         (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
+                            # except:
+                            #     ew_obs_err = 0.
+
+                            ew_obs, ew_obs_err = SU.ew_obs(target_flux,lineFlux_err,target_w, bid_target.bid_filter,
+                                                           bid_target.bid_flux_est_cgs,bid_target.bid_flux_est_cgs_unc)
 
                             # bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii, plae_errors = \
                             #     line_prob.prob_LAE(wl_obs=target_w,
@@ -957,8 +975,8 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
                                     wl_obs=target_w,
                                     lineFlux=target_flux,
                                     lineFlux_err=lineFlux_err,
-                                    continuum=bid_target.bid_flux_est_cgs,
-                                    continuum_err=bid_target.bid_flux_est_cgs_unc,
+                                    continuum=bid_target.bid_flux_est_cgs * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
+                                    continuum_err=bid_target.bid_flux_est_cgs_unc * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
                                     c_obs=None, which_color=None,
                                     addl_wavelengths=addl_waves,
                                     addl_fluxes=addl_flux,
@@ -1029,7 +1047,8 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
         plt.close()
         return fig
 
-    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,filter=None):
+    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,filter=None,error=None,do_sky_subtract=True,
+                          detobj=None):
 
 
         d = {'cutout':None,
@@ -1040,6 +1059,7 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
              'mag':None,
              'aperture':None,
              'ap_center': None,
+             'mag_limit':None,
              'details': None}
 
         try:
@@ -1075,17 +1095,49 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
                 d['hdu'] = sci.headers
 
                 # to here, window is in degrees so ...
-                window = 3600. * window
-
-                cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error=window, window=window,
+                if window < 1.0: #assume degrees and turn into arcsec (else assume already in arcsec) ... unique to PanSTARRs
+                    window = 3600. * window
+                if not error:
+                    error = window
+                cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error=error, window=window,
                                                                               aperture=aperture,
                                                                               mag_func=mag_func, copy=True,
-                                                                              return_details=True)
+                                                                              return_details=True,detobj=detobj)
                 # don't need pix_counts or mag, etc here, so don't pass aperture or mag_func
 
                 if cutout is not None:  # construct master cutout
                     d['cutout'] = cutout
+                    details['catalog_name']=self.name
+                    details['filter_name']=filter
+                    d['mag_limit']=self.get_mag_limit(None,mag_radius*2.)
+                    try:
+                        if d['mag_limit']:
+                            details['mag_limit']=d['mag_limit']
+                        else:
+                            details['mag_limit'] = None
+                    except:
+                        details['mag_limit'] = None
+
                     if (mag is not None) and (mag < 999):
+                        if d['mag_limit'] and (d['mag_limit'] < mag < 100):
+                            log.warning(f"Cutout mag {mag} greater than limit {d['mag_limit']}. Setting to limit.")
+                            details['fail_mag_limit'] = True
+                            details['raw_mag'] = mag
+                            details['raw_mag_bright'] = details['mag_bright']
+                            details['raw_mag_faint'] = details['mag_faint']
+                            details['raw_mag_err'] = details['mag_err']
+                            mag = d['mag_limit']
+                            details['mag'] = mag
+
+                            try:
+                                details['mag_bright'] = min(mag,details['mag_bright'])
+                            except:
+                                details['mag_bright'] = mag
+                            try:
+                                details['mag_faint'] = max(mag,G.MAX_MAG_FAINT)
+                            except:
+                                details['mag_faint'] = G.MAX_MAG_FAINT
+
                         d['mag'] = mag
                         d['aperture'] = mag_radius
                         d['ap_center'] = (sci.last_x0_center, sci.last_y0_center)
@@ -1095,7 +1147,7 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
 
         return d
 
-    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=None):
+    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=None,error=None,do_sky_subtract=True,detobj=None):
         l = list()
 
         #filters are fixed
@@ -1106,6 +1158,14 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
         else:
             outer = self.Filters
             inner = None
+
+
+        if aperture == -1:
+            try:
+                aperture = self.mean_FWHM * 0.5 + 0.5
+            except:
+                pass
+
 
         wild_filters = iter(self.Filters)
 
@@ -1120,7 +1180,7 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
                         # if filter list provided but the image is NOT in the filter list go to next one
                         continue
 
-                    cutout = self.get_single_cutout(ra, dec, window, None, aperture,filter=f)
+                    cutout = self.get_single_cutout(ra, dec, window, None, aperture,filter=f,error=error,detobj=detobj)
                     if first:
                         if cutout['cutout'] is not None:
                                 l.append(cutout)
@@ -1133,7 +1193,7 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
         else:
             for f in self.Filters:
                 try:
-                    l.append(self.get_single_cutout(ra,dec,window,None,aperture,filter=f))
+                    l.append(self.get_single_cutout(ra,dec,window,None,aperture,filter=f,detobj=detobj))
                 except:
                     log.error("Exception! collecting image cutouts.", exc_info=True)
 

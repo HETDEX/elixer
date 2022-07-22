@@ -1,9 +1,12 @@
 from __future__ import print_function
 
+import astropy.extern.ply.yacc
 import matplotlib
 matplotlib.use('agg')
+
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+plt.style.use('default')
 
 try:
     from elixer import hetdex
@@ -13,7 +16,9 @@ try:
     from elixer import utilities as UTIL
     from elixer import science_image
     from elixer import elixer_hdf5
+    from elixer import cat_base
     from elixer import spectrum_utilities as SU
+    from elixer import clustering
 except:
     import hetdex
     import match_summary
@@ -22,10 +27,13 @@ except:
     import utilities as UTIL
     import science_image
     import elixer_hdf5
+    import cat_base
     import spectrum_utilities as SU
+    import clustering
 
 from hetdex_api import survey as hda_survey
 
+plt.style.use('default') #restore to classic if hetdex api changes style
 import argparse
 import copy
 
@@ -37,7 +45,13 @@ import matplotlib.gridspec as gridspec
 from matplotlib.font_manager import FontProperties
 import io
 from distutils.version import LooseVersion
-import pyhetdex.tools.files.file_tools as ft
+try:
+    import pyhetdex.tools.files.file_tools as ft
+except:
+    #however, you will bomb out if you hit its use with old data
+    print("Non-fatal warning. Cannot import pyhetdex.")
+    pass #pyhetdex is not so important any more
+
 import sys
 import glob
 import os
@@ -47,16 +61,16 @@ import time
 import numpy as np
 #import re
 from PIL import Image as PIL_Image
+from PIL import ImageFile as PIL_ImageFile
 
 use_wand = False
+OS_PNG_ONLY = True #can be overriden later in main()
 if use_wand:
     from wand.image import Image
 else:
     from pdf2image import convert_from_path
 
 import tables
-
-
 
 #try:
 #    import PyPDF2 as PyPDF
@@ -184,7 +198,7 @@ class PDF_File():
 
 
 
-def make_zeroth_row_header(left_text,show_version=True):
+def make_zeroth_row_header(left_text,show_version=True,redtext=False):
     try:
         # make a .pdf file
         plt.close('all')
@@ -198,15 +212,15 @@ def make_zeroth_row_header(left_text,show_version=True):
 
         plt.subplot(gs[0, 0])
         plt.gca().axis('off')
-        if ": -1 (" in left_text: #ie: P(LyA): -1 (negative spectrum)
+        if redtext or ": -1 (" in left_text: #ie: P(LyA): -1 (negative spectrum)
             plt.text(0, 0.5, left_text, ha='left', va='bottom', fontproperties=font,color='r')
         else:
             plt.text(0, 0.5, left_text, ha='left', va='bottom', fontproperties=font)
 
-        if G.LyC:
-            plt.subplot(gs[0, 1])
-            plt.gca().axis('off')
-            plt.text(0.5, 0.5, "Lyman Continuum Focus", ha='center', va='bottom', fontproperties=font)
+        # if G.LyC:
+        #     plt.subplot(gs[0, 1])
+        #     plt.gca().axis('off')
+        #     plt.text(0.5, 0.5, "Lyman Continuum Focus", ha='center', va='bottom', fontproperties=font)
 
         if show_version:
             plt.subplot(gs[0, 2])
@@ -275,6 +289,7 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--dets', help="List of detections (of form '20170314v011_005') or subdirs under fscdir "
                         "(wildcards okay) or file containing a list of detections (one per line)", required=False)
 
+    ##ra dec wave shotid detectid
     parser.add_argument('--coords', help="File containing a list (in order) of RA and Decs (one pair per line)"
                                          " and optionally a shotid and wavelength (use 0 as a placeholder for"
                                          " unspecified shotid or wavelength). Used optionally "
@@ -301,6 +316,8 @@ def parse_commandline(auto_force=False):
                         required=False, action='store_true', default=False)
 
     parser.add_argument('-t', '--time', help="Max runtime as hh:mm:ss for in SLURM queue",required=False)
+    parser.add_argument('--timex', help="Multiplier on the time for SLURM. i.e. 1.1 would increase the time by 10%",
+                        required=False,type=float,default=1.0)
     parser.add_argument('--email', help="If populated, sends SLURM status to this email address", required=False)
 
     parser.add_argument('--queue', help="If populated, specifies which TACC queue (vis, gpu) to use.", required=False)
@@ -347,9 +364,10 @@ def parse_commandline(auto_force=False):
                         required=False)
 
     parser.add_argument('--merge_unique', help='Merge two ELiXer HDF5 files into a new file keeping the more recent '
-                                               'detection. Format: new-file,file1,file2', required=False)
+                                               'detection. Format: new-file,file1,file2.\nNote: preferred TACC use'
+                                               ' with IDEV. Do not use with selixer.', required=False)
 
-    parser.add_argument('--upgrade_hdf5', help='Copy HDF5 file into new format/version. Formate old_file,new_file',
+    parser.add_argument('--upgrade_hdf5', help='Copy HDF5 file into new format/version. Format old_file,new_file',
                         required=False)
 
     parser.add_argument('--annulus', help="Inner and outer radii in arcsec (e.g. 10.0,35.2 )", required=False)
@@ -445,17 +463,87 @@ def parse_commandline(auto_force=False):
 
     parser.add_argument('--known_z', help="Produce plots using this value for redshift", required=False, type=float)
 
+    parser.add_argument('--mcmc', help='Always perform MCMC fit on LSQ pre-fit possible lines.', required=False,
+                        action='store_true', default=False)
+
     # parser.add_argument('--sky_residual', help='Toggle [ON] shot-specific sky residual subtraction for forced-extracions.',
     #                     required=False, action='store_true', default=False)
 
-    if G.LAUNCH_PDF_VIEWER is not None:
-        parser.add_argument('--viewer', help='Launch the global_config.py set PDF viewer on completion', required=False,
+
+    parser.add_argument('--viewer', help='Launch the global_config.py set PDF viewer on completion', required=False,
                             action='store_true', default=False)
+
+
+    parser.add_argument('--check_z', help="Toggle use of catalog counterpart redshift comparisions. "
+                                          "Bitmask: 1 = Galaxy Mask, 2 = DEX-GAIA, 4=SDSS, 8=Local Catalogs. "
+                                          "Do NOT use unless you specifically know what you are doing. ",
+                        required=False, type=int)#default=15) leave the default = None
+
+    parser.add_argument('--special', help="Special purpose modification. The value sets the behavior. Tied to specific code. Do NOT use unless you specifically know what you are doing.",
+                        required=False, type=int,default=0)
+
+    parser.add_argument('--cluster', help="Scan all detectids for bright neighbors at high confidence redshift. Specify the elixer h5 file.",
+                        required=False)#,default=None)#"elixer_merged_cat.h5")
 
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
 
-    args = parser.parse_args()
+    try:
+        args = parser.parse_args()
+    except:
+        log.critical("Exception! Excpetion parsing command line.",exc_info=True)
+        args = None
+        return
+
+    try:
+        if args.special: #if not None or 0
+            print(f"***** RUNNING SPECIALIZED CODE X{args.special} *****")
+            log.critical(f"***** RUNNING SPECIALIZED CODE X{args.special} *****")
+            G.__version__ += f"X{args.special}"
+            if args.special == 1:
+                G.CHECK_SDSS_Z_CATALOG = False
+                G.CHECK_GAIA_DEX_CATALOG = False
+                G.CHECK_ALL_CATALOG_BID_Z = False
+                G.CHECK_GALAXY_MASK = False
+    except:
+        pass
+
+    try:
+        if args.cluster: #turn off all z-checks (only clustering is used)
+            G.CHECK_GALAXY_MASK = False
+            G.CHECK_GAIA_DEX_CATALOG = False
+            G.CHECK_SDSS_Z_CATALOG = False
+            G.CHECK_ALL_CATALOG_BID_Z = False
+        elif args.check_z:
+            log.info(f"Altering check_z: bitmask={bin(args.check_z)}")
+            if args.check_z & 1:
+                G.CHECK_GALAXY_MASK = True
+            else:
+                G.CHECK_GALAXY_MASK = False
+
+            if args.check_z & 2:
+                G.CHECK_GAIA_DEX_CATALOG = True
+            else:
+                G.CHECK_GAIA_DEX_CATALOG = False
+
+            if args.check_z & 4:
+                G.CHECK_SDSS_Z_CATALOG = True
+            else:
+                G.CHECK_SDSS_Z_CATALOG = False
+
+            if args.check_z & 8:
+                G.CHECK_ALL_CATALOG_BID_Z = True
+            else:
+                G.CHECK_ALL_CATALOG_BID_Z = False
+
+
+    except Exception as e:
+        print("Invalid --check_z provided.",e)
+        exit(0)
+
+
+    if G.LAUNCH_PDF_VIEWER is None:
+        args.viewer = False
 
     if args.version:
         print(f"ELiXer version {G.__version__}")
@@ -465,6 +553,9 @@ def parse_commandline(auto_force=False):
 
     if args.lyc:
         G.LyC = True
+
+    if args.mcmc:
+        G.FORCE_MCMC = True
 
     if args.dispatch:
         #if in dispatch mode (SLURM mode) we are already using all/most the cores (as balanced vs memory, etc)
@@ -527,12 +618,12 @@ def parse_commandline(auto_force=False):
     if args.prep_recover:
         print("Attempting to run clean_for_recovery script ... ")
         try:
-            from elixer import clean_for_recovery
+            import clean_for_recovery
             print("Success\n")
         except Exception as e:
             print("Failed to import ... try again:\n",e)
             try:
-                import clean_for_recovery
+                from elixer import clean_for_recovery
                 print("Success\n")
             except Exception as e:
                 print("Unable to run clean_for_recovery script\n")
@@ -661,8 +752,10 @@ def parse_commandline(auto_force=False):
             G.DECALS_WEB_FORCE = False
 
     #if there is no fall back imaging, we should allow empty imaging
-    if (G.DECALS_WEB_ALLOW == False) and (G.PANSTARRS_ALLOW == False) and (G.SDSS_ALLOW == False):
-        G.ALLOW_EMPTY_IMAGE = True
+    #2020-02-06 This can create unwanted behavior, even though it is well intentioned; so keep the ALLOW_EMPTY_IMAGE
+    #as configured regardless of the settings to allow web calls
+    #if (G.DECALS_WEB_ALLOW == False) and (G.PANSTARRS_ALLOW == False) and (G.SDSS_ALLOW == False):
+    #    G.ALLOW_EMPTY_IMAGE = True
 
 
     if args.nophoto:
@@ -678,6 +771,8 @@ def parse_commandline(auto_force=False):
         log.info("Setting CONTINUUM_RULES (args.continuum is set)")
         args.hdf5 = G.HDF5_CONTINUUM_FN
         G.CONTINUUM_RULES = True
+        G.MAX_SCORE_ABSORPTION_LINES = 9999.9
+        G.DISPLAY_ABSORPTION_LINES = True
     elif args.broadline:
         args.hdf5 = G.HDF5_BROAD_DETECT_FN
 
@@ -1085,10 +1180,22 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
 
     if cats is not None:
         log.debug("Checking imaging catalogs (%s)" %(str(cats)))
+
+        if catalogs.cat_decals_web.DECaLS in [type(x) for x in cats]:
+            added_decals = True
+
+        if catalogs.cat_panstarrs.PANSTARRS in [type(x) for x in cats]:
+            added_panstarrs = True
+
+        if catalogs.cat_sdss.SDSS in [type(x) for x in cats]:
+            added_sdss = True
+
     else:
         log.debug("Imaging catalogs is None")
 
     num_remaining_cats = len(cats)
+    list_of_catalog_cutouts = [] #each catalog that overlaps the RA, Dec returns a list of dictionaries of info
+
     for c in cats:
         num_remaining_cats -= 1
 
@@ -1120,6 +1227,29 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
                                                base_count=base_count,target_w=target_w,fiber_locs=fiber_locs,
                                                target_flux=target_flux,detobj=detobj)
 
+                if G.BUILD_REPORT_BY_FILTER and r: #here 'r' is a list of dictionaries ("cutouts") from the catalog
+                    try:
+                        if np.all([x['cutout'] is None for x in r]): #if all the cutous are None, don't add to the list
+                            if num_remaining_cats == 0: #if we are out of the original list, see if we can use web calls
+                                if isinstance(c,catalogs.cat_decals_web.DECaLS): #this was DECaLS, so fall back ...
+                                    if G.PANSTARRS_ALLOW:
+                                        cats.append(cat_panstarrs)
+                                        num_remaining_cats += 1
+                                    elif G.SDSS_ALLOW:
+                                        cats.append(cat_sdss)
+                                        num_remaining_cats += 1
+                                elif isinstance(c,catalogs.cat_panstarrs.PANSTARRS): #this was PanSTARRS so fall back ...
+                                    if G.SDSS_ALLOW:
+                                        cats.append(cat_sdss)
+                                        num_remaining_cats += 1
+
+                                if num_remaining_cats == 0: #out of catalogs to fall back on, keep this r for whatever it is worth
+                                    list_of_catalog_cutouts.append(r)
+                        else:
+                            list_of_catalog_cutouts.append(r)
+                    except:
+                        list_of_catalog_cutouts.append(r)
+
                 if reset_match:
                     match = None
             except:
@@ -1127,34 +1257,85 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
                 r = None
 
         count = 0
-        if r is not None and (len(r) > 1): #always adds figure for "No matching targets"
-            cat_count+= 1
+        if G.BUILD_REPORT_BY_FILTER:
+            #just iterate to the next catalog and continue to build up the list_of_catalog_cutouts
+            if len(list_of_catalog_cutouts) == 0 and num_remaining_cats < 1: # r was None ... no page was created, probably an empty region
+                if G.DECALS_WEB_ALLOW and not added_decals: #not FORCE ... that is handled differently
+                    cats.append(catalogs.CatalogLibrary().get_decals_web())
+                    added_decals = True
+                elif G.PANSTARRS_ALLOW and not added_panstarrs: #not FORCE ... that is handled differently
+                    cats.append(catalogs.CatalogLibrary().get_panstarrs())
+                    added_panstarrs = True
+                elif G.SDSS_ALLOW and not added_sdss:
+                    cats.append(catalogs.CatalogLibrary().get_sdss())
+                    added_sdss = True
+                elif not added_catch_all:
+                    cats.append(catalogs.CatalogLibrary().get_catch_all())
+                    added_catch_all = True
+        else:
+            if (r is not None) and (len(r) > 1): #always adds figure for "No matching targets"
+                cat_count+= 1
+                #todo: check that we have imaging? if there is none, go ahead to the next catalog?
 
-            #todo: check that we have imaging? if there is none, go ahead to the next catalog?
+                if (cat_count > 1) and G.SINGLE_PAGE_PER_DETECT:
+                    msg = "INFO: More than one catalog matched .... taking top catalog only. Skipping PDF for %s" % c.Name
+                    print(msg)
+                    log.info(msg)
+                else:
+                    if PyPDF is not None:
+                        build_report_part(pdfname,r)
+                    else:
+                        pages = pages + r
+                    count = max(0,len(r)-1) #1st page is the target page
+            elif num_remaining_cats < 1: # r was None ... no page was created, probably an empty region
+                if G.DECALS_WEB_ALLOW and not added_decals: #not FORCE ... that is handled differently
+                    cats.append(catalogs.CatalogLibrary().get_decals_web())
+                    added_decals = True
+                elif G.PANSTARRS_ALLOW and not added_panstarrs: #not FORCE ... that is handled differently
+                    cats.append(catalogs.CatalogLibrary().get_panstarrs())
+                    added_panstarrs = True
+                elif G.SDSS_ALLOW and not added_sdss:
+                    cats.append(catalogs.CatalogLibrary().get_sdss())
+                    added_sdss = True
+                elif not added_catch_all:
+                    cats.append(catalogs.CatalogLibrary().get_catch_all())
+                    added_catch_all = True
 
-            if (cat_count > 1) and G.SINGLE_PAGE_PER_DETECT:
-                msg = "INFO: More than one catalog matched .... taking top catalog only. Skipping PDF for %s" % c.Name
-                print(msg)
-                log.info(msg)
-            else:
+    #move to AFTER summary section built as we need updates from it (specifically, the catalog matches and ellipses that
+    # are "selected"
+    # #done going through catalogs
+    # if detobj:
+    #     detobj.check_spec_solutions_vs_catalog_counterparts()
+    #     detobj.check_clustering_redshift()
+
+    if G.BUILD_REPORT_BY_FILTER:
+        #we've gone through all the catalogs (including the web catalogs if necessary)
+        if len(list_of_catalog_cutouts) > 0:
+            #todo: the count is the number of pdf sections to add (should just be one)
+            #todo: build up the PDF section (cat_base.py)
+            #this is in the base class, so any catalog will do
+            try:
+                #note that this is as a single section, rather than individual sections for the
+                #images and then the catalog match table at the bottom
+                r = cats[0].build_cat_summary_pdf_section(list_of_catalog_cutouts, match, ra, dec, error, target_w,
+                                          fiber_locs, target_flux,detobj)
+                #self.add_bid_entry(entry)
+
                 if PyPDF is not None:
                     build_report_part(pdfname,r)
                 else:
                     pages = pages + r
-                count = max(0,len(r)-1) #1st page is the target page
-        elif num_remaining_cats < 1: # r was None ... no page was created, probably an empty region
-            if G.DECALS_WEB_ALLOW and not added_decals: #not FORCE ... that is handled differently
-                cats.append(catalogs.CatalogLibrary().get_decals_web())
-                added_decals = True
-            elif G.PANSTARRS_ALLOW and not added_panstarrs: #not FORCE ... that is handled differently
-                cats.append(catalogs.CatalogLibrary().get_panstarrs())
-                added_panstarrs = True
-            elif G.SDSS_ALLOW and not added_sdss:
-                cats.append(catalogs.CatalogLibrary().get_sdss())
-                added_sdss = True
-            elif not added_catch_all:
-                cats.append(catalogs.CatalogLibrary().get_catch_all())
-                added_catch_all = True
+                count = len(r) # max(0,len(r)-1) #1st page is the target page
+
+            except:
+                log.error("Unexpected exception calling to cat_base.py build_cat_summary_pdf_section",exc_info=True)
+        else: #todo: need to build up a blank image (or ... I think that happens anyway later)
+            count = 0
+
+    #done going through catalogs
+    if detobj:
+        detobj.check_spec_solutions_vs_catalog_counterparts()
+        detobj.check_clustering_redshift()
 
     G.NUDGE_MAG_APERTURE_CENTER = _NUDGE_MAG_APERTURE_CENTER_SAVED
     return pages, count
@@ -1618,11 +1799,22 @@ def which(file):
         log.info("Exception in which",exc_info=True)
         return None
 
-def convert_pdf(filename, resolution=150, jpeg=True, png=False):
 
-    #file might not exist, but this will just trap an execption
+
+def convert_pdf(filename, resolution=150, jpeg=False, png=True):
+    """
+    The call from outside ... now basically calls the old internals as run_convert_pdf
+    and can retry if there is a detected problem
+
+    :param filename:
+    :param resolution:
+    :param jpeg:
+    :param png:
+    :return:
+    """
+
     if filename is None:
-        return
+        return -1
 
     if filename[-1] == "!":
         filename = filename.rstrip("!")
@@ -1633,12 +1825,133 @@ def convert_pdf(filename, resolution=150, jpeg=True, png=False):
             try:
                 log.debug("Invalid filename passed to elixer::convert_pdf(%s)" % filename)
             except:
-                return
+                return -1
     except:
         try:
             log.debug("Invalid filename passed to elixer::convert_pdf(%s)" %filename)
         except:
-            return
+            return -1
+
+    try:
+        #check that the file exists (can be a timing issue on tacc)
+        if not os.path.isfile(filename):
+            log.info("Error converting (%s) to image type. File not found (may be filesystem lag. Will sleep and retry."
+                     %(filename) )
+            time.sleep(5.0) #5 sec should be plenty
+
+            if not os.path.isfile(filename):
+                log.info(
+                    "Error converting (%s) to image type. File still not found. Aborting conversion."
+                    % (filename))
+                return -1
+    except:
+        pass
+
+    try:
+        max_retries = 3
+        retry_ct = 0
+        systemcalls= ["pdftoppm","convert"]  #convert
+        while retry_ct < max_retries:
+            retry_ct += 1
+            if (run_convert_pdf(filename, resolution=resolution, jpeg=jpeg, png=png,
+                                systemcall=systemcalls[(retry_ct-1)%len(systemcalls)]) < 0):
+                retry = 99
+                break
+            else: #check the result
+                #BOTH png and jpeg could be generated, but we are only going to check one (the png preferred)
+                if png:
+                    image_name = filename.rstrip(".pdf") + ".png"
+                elif jpeg:
+                    image_name = filename.rstrip(".pdf") + ".jpg"
+
+                try:
+                    size = os.path.getsize(image_name)
+                    if OS_PNG_ONLY:
+                        log.debug(f"Conversion assumed good at ({size}) for {image_name}. Only OS conversions allowed.")
+                        retry = 99
+                        break
+                    elif size > 430000: #some are legit conversions though
+                        log.debug(f"Conversion filesize ({size}) good for {image_name}.")
+                        retry = 99
+                        break
+                    elif (retry_ct < max_retries):
+                        img_dim = check_imagefile_dimensions(image_name)
+                        #check for none or height
+                        if img_dim is None or img_dim[1] > 1600 :
+                            #just the cutouts is a bit over 900
+                            #the normal full size is ~ 1838 pix
+                            # could still be okay, but we will retry anyway .. if retries are exhausted, it will stick
+                            log.info(f"Small filesize ({size}) for {image_name}. Will assume missing data and retry.")
+                            os.remove(image_name)
+                            time.sleep(5.0 * retry_ct)  #sleep in increasing chunks of 5 seconds to let memory clear
+                        else:
+                            log.debug(f"Conversion filesize ({size}) good for {image_name}. Incomplete report, reduced size {img_dim}).")
+                            retry = 99
+                            break
+                    else:
+                        log.info(f"Small filesize ({size}) for {image_name}. Out of retries.")
+                except:
+                    log.info(f"Could not get file size for {image_name}. Aborting retries.")
+                    retry = 99
+                    break
+    except:
+        log.error(f"Exception converting PDF {filename} to image type.", exc_info=True)
+
+
+def check_imagefile_dimensions(fn):
+    """
+    Try to get the image dimensions for a given image file
+    :param fn:
+    :return:
+    """
+    img_dim = None
+    try:
+        with open(fn, "rb") as f:
+            ImPar=PIL_ImageFile.Parser()
+            chunk = f.read(2048)
+            count=2048
+            while chunk != "":
+                ImPar.feed(chunk)
+                if ImPar.image:
+                    break
+                chunk = f.read(2048)
+                count+=2048
+            img_dim = ImPar.image.size
+    except:
+        log.debug("Unable to check image size from file.")
+    return img_dim
+
+def run_convert_pdf(filename, resolution=150, jpeg=False, png=True,systemcall="pdftoppm"):
+    """
+
+    :param filename:
+    :param resolution:
+    :param jpeg:
+    :param png:
+    :return: an integer: -1 is a fatal error (do not conitnue), 0 is all good, 1 is retry error
+    """
+
+    #first two checks are redundant with convert_pdf(), but kept for sanity purposes or if this is called directly
+
+    #file might not exist, but this will just trap an execption
+    if filename is None:
+        return -1
+
+    if filename[-1] == "!":
+        filename = filename.rstrip("!")
+
+    try:
+        ext = filename[-4:]
+        if ext.lower() != ".pdf":
+            try:
+                log.debug("Invalid filename passed to elixer::convert_pdf(%s)" % filename)
+            except:
+                return -1
+    except:
+        try:
+            log.debug("Invalid filename passed to elixer::convert_pdf(%s)" %filename)
+        except:
+            return -1
 
 
     try:
@@ -1652,7 +1965,7 @@ def convert_pdf(filename, resolution=150, jpeg=True, png=False):
                 log.info(
                     "Error converting (%s) to image type. File still not found. Aborting conversion."
                     % (filename))
-                return
+                return -1
 
 
         # wand.exceptions.PolicyError: not authorized  ....
@@ -1678,6 +1991,34 @@ def convert_pdf(filename, resolution=150, jpeg=True, png=False):
                         image_name = filename.rstrip(".pdf") + ".png"
                         img.save(filename=image_name)
                         print("File written: " + image_name)
+
+        elif OS_PNG_ONLY:
+            try:
+                if G.ALLOW_SYSTEM_CALL_PDF_CONVERSION:
+                    #try pdftoppm or convert
+                    if (systemcall == "pdftoppm") and (which("pdftoppm") is not None):
+                        try:
+                            log.info("Attempting blind system call to pdftoppm to convert ... ")
+                            os.system("pdftoppm %s %s -png -singlefile" % (filename, filename.rstrip(".pdf")))
+                            log.info("No immediate error reported on pdftoppm call ... ")
+                        except Exception as e:
+                            if type(e) is pdf2image.exceptions.PDFInfoNotInstalledError:
+                                log.error("System call conversion failed (PDFInfoNotInstalledError).", exc_info=False)
+                            else:
+                                log.error("System call conversion failed.",exc_info=True)
+                    elif which ("convert") is not None:
+                        try:
+                            log.info("Attempting blind system call to convert ... ")
+                            # alternate call for wrangler
+                            # base is really 150 dpi but have to set convert to 200 to mimic resolution
+                            os.system("convert -density 200 %s %s" % (filename, filename.rstrip(".pdf") + ".png"))
+                            log.info("No immediate error reported on convert call ... ")
+                        except Exception as e:
+                            log.error("System call conversion failed.", exc_info=True)
+                    else:
+                        log.error("No viable system call available to convert PDF to PNG")
+            except:
+                log.error("System call (pdftoppm) conversion failed.", exc_info=True)
         else:
             pages = convert_from_path(filename,resolution)
             if png:
@@ -1703,13 +2044,17 @@ def convert_pdf(filename, resolution=150, jpeg=True, png=False):
             log.error("Error (1) converting pdf to image type: (OSError: probably memory)" + filename, exc_info=False)
         elif type(e) is FileNotFoundError:
             log.error("Error (1) converting pdf to image type: (FileNotFoundError)" + filename, exc_info=False)
+        # elif type(e) is PDFInfoNotInstalledError:
+        #     log.error("Error (1) converting pdf to image type: (PDFInfoNotInstalledError)" + filename, exc_info=False)
+        elif ('poppler' in str(e)) or ("PDFInfoNotInstalledError" in str(type(e))):
+            log.error("Error (1) converting pdf to image type: (pdfinfo cannot find poppler)" + filename, exc_info=False)
         else:
-            log.error("Error (1) converting pdf to image type: " + filename, exc_info=True)
+            log.error("Error (1) converting pdf to image type: " + filename + "  Exception type: " + str(type(e)), exc_info=True)
 
         try:
             if G.ALLOW_SYSTEM_CALL_PDF_CONVERSION:
                 #try pdftoppm or convert
-                if which("pdftoppm") is not None:
+                if (systemcall == "pdftoppm") and (which("pdftoppm") is not None):
                     try:
                         log.info("Attempting blind system call to pdftoppm to convert ... ")
                         os.system("pdftoppm %s %s -png -singlefile" % (filename, filename.rstrip(".pdf")))
@@ -1735,7 +2080,9 @@ def convert_pdf(filename, resolution=150, jpeg=True, png=False):
                     log.error("No viable system call available to convert PDF to PNG")
         except:
             log.error("System call (pdftoppm) conversion failed.", exc_info=True)
-        return
+        return 0
+
+    return 0
 
 
 
@@ -1762,15 +2109,41 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
                 return detectids
 
         log.info("Searching for records by RA, Dec + error (this may take a while) ... ")
+        dec_correction = np.cos(np.deg2rad(dec))
+
+        #get the shots first
+        #shot FOV diameter 18' (telecope is 22') ... just to be safe use the larger
+        with tables.open_file(G.HDF5_SURVEY_FN, mode="r") as h5: #survey
+            stb = h5.root.Survey
+            fov = 0.1834 #22arcmin diameter to 11' radius x 60 arcsec / 3600 to get degree
+            ra1 = ra - fov/dec_correction
+            ra2 = ra + fov/dec_correction
+            dec1 = dec - fov
+            dec2 = dec + fov
+            log.debug("Reading for shotids ...")
+            shotlist = stb.read_where("(ra > ra1) & (ra < ra2) & (dec > dec1) & (dec < dec2)",field="shotid")
+            if shotlist is not None:
+                log.info(f"Shots found ({len(shotlist)}): {shotlist}")
+            else:
+                log.info(f"Shots found: 0")
+
+
         with tables.open_file(hdf5, mode="r") as h5:
             dtb = h5.root.Detections
-            dec_correction = np.cos(np.deg2rad(dec))
             ra1 = ra - error/dec_correction
             ra2 = ra + error/dec_correction
             dec1 = dec - error
             dec2 = dec + error
 
-            rows = dtb.read_where("(ra > ra1) & (ra < ra2) & (dec > dec1) & (dec < dec2)")
+            rows = None
+            for q_shot in shotlist: #probably not indexed by shot
+                q_rows = dtb.read_where("(shotid == q_shot) & (ra > ra1) & (ra < ra2) & (dec > dec1) & (dec < dec2)")
+                if q_rows is not None and len(q_rows) > 0:
+                    if rows is None:
+                        rows = q_rows
+                    else:
+                        rows = np.concatenate((rows,q_rows))
+
 
             if (rows is not None) and (len(rows) > 0):
                 detectids = rows['detectid']
@@ -1804,6 +2177,7 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
                 msg = "%d detection records found +/- %g\" from %f, %f (%s)" % (len(detectids), error * 3600., ra, dec, hdf5)
                 log.info(msg)
                 print(msg)
+                log.info(f"DetectIDs: {detectids}")
             else:
                 msg = "0 detection records found +/- %g\" from %f, %f (%s)" % (error * 3600., ra, dec,hdf5)
                 log.info(msg)
@@ -1871,12 +2245,16 @@ def get_hdf5_detectids_to_process(args):
 
                                     else: #this is a set of coords
                                         row = [float(toks[0]),float(toks[1])]
-                                        if len(toks) >= 3: #shotid
+                                        if len(toks) >= 3: #shotid or wave and might have string in it
                                             # shot = toks[2].lower()
                                             # row.append(int(float(shot.replace('v',''))))
                                             row.append(xlat_shotid(toks[2]))
-                                            if len(toks) == 4: #wavelength (in AA)
-                                                row.append(float(toks[3]))
+                                            if len(toks) >= 4: #wavelength (in AA) or shotid
+                                                #row.append(float(toks[3]))
+                                                row.append(xlat_shotid(toks[3]))
+
+                                            if len(toks) >= 5: #name/detectid (as integer)
+                                                row.append(int(toks[4]))
 
                                             #if shotid and wavelength are flipped, it should be caught later?
                                         else:
@@ -2129,9 +2507,9 @@ def read_coords_file(filename,args=None,as_rows=False):
         if as_rows:
             return []
         else:
-            return [], [], [], []
+            return [], [], [], [], []
 
-    ras, decs, shots, waves, rows = [],[],[],[],[]
+    ras, decs, shots, waves, rows, names = [],[],[],[],[],[]
     try:
         if (args is not None) and (args.aperture is None):
             if as_rows:
@@ -2140,11 +2518,12 @@ def read_coords_file(filename,args=None,as_rows=False):
                 ras, decs = np.loadtxt(filename, unpack=True,usecols=(0,1)) #ignore shotids
                 shots = np.zeros(len(ras))
                 waves = np.zeros(len(ras))
+                names = np.zeros(len(ras))
         else:
 
             #     #rows = open(filename, "r").read().splitlines()
             if as_rows:
-                rows = np.loadtxt(filename, unpack=False)
+                rows = np.loadtxt(filename, unpack=False,dtype=str)
             #     try:
             #         if np.shape(rows)[1] > 2:
             #             rows[:,2] = xlat_shotid(rows[:,2])
@@ -2152,18 +2531,23 @@ def read_coords_file(filename,args=None,as_rows=False):
             #         pass
             #
             else:
-                try: #4 values
-                    ras, decs, shots, waves = np.loadtxt(filename, unpack=True)
+
+                try: #5 values
+                    ras, decs, shots, waves,names = np.loadtxt(filename, unpack=True)
                     shots = xlat_shotid(shots)
                 except:
-                    try: #3 values
-                        ras, decs, shots = np.loadtxt(filename, unpack=True)
+                    try: #4 values
+                        ras, decs, shots, waves = np.loadtxt(filename, unpack=True)
                         shots = xlat_shotid(shots)
-                        waves = np.zeros(len(ras))
-                    except: #2 values
-                        ras, decs = np.loadtxt(filename, unpack=True)
-                        shots = np.zeros(len(ras))
-                        waves = np.zeros(len(ras))
+                    except:
+                        try: #3 values
+                            ras, decs, shots = np.loadtxt(filename, unpack=True)
+                            shots = xlat_shotid(shots)
+                            waves = np.zeros(len(ras))
+                        except: #2 values
+                            ras, decs = np.loadtxt(filename, unpack=True)
+                            shots = np.zeros(len(ras))
+                            waves = np.zeros(len(ras))
             # if as_rows: #this doest NOT work the way I want ... produces a string that has [,,,,]
             #     #yes this is a weird way to do this
             #     #but numpy forces its arrays to all be of the same type and we prefer the shots to be integers
@@ -2173,12 +2557,18 @@ def read_coords_file(filename,args=None,as_rows=False):
         if as_rows:
             return []
         else:
-            return [],[],[],[]
+            return [],[],[],[],[]
 
     if as_rows:
+        #todo: if not 2d array, wrap as 2d array
+        try:
+            if len(np.shape(rows)) == 1:
+                rows = [rows]
+        except:
+            pass
         return rows
     else:
-        return ras, decs, shots, waves
+        return ras, decs, shots, waves, names
 
 
 
@@ -2389,6 +2779,11 @@ def remove_h5_duplicate_rows(args=None):
 
 
 def merge_unique(args=None):
+    """
+    note: elixer_hdf5 will chunk the h5 files into small blocks and merge the blocks (much more efficient)
+    :param args:
+    :return:
+    """
 
     try:
         #tokenize
@@ -2501,6 +2896,9 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
     #find the pdf reports that should correspond to each detction
     #if found that detection is already done, so remove it from the list
 
+    #!! note: the h5 is written before the report files, so if we got far enough
+    # to write out a report file, then the h5 is complete and no need to re-check it.
+
     #implement as build a new list ... just easier that way
     if ((fcsdir_list is None) or (len(fcsdir_list) == 0)) and \
             ((hdf5_detectid_list is None) or (len(hdf5_detectid_list) == 0)):
@@ -2517,27 +2915,74 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
     if (hdf5_detectid_list is not None) and (len(hdf5_detectid_list) > 0):
 
         for d in hdf5_detectid_list:
-            #does the file exist
-            #todo: this should be made common code, so naming is consistent
-            filename = str(d)
+            try:
+                #does the file exist
+                #todo: this should be made common code, so naming is consistent
+                filename = str(d)
 
-            if os.path.isfile(os.path.join(args.name, args.name + "_" + filename + extension)) or \
-                os.path.isfile(os.path.join(args.name, filename + extension)):
-                log.info("Already processed %s. Will skip recovery." %(filename))
-            else:
-                log.info("Not found (%s). Will process ..." %(filename))
+                okay_to_skip = False
+                if os.path.isfile(os.path.join(args.name, args.name + "_" + filename + extension)) or \
+                    os.path.isfile(os.path.join(args.name, filename + extension)):
+
+                    okay_to_skip = True
+                    if not args.neighborhood_only:
+                        #do we need the png or the neighborhood?
+                        if args.png:
+                            if not os.path.isfile(os.path.join(args.name, filename + ".png")):
+                                okay_to_skip = False
+
+                        if okay_to_skip and args.neighborhood:
+                            if not os.path.isfile(os.path.join(args.name, filename + "_nei.png")):
+                                okay_to_skip = False
+
+                        if okay_to_skip and args.mini:
+                            if not os.path.isfile(os.path.join(args.name, filename + "_mini.png")):
+                                okay_to_skip = False
+
+                    if okay_to_skip:
+                        log.info("Already processed %s. Will skip recovery." %(filename))
+                    else:
+                        log.info("Not all components found (%s). Will process ..." %(filename))
+                        newlist.append(d)
+                else:
+                    log.info("Not found (%s). Will process ..." %(filename))
+                    newlist.append(d)
+            except:
+                log.warning(f"Exception in prune_detection_list. Will re-run {d}",exc_info=True)
                 newlist.append(d)
 
-
     else: #this is the fcsdir list
-
         for d in fcsdir_list:
-            filename = os.path.basename(str(d))
-            if os.path.isfile(os.path.join(args.name, args.name + "_" + filename + extension)) or \
-                os.path.isfile(os.path.join(args.name, filename + extension)):
-                log.info("Already processed %s. Will skip recovery." %(filename))
-            else:
-                log.info("Not found (%s). Will process ..." %(filename))
+            try:
+                filename = os.path.basename(str(d))
+                if os.path.isfile(os.path.join(args.name, args.name + "_" + filename + extension)) or \
+                    os.path.isfile(os.path.join(args.name, filename + extension)):
+
+                    okay_to_skip = True
+                    if not args.neighborhood_only:
+                        #do we need the png or the neighborhood?
+                        if args.png:
+                            if not os.path.isfile(os.path.join(args.name, filename + ".png")):
+                                okay_to_skip = False
+
+                        if okay_to_skip and args.neighborhood:
+                            if not os.path.isfile(os.path.join(args.name, filename + "_nei.png")):
+                                okay_to_skip = False
+
+                        if okay_to_skip and args.mini:
+                            if not os.path.isfile(os.path.join(args.name, filename + "_mini.png")):
+                                okay_to_skip = False
+
+                    if okay_to_skip:
+                        log.info("Already processed %s. Will skip recovery." %(filename))
+                    else:
+                        log.info("Not all components found (%s). Will process ..." %(filename))
+                        newlist.append(d)
+                else:
+                    log.info("Not found (%s). Will process ..." %(filename))
+                    newlist.append(d)
+            except:
+                log.warning(f"Exception in prune_detection_list. Will re-run {d}",exc_info=True)
                 newlist.append(d)
 
     return newlist
@@ -2546,7 +2991,9 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
 
 def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fiber_pos,
                            image_cutout_neighborhood,
-                           image_cutout_fiber_pos_size=None, image_cutout_neighborhood_size=None):
+                           image_cutout_fiber_pos_size=None,
+                           image_cutout_neighborhood_size=None,
+                           line_image_cutout=None):
     """
     Note: needs matplotlib > 3.1.x to work properly
 
@@ -2558,7 +3005,18 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
     """
 
     if (fname is None) or (image_2d_fiber is None) or (image_1d_fit is None) or (image_cutout_fiber_pos is None):
-        log.error("Missing required data in elixer::build_3panel_zoo_image")
+        msg = "Missing required data in elixer::build_3panel_zoo_image() "
+        if fname is None:
+            msg += "fname "
+        if image_2d_fiber is None:
+            msg += " image_2d_fiber "
+        if image_1d_fit is None:
+            msg += " image_1d_fit "
+        if image_cutout_fiber_pos is None:
+            msg += " image_cutout_fiber_pos "
+        if line_image_cutout is None:
+            msg += " line_image_cutout "
+        log.error(msg)
         return
     try:
         #note: 0,0 (for grid spec) is upper left
@@ -2613,13 +3071,13 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
         #gs1 = fig.add_gridspec(ncols=1,nrows=1,figure=fig,left=0.02, right=0.30, top=0.90, bottom=0.30, wspace=0.01)
         #plt.subplots_adjust(left=0.00, right=0.95, top=0.95, bottom=0.0)
 
-        gs = gridspec.GridSpec(nrows=60,ncols=20,figure=fig,wspace=0.0,hspace=0.0)  # rows, columns or y,x
+        gs = gridspec.GridSpec(nrows=61,ncols=21,figure=fig,wspace=0.0,hspace=0.0)  # rows, columns or y,x
 
 
 
         # is hidden
         # 1st column 2d fiber cutouts
-        ax1 = fig.add_subplot(gs[2:45,0:10])
+        ax1 = fig.add_subplot(gs[2:45,0:10]) #was 2
         ax1.set_axis_off()
         # fig = plt.subplot(gs[0:-1,0:30])#,gridspec_kw = {'wspace':0, 'hspace':0})
         # plt.subplots_adjust(wspace=0, hspace=0)
@@ -2635,7 +3093,8 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
         #gs2 = fig.add_gridspec(ncols=1, nrows=2, figure=fig, left=0.35, right=0.98,top=0.90, bottom=0.30, wspace=0.01)
 
         #2d fiber position / master cutout
-        ax2 = fig.add_subplot(gs[0:26,0:])
+        #ax2 = fig.add_subplot(gs[0:26,0:])
+        ax2 = fig.add_subplot(gs[0:23,0:])
         ax2.set_axis_off()
         #fig = plt.subplot(gs[0:50,30:-1])#,gridspec_kw = {'wspace':0, 'hspace':0})
         #plt.subplots_adjust(wspace=0, hspace=0)
@@ -2660,7 +3119,7 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
         # 2D wide (neighborhood) master cutout
         if image_cutout_neighborhood is not None:
 
-            ax4 = fig.add_subplot(gs[22:48,0:])
+            ax4 = fig.add_subplot(gs[19:42,0:]) #was 22:48
             ax4.set_axis_off()
             # fig = plt.subplot(gs[0:50,30:-1])#,gridspec_kw = {'wspace':0, 'hspace':0})
             # plt.subplots_adjust(wspace=0, hspace=0)
@@ -2691,9 +3150,35 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
         else:
             log.info("Warning! Unable to fully populate mini report. Neighborhood cutout is None.")
 
+        #new line image
+        try:
+            if line_image_cutout is not None:
+                ax5 = fig.add_subplot(gs[38:,0:])#,gridspec_kw = {'wspace':0, 'hspace':0})
+                ax5.set_axis_off()
+                line_image_cutout.seek(0)
+
+                #leaving here just for a reference ...
+                #failed attempt to grab a larger image (by root(2)), apply the WCS transform, then here
+                #trim off 1/2 of each of the extra from each side and plot
+                # (this does not work) ... scaling gets very messed up
+                # x,y = PIL_Image.open(line_image_cutout).size
+                # trim = (1.0 - 0.5 * np.sqrt(2.))/2.0
+                # lx = trim * x
+                # rx = trim * x
+                # ty = trim * y #was 0.1
+                # by = trim * y #was 0
+                # im5 = PIL_Image.open(line_image_cutout).crop((lx,ty,x-rx,y-(ty+by)))
+
+                im5 = PIL_Image.open(line_image_cutout)
+                ax5.imshow(im5)
+        except:
+            pass #sometimes the line_image call fails and there is nothing in it
+
+
 
         #1d Gaussian fit
-        ax3 = fig.add_subplot(gs[46:,1:15])#,gridspec_kw = {'wspace':0, 'hspace':0})
+        #ax3 = fig.add_subplot(gs[46:,1:15])#,gridspec_kw = {'wspace':0, 'hspace':0})
+        ax3 = fig.add_subplot(gs[46:60,1:9])#,gridspec_kw = {'wspace':0, 'hspace':0})
         ax3.set_axis_off()
         #plt.subplots_adjust(wspace=0, hspace=0)
 
@@ -2704,15 +3189,20 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
         image_1d_fit.seek(0)
 
         x,y = PIL_Image.open(image_1d_fit).size
-        lx = 0.10 * x
-        rx = 0.03 * x
-        ty = 0.1 * y
-        by = 0.00 * y
+        # lx = 0.10 * x
+        # rx = 0.03 * x
+        # ty = 0.10 * y #was 0.1
+        # by = 0.00 * y #was 0
+        lx = 0.18 * x
+        rx = 0.16 * x
+        ty = 0.10 * y #was 0.1
+        by = 0.00 * y #was 0
+
 
         #crop is (upper left corner ....
         #( x, y, x + width , y + height )
 
-        im3 = PIL_Image.open(image_1d_fit).crop((lx,ty,x-(lx+rx),y-(ty+by)))
+        im3 = PIL_Image.open(image_1d_fit).crop((lx,ty,x-rx,y-(ty+by)))
         ax3.imshow(im3)
 
 
@@ -2728,10 +3218,39 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
             x, y = PIL_Image.open(buf).size
             lx = 0.03 * x
             rx = 0.12 * x
-            ty = 0.0 * y
-            by = 0.0 * y
+            ty = 0.05 * y
+            by = 0.00 * y
 
             im = plt.imshow(PIL_Image.open(buf).crop((lx,ty,x-(lx+rx),y-(ty+by))))
+
+            #!!! NOTICE: if the resolution changes, or the pixel size changes, or the crop, etc, these coords
+            #  will need to be re-done
+            #fill in a bothersome region that refuses to be covered by the red box
+            # (right hand side of top right cutout)
+            #plt.plot([741, 741], [398, 30], color='r', lw=0.5)
+            plt.plot([738, 738], [341, 20], color='r', lw=0.5)
+
+            #and a horizontal masking line for the bottom right image
+            #plt.plot([372, 740], [805,805], color='#1c1c1e', lw=1) ##1c1c1e
+
+            #and a horizontal masking line for the bottom left image
+           # plt.plot([0, 410], [1050,1050], color='r', lw=5) ##1c1c1e
+            plt.plot([0, 400], [1050,1050], color='#1c1c1e', lw=5) ##1c1c1e
+
+
+            #zoom lines ... but they depend on the distance
+            if image_cutout_neighborhood_size == 10:
+                #plt.scatter(0,0,s=20,color='r')
+                #don't forget there is an extra border (about 25pix) around it, 0,0 is top left
+                plt.plot([528, 415], [576, 340], color='r', lw=0.5,ls="--") #lower left (bottom) to lower left (top) [x,x],[y,y]
+                plt.plot([625, 735], [576, 340], color='r', lw=0.5,ls="--") #lower right (bottom) to lower right (top)
+
+
+            # plt.plot([510,387],[622,112],color='r',lw=1) # upper left to upper left
+            # plt.plot([615,736],[622,112],color='r',lw=1) # upper right to upper right
+
+            #plt.plot([505, 465], [622, 456], color='r', lw=0.5,ls="--") #upper left stop at top-image bottom edge
+            #plt.plot([616, 659], [622, 456], color='r', lw=0.5,ls="--") #upper right "ditto"
 
             #patch =
             #plt.tight_layout(rect=(0.1,0.1,0.8,0.8))
@@ -2762,7 +3281,7 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
 
 
 def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=None, distance=None, cwave=None,
-                           fname=None,original_distance=None,this_detection=None,broad_hdf5=None):
+                           fname=None,original_distance=None,this_detection=None,broad_hdf5=None,primary_shotid=None,wave_range=None):
     """
 
     :param hdf5:
@@ -2777,11 +3296,12 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
     just_mini_cutout = False
     nei_buf = None
+    line_buf = None
 
     if G.ZOO_MINI:
         if ((detectid is None) and ((ra is None) or (dec is None))):
             log.info("Invalid data passed to build_neighborhood_map")
-            return None, None
+            return None, None, None
 
         if (distance is None) or (distance <= 0.0):
             distance = 10.0
@@ -2789,7 +3309,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     else:
         if (distance is None) or (distance < 0.0) or ((detectid is None) and ((ra is None) or (dec is None))):
             log.info("Invalid data passed to build_neighborhood_map")
-            return None, None
+            return None, None, None
 
     #get all the detectids
     error = distance/3600.0
@@ -2845,7 +3365,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                 rows = detection_table.read_where("detectid==id")
                 if (rows is None) or (rows.size != 1):
                     log.info("Invalid data passed to build_neighborhood_map")
-                    return None
+                    return None, None, None
                 ra = rows['ra'][0]
                 dec = rows['dec'][0]
 
@@ -2853,7 +3373,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                     cwave = rows['wave'][0]
         except:
             log.info("Exception. Unable to lookup detectid coordinates.",exc_info=True)
-            return None, None
+            return None, None, None
 
     total_detectids = 0
     if not just_mini_cutout:
@@ -2909,7 +3429,13 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         if (len(detectids) == 0) and (len(broad_detectids)== 0) and (len(cont_detectids)== 0) and (this_detection is None):
             #nothing to do
             log.info("No HETDEX detections found: (%f,%f) +/- %d\"" %(ra,dec,distance))
-            return None, None
+            return None, None, None
+
+        # try:
+        #     print("!!!!!!!!!!!!!!!!!!!!!!! REMOVE ME !!!!!!!!!!!!!!!!!!!")
+        #     np.savetxt(f"{detectids[0]}.clu",detectids,fmt="%d")
+        # except:
+        #     pass
 
         if len(detectids) > G.MAX_NEIGHBORS_IN_MAP:
             msg = "Maximum number of reportable (emission line) neighbors exceeded (%d). Will truncate to nearest %d." % (len(detectids),
@@ -2952,7 +3478,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     #get the single master cutout (need to stack? or select best image (best == most pixels)?)
     cat_library = catalogs.CatalogLibrary()
     ext = distance * 1.5  # extent is from the 0,0 position AND we want to grab a bit more than the radius (so can see around it)
-    cutouts = cat_library.get_cutouts(position=SkyCoord(ra, dec, unit='deg'),radius=ext,allow_web=True)
+    cutouts = cat_library.get_cutouts(position=SkyCoord(ra, dec, unit='deg'),allow_bad_image=False,radius=ext,allow_web=True)
 
     if cutouts is not None:
         log.debug("Neighborhood cutouts = %d" %(len(cutouts)))
@@ -2974,6 +3500,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         mc = None
         try:
             if len(_cutouts) > 0:
+                #start with the first cutout that has the most pixels (there may be multiples with the same number of pixels)
                 pix2 = np.array([sqpix(c['cutout']) for c in _cutouts])
                 best = np.argmax(pix2)
                 mc = copy.copy(_cutouts[best]['cutout'])
@@ -2984,26 +3511,39 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                     log.debug("Square pixel counts (%s)" %(str(pix2)))
                     return None
 
-                #how many?
+                #iterate through all those with the same number of (best) pixels
                 sel = np.where((pix2 == pix2[best]))[0]
                 if len(sel) > 1:
                     # need to sum up
-                    time = np.zeros(len(pix2))
+                    time = np.full(len(pix2),np.nan) #np.zeros(len(pix2))
                     for i in sel:
                         try:
+                            try:
+                                if _cutouts[i]['filter'].lower() in ['g','r','f606w']:
+                                    check_unique_fraction = False
+                                else:
+                                    check_unique_fraction = True
+                            except:
+                                check_unique_fraction = False
+
+                            if science_image.is_cutout_empty(_cutouts[i]['cutout'],check_unique_fraction=check_unique_fraction):
+                                time[i] = np.nan
+                                continue #skip it and move on to the next
                             time[i] = _cutouts[i]['hdu'][0]['EXPTIME']
                         except:
-                            pass
+                            time[i] = 0.0
 
-                    total_time = max(np.sum(time),1.0)
+                    total_time = max(np.nansum(time),1.0)
                     mc.data *= 0.0
 
                     if total_time == 1.0:
                         for i in sel:
-                            mc.data += _cutouts[i]['cutout'].data
+                            if not np.isnan(time[i]):
+                                mc.data += _cutouts[i]['cutout'].data
                     else:
                         for i in sel:
-                            mc.data += _cutouts[i]['cutout'].data*time[i]/total_time
+                            if not np.isnan(time[i]) and time[i] > 0:
+                                mc.data += _cutouts[i]['cutout'].data*time[i]/total_time
                         #time is not the best metric, but not too bad ... assumes all filters have roughly equivalent
                         #throughputs ... should not use for any measurements, but just for making a picture it is okay
 
@@ -3018,6 +3558,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         log.info("build_neighborhood_map master_cutout is empty. Will try web calls for DECaLS, PanSTARRS, and/or SDSS.")
 
         #todo: maybe limit to G or R band request?
+        #next code bit is sloppy but I am in a hurry and copy-paste is easy
         if G.DECALS_WEB_ALLOW:
             log.info("Calling DECaLS (web) ...")
             ps_cutouts = catalogs.cat_decals_web.DECaLS().get_cutouts(ra,dec,distance,aperture=None,filter=['g','r'],first=True)
@@ -3025,6 +3566,28 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             mc = make_master(ps_cutouts)
             if mc is not None:
                 master_cutout = mc
+            elif G.PANSTARRS_ALLOW:
+                log.info("Calling PanSTARRs ...")
+                ps_cutouts = catalogs.cat_panstarrs.PANSTARRS().get_cutouts(ra,dec,distance,aperture=None)
+                #note, different than cutouts above?
+                mc = make_master(ps_cutouts)
+                if mc is not None:
+                    master_cutout = mc
+                elif G.SDSS_ALLOW:
+                    log.info("Calling SDSS ...")
+                    sdss_cutouts = catalogs.cat_sdss.SDSS().get_cutouts(ra,dec,distance,aperture=None)
+                    #note, different than cutouts above?
+                    mc = make_master(sdss_cutouts)
+                    if mc is not None:
+                        master_cutout = mc
+            elif G.SDSS_ALLOW:
+                log.info("Calling SDSS ...")
+                sdss_cutouts = catalogs.cat_sdss.SDSS().get_cutouts(ra,dec,distance,aperture=None)
+                #note, different than cutouts above?
+                mc = make_master(sdss_cutouts)
+                if mc is not None:
+                    master_cutout = mc
+
         elif G.PANSTARRS_ALLOW:
             log.info("Calling PanSTARRs ...")
             ps_cutouts = catalogs.cat_panstarrs.PANSTARRS().get_cutouts(ra,dec,distance,aperture=None)
@@ -3032,6 +3595,14 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             mc = make_master(ps_cutouts)
             if mc is not None:
                 master_cutout = mc
+            elif G.SDSS_ALLOW:
+                log.info("Calling SDSS ...")
+                sdss_cutouts = catalogs.cat_sdss.SDSS().get_cutouts(ra,dec,distance,aperture=None)
+                #note, different than cutouts above?
+                mc = make_master(sdss_cutouts)
+                if mc is not None:
+                    master_cutout = mc
+
         elif G.SDSS_ALLOW:
             log.info("Calling SDSS ...")
             sdss_cutouts = catalogs.cat_sdss.SDSS().get_cutouts(ra,dec,distance,aperture=None)
@@ -3059,6 +3630,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             if ext_rescale < 0.5: #should only be a small change, so if very different (like in DECaLS) use the xmaax
                 ext_rescale =  master_cutout.xmax_cutout / master_cutout.xmax_original
             ext = ext * ext_rescale
+            log.debug(f"Neighborhood map master_cuout extent rescale: {ext_rescale}")
 
             #use the interior 30% to set the vmin, vmax to aid in matching to the smaller cutouts
             #at args.error = 3.0 and args.neighors = 10.0, this would be essentially the same pixel extents that
@@ -3125,37 +3697,124 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
 
     if just_mini_cutout: #stop here
-        return None, nei_buf
+        #need to still get the line image
+
+        mini_line_image = None
+        try:
+            if primary_shotid is not None and wave_range is not None:
+
+                try:
+                    if master_cutout is not None:
+                        pixscale = sci.calc_pixel_size(master_cutout.wcs)
+                        max_rotation_resize = np.sqrt(2.)
+                    else:
+                        pixscale = 0.25 #make the line image on the same scale as the master_cutout for easier mapping
+                        max_rotation_resize = 1.0
+                except:
+                    pixscale = 0.25 #make the line image on the same scale as the master_cutout for easier mapping
+                    max_rotation_resize = 1.0
+
+                pixscale = 0.25 #make the line image on the same scale as the master_cutout for easier mapping
+                mini_line_image = science_image.get_line_image(plt,friendid=None,detectid=None,
+                                                          coords=SkyCoord(ra=ra,dec=dec,frame='icrs',unit='deg'),
+                                                          shotid=primary_shotid, subcont=True, convolve_image=False,
+                                                          pixscale=pixscale, imsize=3*distance*max_rotation_resize,
+                                                          wave_range=wave_range,
+                                                          sigma=None,
+                                                          return_coords=False)
+        except:
+            log.warning("Exception building line image",exc_info=True)
+            mini_line_image = None
+
+        plt.close('all')
+
+        try:
+            plt.close('all')
+            fig = plt.figure()
+            line_buf = io.BytesIO()
+
+            if master_cutout is not None:
+                if ext is None or ext == 0: #use the existing extent first
+                    ext = mini_line_image.shape[0] * pixscale / 2.
+
+                im_ax = fig.add_subplot(111,projection=master_cutout.wcs) #plt.subplot(111,projection=master_cutout.wcs)
+
+                plt.imshow(mini_line_image.data, origin='lower', interpolation='None', #extent=[-ext, ext, -ext, ext],
+                           vmin=mini_line_image.vmin,vmax=mini_line_image.vmax,#cmap=plt.get_cmap('gray_r'),
+                           transform=im_ax.get_transform(mini_line_image.wcs))
+                im_ax.set_axis_off()
+
+                #on the same pixel scale by design (uses the master_cutout pixel scale) ... off by, at most 1/2 pixel and are square
+                #so use the master_cutout shape to "trim" off the excess collected to deal with potential rotations to align WCS
+                im_ax.set_xlim(-0.5, master_cutout.data.shape[1] - 0.5)
+                im_ax.set_ylim(-0.5, master_cutout.data.shape[0] - 0.5)
+
+                if original_distance is not None and original_distance > 0:
+                    #add zoom window
+                    try:
+                        box_ratio = original_distance / distance
+
+                        xl,xr = plt.gca().get_xlim()
+                        yb,yt = plt.gca().get_ylim()
+
+                        zero_x = (xl+xr) / 2.
+                        zero_y = (yb+yt) / 2.
+
+                        rx = ((xr-xl) * box_ratio) / 2.0
+                        ry = ((yt-yb) * box_ratio) / 2.0
+
+                        plt.gca().add_patch(plt.Rectangle((zero_x - rx,  zero_y - ry), width=rx * 2, height=ry * 2,
+                                                          angle=0, color='red', fill=False))
+                    except:
+                        log.debug("Exception! adding zoom box to mini-cutout.",exc_info=True)
+
+                plt.savefig(line_buf, format='png', dpi=300, transparent=True)
+            else:
+                im_ext = mini_line_image.shape[0] * pixscale / 2.
+                plt.imshow(mini_line_image.data, origin='lower', interpolation='none', #extent=[-im_ext, im_ext, -im_ext, im_ext],
+                           vmin=mini_line_image.vmin,vmax=mini_line_image.vmax)#,cmap=plt.get_cmap('gray_r'))
+                plt.gca().set_axis_off()
+                plt.savefig(line_buf, format='png', dpi=300, transparent=True)
+        except:
+            log.debug("Exception! Exception saving line_buf.")
+
+        return None, nei_buf, line_buf
+
 
     #get the PSF weighted full 1D spectrum for each detectid
     spec = []
     wave = []
     emis = []
     shot = []
-    with tables.open_file(hdf5, mode="r") as h5_detect:
-        stb = h5_detect.root.Spectra
-        dtb = h5_detect.root.Detections
-        for d in detectids:
-            rows = stb.read_where("detectid==d")
+    try:
+        with tables.open_file(hdf5, mode="r") as h5_detect:
+            stb = h5_detect.root.Spectra
+            dtb = h5_detect.root.Detections
+            for d in detectids:
+                rows = stb.read_where("detectid==d")
 
-            if rows.size == 1:
-                spec.append(rows['spec1d'][0])
-                wave.append(rows['wave1d'][0])
+                if rows.size == 1:
+                    spec.append(rows['spec1d'][0])
+                    wave.append(rows['wave1d'][0])
 
-                drows = dtb.read_where("detectid==d")
-                if drows.size == 1:
-                    emis.append(drows['wave'][0])
-                    shot.append(drows['shotid'][0])
+                    drows = dtb.read_where("detectid==d")
+                    if drows.size == 1:
+                        emis.append(drows['wave'][0])
+                        shot.append(drows['shotid'][0])
+                    else:
+                        emis.append(-1.0)
+                        shot.append(0)
+
                 else:
+                    #there's a problem
+                    spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
+                    wave.append(G.CALFIB_WAVEGRID)
                     emis.append(-1.0)
                     shot.append(0)
+    except Exception as e: #file might not exist
+        if 'does not exist' in str(e):
+            log.debug(f"Detection h5 does not exist: {hdf5} ")
 
-            else:
-                #there's a problem
-                spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
-                wave.append(G.CALFIB_WAVEGRID)
-                emis.append(-1.0)
-                shot.append(0)
 
 
     #now add the continuum sources if any
@@ -3263,14 +3922,113 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             emis=np.insert(emis,0, 0)
             detectids=np.insert(detectids,0, this_detection.entry_id)
 
+
+
+    #make the line cutout
+    mini_line_image = None #"mini" in that it is for the *_mini.png, but it is acutally a larger cutout size
+    line_image = None
+    try:
+        if primary_shotid is not None and wave_range is not None:
+
+            try:
+                if master_cutout is not None:
+                    pixscale = sci.calc_pixel_size(master_cutout.wcs)
+                    max_rotation_resize = np.sqrt(2.)
+                else:
+                    pixscale = 0.25 #make the line image on the same scale as the master_cutout for easier mapping
+                    max_rotation_resize = 1.0
+            except:
+                pixscale = 0.25 #make the line image on the same scale as the master_cutout for easier mapping
+                max_rotation_resize = 1.0
+
+            mini_line_image = science_image.get_line_image(plt,friendid=None,detectid=None,
+                                                      coords=SkyCoord(ra=ra,dec=dec,frame='icrs',unit='deg'),
+                                                      shotid=primary_shotid, subcont=True, convolve_image=False,
+                                                      pixscale=pixscale, imsize=3*distance*max_rotation_resize,
+                                                      wave_range=wave_range,
+                                                      sigma=None,
+                                                      return_coords=False)
+
+            #for convenience at this point, make a smaller version that will not be rotated and is part of the neighborhood
+            if master_cutout is not None and mini_line_image is not None:
+                line_image = copy.deepcopy(mini_line_image)
+                m0,m1 = master_cutout.data.shape
+                l0,l1 = line_image.data.shape
+                c0 = int(0.5*(l0-m0))
+                c1 = int(0.5*(l1-m1)) #these should be square, so c0 should == c1
+                line_image.data = line_image.data[c0:l0-c0,c1:l1-c1]
+            else:
+                line_image = mini_line_image
+    except:
+        log.warning("Exception building line image",exc_info=True)
+        mini_line_image = None
+        line_image = None
+
+    try:
+        plt.close('all')
+        fig = plt.figure()
+        line_buf = io.BytesIO()
+
+        if master_cutout is not None:
+
+            my,mx = np.shape(master_cutout.data)
+
+            if ext is None or ext == 0: #use the existing extent first
+                ext = mini_line_image.shape[0] * pixscale / 2.
+
+            im_ax = fig.add_subplot(111,projection=master_cutout.wcs) #plt.subplot(111,projection=master_cutout.wcs)
+
+            plt.imshow(mini_line_image.data, origin='lower', interpolation='None', #extent=[-ext, ext, -ext, ext],
+                       vmin=mini_line_image.vmin,vmax=mini_line_image.vmax,#cmap=plt.get_cmap('gray_r'),
+                       transform=im_ax.get_transform(mini_line_image.wcs))
+            im_ax.set_axis_off()
+
+            #on the same pixel scale by design (uses the master_cutout pixel scale) ... off by, at most 1/2 pixel and are square
+            #so use the master_cutout shape to "trim" off the excess collected to deal with potential rotations to align WCS
+            im_ax.set_xlim(-0.5, master_cutout.data.shape[1] - 0.5)
+            im_ax.set_ylim(-0.5, master_cutout.data.shape[0] - 0.5)
+
+            if original_distance is not None and original_distance > 0:
+                #add zoom window
+                try:
+                    box_ratio = original_distance / distance
+
+                    xl,xr = plt.gca().get_xlim()
+                    yb,yt = plt.gca().get_ylim()
+
+                    zero_x = (xl+xr) / 2.
+                    zero_y = (yb+yt) / 2.
+
+                    rx = ((xr-xl) * box_ratio) / 2.0
+                    ry = ((yt-yb) * box_ratio) / 2.0
+
+                    plt.gca().add_patch(plt.Rectangle((zero_x - rx,  zero_y - ry), width=rx * 2, height=ry * 2,
+                                                      angle=0, color='red', fill=False))
+                except:
+                    log.debug("Exception! adding zoom box to mini-cutout.",exc_info=True)
+
+            plt.savefig(line_buf, format='png', dpi=300, transparent=True)
+        else:
+            im_ext = mini_line_image.shape[0] * pixscale / 2.
+            plt.imshow(mini_line_image.data, origin='lower', interpolation='none',#extent=[-im_ext, im_ext, -im_ext, im_ext],
+                           vmin=mini_line_image.vmin,vmax=mini_line_image.vmax)#,cmap=plt.get_cmap('gray_r'))
+            plt.gca().set_axis_off()
+            plt.savefig(line_buf, format='png', dpi=300, transparent=True)
+
+    except:
+        log.debug("Exception! Exception saving line_buf.",exc_info=True)
+
     row_step = 10 #allow space in between
     plt.close('all')
-    fig = plt.figure(figsize=(G.FIGURE_SZ_X, G.GRID_SZ_Y * num_rows))
+
+    if line_image is not None:
+        fig = plt.figure(figsize=(G.FIGURE_SZ_X, G.GRID_SZ_Y * (num_rows+1)))
+    else:
+        fig = plt.figure(figsize=(G.FIGURE_SZ_X, G.GRID_SZ_Y * num_rows))
+
     plt.subplots_adjust(left=0.00, right=0.95, top=0.95, bottom=0.0)
     if num_rows > G.MAX_NEIGHBORS_IN_MAP:
         plt.suptitle(f"{total_detectids} HETDEX detections found nearby. Showing nearest {len(detectids)}.", fontsize=32)
-
-    gs = gridspec.GridSpec(row_step*num_rows,10) #rows, columns
 
     font = FontProperties()
     font.set_family('monospace')
@@ -3287,115 +4045,186 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     #     vmin = None
     #     vmax = None
 
+    #generic catalog for the utilities (use in a few place below)
+    cat = cat_base.Catalog()
 
+    if line_image is not None:
+        gs = gridspec.GridSpec(row_step*(num_rows+1),10) #rows, columns #one extra row for the line_image
+        # but DON'T CHANGE the num_rows as it is indexed to the ra, dec, wave, shot arrays
+    else:
+        gs = gridspec.GridSpec(row_step*num_rows,10) #rows, columns
 
+    gs_idx = -1 #so will start at zero
     for i in range(num_rows):
         #first the cutout
-        plt.subplot(gs[i*row_step+1:(i+1)*row_step-1,0:3])
+        gs_idx += 1
+        plt.subplot(gs[gs_idx*row_step+1:(gs_idx+1)*row_step-1,0:3])
 
-        #*** remember the positioning in pixel space is based on the RA, Dec, the pixel scale and the extent scaling
-        # (everything needs to be matched up for this to work correctly)
-        if master_cutout is not None:
-            try:
-                plt.imshow(master_cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
-                           vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
+        if True:
 
-                plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-                plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+            #*** remember the positioning in pixel space is based on the RA, Dec, the pixel scale and the extent scaling
+            # (everything needs to be matched up for this to work correctly)
+            if master_cutout is not None:
+                try:
+                    plt.imshow(master_cutout.data, origin='lower', interpolation='none', cmap=plt.get_cmap('gray_r'),
+                               vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
 
-                plt.plot(0, 0, "r+")
+                    plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+                    plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+
+                    plt.plot(0, 0, "r+")
 
 
-                # add all locations
-                if i == 0: #only for the first box
-                   for _ra, _dec in zip(all_ras,all_decs):
-                        fx, fy = sci.get_position(_ra, _dec, master_cutout)
-                        plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
+                    # add all locations
+                    if i == 0: #only for the first box
+                       for _ra, _dec in zip(all_ras,all_decs):
+                            fx, fy = sci.get_position(_ra, _dec, master_cutout)
+                            plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
+                                                          width=target_box_side, height=target_box_side,
+                                                          angle=0.0, color='white', alpha=0.75,fill=False, linewidth=1.0, zorder=2))
+
+                    # add THE neighbor box for this row on top
+                    fx, fy = sci.get_position(ras[i], decs[i], master_cutout)
+                    plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
                                                       width=target_box_side, height=target_box_side,
-                                                      angle=0.0, color='white', alpha=0.75,fill=False, linewidth=1.0, zorder=2))
+                                                      angle=0.0, color=neighbor_color, fill=False, linewidth=1.0, zorder=2))
 
-                # add THE neighbor box for this row on top
-                fx, fy = sci.get_position(ras[i], decs[i], master_cutout)
-                plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
+
+                    cat.add_north_box(plt, sci, master_cutout, distance, 0, 0, theta=None)
+
+                except:
+                    log.warning("Exception.", exc_info=True)
+
+            else:
+
+                try:
+                    fx = (ra - ras[i]) * np.cos(np.deg2rad(dec)) * 3600. #need to flip since negative RA is to the right
+                    fy = (decs[i] - dec) * 3600.
+
+                    plt.imshow(np.zeros((int(ext),int(ext))), interpolation='none', cmap=plt.get_cmap('gray_r'),
+                               vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
+
+
+                    # add all locations
+                    if i == 0:
+                        for _ra, _dec in zip(all_ras,all_decs):
+                            _fx, _fy = sci.get_position(_ra, _dec, master_cutout)
+
+                            if (_fx is not None) and (_fy is not None):
+                                plt.gca().add_patch(plt.Rectangle(((_fx - x) - target_box_side / 2.0, (_fy - y) - target_box_side / 2.0),
+                                                          width=target_box_side, height=target_box_side,
+                                                          angle=0.0, color='white', alpha=0.75,fill=False, linewidth=1.0, zorder=2))
+
+                    #add (overwrite) the highlighted location
+                    plt.gca().add_patch(plt.Rectangle((fx - target_box_side / 2.0, fy - target_box_side / 2.0),
+                                                      width=target_box_side, height=target_box_side,
+                                                      angle=0.0, color=neighbor_color, fill=False, linewidth=1.0, zorder=2))
+
+                    # plt.gca().add_patch(
+                    #     plt.Circle((fx, fy), radius=target_box_side, color='b', fill=False,zorder=9))
+
+                    plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+                    plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+
+                    plt.plot(0, 0, "r+")
+                except:
+                    log.warning("Exception.",exc_info=True)
+
+            #the 1D spectrum
+            plt.subplot(gs[gs_idx*row_step+1:(gs_idx+1)*row_step-1,3:])
+            plt.title(r'Dist: %0.1f"  RA,Dec: (%0.5f,%0.5f)   $\lambda$: %0.2f   DetectID: %s  Shot: %s'
+                      %(dists[i],ras[i],decs[i],emis[i],str(int(detectids[i])), str(shot[i])))
+            plt.plot(wave[i],spec[i],zorder=9,color='b')
+            plt.axhline(0,color='k',lw=1,zorder=0)
+            if cwave is not None:
+                plt.axvline(x=cwave,linestyle="--",zorder=1,color='k',linewidth=1.0,alpha=0.5)
+            if emis[i] != -1.0:
+                plt.axvline(x= emis[i],linestyle="--",zorder=1,color=neighbor_color,linewidth=1.0,alpha=0.5)
+            plt.xlim((G.CALFIB_WAVEGRID[0],G.CALFIB_WAVEGRID[-1]))
+
+            if (cwave is not None) and (3550.0 < cwave < 5450) and (3550.0 < emis[i] < 5450):
+                ymx = np.max(spec[i][40:991])
+                ymn = np.min(spec[i][40:991])
+                rn = ymx - ymn
+                plt.ylim(ymx-rn*1.1, ymn+rn*1.1)
+
+            #todo: check the specta lines (each detection's main line ... if 3600 to 5400, do not include
+            #todo: ends in the y-limit calculation (to avoid run-away range values)
+
+            #special case for line image
+            if i == 0 and line_image is not None: #second position
+                gs_idx += 1
+                plt.subplot(gs[gs_idx*row_step+1:(gs_idx+1)*row_step-1,0:3]) #,projection=master_cutout.wcs)
+
+                i_ext = ext #distance * 1.5 #ext for the line image can be on a different scale than master_cutout
+
+                # try:
+                #     diff_pix = sci.calc_pixel_size(line_image.wcs) / sci.calc_pixel_size(master_cutout.wcs)
+                # except:
+                #     diff_pix = 1.0
+                #
+                # log.info(f"Neighborhood map line_image pixelscale/master_cutout {diff_pix}")
+
+                #if line_buf is not None:
+                if False:
+                   line_buf.seek(0)
+                   rot_line_image = PIL_Image.open(line_buf)
+                   plt.imshow(rot_line_image,# origin='lower', interpolation='none',#cmap=plt.get_cmap('gray_r'),
+                              vmin=line_image.vmin, vmax=line_image.vmax)#, extent=[-i_ext, i_ext, -i_ext, i_ext])
+                else:
+
+                    plt.imshow(line_image.data, origin='lower', interpolation='none',#cmap=plt.get_cmap('gray_r'),
+                              vmin=line_image.vmin, vmax=line_image.vmax,extent=[-i_ext, i_ext, -i_ext, i_ext])
+
+
+                    #plt.colorbar()#,fraction=0.07)#,anchor=(0.3,0.0))
+
+                    plt.xticks([int(i_ext), int(i_ext / 2.), 0, int(-i_ext / 2.), int(-i_ext)])
+                    plt.yticks([int(i_ext), int(i_ext / 2.), 0, int(-i_ext / 2.), int(-i_ext)])
+
+                    #zero position box (the detection)
+                    plt.gca().add_patch(plt.Rectangle(( 0 - target_box_side / 2.0,  0 - target_box_side / 2.0),
                                                   width=target_box_side, height=target_box_side,
                                                   angle=0.0, color=neighbor_color, fill=False, linewidth=1.0, zorder=2))
-            except:
-                log.warning("Exception.", exc_info=True)
 
 
-            # karl_coords = [(228.785690,51.266525), (228.784790,51.266094),
-            #                (228.787079,51.266685), (228.783798,51.267006),
-            #                (228.787872,51.266041), (228.784744, 51.267876),
-            #                (228.787430,51.268143), (228.787140,51.269211)]
-            # for kc in karl_coords:
-            #     karl_x, karl_y = sci.get_position(kc[0],kc[1],master_cutout)
-            #     plt.gca().add_patch(plt.Rectangle(((karl_x - x) - target_box_side / 2.0, (karl_y - y) - target_box_side / 2.0),
-            #                                       width=target_box_side, height=target_box_side,
-            #                                       angle=0.0, color='r', fill=False, linewidth=1.0, zorder=2))
-            #
-            #
-            # # add neighbor box
-            # fx, fy = sci.get_position(ras[i], decs[i], master_cutout)
-            # plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
-            #                                   width=target_box_side, height=target_box_side,
-            #                                   angle=0.0, color='b', fill=False, linewidth=1.0, zorder=2))
-            #
+                    cat.add_north_box(plt, sci, line_image, distance, 0, 0, theta=None)#np.pi/2.0)
+
+                #add other detections
+                # cx, cy = sci.get_position(ra, dec, line_image)
+                #
+                # for _ra, _dec in zip(all_ras,all_decs):
+                #     fx, fy = sci.get_position(_ra, _dec, line_image)
+                #     plt.gca().add_patch(plt.Rectangle(((fx - cx)  - target_box_side / 2.0, (fy - cy)  - target_box_side / 2.0),
+                #                                       width=target_box_side, height=target_box_side,
+                #                                       angle=0.0, color='white', alpha=0.75,fill=False, linewidth=1.0, zorder=2))
+
+                #the 1D spectrum for the line image
+                plt.subplot(gs[gs_idx*row_step+1:(gs_idx+1)*row_step-1,3:])
+                plt.title(r'Line Image: $\lambda$: %0.2f +/- %0.2f'  %(emis[i],line_image.d_wave))
+                plt.plot(wave[i],spec[i],zorder=9,color='b')
+                plt.axhline(0,color='k',lw=1,zorder=0)
+
+                if line_image.wave is not None:
+                    yl, yh = plt.gca().get_ylim()
+
+                    plt.fill_between([line_image.wave-line_image.d_wave,line_image.wave+line_image.d_wave],
+                                     yl,yh,facecolor='gold',alpha=0.5,zorder=5)
 
 
-        else:
 
-            try:
-                fx = (ra - ras[i]) * np.cos(np.deg2rad(dec)) * 3600. #need to flip since negative RA is to the right
-                fy = (decs[i] - dec) * 3600.
+                # if cwave is not None:
+                #     plt.axvline(x=cwave,linestyle="--",zorder=1,color='k',linewidth=1.0,alpha=0.5)
+                # if emis[i] != -1.0:
+                #     plt.axvline(x= emis[i],linestyle="--",zorder=1,color=neighbor_color,linewidth=1.0,alpha=0.5)
+                plt.xlim((G.CALFIB_WAVEGRID[0],G.CALFIB_WAVEGRID[-1]))
 
-                plt.imshow(np.zeros((int(ext),int(ext))), interpolation='none', cmap=plt.get_cmap('gray_r'),
-                           vmin=vmin, vmax=vmax, extent=[-ext, ext, -ext, ext])
+                # if (cwave is not None) and (3550.0 < cwave < 5450) and (3550.0 < emis[i] < 5450):
+                #     ymx = np.max(spec[i][40:991])
+                #     ymn = np.min(spec[i][40:991])
+                #     rn = ymx - ymn
+                #     plt.ylim(ymx-rn*1.1, ymn+rn*1.1)
 
-
-                # add all locations
-                if i == 0:
-                    for _ra, _dec in zip(all_ras,all_decs):
-                        _fx, _fy = sci.get_position(_ra, _dec, master_cutout)
-
-                        if (_fx is not None) and (_fy is not None):
-                            plt.gca().add_patch(plt.Rectangle(((_fx - x) - target_box_side / 2.0, (_fy - y) - target_box_side / 2.0),
-                                                      width=target_box_side, height=target_box_side,
-                                                      angle=0.0, color='white', alpha=0.75,fill=False, linewidth=1.0, zorder=2))
-
-                #add (overwrite) the highlighted location
-                plt.gca().add_patch(plt.Rectangle((fx - target_box_side / 2.0, fy - target_box_side / 2.0),
-                                                  width=target_box_side, height=target_box_side,
-                                                  angle=0.0, color=neighbor_color, fill=False, linewidth=1.0, zorder=2))
-
-                # plt.gca().add_patch(
-                #     plt.Circle((fx, fy), radius=target_box_side, color='b', fill=False,zorder=9))
-
-                plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-                plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
-
-                plt.plot(0, 0, "r+")
-            except:
-                log.warning("Exception.",exc_info=True)
-
-        #the 1D spectrum
-        plt.subplot(gs[i*row_step+1:(i+1)*row_step-1,3:])
-        plt.title(r'Dist: %0.1f"  RA,Dec: (%0.5f,%0.5f)   $\lambda$: %0.2f   DetectID: %s  Shot: %s'
-                  %(dists[i],ras[i],decs[i],emis[i],str(int(detectids[i])), str(shot[i])))
-        plt.plot(wave[i],spec[i],zorder=9,color='b')
-        if cwave is not None:
-            plt.axvline(x=cwave,linestyle="--",zorder=1,color='k',linewidth=1.0,alpha=0.5)
-        if emis[i] != -1.0:
-            plt.axvline(x= emis[i],linestyle="--",zorder=1,color=neighbor_color,linewidth=1.0,alpha=0.5)
-        plt.xlim((G.CALFIB_WAVEGRID[0],G.CALFIB_WAVEGRID[-1]))
-
-        if (cwave is not None) and (3550.0 < cwave < 5450) and (3550.0 < emis[i] < 5450):
-            ymx = np.max(spec[i][40:991])
-            ymn = np.min(spec[i][40:991])
-            rn = ymx - ymn
-            plt.ylim(ymx-rn*1.1, ymn+rn*1.1)
-
-        #todo: check the specta lines (each detection's main line ... if 3600 to 5400, do not include
-        #todo: ends in the y-limit calculation (to avoid run-away range values)
 
 
     if fname is not None:
@@ -3419,7 +4248,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     #plt.tight_layout()
     plt.savefig(buf, format='png', dpi=150)#,bbox_inches = 'tight', pad_inches = 0)
 
-    return buf, nei_buf
+    return buf, nei_buf, line_buf
 
 
 def check_package_versions():
@@ -3430,7 +4259,7 @@ def check_package_versions():
 
 def main():
 
-    global G_PDF_FILE_NUM
+    global G_PDF_FILE_NUM, OS_PNG_ONLY
     
     already_launched_viewer = False #skip the PDF viewer laun
 
@@ -3439,6 +4268,9 @@ def main():
     #G.gc.set_debug(G.gc.DEBUG_LEAK)
     try:
         args = parse_commandline()
+        if args is None:
+            print("Unable to parse command line. Exiting...")
+            exit(0)
     except:
         log.critical("Exception in command line.",exc_info=True)
         exit(0)
@@ -3469,20 +4301,23 @@ def main():
     if args.neighborhood_only:
         args.neighborhood = args.neighborhood_only
 
-    if G.USE_PHOTO_CATS:
-        cat_library = catalogs.CatalogLibrary()
-        cats = cat_library.get_full_catalog_list()
-        catch_all_cat = cat_library.get_catch_all()
-        cat_sdss = cat_library.get_sdss()
-        cat_panstarrs = cat_library.get_panstarrs()
-        cat_decals_web = cat_library.get_decals_web()
-    else:
-        cat_library = []
-        cats = []
-        catch_all_cat = []
-        cat_sdss = []
-        cat_panstarrs = []
-        cat_decals_web = []
+    try:
+        if (args.dispatch is None) or ('jupyter' in G.hostname.lower()):
+            OS_PNG_ONLY = False
+        else: #if in dispatch mode, likely this is on stampede2 or other HPC and we should use the system call
+            OS_PNG_ONLY = True
+    except:
+        OS_PNG_ONLY = False
+
+    #always build these ... the library handles the USE_PHOTO_CATS (--nophoto) global
+    cat_library = catalogs.CatalogLibrary()
+    cats = cat_library.get_full_catalog_list()
+    catch_all_cat = cat_library.get_catch_all()
+
+    #these web catalogs are handled individually with --sdss, --panstars, --decals
+    cat_sdss = cat_library.get_sdss()
+    cat_panstarrs = cat_library.get_panstarrs()
+    cat_decals_web = cat_library.get_decals_web()
 
     #
     # build_neighborhood_map(args.hdf5, 1000525650,None, None, args.neighborhood,cwave=None,fname='lycon/test_nei.png')
@@ -3527,12 +4362,53 @@ def main():
         if hdf5_detectid_list is not None:
             log.info("Processing %d entries in HDF5" %(len(hdf5_detectid_list)))
             print("Processing %d entries in HDF5" %(len(hdf5_detectid_list)))
-
+    else: #still even if neighborhood_only, may want neighborhood around detection
+        hdf5_detectid_list = get_hdf5_detectids_to_process(args)
     #add as a payload to args so can easily check later
     args.explicit_extraction = explicit_extraction
 
     PDF_File(args.name, 1) #use to pre-create the output dir (just toss the returned pdf container)
 
+    #clustering ID check
+    cluster_list = None
+    if args.cluster:
+        try:
+            #open h5 file (make sure it is okay)
+            #the full path might not have been provided, so if this fails assume we are in a dispatch_xxxx location
+            #and try again higher up
+            if os.path.exists(args.cluster):
+                cluster_h5 = tables.open_file(args.cluster)
+            elif os.path.exists(os.path.join("../../",args.cluster)):
+                cluster_h5 = tables.open_file(os.path.join("../../",args.cluster))
+            else:
+                print(f"Fatal. Unable to locate/open clustering input h5 file {args.cluster}")
+                exit(-1)
+
+            # then run clustering on multiple IDs
+            cluster_list = clustering.cluster_multiple_detectids(hdf5_detectid_list,cluster_h5,outfile=False)
+
+            # then replace the hdf5_detectid_list with just those returned
+            if cluster_list is not None and len(cluster_list) > 0:
+                old_len = len(hdf5_detectid_list)
+                hdf5_detectid_list = [c['detectid'] for c in cluster_list]
+                log.info(f"Reduced initial detectionIDs to re-run for clustering. New count = {len(hdf5_detectid_list)}, old count = {old_len}.")
+                print(f"Reduced initial detectionIDs to re-run for clustering. New count = {len(hdf5_detectid_list)}, old count = {old_len}.")
+            else:
+                print("No clustering identified. Exiting.")
+                cluster_h5.close()
+                exit(0)
+
+            #close the h5 file
+            cluster_h5.close()
+
+            #turn off neighborhood request
+            if args.neighborhood is not None and args.neighborhood != 0:
+                args.neighborhood = 0
+                args.neighborhood_only = 0
+                log.info("CLUSTERING ... turn off neighborhood map.")
+        except Exception as e:
+            print("Fatal exception.",e)
+            exit(-1)
 
 
     #if this is a re-run (recovery run) remove any detections that have already been processed
@@ -3613,7 +4489,7 @@ def main():
 
                 for ifu in ifu_list:
                     args.ifuslot = int(ifu)
-                    hd = hetdex.HETDEX(args,basic_only=basic_only)
+                    hd = hetdex.HETDEX(args,basic_only=basic_only,cluster_list=cluster_list)
                     if (hd is not None) and (hd.status != -1):
                         hd_list.append(hd)
             elif len(fcsdir_list) > 0: #rsp style
@@ -3630,7 +4506,7 @@ def main():
 
                 for key in obs_dict.keys():
                     plt.close('all')
-                    hd = hetdex.HETDEX(args,fcsdir_list=obs_dict[key],basic_only=basic_only) #builds out the hd object (with fibers, DetObj, etc)
+                    hd = hetdex.HETDEX(args,fcsdir_list=obs_dict[key],basic_only=basic_only,cluster_list=cluster_list) #builds out the hd object (with fibers, DetObj, etc)
                     #todo: maybe join all hd objects that have the same observation
                     # could save in loading catalogs (assuming all from the same observation)?
                     # each with then multiple detections (DetObjs)
@@ -3643,7 +4519,7 @@ def main():
                         plt.close('all')
 
                         if isinstance(d,np.int64): #this is a detetid, not list of values RA, Dec, ...
-                            hd = hetdex.HETDEX(args, fcsdir_list=None, hdf5_detectid_list=[d], basic_only=basic_only)
+                            hd = hetdex.HETDEX(args, fcsdir_list=None, hdf5_detectid_list=[d], basic_only=basic_only,cluster_list=cluster_list)
                             if hd.status == 0:
                                 hd_list.append(hd)
                             continue
@@ -3652,19 +4528,19 @@ def main():
                         #update the args with the ra dec and shot to build an appropriate hetdex object for extraction
                         try:
                             if len(d) == 2:
-                                args.ra = d[0]
-                                args.dec = d[1]
+                                args.ra = float(d[0])
+                                args.dec = float(d[1])
                                 args.shotid = None
                             elif len(d) == 3:
-                                args.ra = d[0]
-                                args.dec = d[1]
+                                args.ra = float(d[0])
+                                args.dec = float(d[1])
                                 args.shotid = xlat_shotid(d[2])
                                 if (args.shotid is not None) and (3400. < args.shotid < 5700.): #assume this is really a wavelength
                                     args.wavelength = args.shotid
                                     args.shotid = None
                             elif len(d) == 4:
-                                args.ra = d[0]
-                                args.dec = d[1]
+                                args.ra = float(d[0])
+                                args.dec = float(d[1])
                                 args.shotid = xlat_shotid(d[2])
                                 if (args.shotid is not None) and (3400. < args.shotid < 5700.):  # assume this is really a wavelength and shotid is flipped with wavelength
                                     args.wavelength = args.shotid
@@ -3673,6 +4549,18 @@ def main():
                                     args.wavelength = float(d[3])
                                 if args.wavelength == 0:
                                     args.wavelength = None
+                            elif len(d) == 5:
+                                args.ra = float(d[0])
+                                args.dec = float(d[1])
+                                args.shotid = xlat_shotid(d[2])
+                                if (args.shotid is not None) and (3400. < args.shotid < 5700.):  # assume this is really a wavelength and shotid is flipped with wavelength
+                                    args.wavelength = args.shotid
+                                    args.shotid = xlat_shotid(d[3])
+                                else:
+                                    args.wavelength = float(d[3])
+                                if args.wavelength == 0:
+                                    args.wavelength = None
+                                args.manual_name = int(d[4]) #needs to be an int
                             else:
                                 #something wrong
                                 log.error(f"Unable to build hetdex object for entry d: ({d})")
@@ -3694,11 +4582,11 @@ def main():
                                                                radius=G.FOV_RADIUS_DEGREE*U.deg)
                                 for s in shotlist:
                                     args.shotid = s
-                                    hd = hetdex.HETDEX(args, basic_only=basic_only)
+                                    hd = hetdex.HETDEX(args, basic_only=basic_only,cluster_list=cluster_list)
                                     if hd.status == 0:
                                         hd_list.append(hd)
                             else:
-                                hd = hetdex.HETDEX(args,basic_only=basic_only)
+                                hd = hetdex.HETDEX(args,basic_only=basic_only,cluster_list=cluster_list)
                                 if hd.status == 0:
                                     hd_list.append(hd)
                         except:
@@ -3711,7 +4599,7 @@ def main():
                     #only one detection per hetdex object
                     for d in hdf5_detectid_list:
                         plt.close('all')
-                        hd = hetdex.HETDEX(args,fcsdir_list=None,hdf5_detectid_list=[d],basic_only=basic_only)
+                        hd = hetdex.HETDEX(args,fcsdir_list=None,hdf5_detectid_list=[d],basic_only=basic_only,cluster_list=cluster_list)
 
                         if hd.status == 0:
                             hd_list.append(hd)
@@ -3719,13 +4607,13 @@ def main():
             elif explicit_extraction:
 
                 if args.shotid:
-                    hd = hetdex.HETDEX(args,basic_only=basic_only) #builds out the hd object (with fibers, DetObj, etc)
+                    hd = hetdex.HETDEX(args,basic_only=basic_only,cluster_list=cluster_list) #builds out the hd object (with fibers, DetObj, etc)
                     if hd is not None:
                         if hd.status == 0:
                             hd_list.append(hd)
                 elif args.neighborhood_only:
                     args.shotid = "00000000000"
-                    hd = hetdex.HETDEX(args, basic_only=basic_only)
+                    hd = hetdex.HETDEX(args, basic_only=basic_only,cluster_list=cluster_list)
                     if hd.status == 0:
                         hd_list.append(hd)
                 else:
@@ -3742,7 +4630,7 @@ def main():
                                                    radius=G.FOV_RADIUS_DEGREE * U.deg)
                     for s in shotlist:
                         args.shotid = s
-                        hd = hetdex.HETDEX(args, basic_only=basic_only)
+                        hd = hetdex.HETDEX(args, basic_only=basic_only,cluster_list=cluster_list)
                         if hd.status == 0:
                             hd_list.append(hd)
 
@@ -3768,7 +4656,7 @@ def main():
 
 
             else: #this should not happen
-                hd = hetdex.HETDEX(args) #builds out the hd object (with fibers, DetObj, etc)
+                hd = hetdex.HETDEX(args,cluster_list=cluster_list) #builds out the hd object (with fibers, DetObj, etc)
                 if hd is not None:
                     if hd.status == 0:
                         hd_list.append(hd)
@@ -4037,7 +4925,7 @@ def main():
                 exit(-1)
 
             #need to combine PLAE/POII and other classification data before joining report parts
-            if G.COMBINE_PLAE and not G.CONTINUUM_RULES:
+            if G.COMBINE_PLAE: # and not G.CONTINUUM_RULES:
                 for h in hd_list:
                     for e in h.emis_list:
                         if e.status >= 0:
@@ -4068,18 +4956,82 @@ def main():
                                                           % (round(plae, 3), round(plae_high, 3), round(plae_low, 3),
                                                              int(scale_plae), reason)
                                         else:
-                                            header_text = r"Combined P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  P(Ly$\alpha$): %0.3f" \
-                                                      % (round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae)
+                                            try: #will want to check some flags in best_redshift() to impact p_of_z
+                                                if not e.full_flag_check_performed:
+                                                    e.flag_check()
+                                                if e.flags != 0:
+                                                    header_text += f"    Flags:0x{e.flags:08x}"
+                                            except:
+                                                pass
+
+                                            best_z, p_of_z = e.best_redshift()
+
+                                            if e.flags & G.DETFLAG_UNCERTAIN_CLASSIFICATION:
+                                                e.flags |= G.DETFLAG_FOLLOWUP_NEEDED
+
+                                            if (e.flags & G.DETFLAG_FOLLOWUP_NEEDED) or \
+                                               (e.flags & G.DETFLAG_LARGE_NEIGHBOR and e.flags & G.DETFLAG_COUNTERPART_NOT_FOUND):
+                                                e.needs_review = 1
+
+                                            try:
+                                                combined_ew = e.classification_dict['combined_eqw_rest_lya']
+                                                combined_ew_err = e.classification_dict['combined_eqw_rest_lya_err']
+                                            except:
+                                                combined_ew = 0
+                                                combined_ew_err = 0
+
+                                            if p_of_z > 0:
+                                                if e.cluster_z == best_z:
+                                                    e.flags |= G.DETFLAG_Z_FROM_NEIGHBOR
+                                                    header_text = r"EW: %0.1f$\pm$%0.1f$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  " \
+                                                                  r"P(Ly$\alpha$): %0.3f  Q(z): %0.2f  z: %0.4f*" \
+                                                                  % (max(-9999,min(combined_ew,9999)),max(-9999,min(combined_ew_err,9999)),
+                                                                      round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae,p_of_z,best_z)
+                                                else:
+                                                    #what line is best_z?
+                                                    try:
+                                                        if G.CONTINUUM_RULES and e.spec_obj.solutions is not None and \
+                                                            len(e.spec_obj.solutions) > 0 and e.spec_obj.solutions[0].emission_line.absorber:
+                                                            line_label = e.spec_obj.match_line(e.w,best_z,z_error=0.001,allow_absorption=True).name
+                                                        else:
+                                                            line_label = e.spec_obj.match_line(e.w,best_z,z_error=0.001).name
+                                                    except:
+                                                        line_label = ""
+
+                                                    header_text = r"EW: %0.1f$\pm$%0.1f$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  " \
+                                                              r"P(Ly$\alpha$): %0.3f  Q(z): %0.2f  z: %0.4f %s" \
+                                                          % (max(-9999,min(combined_ew,9999)),max(-9999,min(combined_ew_err,9999)),round(plae, 3),round(plae_high, 3),round(plae_low, 3),
+                                                             scale_plae,p_of_z,best_z,line_label)
+                                            else:
+                                                header_text = r"EW: %0.1f$\pm$%0.1f$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  P(Ly$\alpha$): %0.3f" \
+                                                  % (max(-9999,min(combined_ew,9999)),max(-9999,min(combined_ew_err,9999)),round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae)
 
                                         try:
                                             if len(e.spec_obj.classification_label) > 0:
-                                                header_text += "     " + e.spec_obj.classification_label.rstrip(",")
+                                                header_text += "  " + e.spec_obj.classification_label.rstrip(",")
                                         except:
                                             pass
                                     except:
                                         pass
+
+
                                 try:
-                                    build_report_part(os.path.join(e.outdir, e.pdf_name),[make_zeroth_row_header(header_text)],0)
+                                    if not e.full_flag_check_performed:
+                                        e.flag_check()
+                                    if e.flags != 0:
+                                        header_text += f"  Flags:0x{e.flags:08x}"
+                                    if reason is not None and len(reason) > 3 and scale_plae >= 0:
+                                        header_text += f"  {reason}"
+                                except:
+                                    pass
+
+
+                                if G.LyC:
+                                    header_text += f" (Lyman Continuum Focus)"
+
+
+                                try:
+                                    build_report_part(os.path.join(e.outdir, e.pdf_name),[make_zeroth_row_header(header_text,redtext=e.red_header)],0)
                                 except:
                                     log.debug("Exception calling build_report_part",exc_info=True)
                         # else: #try both
@@ -4103,7 +5055,7 @@ def main():
             elif G.CONTINUUM_RULES:
                 header_text = "Continuum Source"
                 try:
-                    build_report_part(os.path.join(e.outdir, e.pdf_name), [make_zeroth_row_header(header_text)], 0)
+                    build_report_part(os.path.join(e.outdir, e.pdf_name), [make_zeroth_row_header(header_text,redtext=e.red_header)], 0)
                 except:
                     log.debug("Exception calling build_report_part", exc_info=True)
 
@@ -4126,8 +5078,36 @@ def main():
                     delete_report_parts(args.name)
 
 
+
+            if G.LyC:
+                #top level call to fetch the neighbor spectra for each of the detection objects
+                try:
+                    for hd in hd_list:
+                        for e in hd.emis_list:
+                            if e.status >=0:
+                                #todo: need to refine the aperture details list
+                                #there can be multiple filters and multiple catalog/instruments
+                                #we only want ONE instance of each neighbor
+                                neighbors = e.unique_sep_neighbors() #returnd list of sep objects (list of dictionaries)
+                                #this is also a property of the DetObj (e.neighbors_sep_list)
+                                #so can work on that list
+                                #so go ahead and fetch the spectra for each entry
+                                if (e.neighbors_sep is not None) and (e.neighbors_sep['sep_objects'] is not None):
+                                    for n in e.neighbors_sep['sep_objects']:
+                                        e.neighbor_forced_extraction(n,filter=e.neighbors_sep['filter_name'],catalog_name=neighbors['catalog_name']) #populates the spectrum
+
+                except:
+                    log.error("Exception! Exception building LyC project Neighbor spectra. Top level.",exc_info=True)
+
+
             if G.BUILD_HDF5_CATALOG: #change to HDF5 catalog
                 try:
+                    #check flags ... only get recorded in HDF5, so only do that here
+                    for hd in hd_list:
+                        for e in hd.emis_list:
+                            if not e.full_flag_check_performed:
+                                e.flag_check()
+
                     h5name = os.path.join(args.name, args.name + "_cat.h5")
                     elixer_hdf5.extend_elixer_hdf5(h5name,hd_list,overwrite=True)
                     for hd in hd_list:
@@ -4136,13 +5116,13 @@ def main():
                                 d_id = e.hdf5_detectid
                                 entry_ct = elixer_hdf5.detectid_in_file(h5name,d_id)
                                 if entry_ct != 1:
-                                    log.warning(f"Unexpected number of entries in h5 file for detectid {d_id}, file {h5name}")
+                                    log.warning(f"Unexpected number of entries ({entry_ct}) in h5 file for detectid {d_id}, file {h5name}")
                                     if entry_ct == 0:
                                         log.warning(f"Retry insertion into h5 file. detectid = {d_id}")
-                                        elixer_hdf5.extend_elixer_hdf5(h5name, [d_id], overwrite=True)
+                                        elixer_hdf5.extend_elixer_hdf5(h5name, [hd], overwrite=True)
                                         entry_ct = elixer_hdf5.detectid_in_file(h5name, d_id)
                                         if entry_ct != 1:
-                                            log.warning(f"No retry: Unexpected number of entries in h5 file for detectid {d_id}, file {h5name}")
+                                            log.warning(f"No retry: Unexpected number of entries ({entry_ct}) in h5 file for detectid {d_id}, file {h5name}")
                 except:
                     log.error("Exception building HDF5 catalog",exc_info=True)
 
@@ -4246,18 +5226,29 @@ def main():
                             nei_name = os.path.join(pdf.basename, str(e.entry_id) + "_nei.png")
                         else:
                             nei_name = os.path.join(pdf.basename, e.pdf_name.rstrip(".pdf") + "_nei.png")
-                        _, nei_mini_buf = build_neighborhood_map(hdf5=args.hdf5, cont_hdf5=G.HDF5_CONTINUUM_FN,
+
+                        if e.fwhm < 0:
+                            wave_range = [e.w-12.5,e.w+12.5]
+                        else:
+                            wave_range = [e.w-e.fwhm*3/2.355,e.w+e.fwhm*3/2.355]
+
+                        _, nei_mini_buf, line_mini_buf = build_neighborhood_map(hdf5=args.hdf5, cont_hdf5=G.HDF5_CONTINUUM_FN,
                                            detectid=None, ra=ra, dec=dec, distance=args.neighborhood, cwave=e.w,
                                            fname=nei_name, original_distance=args.error,
                                            this_detection=e if explicit_extraction else None,
-                                           broad_hdf5=G.HDF5_BROAD_DETECT_FN)
+                                           broad_hdf5=G.HDF5_BROAD_DETECT_FN,
+                                           primary_shotid=e.survey_shotid,
+                                           wave_range=wave_range)
+
+                        e.nei_mini_buf = nei_mini_buf
+                        e.line_mini_buf = line_mini_buf
                     except:
                         log.warning("Exception calling build_neighborhood_map.",exc_info=True)
 
             if len(hd_list) == 0: #there were not any hetdex detections to anchor, just use RA, Dec?
                 if (args.ra is not None) and (args.dec is not None):
                     try:
-                        _, nei_mini_buf = build_neighborhood_map(hdf5=args.hdf5, cont_hdf5=G.HDF5_CONTINUUM_FN,
+                        _, nei_mini_buf, line_mini_buf = build_neighborhood_map(hdf5=args.hdf5, cont_hdf5=G.HDF5_CONTINUUM_FN,
                                            detectid=None, ra=args.ra, dec=args.dec, distance=args.neighborhood,
                                            cwave=None,
                                            fname=os.path.join(args.name, args.name + "_nei.png"),
@@ -4279,13 +5270,15 @@ def main():
                         mini_name = os.path.join(pdf.basename, str(e.entry_id) + "_mini.png")
                     else:
                         mini_name = os.path.join(pdf.basename, e.pdf_name.rstrip(".pdf") + "_mini.png")
+
                     build_3panel_zoo_image(fname=mini_name,
                                            image_2d_fiber=e.image_2d_fibers_1st_col,
                                            image_1d_fit=e.image_1d_emission_fit,
                                            image_cutout_fiber_pos=e.image_cutout_fiber_pos,
-                                           image_cutout_neighborhood=nei_mini_buf,
+                                           image_cutout_neighborhood=e.nei_mini_buf,
                                            image_cutout_fiber_pos_size=args.error,
-                                           image_cutout_neighborhood_size=args.neighborhood)
+                                           image_cutout_neighborhood_size=args.neighborhood,
+                                           line_image_cutout=e.line_mini_buf)
 
 
         # really has to be here (hd_list is reset on each loop and the "recover" will not work otherwise)

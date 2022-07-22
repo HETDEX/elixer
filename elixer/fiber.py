@@ -409,7 +409,8 @@ class Fiber:
                     fn = op.join(path, name)
 
             if not op.isfile(fn):
-                log.info("Could not locate HDF5 multi-fits equivalent file: %s" %fn)
+                log.error("Could not locate HDF5 multi-fits equivalent file: %s" %fn)
+                print(f"Could not locate HDF5 multi-fits equivalent file: {fn}")
                 fn = None
         except:
             log.error("Exception attempting to locate HDF5 multi-fits equivalent file", exc_info=True)

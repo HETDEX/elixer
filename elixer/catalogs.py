@@ -17,6 +17,10 @@ try:
     from elixer import cat_panstarrs
     from elixer import cat_catch_all
     from elixer import cat_decals_web
+    from elixer import cat_cfhtls
+    #from elixer import cat_wise_web
+    from elixer import cat_hsc_nep
+    from elixer import cat_hsc_ssp
     # from elixer import cat_ast376_shela
 except:
     import global_config as G
@@ -32,6 +36,10 @@ except:
     import cat_sdss
     import cat_panstarrs
     import cat_decals_web
+    import cat_cfhtls
+    #import cat_wise_web
+    import cat_hsc_nep
+    import cat_hsc_ssp
     # from elixer import cat_ast376_shela
 
 # log = G.logging.getLogger('Cat_logger')
@@ -84,18 +92,22 @@ class CatalogLibrary:
             del self.cats[:]
 
         self.cats = list()
-        self.cats.append(cat_candles_egs_stefanon_2016.CANDELS_EGS_Stefanon_2016())
-        self.cats.append(cat_goods_n.GOODS_N())
-        # self.cats.append(cat_goods_n_finkelstein.GOODS_N_FINKELSTEIN())
-        # self.cats.append(EGS_GROTH()) #this is of no value right now
-        self.cats.append(cat_stack_cosmos.STACK_COSMOS())
-        self.cats.append(cat_shela.SHELA())
-        self.cats.append(cat_hsc.HSC())
-        self.cats.append(cat_kpno.KPNO())
-        # if comment out KPNO turn off KPNO inclusion in HSC
-        # self.cats[-1].INCLUDE_KPNO_G = False
-        # self.cats.append(cat_ast376_shela.AST376_SHELA())
-
+        if G.USE_PHOTO_CATS:
+            # self.cats.append(cat_ast376_shela.AST376_SHELA())
+            self.cats.append(cat_candles_egs_stefanon_2016.CANDELS_EGS_Stefanon_2016())
+            self.cats.append(cat_goods_n.GOODS_N())
+            # self.cats.append(cat_goods_n_finkelstein.GOODS_N_FINKELSTEIN())
+            # self.cats.append(EGS_GROTH()) #this is of no value right now
+            #print("!!!!! TURNED OFF SHELA and COSMOS !!!!!!!!!!")
+            # self.cats.append(cat_stack_cosmos.STACK_COSMOS())
+            # self.cats.append(cat_shela.SHELA())
+            self.cats.append(cat_hsc.HSC())
+            self.cats.append(cat_hsc_ssp.HSC_SSP())
+            self.cats.append(cat_kpno.KPNO())
+            # notice: if comment out KPNO turn off KPNO inclusion in HSC, also need to un-comment the next line to remove from HSC
+            # self.cats[-1].INCLUDE_KPNO_G = False
+            self.cats.append(cat_cfhtls.CFHTLS())
+            #self.cats.append(cat_hsc_nep.HSC_NEP()))
 
     def get_full_catalog_list(self):
         if self.cats is None:
@@ -232,8 +244,9 @@ class CatalogLibrary:
                           note: will be forced to radius if radius is smaller than aperture
                           note: a value of 99.9 means the magnitude could not be calculated (usually an
                             error with the pixel counts or photutils)
-        :param dynamic: optional - if True, the aperture provided will grow in 0.1 arcsec steps until the
-                        magnitude stabalizes (similar to, but not curve of growth)
+        :param dynamic: optional - if True and the aperture parameter is non-zero, the aperture will grow in 0.1 arcsec
+                        steps, starting from the specified aperture until the magnitude stabalizes (similar to, but not
+                        curve of growth)
         :param nudge: optional - if not None, specifies the amount of drift (in x and y in arcsecs) allowed
                       for the center of the aperture to align it with the local 2D Gaussian centroid of the
                       pixel counts. If None or 0.0, the center is not allowed to move and stays on the

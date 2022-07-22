@@ -4,6 +4,13 @@ from __future__ import print_function
 """
 KPNO 4m
 
+KPNO - The HETDEX-IMG survey can be found at:
+http://archive1.dm.noao.edu/search/query/ (search for 2011A-0186, 2012A-0282, and
+2015A-0075 in the Program Number Field).
+Documentation of the KPNO Mosaic, 1.1, as well as known features of the data, can be found 
+at: http://ast.noao.edu/sites/default/files/NOAO_DHB_v2.2.pdf.
+
+
 """
 
 try:
@@ -59,7 +66,7 @@ def kpno_count_to_mag(count,cutout=None,headers=None):
     else:
         return 99.9  # need a better floor
 
-class KPNO(cat_base.Catalog):#Kit Peak
+class KPNO(cat_base.Catalog):#Kitt Peak
     # class variables
     KPNO_BASE_PATH = G.KPNO_BASE_PATH
     KPNO_CAT_PATH = G.KPNO_CAT_PATH
@@ -67,13 +74,13 @@ class KPNO(cat_base.Catalog):#Kit Peak
 
     CONT_EST_BASE = None
 
-    MAG_LIMIT = 26.0 #generous, I think ... more like 25.few?
+    MAG_LIMIT = 24.7 #-ish in 1" at 5-sigma maybe up to 25 in some (23.4 at 2")
 
     df = None
     loaded_tracts = []
 
     MainCatalog = None #there is no Main Catalog ... must load individual catalog tracts
-    Name = "KPNO"
+    Name = "MOSAIC/KPNO"
 
     mean_FWHM = 1.0 #typically better, but this is an okay worst case
     Image_Coord_Range = kpno_meta.Image_Coord_Range
@@ -171,15 +178,34 @@ class KPNO(cat_base.Catalog):#Kit Peak
             tile = keys[0] #remember tile is a string ... there can be only one
         elif len(keys) > 1: #find the best one
             log.info("Multiple overlapping tiles %s. Sub-selecting tile with maximum angular coverage around target." %keys)
-            min = 9e9
+            # min = 9e9
+            # #we don't have the actual corners anymore, so just assume a rectangle
+            # #so there are 2 of each min, max coords. Only need the smallest distance so just sum one
+            # for k in keys:
+            #     sqdist = (ra-self.Tile_Dict[k]['RA_min'])**2 + (dec-self.Tile_Dict[k]['Dec_min'])**2 + \
+            #              (ra-self.Tile_Dict[k]['RA_max'])**2 + (dec-self.Tile_Dict[k]['Dec_max'])**2
+            #     if sqdist < min:
+            #         min = sqdist
+            #         tile = k
+            #
+
+            max_dist = 0
             #we don't have the actual corners anymore, so just assume a rectangle
             #so there are 2 of each min, max coords. Only need the smallest distance so just sum one
             for k in keys:
-                sqdist = (ra-self.Tile_Dict[k]['RA_min'])**2 + (dec-self.Tile_Dict[k]['Dec_min'])**2 + \
-                         (ra-self.Tile_Dict[k]['RA_max'])**2 + (dec-self.Tile_Dict[k]['Dec_max'])**2
-                if sqdist < min:
-                    min = sqdist
+
+                #should not be negative, but could be?
+                #in any case, the min is the smallest distance to an edge in RA and Dec
+                inside_ra = min((ra-self.Tile_Dict[k]['RA_min']),(self.Tile_Dict[k]['RA_max']-ra))
+                inside_dec = min((dec-self.Tile_Dict[k]['Dec_min']),(self.Tile_Dict[k]['Dec_max']-dec))
+
+                edge_dist = min(inside_dec,inside_ra)
+                #we want the tile with the largest minium edge distance
+
+                if edge_dist > max_dist and op.exists(self.Tile_Dict[k]['path']):
+                    max_dist = edge_dist
                     tile = k
+
 
         else: #really?? len(keys) < 0 : this is just a sanity catch
             log.error("ERROR! len(keys) < 0 in cat_kpno::find_target_tile.")
@@ -271,15 +297,21 @@ class KPNO(cat_base.Catalog):#Kit Peak
 
             #this could be done at construction time, but given the smaller subset I think
             #this is faster here
-            self.dataframe_of_bid_targets = self.dataframe_of_bid_targets.drop_duplicates(
-                subset=['RA','DEC','FILTER'])
+            try:
+                self.dataframe_of_bid_targets = self.dataframe_of_bid_targets.drop_duplicates(
+                    subset=['RA','DEC','FILTER'])
+            except:
+                pass
 
 
             #relying on auto garbage collection here ...
-            self.dataframe_of_bid_targets_unique = self.dataframe_of_bid_targets.copy()
-            self.dataframe_of_bid_targets_unique = \
-                self.dataframe_of_bid_targets_unique.drop_duplicates(subset=['RA','DEC'])#,'FILTER'])
-            self.num_targets = self.dataframe_of_bid_targets_unique.iloc[:,0].count()
+            try:
+                self.dataframe_of_bid_targets_unique = self.dataframe_of_bid_targets.copy()
+                self.dataframe_of_bid_targets_unique = \
+                    self.dataframe_of_bid_targets_unique.drop_duplicates(subset=['RA','DEC'])#,'FILTER'])
+                self.num_targets = self.dataframe_of_bid_targets_unique.iloc[:,0].count()
+            except:
+                self.num_targets = 0
 
         except:
             log.error(self.Name + " Exception in build_list_of_bid_targets", exc_info=True)
@@ -305,15 +337,25 @@ class KPNO(cat_base.Catalog):#Kit Peak
 
         #if (num_targets == 0) or
         if (self.dataframe_of_bid_targets_unique is not None):
-            ras = self.dataframe_of_bid_targets_unique.loc[:, ['RA']].values
-            decs = self.dataframe_of_bid_targets_unique.loc[:, ['DEC']].values
+            try:
+                ras = self.dataframe_of_bid_targets_unique.loc[:, ['RA']].values
+                decs = self.dataframe_of_bid_targets_unique.loc[:, ['DEC']].values
+            except:
+                ras = []
+                dec = []
         else:
             ras = []
             decs = []
 
         # display the exact (target) location
         if G.SINGLE_PAGE_PER_DETECT:
-            entry = self.build_cat_summary_figure(cat_match,target_ra, target_dec, error, ras, decs,
+            if G.BUILD_REPORT_BY_FILTER:
+                #here we return a list of dictionaries (the "cutouts" from this catalog)
+                return self.build_cat_summary_details(cat_match,target_ra, target_dec, error, ras, decs,
+                                              target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux,
+                                              detobj=detobj)
+            else:
+                entry = self.build_cat_summary_figure(cat_match,target_ra, target_dec, error, ras, decs,
                                                   target_w=target_w, fiber_locs=fiber_locs, target_flux=target_flux,
                                                   detobj=detobj)
         else:
@@ -339,6 +381,51 @@ class KPNO(cat_base.Catalog):#Kit Peak
             log.error("ERROR!!! Unexpected state of G.FORCE_SINGLE_PAGE")
 
         return self.pages
+
+    def build_cat_summary_details(self,cat_match, ra, dec, error, bid_ras, bid_decs, target_w=0,
+                                  fiber_locs=None, target_flux=None,detobj=None):
+        """
+        similar to build_cat_summary_figure, but rather than build up an image section to be displayed in the
+        elixer report, this builds up a dictionary of information to be aggregated later over multiple catalogs
+
+        ***note: here we call the base class implementation to get the cutouts and then update those cutouts with
+        any catalog specific changes
+
+        :param cat_match: a match summary object (contains info about the PDF location, etc)
+        :param ra:  the RA of the HETDEX detection
+        :param dec:  the Dec of the HETDEX detection
+        :param error: radius (or half-side of a box) in which to search for matches (the cutout is 3x this on a side)
+        :param bid_ras: RAs of potential catalog counterparts
+        :param bid_decs: Decs of potential catalog counterparts
+        :param target_w: observed wavelength (from HETDEX)
+        :param fiber_locs: array (or list) of 6-tuples that describe fiber locations (which fiber, position, color, etc)
+        :param target_flux: HETDEX integrated line flux in CGS flux units (erg/s/cm2)
+        :param detobj: the DetObj instance
+        :return: cutouts list of dictionaries with bid-target objects as well
+        """
+
+        return super().build_cat_summary_details(cat_match, ra, dec, error, bid_ras, bid_decs, target_w,
+                                                    fiber_locs, target_flux,detobj)
+
+
+        # if not cutouts:
+        #     return cutouts
+        #
+        # for c in cutouts:
+        #     try:
+        #         details = c['details']
+        #     except:
+        #         pass
+        #
+        #
+        # #####################################################
+        # # BidTarget format is Unique to each child catalog
+        # #####################################################
+        #
+        # #KPNO does not have an associated catalog, so no bid-targets or counterparts
+        #
+        # return cutouts
+
 
 
     def build_cat_summary_figure (self, cat_match, ra, dec, error,bid_ras, bid_decs, target_w=0,
@@ -455,7 +542,7 @@ class KPNO(cat_base.Catalog):#Kit Peak
 
             # sci.load_image(wcs_manual=True)
             cutout, pix_counts, mag, mag_radius,details = sci.get_cutout(ra, dec, error, window=window,
-                                                     aperture=aperture,mag_func=mag_func,return_details=True)
+                                                     aperture=aperture,mag_func=mag_func,return_details=True,detobj=detobj)
 
             if (self.MAG_LIMIT < mag < 100) and (mag_radius > 0):
                 details['fail_mag_limit'] = True
@@ -547,13 +634,16 @@ class KPNO(cat_base.Catalog):#Kit Peak
                             lineFlux_err = 0.
 
                     # build EW error from lineFlux_err and aperture estimate error
-                    ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
-                    try:
-                        ew_obs_err = abs(ew_obs * np.sqrt(
-                            (lineFlux_err / target_flux) ** 2 +
-                            (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
-                    except:
-                        ew_obs_err = 0.
+                    # ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
+                    # try:
+                    #     ew_obs_err = abs(ew_obs * np.sqrt(
+                    #         (lineFlux_err / target_flux) ** 2 +
+                    #         (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
+                    # except:
+                    #     ew_obs_err = 0.
+
+                    ew_obs, ew_obs_err = SU.ew_obs(target_flux,lineFlux_err,target_w, bid_target.bid_filter,
+                                                   bid_target.bid_flux_est_cgs,bid_target.bid_flux_est_cgs_unc)
 
                     # bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii,plae_errors = \
                     #     line_prob.prob_LAE(wl_obs=target_w, lineFlux=target_flux,
@@ -569,8 +659,8 @@ class KPNO(cat_base.Catalog):#Kit Peak
                             wl_obs=target_w,
                             lineFlux=target_flux,
                             lineFlux_err=lineFlux_err,
-                            continuum=bid_target.bid_flux_est_cgs,
-                            continuum_err=bid_target.bid_flux_est_cgs_unc,
+                            continuum=bid_target.bid_flux_est_cgs * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
+                            continuum_err=bid_target.bid_flux_est_cgs_unc * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
                             c_obs=None, which_color=None,
                             addl_wavelengths=addl_waves,
                             addl_fluxes=addl_flux,
@@ -632,7 +722,7 @@ class KPNO(cat_base.Catalog):#Kit Peak
                 # master cutout needs a copy of the data since it is going to be modified  (stacked)
                 # repeat the cutout call, but get a copy
                 if self.master_cutout is None:
-                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True)
+                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True,reset_center=False,detobj=detobj)
                     if sci.exptime:
                         ref_exptime = sci.exptime
                     total_adjusted_exptime = 1.0
@@ -668,7 +758,7 @@ class KPNO(cat_base.Catalog):#Kit Peak
                         details['aperture_plae_min'] = None
                         details['aperture_plae_max'] = None
 
-                    cx = sci.last_x0_center
+                    cx = sci.last_x0_center #this can get stepped on by the second call to sci (for the master cutout)
                     cy = sci.last_y0_center
                     if (details['sep_objects'] is not None): # and (details['sep_obj_idx'] is not None):
                         self.add_elliptical_aperture_positions(plt,details['sep_objects'],details['sep_obj_idx'],
@@ -720,8 +810,8 @@ class KPNO(cat_base.Catalog):#Kit Peak
             rx = (xr - xl) * box_ratio / 2.0
             ry = (yt - yb) * box_ratio / 2.0
 
-            plt.gca().add_patch(plt.Rectangle((zero_x - rx,  zero_y - ry), width=rx * 2, height=ry * 2,
-                                              angle=0, color='red', fill=False,linewidth=3))
+            plt.gca().add_patch(plt.Rectangle((zero_x - rx,  zero_y - ry), width=rx * 2 , height=ry * 2,
+                                              angle=0, color='red', fill=False,linewidth=8))
 
             buf = io.BytesIO()
             plt.savefig(buf, format='png', dpi=300,transparent=True)
@@ -884,16 +974,25 @@ class KPNO(cat_base.Catalog):#Kit Peak
                             bid_target.bid_mag_err_faint = filter_mag_faint
                             bid_target.bid_flux_est_cgs_unc = filter_fl_cgs_unc
 
+                            lineFlux_err = 0.
+                            if detobj is not None:
+                                try:
+                                    lineFlux_err = detobj.estflux_unc
+                                except:
+                                    lineFlux_err = 0.
                             try:
-                                ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
-                                ew_u = abs(ew * np.sqrt(
-                                    (detobj.estflux_unc / target_flux) ** 2 +
-                                    (filter_fl_err / filter_fl) ** 2))
+                                # ew = (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+                                # ew_u = abs(ew * np.sqrt(
+                                #     (detobj.estflux_unc / target_flux) ** 2 +
+                                #     (filter_fl_err / filter_fl) ** 2))
+                                #
+                                # bid_target.bid_ew_lya_rest = ew
+                                # bid_target.bid_ew_lya_rest_err = ew_u
 
-                                bid_target.bid_ew_lya_rest = ew
-                                bid_target.bid_ew_lya_rest_err = ew_u
-
-                                text = text + utilities.unc_str((ew, ew_u)) + "$\AA$\n"
+                                bid_target.bid_ew_lya_rest, bid_target.bid_ew_lya_rest_err = \
+                                    SU.lya_ewr(target_flux,lineFlux_err,target_w, bid_target.bid_filter,
+                                               bid_target.bid_flux_est_cgs,bid_target.bid_flux_est_cgs_unc)
+                                text = text + utilities.unc_str((bid_target.bid_ew_lya_rest, bid_target.bid_ew_lya_rest_err)) + "$\AA$\n"
                             except:
                                 log.debug("Exception computing catalog EW: ", exc_info=True)
                                 text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
@@ -908,21 +1007,18 @@ class KPNO(cat_base.Catalog):#Kit Peak
                             except:
                                 pass
 
-                            lineFlux_err = 0.
-                            if detobj is not None:
-                                try:
-                                    lineFlux_err = detobj.estflux_unc
-                                except:
-                                    lineFlux_err = 0.
 
                             # build EW error from lineFlux_err and aperture estimate error
-                            ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
-                            try:
-                                ew_obs_err = abs(ew_obs * np.sqrt(
-                                    (lineFlux_err / target_flux) ** 2 +
-                                    (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
-                            except:
-                                ew_obs_err = 0.
+                            # ew_obs = (target_flux / bid_target.bid_flux_est_cgs)
+                            # try:
+                            #     ew_obs_err = abs(ew_obs * np.sqrt(
+                            #         (lineFlux_err / target_flux) ** 2 +
+                            #         (bid_target.bid_flux_est_cgs_unc / bid_target.bid_flux_est_cgs) ** 2))
+                            # except:
+                            #     ew_obs_err = 0.
+
+                            ew_obs, ew_obs_err = SU.ew_obs(target_flux,lineFlux_err,target_w, bid_target.bid_filter,
+                                                           bid_target.bid_flux_est_cgs,bid_target.bid_flux_est_cgs_unc)
 
                             # bid_target.p_lae_oii_ratio, bid_target.p_lae, bid_target.p_oii, plae_errors = \
                                 # line_prob.prob_LAE(wl_obs=target_w,
@@ -940,8 +1036,8 @@ class KPNO(cat_base.Catalog):#Kit Peak
                                     wl_obs=target_w,
                                     lineFlux=target_flux,
                                     lineFlux_err=lineFlux_err,
-                                    continuum=bid_target.bid_flux_est_cgs,
-                                    continuum_err=bid_target.bid_flux_est_cgs_unc,
+                                    continuum=bid_target.bid_flux_est_cgs * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
+                                    continuum_err=bid_target.bid_flux_est_cgs_unc * SU.continuum_band_adjustment(target_w,bid_target.bid_filter),
                                     c_obs=None, which_color=None,
                                     addl_wavelengths=addl_waves,
                                     addl_fluxes=addl_flux,
@@ -1015,7 +1111,7 @@ class KPNO(cat_base.Catalog):#Kit Peak
         plt.close()
         return fig
 
-    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None):
+    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,error=None,do_sky_subtract=True,detobj=None):
 
 
         d = {'cutout':None,
@@ -1026,6 +1122,7 @@ class KPNO(cat_base.Catalog):#Kit Peak
              'mag':None,
              'aperture':None,
              'ap_center':None,
+             'mag_limit':None,
              'details': None}
 
         try:
@@ -1053,14 +1150,46 @@ class KPNO(cat_base.Catalog):#Kit Peak
 
             # to here, window is in degrees so ...
             window = 3600. * window
+            if not error:
+                error = window
 
-            cutout,pix_counts, mag, mag_radius,details = sci.get_cutout(ra, dec, error=window, window=window, aperture=aperture,
-                                             mag_func=mag_func,copy=True,return_details=True)
+            cutout,pix_counts, mag, mag_radius,details = sci.get_cutout(ra, dec, error=error, window=window, aperture=aperture,
+                                             mag_func=mag_func,copy=True,return_details=True,detobj=detobj)
             # don't need pix_counts or mag, etc here, so don't pass aperture or mag_func
 
             if cutout is not None:  # construct master cutout
                 d['cutout'] = cutout
+                details['catalog_name']=self.name
+                details['filter_name']=catalog_image['filter']
+                d['mag_limit']=self.get_mag_limit(catalog_image['name'],mag_radius*2.)
+                try:
+                    if d['mag_limit']:
+                        details['mag_limit']=d['mag_limit']
+                    else:
+                        details['mag_limit'] = None
+                except:
+                    details['mag_limit'] = None
+
                 if (mag is not None) and (mag < 999):
+                    if d['mag_limit'] and (d['mag_limit'] < mag < 100):
+                        log.warning(f"Cutout mag {mag} greater than limit {d['mag_limit']}. Setting to limit.")
+                        details['fail_mag_limit'] = True
+                        details['raw_mag'] = mag
+                        details['raw_mag_bright'] = details['mag_bright']
+                        details['raw_mag_faint'] = details['mag_faint']
+                        details['raw_mag_err'] = details['mag_err']
+                        mag = d['mag_limit']
+                        details['mag'] = mag
+
+                        try:
+                            details['mag_bright'] = min(mag,details['mag_bright'])
+                        except:
+                            details['mag_bright'] = mag
+                        try:
+                            details['mag_faint'] = max(mag,G.MAX_MAG_FAINT)
+                        except:
+                            details['mag_faint'] = G.MAX_MAG_FAINT
+
                     d['mag'] = mag
                     d['aperture'] = mag_radius
                     d['ap_center'] = (sci.last_x0_center, sci.last_y0_center)
@@ -1070,7 +1199,7 @@ class KPNO(cat_base.Catalog):#Kit Peak
 
         return d
 
-    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False):
+    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False,error=None,do_sky_subtract=True,detobj=None):
         l = list()
 
         tile = self.find_target_tile(ra, dec)
@@ -1079,6 +1208,13 @@ class KPNO(cat_base.Catalog):#Kit Peak
             # problem
             log.error("No appropriate tile found in KPNO for RA,DEC = [%f,%f]" % (ra, dec))
             return None
+
+        if aperture == -1:
+            try:
+                aperture = self.mean_FWHM * 0.5 + 0.5
+            except:
+                pass
+
 
         # try:
         #     cat_filters = list(dict((x['filter'], {}) for x in self.CatalogImages).keys())
@@ -1111,7 +1247,7 @@ class KPNO(cat_base.Catalog):#Kit Peak
                              if ((d['filter'] == f) and (d['tile'] == tile)))]
 
                     if i is not None:
-                        cutout = self.get_single_cutout(ra, dec, window, i, aperture)
+                        cutout = self.get_single_cutout(ra, dec, window, i, aperture,error,detobj=detobj)
 
                         if first:
                             if cutout['cutout'] is not None:
@@ -1120,8 +1256,13 @@ class KPNO(cat_base.Catalog):#Kit Peak
                         else:
                             # if we are not escaping on the first hit, append ALL cutouts (even if no image was collected)
                             l.append(cutout)
-                except:
-                    log.error("Exception! collecting image cutouts.", exc_info=True)
+
+                except Exception as e:
+                    if type(e) is StopIteration:
+                        #just did not find any more catalog images to use that match the criteria
+                        pass
+                    else:
+                        log.error("Exception! collecting image cutouts.", exc_info=True)
         else:
             for f in self.Filters:
                 try:
@@ -1134,6 +1275,6 @@ class KPNO(cat_base.Catalog):#Kit Peak
                 if i is None:
                     continue
 
-                l.append(self.get_single_cutout(ra,dec,window,i,aperture))
+                l.append(self.get_single_cutout(ra,dec,window,i,aperture,detobj=detobj))
 
         return l

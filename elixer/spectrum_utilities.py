@@ -8,9 +8,11 @@ from __future__ import print_function
 try:
     from elixer import global_config as G
     from elixer import weighted_biweight as weighted_biweight
+    from elixer import utilities as utils
 except:
     import global_config as G
     import weighted_biweight as weighted_biweight
+    import utilities as utils
 
 import numpy as np
 import pickle
@@ -20,13 +22,18 @@ import astropy.units as U
 from astropy.coordinates import SkyCoord
 import astropy.cosmology as Cosmo
 import astropy.stats.biweight as biweight
+from photutils import CircularAperture #pixel coords
+from photutils import aperture_photometry
 
 from scipy.optimize import curve_fit
 
-from hetdex_tools.get_spec import get_spectra as hda_get_spectra
-from hetdex_api import survey as hda_survey
-from hetdex_api.extract import Extract
-#from hetdex_api.shot import get_fibers_table as hda_get_fibers_table
+try:
+    from hetdex_tools.get_spec import get_spectra as hda_get_spectra
+    from hetdex_api import survey as hda_survey
+    from hetdex_api.extract import Extract
+    #from hetdex_api.shot import get_fibers_table as hda_get_fibers_table
+except Exception as e:
+    print("WARNING!!!! CANNOT IMPORT hetdex_api tools: ",e)
 
 import copy
 from mpl_toolkits.mplot3d import Axes3D
@@ -35,7 +42,7 @@ from matplotlib import cm
 from matplotlib.ticker import LinearLocator, FormatStrFormatter,MaxNLocator
 
 #SU = Simple Universe (concordance)
-SU_H0 = 70.
+SU_H0 = 70. * U.km / U.s / U.Mpc
 SU_Omega_m0 = 0.3
 SU_T_CMB = 2.73
 
@@ -86,7 +93,37 @@ filter_iso_dict = {'u': 3650.0,
                    'y': 10200.0,
                    'f606w': 6000.0,
                    'acs_f606w_flux':6000.0, #name sometimes set this way from catalog
+                   'f435w': 4310.0,
+                   'acs_f606w_flux':4310.0,
+                   'f775w': 7693.,
+                   'f814w': 8045.,
+                   'f105w': 10550.,
+                   'f125w': 12486.,
+                   'f140w': 13923.,
+                   'f160w': 15370.
                    }
+
+
+MULTILINE_CONFIDENCE = [0.00, 0.01, 0.02, 0.03, 0.04, 0.05, 0.10, 0.25, 0.45, 0.70, 0.85, 0.90, 0.98]
+MULTILINE_SCORE      = [0.00, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.85, 0.90, 0.93, 1.00]
+INTERP_MULTILINE_SCORE = np.linspace(0.0,1.0,100)
+INTERP_MULTILINE_CONFIDENCE = np.interp(INTERP_MULTILINE_SCORE,MULTILINE_SCORE,MULTILINE_CONFIDENCE)
+
+def map_multiline_score_to_confidence(score):
+    """
+    Right now, this is opinion driven
+    interpolate between bins
+    todo: establish via comparing multiline scale score vs "confirmed" redshift
+
+    :param score: the multiline scaled score (0-1)
+    :return:
+    """
+    try:
+        i,*_ = getnearpos(INTERP_MULTILINE_SCORE,score)
+        return INTERP_MULTILINE_CONFIDENCE[i]
+    except:
+        return 0
+
 
 def filter_iso(filtername, lam):
     """
@@ -97,7 +134,7 @@ def filter_iso(filtername, lam):
     """
     global filter_iso_dict
     try:
-        if filtername.lower() in filter_iso_dict.keys():
+        if (filtername is not None) and filtername.lower() in filter_iso_dict.keys():
             return filter_iso_dict[filtername.lower()]
         else:
             log.info(f"Unable to match filter {filtername} to iso wavelength")
@@ -111,12 +148,27 @@ def mag2cgs(mag,lam):
     """
     :param mag:   AB mag
     :param lam: central wavelength or (better) f_lam_iso
-    :return:
+    :return: flam (erg/s/cm2/AA)
     """
 
     try:
         c = (astropy.constants.c * (1e10 * U.AA / U.m)).value
         return 3631. * 1e-23 * 10**(-0.4 * mag) * c / (lam * lam)
+    except:
+        return 0
+
+def mag2flam(mag,lam):
+    return mag2cgs(mag,flam)
+
+def mag2fnu(mag):
+    """
+    :param mag:   AB mag
+    :return: fnu (erg/s/cm2/Hz)
+    """
+
+    try:
+        c = (astropy.constants.c * (1e10 * U.AA / U.m)).value
+        return 3631. * 1e-23 * 10**(-0.4 * mag)
     except:
         return 0
 
@@ -159,6 +211,103 @@ def cgs2mag(cgs,lam):
         return 0
 
 
+
+
+def continuum_band_adjustment(obs_wave,band):
+    """
+    Adjustment, assuming UV Beta slope for star forming galaxies, for the given band pass to the obs_wave (assuming
+    it is LyA)
+    Using f_lam propto lambda^beta
+    :param obs_wave:
+    :param band:
+    :return:
+    """
+    try:
+        #if want a fixed +0.3 mag like in Leung+2017, then return x 1.318 ~= 10**(0.12) , which is 10**(-.4*0.3)
+        #return 1.318
+
+        #this is for restframe ... so need to compress assuming z_LyA
+        #adjust as beta exponent over the relative ratio of the observed wavlength and the iso-wavelength of the filter
+        return (obs_wave/filter_iso(band,obs_wave))**(G.R_BAND_UV_BETA_SLOPE+2)
+    except:
+        return 1.0
+
+def ew_obs(lineflux,lineflux_err, obs_wave, band, filter_flux, filter_flux_err):
+    """
+    Compute EW observed from a photometric bandpass (g or r only supported)
+    Handles a small correction to r-band when using it for continuum per Leung+2017 (0.3 mag brighter as 'g' from 'r')
+
+    :param lineflux: erg/s/cm2
+    :param mag:  AB mag
+    :param band: 'g','r','f606w'
+    :param obs_wave: in AA
+    :return: rest EW
+    """
+
+    ew_obs = None
+    ew_obs_err = 0.0
+    #beta = G.R_BAND_UV_BETA_SLOPE
+    flux_adjust = 1.0
+
+    if filter_flux_err is None:
+        filter_flux_err = 0
+
+    if lineflux_err is None:
+        lineflux_err = 0
+
+    if band is None:
+        band = 'x'
+
+    #mag to continuum is more like f_nu than f_lambda)
+    try:
+        if band.lower() in ['r','f606w']:
+            #mag -= 0.3 #0.3 approximate adjust from Leung 2017 but really should vary a bit by wavelength
+            flux_adjust = continuum_band_adjustment(obs_wave, band)
+            #probably too much of an adjustment: roughly 3.5x at 3500AA, 2x at 4500 and 1.4x at 5500 for beta = -2
+            #probably too much of an adjustment: roughly 2.8x at 3500AA, 1.9x at 4500 and 1.3x at 5500 for beta = -1.7
+        elif band.lower() in ['g']:
+            pass
+        else:
+            log.warning (f"Invalid photometric bandpass {band} in spectrum_utilities::lya_ewr()")
+
+        #continuum = mag2cgs(mag,filter_iso(band,obs_wave))*flux_adjust
+        log.debug(f"Continuum estimate adjustment for {band}: x{flux_adjust:0.2f}")
+        continuum = filter_flux*flux_adjust
+        if continuum !=0:
+            ew_obs = lineflux/continuum
+        else:
+            return 0, 0
+
+        try:
+            ew_obs_err = abs(ew_obs * np.sqrt(  (lineflux_err / lineflux) ** 2 + (filter_flux_err / continuum) ** 2))
+        except:
+            ew_obs_err = 0.0
+
+    except:
+        log.error(f"Exception in spectrum_utilities::lya_ewr",exc_info=True)
+
+    return ew_obs, ew_obs_err
+
+def lya_ewr(lineflux,lineflux_err, obs_wave, band, filter_flux, filter_flux_err):
+    """
+    Compute the LyA rest EW from a photometric bandpass (g or r only supported)
+    Handles a small correction to r-band when using it for continuum per Leung+2017 (0.3 mag brighter as 'g' from 'r')
+
+    :param lineflux: erg/s/cm2
+    :param mag:  AB mag
+    :param band: 'g','r','f606w'
+    :param obs_wave: in AA
+    :return: rest EW and error
+    """
+    try:
+        if (lineflux is None) or (lineflux == 0) or (obs_wave is None) or (obs_wave == 0) or (filter_flux is None) or (filter_flux == 0):
+            return np.nan, np.nan
+
+        return np.array(ew_obs(lineflux,lineflux_err, obs_wave, band, filter_flux, filter_flux_err))/(obs_wave/G.LyA_rest)
+    except:
+        log.error(f"Exception in spectrum_utilities::lya_ewr",exc_info=True)
+        return np.nan,np.nan
+
 def getnearpos(array,value):
     """
     Nearest, but works best (with less than and greater than) if monotonically increasing. Otherwise,
@@ -169,6 +318,9 @@ def getnearpos(array,value):
     :return: nearest index, nearest index less than the value, nearest index greater than the value
             None if there is no less than or greater than
     """
+    if type(array) == list:
+        array = np.array(array)
+
     idx = (np.abs(array-value)).argmin()
 
     if array[idx] == value:
@@ -191,7 +343,195 @@ def getnearpos(array,value):
     return idx, lt, gt
 
 
-def chi_sqr(obs, exp, error=None, c=None,dof=None):
+def g2r(gmag):
+    """
+    Per Leung+2017 0.3 mag difference between g and r (r is brighter)
+    :param gmag:
+    :return:
+    """
+
+    try:
+        return gmag
+        #return gmag - 0.3
+    except:
+        log.error("Exception in g2r",exc_info=True)
+
+
+def r2g(rmag):
+    """
+    Per Leung+2017 0.3 mag difference between g and r (r is brighter)
+    :param gmag:
+    :return:
+    """
+
+    try:
+        return rmag
+        #return rmag + 0.3
+    except:
+        log.error("Exception in r2g",exc_info=True)
+
+
+def make_fnu_flat_spectrum(mag,filter='g',waves=None):
+    """
+    flat in fnu but returns flam
+
+    :param mag:
+    :param filter: should be 'g' or 'r'
+    :param waves: if None assumes HETDEX (needs to be in AA if supplied with unit attached)
+    :return:  f_lam (flux density in each wavelength bin)
+    """
+
+    try:
+        if type(filter) == bytes:
+            _filter = filter.decode()
+        else:
+            _filter = filter
+
+        if _filter.lower() not in  ['g','r','f606w']:
+            log.info(f"Invalid filter {filter} passed to make_fnu_flat_spectrum")
+            return None
+
+        if _filter.lower() != 'g': #then
+            mag = r2g(mag)
+
+        if waves is None or len(waves)==0:
+            waves = G.CALFIB_WAVEGRID#np.arange(3470.,5542.,2.0) #*U.angstrom  #3470 - 5540
+
+        #iso = filter_iso(filter,-1) #return get the f iso wavelegnth, otherwise assume
+        # try:
+        #     if waves.unit:
+        #         pass
+        # except:
+        #     waves = waves * U.angstrom
+        #iso = iso * U.angstrom
+
+        fnu = mag2fnu(mag) #* U.erg / U.s / (U.cm * U.cm) * U.s #use * U.s instead of / U.Hz so the seconds cancel in the
+        #final product (else says s^2 * Hz
+        c = (astropy.constants.c * (1e10 * U.AA / U.m)).value
+
+        flam = fnu*c/(waves*waves)
+
+        return flam
+    except:
+        log.error("Exception! Exception in spectrum_utilites.make_fnu_flat_spectrum()",exc_info=True)
+
+    return None
+
+def make_flux_flat_spectrum(mag,filter='g',waves=None):
+    """
+
+    :param mag:
+    :param filter: should be 'g' or 'r'
+    :param waves: if None assumes HETDEX (needs to be in AA if supplied with unit attached)
+    :return:  f_lam
+    """
+    try:
+        if type(filter) == bytes:
+            _filter = filter.decode()
+        else:
+            _filter = filter
+        if _filter not in  ['g','r']:
+            log.info(f"Invalid filter {filter} passed to make_flux_flat_spectrum")
+            return None
+
+        if waves is None or len(waves)==0:
+            waves = G.CALFIB_WAVEGRID #np.arange(3470.,5542.,2.0)#*U.angstrom  #3470 - 5540
+
+        iso = filter_iso(_filter,-1) #return get the f iso wavelegnth, otherwise assume
+
+        # try:
+        #     if waves.unit:
+        #         pass
+        # except:
+        #     waves = waves * U.angstrom
+        #iso = iso * U.angstrom
+
+        flam_iso = mag2cgs(mag,iso) #* U.erg / U.s / (U.cm * U.cm) / U.AA #use * u.s instead of / u.Hz so the seconds cancel in the
+        flux = np.full(len(waves),flam_iso*(waves[1]-waves[0])) #*u.erg / u.s / (u.cm * u.cm)
+
+        return flux
+    except:
+        log.error("Exception! Exception in spectrum_utilites.make_flux_flat_spectrum()",exc_info=True)
+
+    return None
+
+def snr(flux,noise,flux_err=None,wave=None,center=None,delta=None):
+    """
+    Calculate the signal to noise as the sum of the flux over a region divided by the quadrature sum of the error over
+    the same region.
+
+    If wave, center, and sigma are provided, will compute over the region centered on "center" +/- "delta" where
+    "delta" would be something like 2x or 3x sigma (for an emission line).
+
+    :param flux: data flux (must be in FLUX units, not flux density) so can be summed
+                the flux could also come from the model values so long as it has the same shape and aligns 1:1 with noise
+    :param noise: noise or uncertainty on each flux measure (same units)
+    :param flux_err: error on the flux value (specifically when flux is from a model). If flux is just the original data
+                     then "noise" is the error on that flux
+    :param wave:  1:1 wavelength bins corresponding to flux and noise
+    :param center: center position in wave unit (AA)
+    :param delta:  distance (in wave units, AA) from the center to move in either direction
+    :return: snr, snr_error
+    """
+
+    try:
+        if (flux is None) or (noise is None):
+            log.warning("Invalid parameters passed to spectrum_utilities::snr(): 1")
+            return None, None
+
+        if hasattr(flux,'__len__'):#this is a list or array
+            if (len(noise)!=len(flux)):
+                log.warning("Invalid parameters passed to spectrum_utilities::snr(): 2")
+                return None, None
+            if (flux_err is not None) and (len(flux)!= len(flux_err)):
+                log.warning("Invalid parameters passed to spectrum_utilities::snr(): 3")
+                return None, None
+
+            flux_is_number = False
+        else:
+            flux_is_number = True
+
+
+        if (wave is not None) and (center is not None) and (delta is not None):
+            #center_idx,_,_ = getnearpos(wave,center)
+            left_idx,_,_ = getnearpos(wave,center-delta)
+            right_idx,_,_ = getnearpos(wave,center+delta)
+
+            if not ((right_idx - left_idx) > 0):
+                log.warning("Invalid parameters passed to spectrum_utilities::snr(). Unable to create valid bounds.")
+                return None, None
+        else:
+            left_idx = 0
+            right_idx = len(flux)
+
+        signal_error = 0
+        if flux_is_number:
+            signal = flux
+            if flux_err is not None:
+                signal_error = flux_err
+        else:
+            signal = np.sum(flux[left_idx:right_idx+1])
+            if (flux_err is not None) and (len(flux_err)==len(flux)):
+                signal_error = np.sqrt(np.sum(flux_err[left_idx:right_idx+1]*flux_err[left_idx:right_idx+1]))
+
+        noise = np.sqrt(np.sum(noise[left_idx:right_idx+1]*noise[left_idx:right_idx+1]))
+
+        if noise > 0:
+            #notice: there is no error on the noise, so using error propogation on division is pointless
+            #and you end up with exactly signal_error/noise
+            # snr_error = signal/noise * np.sqrt((signal_error/signal)**2 + (0/noise)**2)
+
+            return signal/noise, signal_error/noise #ONLY SUCCESS PATH
+        else:
+            log.warning("Invalid parameters passed to spectrum_utitlities::snr(). Invalid noise.")
+            return None, None
+    except:
+        log.error("Exception in spectrum_utilites::snr()",exc_info=True)
+
+    return None, None
+
+
+def chi_sqr(obs, exp, error=None, c=None,dof=3):
     """
 
     :param obs: (data)
@@ -208,7 +548,7 @@ def chi_sqr(obs, exp, error=None, c=None,dof=None):
     x = len(obs)
 
     if error is not None:
-        error = np.array(error)
+        error = np.array(copy.copy(error)) #copy, since we are going to possible modify it
 
     if (error is not None) and (c is None):
         c = np.sum((obs*exp)/(error*error)) / np.sum((exp*exp)/(error*error))
@@ -220,10 +560,20 @@ def chi_sqr(obs, exp, error=None, c=None,dof=None):
         error=np.zeros(np.shape(obs))
         error += 1.0
 
-    if dof is not None:
-        chisqr =  1./(len(obs)-dof) * np.sum(((obs - c * exp) / error) ** 2)
-    else:
-        chisqr = np.sum( ((obs - c*exp)/error)**2 )
+    error[error==0] = 1.0
+
+    #test
+    #dof = None
+    # if dof is not None:
+    #     dof -= 1
+
+    try:
+        if dof is not None and (len(obs)-dof) > 0:
+            chisqr =  1./(len(obs)-dof) * np.sum(((obs - c * exp) / error) ** 2)
+        else:
+            chisqr = np.sum( ((obs - c*exp)/error)**2 )
+    except:
+        log.warning("Exception! Exception computing chi2.",exc_info=True)
     #chisqr = np.sum( ((obs - c*exp)**2)/(error**2))
 
     # for i in range(x):
@@ -231,6 +581,79 @@ def chi_sqr(obs, exp, error=None, c=None,dof=None):
     #         chisqr = chisqr + ((obs[i] - c * exp[i]) ** 2) / (exp[i])
 
     return chisqr,c
+
+
+
+def check_oiii(z,flux,flux_err,wave,delta=0,cont=0,cont_err=0):
+    """
+    Explicitly check if there flux at 5007 rest is 3x the flux at 4959 rest
+    allowing for some error
+
+    NOTICE!!! These are recorded fluxes. The continuum HAS NOT BEEN subtracted, so technically this is wrong, but,
+    these are faint cases where we have no continuum detection so it is essentially measured at zero (not really at
+    zero, but it is 10x (or more) smaller than the peak) and makes almost no difference for these cases.
+
+    There is a minimum adjustment to subtract off continuum if it is passed in (same scale as flux, but as flux density)
+
+    :param z:
+    :param flux: flux units of some kind (not flux density)
+    :param flux_err: ditto
+    :param wave:  AA
+    :param delta:  integer for +/- wavelength bins from the centerline to add up flux
+    :param cont:  flux density but same scale as flux (i.e e-17)
+    :param cont_err:
+    :return: -1 error, 0 no, 1 yes
+    """
+
+    try:
+        if not(-0.01 < z < 0.106): #out of range
+            return 0
+
+        if (delta is None) or (delta < 0):
+            delta = 1
+        else:
+            delta = int(delta) #has to be an integer
+
+        if (cont is not None) and (cont > 0): #assume in similar units but as flux density so will x2 for HETDEX bin width
+            cont = 2.* cont
+            if cont_err is not None:
+                cont_err = 2.*cont_err
+            else:
+                cont_err = 0
+        else:
+            cont = 0 #to subtract
+            cont_err = 0
+
+        i4959,*_ = getnearpos(wave,(1+z)*4959)
+        f4959 = np.sum(flux[i4959-delta:i4959+delta+1]) - cont*(1+2*delta)
+        e4959 = np.sqrt(np.sum(flux_err[i4959-delta:i4959+delta+1]**2) + (cont_err*(1+2*delta))**2 )
+
+        i5007,*_ = getnearpos(wave,(1+z)*5007)
+        f5007 = np.sum(flux[i5007-delta:i5007+delta+1]) - cont*(1+2*delta)
+        e5007 = np.sqrt(np.sum(flux_err[i5007-delta:i5007+delta+1]**2  + (cont_err*(1+2*delta))**2))
+
+        ratio = f5007/f4959
+        err = ratio * np.sqrt((e4959/f4959)**2 + (e5007/f5007)**2)
+
+        imax4959 = i4959 - delta + np.argmax(flux[i4959-delta:i4959+delta+1])#getting an index of 0,1 or 2 need to add to the base index
+        fmax4959 = flux[imax4959] - cont
+        emax4959 = flux_err[imax4959] + cont_err
+
+        imax5007 = i5007 - delta + np.argmax(flux[i5007-delta:i5007+delta+1]) #getting an index of 0,1 or 2 need to add to the base index
+        fmax5007 = flux[imax5007] - cont
+        emax5007 = flux_err[imax5007] + cont_err
+
+        max_ratio = fmax5007/fmax4959
+        err_max_ratio = max_ratio * np.sqrt((emax4959/fmax4959)**2 + (emax5007/fmax5007)**2)
+
+        log.info(f"OIII flux 5007/4959 ratio check. sum = {ratio:0.2f} +/- {err:0.3f}, max = {max_ratio:0.2f} +/- {err_max_ratio:0.2f} ")
+
+        if ((3.0 - err) < ratio < (3.0 + err) or (3.0 - err_max_ratio) < max_ratio < (3.0 + err_max_ratio)):
+            return 1
+        else:
+            return 0
+    except:
+        return -1
 
 def build_cosmology(H0 = SU_H0, Omega_m0 = SU_Omega_m0, T_CMB = SU_T_CMB):
     cosmo = Cosmo.FlatLambdaCDM(H0=H0,Om0=Omega_m0,Tcmb0=T_CMB)
@@ -248,6 +671,52 @@ def luminosity_distance(z,cosmology=None):
         cosmology = build_cosmology() #use the defaults
 
     return cosmology.luminosity_distance(z)
+
+
+def absolute_mag(mag,z,correction=1,cosmology=None):
+    """
+    Just the distance modulus with K-correction
+
+    by definition:   m = M + DM + K     ==>     M = m - K - DM
+        where
+        m is the apparent band-pass magnitude
+        M is the Absolute Magnitude (could be in a different bandpass)
+        DM is the distance modulus = 5 * log10(DL/10pc)  where DL = luminosity distance
+        K is the K correction = -2.5*log10((1+z)*L_ve/L_v)
+            where
+                L_ve is the Luminosity emitted (so at frequency (v) * (1+z))
+                L_v is the Luminosity obsererd (at the observed frequency)
+                this handles the change in band-pass and would be a reference or figured from photometry
+
+
+    :param mag: band-pass mag (NOT bolometric ... if bolometric then the correction should be zero)
+    :param z:
+    :param correction: (K-correction) (integral form: see https://ned.ipac.caltech.edu/level5/Sept02/Hogg/Hogg2.html)
+    see https://ned.ipac.caltech.edu/level5/Hogg/Hogg7.html ... the ratio of the Luminosity emitted / observed
+    note: for z in 3 - 3.5, the r-band probes the rest-frame UV, so there is no K correction, BUT here that means that
+    the correction = 1   (the ratio of the obs_r * emitted_uv / (standard referecne obs_r * standard ref emitted_uv)
+    is one
+
+    Another way to look at
+
+    :param cosmology:
+    :return:
+    """
+
+    #K = 2.5 * np.log10((1+z)*Le/L) where Le is the Luminosity in the emitted frame (over the emitted bandpass) and L is
+    #the Luminosity in the observed frame in the observed band pass each as functions of frequency (like in Jy)
+    #it flips to 1/(1+z) if functions of wavelength ... again see https://ned.ipac.caltech.edu/level5/Hogg/Hogg7.html
+
+    if correction > 0:
+        k_corr = -2.5 * np.log10((1+z)*correction)
+    else:
+        k_corr = 0
+
+    return mag - k_corr - 5. * np.log10(luminosity_distance(z,cosmology).to(U.parsec)/(10.0 * U.parsec)).value
+
+
+
+# return mag - 5. * np.log10(luminosity_distance(z,cosmology).to(U.parsec).value) + 5.0  - correction
 
 
 def physical_diameter(z,a,cosmology=None):
@@ -645,7 +1114,9 @@ def red_vs_blue(cwave,wave,flux,flux_err,fwhm=None):
         #i.e. blue = 0 +/- 0.1  red = 10 +/-1  use red/blue as 10/0.1 as 1 sigma limit
         #todo: color 2.5 log (r/b)   (or -2.5 log(b/r)
 
-        rvb['color'] = 2.5 *np.log10(ratio)
+        rvb['color'] = 2.5 *np.log10(ratio)  #did this as red/blue or red - blue (instead of the usual
+                                            #blue filter - red filter, so using 2.5* instead of -2.5* so the  sign
+                                            #is correct .... negative = more blue
         #error is +/- ... so add 1st index (gets more red, i.e the reported color is a lower limit)
         #                    add 2nd index (gets more blue, i.e. the reported color is an upper limit)
 
@@ -745,9 +1216,10 @@ def extract_at_position(ra,dec,aperture,shotid,ffsky=False):
             return return_dict
 
         # returned from get_spectra as flux density (per AA), so multiply by wavebin width to match the HDF5 reads
-        return_dict['flux'] = np.nan_to_num(apt['spec'][0], nan=0.000) * G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)
-        return_dict['fluxerr'] = np.nan_to_num(apt['spec_err'][0], nan=0.000) * G.FLUX_WAVEBIN_WIDTH
+        return_dict['flux'] = np.nan_to_num(apt['spec'][0]) * G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)
+        return_dict['fluxerr'] = np.nan_to_num(apt['spec_err'][0]) * G.FLUX_WAVEBIN_WIDTH
         return_dict['wave'] = np.array(apt['wavelength'][0])
+        return_dict['apcor'] =  np.array(apt['apcor'][0])
         return_dict['ra'] = ra
         return_dict['dec'] = dec
     except Exception as E:
@@ -768,61 +1240,67 @@ def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
     """
     #sanity check
     min_pix = 5  # want at least 5 pix (bins) to left and right
+    try:
+        if cw_pix is None or hw_pix is None:
+            cw_pix = len(data)//2
+            hw_pix = cw_pix-1
 
-    if (data is None):
-        log.warning("Invalid data (None) supplied for rms.")
-        return -999
-    elif (fit is None):
-        log.warning("Invalid data (fit=None) supplied for rms.")
-        return -999
-    elif (len(data) != len(fit)):
-        log.warning("Invalid data supplied for rms, length of fit <> data.")
-        return -999
-    elif any(np.isnan(data)):
-        log.warning("Invalid data supplied for rms, NaNs in data.")
-        return -999
-    elif any(np.isnan(fit)):
-        log.warning("Invalid data supplied for rms, NaNs in fit.")
-        return -999
-    elif not (min_pix < cw_pix < (len(data) - min_pix)):
-        # could be highly skewed (esp think of large asym in LyA, with big velocity disp. (booming AGN)
-        log.warning("Invalid data supplied for rms. Minimum distance from array edge not met.")
-        return -999
-
-    if norm:
-        mx = max(data)
-        if mx < 0:
-            log.warning("Invalid data supplied for rms. max data < 0")
+        if (data is None):
+            log.warning("Invalid data (None) supplied for rms.")
             return -999
-    else:
-        mx = 1.0
-
-    d = np.array(data)/mx
-    f = np.array(fit)/mx
-
-    if ((cw_pix is not None) and (hw_pix is not None)):
-        left = max(cw_pix - hw_pix,0)
-        right = min(cw_pix + hw_pix,len(data))
-
-        #due to rounding of pixels (bins) from the caller (the central index +/- 2 and the half-width to either side +/- 2)
-        # either left or right can be off by a max total of 4 pix
-        # rounding_error = 4
-        # if -1*rounding_error <= left < 0:
-        #     left = 0
-        #
-        # if len(data) < right <= (len(data) +rounding_error):
-        #     right = len(data)
-
-
-        if (left < 0) or (right > len(data)):
-            log.warning("Invalid range supplied for rms. Data len = %d. Central Idx = %d , Half-width= %d"
-                      % (len(data),cw_pix,hw_pix))
+        elif (fit is None):
+            log.warning("Invalid data (fit=None) supplied for rms.")
+            return -999
+        elif (len(data) != len(fit)):
+            log.warning("Invalid data supplied for rms, length of fit <> data.")
+            return -999
+        elif any(np.isnan(data)):
+            log.warning("Invalid data supplied for rms, NaNs in data.")
+            return -999
+        elif any(np.isnan(fit)):
+            log.warning("Invalid data supplied for rms, NaNs in fit.")
+            return -999
+        elif not (min_pix < cw_pix < (len(data) - min_pix)):
+            # could be highly skewed (esp think of large asym in LyA, with big velocity disp. (booming AGN)
+            log.warning("Invalid data supplied for rms. Minimum distance from array edge not met.")
             return -999
 
-        d = d[left:right+1]
-        f = f[left:right+1]
+        if norm:
+            mx = max(data)
+            if mx < 0:
+                log.warning("Invalid data supplied for rms. max data < 0")
+                return -999
+        else:
+            mx = 1.0
 
-    return np.sqrt(((f - d) ** 2).mean())
+        d = np.array(data)/mx
+        f = np.array(fit)/mx
+
+        if ((cw_pix is not None) and (hw_pix is not None)):
+            left = max(cw_pix - hw_pix,0)
+            right = min(cw_pix + hw_pix,len(data))
+
+            #due to rounding of pixels (bins) from the caller (the central index +/- 2 and the half-width to either side +/- 2)
+            # either left or right can be off by a max total of 4 pix
+            # rounding_error = 4
+            # if -1*rounding_error <= left < 0:
+            #     left = 0
+            #
+            # if len(data) < right <= (len(data) +rounding_error):
+            #     right = len(data)
+
+
+            if (left < 0) or (right > len(data)):
+                log.warning("Invalid range supplied for rms. Data len = %d. Central Idx = %d , Half-width= %d"
+                            % (len(data),cw_pix,hw_pix))
+                return -999
+
+            d = d[left:right+1]
+            f = f[left:right+1]
+
+        return np.sqrt(((f - d) ** 2).mean())
+    except:
+        return -1 #non-sense value for snr
 
 def gaussian(x, x0, sigma, a=1.0, y=0.0):
     if (x is None) or (x0 is None) or (sigma is None):
@@ -832,628 +1310,136 @@ def gaussian(x, x0, sigma, a=1.0, y=0.0):
 
 
 
-def simple_fit_slope (wavelengths, values, errors=None,trim=True):
+def simple_fit_line (wavelengths, values, errors=None,trim=True,lines=None):
     """
     Just a least squares fit, no MCMC
     Trim off the blue and red-most regions that are a bit dodgy
 
     :param wavelengths: unitless floats (but generally in AA)
     :param values: unitless floats (but generally in erg/s/cm2 over 2AA e-17) (HETDEX standard)
+                   the caller must set to flux, flam, or fnu as needed
     :param errors: unitless floats (same as values)
     :param trim: Trim off the blue and red-most regions that are a bit dodgy
-    :return: slope, slope_error
+    :param lines: list of emission lines (and/or absorption) to mask out
+    :return: [intercept, slope] , [error on intercept, error on slope]
     """
 
-    slope = None
-    slope_error = None
     if (wavelengths is None) or (values is None) or (len(wavelengths)==0) or (len(values)==0) \
             or (len(wavelengths) != len(values)):
-        log.warning("Zero length (or None) spectrum passed to simple_fit_slope().")
-        return slope, slope_error
+        log.warning("Zero length (or None) spectrum passed to simple_fit_line().")
+        return None, None
 
     try:
-        if trim  and (len(wavelengths) == 1036): #assumes HETDEX standard rectified 2AA wide bins 3470-5540
-            idx_lt = 65  #3600AA
-            idx_rt = 966 #5400AA (technically 965+1 so it is included in the slice)
-        else:
-            idx_lt = 0
-            idx_rt = -1
 
-        #check the slope
-        if errors is not None and len(errors)==len(values):
-            weights = 1./np.array(errors[idx_lt:idx_rt])
-            #clear any nans or infs
-            weights[np.isnan(weights)] = 0.0
-            weights[np.isinf(weights)] = 0.0
-        else:
-            weights = None
+        #mask first
+        mask = np.full(len(wavelengths),True) #we will keep the True values
+        if lines is not None:
+            for l in lines:
+                idx,*_ = getnearpos(wavelengths,l.fit_x0)
+                width = int(l.fit_sigma * 3.0)
+                left = max(0,idx-width)
+                right = min(len(wavelengths),idx+width+1)
+                mask[left:right]=False
+
+        if trim  and (len(wavelengths) == 1036): #assumes HETDEX standard rectified 2AA wide bins 3470-5540
+            mask[0:66] = False
+            mask[966:] = False
 
         #local copy to protect values
-        _values = values[idx_lt:idx_rt]
-        #get rid of the NaNs and the +/- inf
-        weights[np.isnan(_values)] = 0.0 #zero out their weights
-        weights[np.isinf(_values)] = 0.0 #zero out their weights
+        _values = copy.copy(np.array(values))
+
+        #check the errors
+        try:
+            if errors is not None and len(errors)==len(values):
+                weights = 1./np.array(errors)
+
+                #any weights or weights that correspond to values that are nan or zero get a 0 weight
+                weights[np.isnan(_values)] = 0.0 #zero out their weights
+                weights[np.isinf(_values)] = 0.0 #zero out their weights
+                weights[np.isnan(weights)] = 0.0
+                weights[np.isinf(weights)] = 0.0
+                weights = weights[mask]
+            else:
+                weights = None
+        except:
+            weights = None
 
         #set to innocuous values
         _values[np.isnan(_values)] = 0.0
         _values[np.isneginf(_values)] = np.min(_values[np.invert(np.isinf(_values))])
         _values[np.isposinf(_values)] = np.max(_values[np.invert(np.isinf(_values))])
 
-        coeff, cov  = np.polyfit(wavelengths[idx_lt:idx_rt], _values,
+        coeff, cov  = np.polyfit(np.array(wavelengths)[mask], _values[mask],
                                  w=weights,cov=True,deg=1)
-        if coeff is not None:
-            slope = coeff[0]
-
-        if cov is not None:
-            slope_error = np.sqrt(np.diag(cov))[0]
 
 
-        log.debug(f"Fit slope: {slope:0.3g} +/- {slope_error:0.3g}")
+        #flip the array so [0] = 0th, [1] = 1st ...
+        errors = np.flip(np.sqrt(np.diag(cov)),0)
+        coeff = np.flip(coeff,0)
     except:
-        log.debug("Exception in simple_fit_slope() ", exc_info=True)
+        log.debug("Exception in simple_fit_line() ", exc_info=True)
+        coeff = None
+        errors = None
+
+    return coeff, errors
 
 
-    return slope, slope_error
 
-# def norm_values(values,values_units):
-#     '''
-#     Basically, make spectra values either counts or cgs x10^-18 (whose magnitdues are pretty close to counts) and the
-#     old logic and parameters can stay the same
-#     :param values:
-#     :param values_units:
-#     :return:
-#     '''
-#
-#     #return values, values_units
-#     if values is not None:
-#         values = np.array(values)
-#
-#     if values_units == 0: #counts
-#         return values, values_units
-#     elif values_units == 1:
-#         return values * 1e18, -18
-#     elif values_units == -17:
-#         return values * 10.0, -18
-#     elif values_units == -18:
-#         return values, values_units
-#     else:
-#         log.warning("!!! Problem. Unexpected values_units = %s" % str(values_units))
-#         return values, values_units
-#
-#
-# def find_central_wavelength(self,wavelengths = None,values = None, errors=None,values_units=0):
-#     """
-#
-#     :param self:
-#     :param wavelengths:
-#     :param values:
-#     :param errors:
-#     :param values_units:
-#     :return:
-#     """
-#     central = 0.0
-#
-#     #find the peaks and use the largest
-#     #for now, largest means highest value
-#
-#     # if values_are_flux:
-#     #     #!!!!! do not do values *= 10.0 (will overwrite)
-#     #     # assumes fluxes in e-17 .... making e-18 ~= counts so logic can stay the same
-#     #     values = values * 10.0
-#
-#     values,values_units = norm_values(values,values_units)
-#
-#     #does not need errors for this purpose
-#     peaks = peakdet(wavelengths,values,errors,values_units=values_units,enforce_good=False) #as of 2018-06-11 these are EmissionLineInfo objects
-#     max_score = -np.inf
-#     if peaks is None:
-#         log.info("No viable emission lines found.")
-#         return 0.0
-#
-#     #find the largest flux
-#     for p in peaks:
-#         if p.line_score > max_score:
-#             max_score = p.line_score
-#             central = p.fit_x0
-#
-#     if update_self:
-#         self.central = central
-#
-#     log.info("Central wavelength = %f" %central)
-#
-#     return central
-#
-# def sn_peakdet_no_fit(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0):
-#     """
-#
-#     :param wave: x-values (wavelength)
-#     :param spec: v-values (spectrum values)
-#     :param spec_err: error on v (treat as 'noise')
-#     :param dx: minimum number of x-bins to trigger a possible line detection
-#     :param rx: like dx but just for rise and fall
-#     :param dv:  minimum height in value (in s/n, not native values) to trigger counting of bins
-#     :param dvmx: at least one point though must be >= to this in S/N
-#     :return:
-#     """
-#
-#     try:
-#         if not (len(wave) == len(spec) == len(spec_err)):
-#             log.debug("Bad call to sn_peakdet(). Lengths of arrays do not match")
-#             return []
-#
-#         x = np.array(wave)
-#         v = np.array(spec)
-#         e = np.array(spec_err)
-#         sn = v/e
-#         hvi = np.where(sn > dv)[0] #hvi high v indicies (where > dv)
-#
-#         if len(hvi) < 1:
-#             log.debug(f"sn_peak - no bins above minimum snr {dv}")
-#             return []
-#
-#         pos = [] #positions to search (indicies into original wave array)
-#         run = [hvi[0],]
-#         rise = [hvi[0],] #assume start with a rise
-#         fall = []
-#
-#         #two ways to trigger a peak:
-#         #several bins in a row above the SNR cut, then one below
-#         #or many bins in a row, that rise then fall with lengths of rise and fall above the dx length
-#         for h in hvi:
-#             if (h-1) == run[-1]: #the are adjacent in the original arrays
-#                 #what about sharp drops in value? like multiple peaks above continuum?
-#                 if v[h] >= v[run[-1]]: #rising
-#                     rise.append(h)
-#                     if len(rise) >= rx:
-#                         rise_trigger = True
-#                         fall = []
-#                 else: #falling
-#                     fall.append(h)
-#                     if len(fall) >= rx: #assume the end of a line and trigger a new run
-#                         fall_trigger = True
-#                         rise = []
-#                 if rise_trigger and fall_trigger: #call this a peak, start a new run
-#                     if len(run) >= dx and np.any(sn[run] >= dvmx):
-#                         mx = np.argmax(v[run])  # find largest value in the original arrays from these indicies
-#                         pos.append(mx + run[0])  # append that position to pos
-#                     run = [h]  # start a new run
-#                     rise = [h]
-#                     fall = []
-#                     fall_trigger = False
-#                     rise_trigger = False
-#                 else:
-#                     run.append(h)
-#
-#             else: #not adjacent, are there enough in run to append?
-#                 if len(run) >= dx and np.any(sn[run] >= dvmx):
-#                     mx = np.argmax(v[run]) #find largest value in the original arrays from these indicies
-#                     pos.append(mx+run[0]) #append that position to pos
-#                 run = [h] #start a new run
-#                 rise = [h]
-#                 fall = []
-#                 fall_trigger = False
-#                 rise_trigger = False
-#     except:
-#         log.error("Exception in sn_peakdet",exc_info=True)
-#         return []
-#
-#     return pos
-#
-#
-# def sn_peakdet(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,values_units=0,
-#             enforce_good=True,min_sigma=GAUSS_FIT_MIN_SIGMA,absorber=False,do_mcmc=False):
-#     """
-#
-#     :param wave: x-values (wavelength)
-#     :param spec: v-values (spectrum values)
-#     :param spec_err: error on v (treat as 'noise')
-#     :param dx: minimum number of x-bins to trigger a possible line detection
-#     :param rx: like dx but just for rise and fall
-#     :param dv:  minimum height in value (in s/n, not native values) to trigger counting of bins
-#     :param dvmx: at least one point though must be >= to this in S/N
-#     :param values_units:
-#     :param enforce_good:
-#     :param min_sigma:
-#     :param absorber:
-#     :return:
-#     """
-#
-#     eli_list = []
-#
-#     try:
-#         if not (len(wave) == len(spec) == len(spec_err)):
-#             log.debug("Bad call to sn_peakdet(). Lengths of arrays do not match")
-#             return []
-#
-#         x = np.array(wave)
-#         v = np.array(spec)
-#         e = np.array(spec_err)
-#         sn = v/e
-#         hvi = np.where(sn > dv)[0] #hvi high v indicies (where > dv)
-#
-#         if len(hvi) < 1:
-#             log.debug(f"sn_peak - no bins above minimum snr {dv}")
-#             return []
-#
-#         pos = [] #positions to search (indicies into original wave array)
-#         run = [hvi[0],]
-#         rise = [hvi[0],] #assume start with a rise
-#         fall = []
-#
-#         #two ways to trigger a peak:
-#         #several bins in a row above the SNR cut, then one below
-#         #or many bins in a row, that rise then fall with lengths of rise and fall above the dx length
-#         for h in hvi:
-#             if (h-1) == run[-1]: #the are adjacent in the original arrays
-#                 #what about sharp drops in value? like multiple peaks above continuum?
-#                 if v[h] >= v[run[-1]]: #rising
-#                     rise.append(h)
-#                     if len(rise) >= rx:
-#                         rise_trigger = True
-#                         fall = []
-#                 else: #falling
-#                     fall.append(h)
-#                     if len(fall) >= rx: #assume the end of a line and trigger a new run
-#                         fall_trigger = True
-#                         rise = []
-#                 if rise_trigger and fall_trigger: #call this a peak, start a new run
-#                     if len(run) >= dx and np.any(sn[run] >= dvmx):
-#                         mx = np.argmax(v[run])  # find largest value in the original arrays from these indicies
-#                         pos.append(mx + run[0])  # append that position to pos
-#                     run = [h]  # start a new run
-#                     rise = [h]
-#                     fall = []
-#                     fall_trigger = False
-#                     rise_trigger = False
-#                 else:
-#                     run.append(h)
-#
-#             else: #not adjacent, are there enough in run to append?
-#                 if len(run) >= dx and np.any(sn[run] >= dvmx):
-#                     mx = np.argmax(v[run]) #find largest value in the original arrays from these indicies
-#                     pos.append(mx+run[0]) #append that position to pos
-#                 run = [h] #start a new run
-#                 rise = [h]
-#                 fall = []
-#                 fall_trigger = False
-#                 rise_trigger = False
-#
-#         #now pos has the indicies in the original arrays of the highest values in runs of high S/N bins
-#         for p in pos:
-#             try:
-#                 eli = signal_score(wave, spec, spec_err, wave[p], values_units=values_units, min_sigma=min_sigma,
-#                                absorber=absorber,do_mcmc=do_mcmc)
-#
-#                 # if (eli is not None) and (eli.score > 0) and (eli.snr > 7.0) and (eli.fit_sigma > 1.6) and (eli.eqw_obs > 5.0):
-#                 if (eli is not None) and ((not enforce_good) or eli.is_good()):
-#                     eli_list.append(eli)
-#             except:
-#                 log.error("Exception calling signal_score in sn_peakdet",exc_info=True)
-#
-#     except:
-#         log.error("Exception in sn_peakdet",exc_info=True)
-#         return []
-#
-#     return combine_lines(eli_list)
-#
-# def peakdet(x,v,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,values_units=0,
-#             enforce_good=True,min_sigma=GAUSS_FIT_MIN_SIGMA,absorber=False):
-#
-#     """
-#
-#     :param x:
-#     :param v:
-#     :param dw:
-#     :param h:
-#     :param dh:
-#     :param zero:
-#     :return: array of [ pi, px, pv, pix_width, centroid_pos, eli.score, eli.snr]
-#     """
-#
-#     #peakind = signal.find_peaks_cwt(v, [2,3,4,5],min_snr=4.0) #indexes of peaks
-#
-#     #emis = zip(peakind,x[peakind],v[peakind])
-#     #emistab.append((pi, px, pv, pix_width, centroid))
-#     #return emis
-#
-#
-#
-#     #dh (formerly, delta)
-#     #dw (minimum width (as a fwhm) for a peak, else is noise and is ignored) IN PIXELS
-#     # todo: think about jagged peaks (e.g. a wide peak with many subpeaks)
-#     #zero is the count level zero (nominally zero, but with noise might raise or lower)
-#     """
-#     Converted from MATLAB script at http://billauer.co.il/peakdet.html
-#
-#
-#     function [maxtab, mintab]=peakdet(v, delta, x)
-#     %PEAKDET Detect peaks in a vector
-#     %        [MAXTAB, MINTAB] = PEAKDET(V, DELTA) finds the local
-#     %        maxima and minima ("peaks") in the vector V.
-#     %        MAXTAB and MINTAB consists of two columns. Column 1
-#     %        contains indices in V, and column 2 the found values.
-#     %
-#     %        With [MAXTAB, MINTAB] = PEAKDET(V, DELTA, X) the indices
-#     %        in MAXTAB and MINTAB are replaced with the corresponding
-#     %        X-values.
-#     %
-#     %        A point is considered a maximum peak if it has the maximal
-#     %        value, and was preceded (to the left) by a value lower by
-#     %        DELTA.
-#
-#     % Eli Billauer, 3.4.05 (Explicitly not copyrighted).
-#     % This function is released to the public domain; Any use is allowed.
-#
-#     """
-#
-#     if (v is None) or (len(v) < 3):
-#         return [] #cannot execute
-#
-#
-#     maxtab = []
-#     mintab = []
-#     emistab = []
-#     eli_list = []
-#     delta = dh
-#
-#     eli_list = sn_peakdet(x,v,err,values_units=values_units,enforce_good=enforce_good,min_sigma=min_sigma,absorber=absorber)
-#
-#     if x is None:
-#         x = np.arange(len(v))
-#
-#     pix_size = abs(x[1] - x[0])  # aa per pix
-#     if pix_size == 0:
-#         log.error("Unexpected pixel_size in spectrum::peakdet(). Wavelength step is zero.")
-#         return []
-#     # want +/- 20 angstroms
-#     wave_side = int(round(20.0 / pix_size))  # pixels
-#
-#     dw = int(dw / pix_size) #want round down (i.e. 2.9 -> 2) so this is fine
-#
-#     v = np.asarray(v)
-#     num_pix = len(v)
-#
-#     if num_pix != len(x):
-#         log.warning('peakdet: Input vectors v and x must have same length')
-#         return []
-#
-#     if not np.isscalar(dh):
-#         log.warning('peakdet: Input argument delta must be a scalar')
-#         return []
-#
-#     if dh <= 0:
-#         log.warning('peakdet: Input argument delta must be positive')
-#         return []
-#
-#
-#     v_0 = copy.copy(v)# v[:] #slicing copies if list, but not if array
-#     x_0 = copy.copy(x)#x[:]
-#     values_units_0 = values_units
-#
-#     #if values_are_flux:
-#     #    v = v * 10.0
-#
-#     #don't need to normalize errors for peakdet ... will be handled in signal_score
-#     v,values_units = norm_values(v,values_units)
-#
-#     #smooth v and rescale x,
-#     #the peak positions are unchanged but some of the jitter is smoothed out
-#     #v = v[:-2] + v[1:-1] + v[2:]
-#     v = v[:-4] + v[1:-3] + v[2:-2] + v[3:-1] + v[4:]
-#     #v = v[:-6] + v[1:-5] + v[2:-4] + v[3:-3] + v[4:-2] + v[5:-1] + v[6:]
-#     v /= 5.0
-#     x = x[2:-2]
-#
-#     minv, maxv = np.Inf, -np.Inf
-#     minpos, maxpos = np.NaN, np.NaN
-#
-#     lookformax = True
-#
-#     for i in np.arange(len(v)):
-#         thisv = v[i]
-#         if thisv > maxv:
-#             maxv = thisv
-#             maxpos = x[i]
-#             maxidx = i
-#         if thisv < minv:
-#             minv = thisv
-#             minpos = x[i]
-#             minidx = i
-#         if lookformax:
-#             if (thisv >= h) and (thisv < maxv - delta):
-#                 #i-1 since we are now on the right side of the peak and want the index associated with max
-#                 maxtab.append((maxidx,maxpos, maxv))
-#                 minv = thisv
-#                 minpos = x[i]
-#                 lookformax = False
-#         else:
-#             if thisv > minv + delta:
-#                 mintab.append((minidx,minpos, minv))
-#                 maxv = thisv
-#                 maxpos = x[i]
-#                 lookformax = True
-#
-#
-#     if len(maxtab) < 1:
-#         log.warning("No peaks found with given conditions: mininum:  fwhm = %f, height = %f, delta height = %f" \
-#                 %(dw,h,dh))
-#         return []
-#
-#     #make an array, slice out the 3rd column
-#     #gm = gmean(np.array(maxtab)[:,2])
-#     peaks = np.array(maxtab)[:, 2]
-#     gm = np.mean(peaks)
-#     std = np.std(peaks)
-#
-#
-#     ################
-#     #DEBUG
-#     ################
-#
-#     if False:
-#         so = Spectrum()
-#         eli = []
-#         for p in maxtab:
-#             e = EmissionLineInfo()
-#             e.raw_x0 = p[1] #xposition p[0] is the index
-#             e.raw_h = v_0[p[0]+2] #v_0[getnearpos(x_0,p[1])]
-#             eli.append(e)
-#
-#         so.build_full_width_spectrum(wavelengths=x_0, counts=v_0, errors=None, central_wavelength=0,
-#                                       show_skylines=False, show_peaks=True, name="peaks",
-#                                       dw=MIN_FWHM, h=MIN_HEIGHT, dh=MIN_DELTA_HEIGHT, zero=0.0,peaks=eli,annotate=False)
-#
-#
-#
-#     #now, throw out anything waaaaay above the mean (toss out the outliers and recompute mean)
-#     if False:
-#         sub = peaks[np.where(abs(peaks - gm) < (3.0*std))[0]]
-#         if len(sub) < 3:
-#             sub = peaks
-#         gm = np.mean(sub)
-#
-#     for pi,px,pv in maxtab:
-#         #check fwhm (assume 0 is the continuum level)
-#
-#         #minium height above the mean of the peaks (w/o outliers)
-#         if False:
-#             if (pv < 1.333 * gm):
-#                 continue
-#
-#         hm = float((pv - zero) / 2.0)
-#         pix_width = 0
-#
-#         #for centroid (though only down to fwhm)
-#         sum_pos_val = x[pi] * v[pi]
-#         sum_pos = x[pi]
-#         sum_val = v[pi]
-#
-#         #check left
-#         pix_idx = pi -1
-#
-#         try:
-#             while (pix_idx >=0) and (v[pix_idx] >= hm):
-#                 sum_pos += x[pix_idx]
-#                 sum_pos_val += x[pix_idx] * v[pix_idx]
-#                 sum_val += v[pix_idx]
-#                 pix_width += 1
-#                 pix_idx -= 1
-#
-#         except:
-#             pass
-#
-#         #check right
-#         pix_idx = pi + 1
-#
-#         try:
-#             while (pix_idx < num_pix) and (v[pix_idx] >= hm):
-#                 sum_pos += x[pix_idx]
-#                 sum_pos_val += x[pix_idx] * v[pix_idx]
-#                 sum_val += v[pix_idx]
-#                 pix_width += 1
-#                 pix_idx += 1
-#         except:
-#             pass
-#
-#         #check local region around centroid
-#         centroid_pos = sum_pos_val / sum_val #centroid is an index
-#
-#         #what is the average value in the vacinity of the peak (exlcuding the area under the peak)
-#         #should be 20 AA not 20 pix
-#         side_pix = max(wave_side,pix_width)
-#         left = max(0,(pi - pix_width)-side_pix)
-#         sub_left = v[left:(pi - pix_width)]
-#    #     gm_left = np.mean(v[left:(pi - pix_width)])
-#
-#         right = min(num_pix,pi+pix_width+side_pix+1)
-#         sub_right = v[(pi + pix_width):right]
-#    #     gm_right = np.mean(v[(pi + pix_width):right])
-#
-#         #minimum height above the local gm_average
-#         #note: can be a problem for adjacent peaks?
-#         # if False:
-#         #     if pv < (2.0 * np.mean(np.concatenate((sub_left,sub_right)))):
-#         #         continue
-#
-#         #check vs minimum width
-#         if not (pix_width < dw):
-#             #see if too close to prior peak (these are in increasing wavelength order)
-#             already_found = np.array([e.fit_x0 for e in eli_list])
-#
-#             if np.any(abs(already_found-px) < 2.0):
-#                 pass #skip and move on
-#             else:
-#                 eli = signal_score(x_0, v_0, err, px,values_units=values_units_0,min_sigma=min_sigma,absorber=absorber)
-#
-#                 #if (eli is not None) and (eli.score > 0) and (eli.snr > 7.0) and (eli.fit_sigma > 1.6) and (eli.eqw_obs > 5.0):
-#                 if (eli is not None) and ((not enforce_good) or eli.is_good()):
-#                     eli_list.append(eli)
-#                     log.debug("*** old peakdet added new ELI")
-#                     if len(emistab) > 0:
-#                         if (px - emistab[-1][1]) > 6.0:
-#                             emistab.append((pi, px, pv,pix_width,centroid_pos,eli.eqw_obs,eli.snr))
-#                         else: #too close ... keep the higher peak
-#                             if pv > emistab[-1][2]:
-#                                 emistab.pop()
-#                                 emistab.append((pi, px, pv, pix_width, centroid_pos,eli.eqw_obs,eli.snr))
-#                     else:
-#                         emistab.append((pi, px, pv, pix_width, centroid_pos,eli.eqw_obs,eli.snr))
-#
-#
-#     #return np.array(maxtab), np.array(mintab)
-#     #print("DEBUG ... peak count = %d" %(len(emistab)))
-#     #for i in range(len(emistab)):
-#     #    print(emistab[i][1],emistab[i][2], emistab[i][5])
-#     #return emistab
-#
-#     ################
-#     #DEBUG
-#     ################
-#     # if False:
-#     #     so = Spectrum()
-#     #     eli = []
-#     #     for p in eli_list:
-#     #         e = EmissionLineInfo()
-#     #         e.raw_x0 = p.raw_x0
-#     #         e.raw_h = p.raw_h / 10.0
-#     #         eli.append(e)
-#     #     so.build_full_width_spectrum(wavelengths=x_0, counts=v_0, errors=None, central_wavelength=0,
-#     #                                  show_skylines=False, show_peaks=True, name="peaks_trimmed",
-#     #                                  dw=MIN_FWHM, h=MIN_HEIGHT, dh=MIN_DELTA_HEIGHT, zero=0.0, peaks=eli,
-#     #                                  annotate=False)
-#
-#     return combine_lines(eli_list)
-#
-#
-#
-# def combine_lines(eli_list,sep=1.0):
-#     """
-#
-#     :param eli_list:
-#     :param sep: max peak separation in AA (for peakdet values, true duplicates are very close, sub AA close)
-#     :return:
-#     """
-#
-#     def is_dup(wave1,wave2,sep):
-#         if abs(wave1-wave2) < sep:
-#             return True
-#         else:
-#             return False
-#
-#     keep_list = []
-#     for e in eli_list:
-#         add = True
-#         for i in range(len(keep_list)):
-#             if (e.fit_x0 - keep_list[i].fit_x0) < sep:
-#                 add = False
-#                 if e.line_score > keep_list[i].fit_x0:
-#                     keep_list[i] = copy.deepcopy(e)
-#         if add:
-#             keep_list.append(copy.deepcopy(e))
-#
-#     return keep_list
-#
-#
+def eval_line_at_point(w,bm,er=None):
+
+    """
+    Basically evaluate a point on a line given the line parameters and (optionally) their variances
+    The units depend on the units of the parameters and is up to the caller to know them.
+    For HETDEX/elixer they are usually flux over 2AA in erg/s/cm2 x10^-17
+
+    :param w: the wavelength at which to evaluate
+    :param bm:  as in y = mx + b  ... a two value array as [b,m] or [x^0, x^1]
+    :param er:  the error on b and m as a two value array  (as sigma or sqrt(variance))
+    :return: continuum and error
+    """
+    try:
+        y = bm[1] * w + bm[0]
+        ye = abs(y) * np.sqrt((er[1]/bm[1])**2 + er[0]**2)
+    except:
+        y = None
+        ye = None
+
+    return y, ye
+
+def est_linear_continuum(w,bm,er=None):
+    return eval_line_at_point(w,bm,er)
+
+def est_linear_B_minus_V(bm,er=None):
+    """
+
+    :param bm:  as in y = mx + b  ... a two value array as [b,m] or [x^0, x^1]
+    :param er:  the error on b and m as a two value array  (as sigma or sqrt(variance))
+    :return: B-V and error
+    """
+    try:
+
+        yb, ybe = est_linear_continuum(4361.,bm,er) #standard f_iso,lam for B
+        yv, yve = est_linear_continuum(5448.,bm,er) #standard f_iso,lam for V
+
+        #need to convert from flux over 2AA to a f_nu like units
+        #since B-V is a ratio, the /2.0AA and x1e-17 factors don't matter
+
+        yb = cgs2ujy(yb,4361.)
+        ybe = cgs2ujy(ybe,4361.)
+
+        yv = cgs2ujy(yv,5448.)
+        yve = cgs2ujy(yve,5448.)
+
+        fac = 2.5/np.log(10.) #this is the common factor in the partial derivative of the 2.5 log10 (v/b)
+
+        b_v = 2.5 * np.log(yv/yb)
+        b_ve = abs(b_v)*np.sqrt((ybe*fac/yv)**2 + (yve*fac/yb)**2)
+
+    except:
+        b_v = None
+        b_ve = None
+
+    return b_v, b_ve
 
 
 def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=500.0,max_fwhm=15.0):
@@ -2280,3 +2266,665 @@ def get_shotids(ra,dec,hdr_version=G.HDR_Version):
 # z = SU.make_raster_plots(edict,ra_meshgrid,dec_meshgrid,cw,"fitflux",show=True)
 # notice:  in the above call, to save static images, specify a filename base in the "save" parameter
 #          or for interactive images, in the "savepy" parameter
+
+
+
+def patch_holes_in_hetdex_spectrum(wavelengths,flux,flux_err,mag,mag_err=0,filter='g',nan_okay=200):
+    """
+
+    note: for stacking, we want to keep NaNs so they are skipped
+
+    :param wavelengths:
+    :param flux:
+    :param flux_err:
+    :param mag:
+    :param mag_err:
+    :param filter:
+    :param nan_okay: if up to this number of NaN's are okay, then return with them, otherwise fill in with an interpolation
+    :return:
+    """
+
+
+    try:
+        #(mag,filter='g',waves=None)
+        if type(filter) == bytes:
+            _filter = filter.decode()
+        else:
+            _filter = filter
+        patched_flux = copy.copy(flux)
+        patched_flux_err = copy.copy(flux_err)
+
+        #want positions where flux is NaN or None OR flux_err is NaN or None or zero
+        patched_flux[patched_flux==None] = np.nan #so patched flux can have NaNs but no None
+        patched_flux_err[patched_flux_err==None] = 0#np.nan
+        patched_flux_err[patched_flux_err==0] = np.nan
+
+        sel1 = np.isnan(patched_flux_err)
+        sel2 = np.isnan(patched_flux)
+        sel = sel1 | sel2
+
+        if np.sum(sel)<= nan_okay:
+            return patched_flux,patched_flux_err
+
+        #otherwise need to substitute
+        flat_flux = make_fnu_flat_spectrum(mag,_filter,wavelengths) * G.FLUX_WAVEBIN_WIDTH / G.HETDEX_FLUX_BASE_CGS
+        if mag_err is not None and mag_err != 0:
+            flat_flux_hi = make_fnu_flat_spectrum(mag-mag_err,_filter,wavelengths) * G.FLUX_WAVEBIN_WIDTH / G.HETDEX_FLUX_BASE_CGS
+            flat_flux_lo = make_fnu_flat_spectrum(mag+mag_err,_filter,wavelengths) * G.FLUX_WAVEBIN_WIDTH / G.HETDEX_FLUX_BASE_CGS
+            flat_flux_err = 0.5*(flat_flux_hi-flat_flux_lo)
+        else:
+            #flat_flux_err = np.zeros(len(wavelengths)).astype(float)
+            #assume 25%
+            flat_flux_err = flat_flux*0.25
+
+        patched_flux[sel] = flat_flux[sel]
+        patched_flux_err[sel] = flat_flux_err[sel]
+
+        return patched_flux,patched_flux_err
+    except:
+        log.error("Exception! Exception in patch_holes_in_hetdex_spectrum.",exc_info=True)
+
+
+def norm_overlapping_psf(psf,dist_baryctr,dist_ellipse=None,effective_radius=None):
+    """
+
+    Return the fraction of PSF weight "volume" overlapping between to sources separated by dist_baryctr with the
+    same PSF (same shot).
+
+    THIS IS NOT the actual contribution of FLUX from a contaminant. THIS IS JUST the weight volume in the region
+    of intersection between two identical, spatially shifted PSF models.
+
+    Since assuming a point-source, should use the barycenter, but size may come into play for extended objects
+
+    :param psf: the PSF (grid) for the shot (see get_psf) [0] is the weight, [1] and [2] are the x and y grids
+    :param dist_baryctr: in arcsec
+    :param dist_ellipse: in arcsec
+    :param effective_radius: in arcsec (rough measure of size ... assumes approximately circular)
+    :return: weight volume (or fraction) in overlap region
+    """
+
+    #we are keeping a single moffat psf, so think of this as being centered on each neighbot (in succession)
+    #with the hetdex position (aperture) moving relative to the PSF
+
+    #??: if dist_baryctr is unknown or if effective radius is large enough to not be a point source ....
+
+    if dist_baryctr and dist_baryctr > 0:
+        ctrx = dist_baryctr  #consider the aperture moving to the "right"
+    elif dist_ellipse and effective_radius and dist_ellipse > 0 and effective_radius > 0:
+        ctrx = dist_ellipse + effective_radius
+    elif dist_baryctr is None or dist_baryctr == 0:
+        ctrx = 0
+    else: #not enough info to use
+        return -1.0
+
+    #think of this as two identical PSF grids, with one shifted to the right by ctrx
+    #where the vacated grid cells from the right shfited ctrx get a zero weight
+
+    #this is the distance between PSF centers (ie. between the two object centers) in grid units
+    #again, since the PSF are symmetric about their center, it does not matter on which axis(es) the
+    #distance is applied, so to keep it simple, just visualize as a shift along the x-direction to +x
+    x_shift = int(ctrx/(psf[1][1][1]-psf[1][1][0]))
+
+    psf2 = copy.copy(psf[0])
+    psf2 = np.roll(psf2,x_shift,1)
+    psf2[:,0:x_shift+1] = 0 #zero out the cells on the right that rolled around
+
+    overlap = np.sum(np.minimum(psf2,psf[0])) #this would be the overlap region
+
+    #overlap = np.sum(psf2*psf[0]) #this would be the sum of the fractions of the psf weights from one object
+                                  #included in the other by its own weights
+                                  #i.e. if in the 0.02 weight section of the target we have the 0.03 weight section
+                                  # of the neighbor, then that overlap section contrinbutes 0.02 * 0.03 = 0.0006 weight
+                                  # to the target from the neighbor (that space or fiber has 2% of the target's flux
+                                  # and 3% of the neighbors flux, so we subtract 0.06% of the True neighhor flux for that
+                                  # section). Sum up all the sections (here, pixels of the moffat) to get the total
+                                  # contribution of the neighbor to the target).
+
+    return overlap
+
+
+def build_separation_matrix(ra,dec):
+    """
+    Takes a list of RA and Dec (in the same order as the spectra matrix, etc) with the LAE candidate at index 0
+    :param ra:
+    :param dec:
+    :return: square separation matrix
+    """
+    try:
+        row = len(ra)
+        col = row
+        if (row<2):
+            log.error(f"Error in build_separation_matrix. Too few objects ({row},{col})")
+            return None
+
+            #not ideal since looping, but norm_overlapping_psf is not written with matrices
+        sep_matrix = np.zeros((row,col))
+        #just need the lower triangle
+        for c in np.arange(0,col):
+            for r in np.arange(c+1,row):
+                s = utils.angular_distance(ra[r],dec[r],ra[c],dec[c])
+                sep_matrix[r,c] = s
+                sep_matrix[c,r] = s #redundant, but just in case
+
+        return sep_matrix
+    except:
+        log.error("Exception! Exception in spectrum_utilities.build_separation_matrix().",exc_info=True)
+
+    return None
+
+def psf_overlap(psf,separation_matrix):
+    """
+
+    :param psf: the PSF model for this shot i.e. from get_psf()
+    :param separation_matrix: pair wise separations between sources in arcsec
+    :return:  pair-wise fractional overalp of PSF
+    """
+
+    try:
+        row,col = np.shape(separation_matrix) #has to be square
+        if row != col or (row<2):
+            log.error(f"Error in psf_overlap. separation_matrix not square ({row},{col})")
+            return None
+
+        #not ideal since looping, but norm_overlapping_psf is not written with matrices
+        overlap_matrix = np.ones((row,col))
+        #just need the lower triangle
+        for c in np.arange(0,col):
+            for r in np.arange(c+1,row):
+                f = norm_overlapping_psf(psf,separation_matrix[r,c])
+                #need f**2 since the overlap is symmetric and weighted by each others PSF overlap
+                #(note at full overlap f==1 --> 1**2 == 1)
+                overlap_matrix[r,c] = f #*f
+                overlap_matrix[c,r] = overlap_matrix[r,c] #redundant, but just in case
+
+        return overlap_matrix
+    except:
+        log.error("Exception! Exception in spectrum_utilities.psf_overlap().",exc_info=True)
+
+    return None
+
+def integrate_fiber_over_psf(fwhm,fiber_flux,fiber_flux_err):
+    """
+    Take the spectrum from a single fiber as representative of a uniform background and integrate that background over
+    the shot seeing PSF
+
+    No extra DAR, etc applied as this represents as uniform background.
+
+    This uses the same fiber weighting as a normal 3-dither extraction, though there is a very small variation since
+    we are not using the exact same fiber positions as whatever produced the fiber_flux and fiber_flux_err. If the
+    centroid is in the exact center of the "blue" fiber which is at the exact center of the moffat PSF model, (and the
+    same psf_width and step are used) then that small variation should vanish.
+
+    :param fwhm: shot seeing fwhm
+    :param fiber_flux:
+    :param fiber_flux_err:
+    :return: "PSF" weighted background spectrum (flux and flux error)
+    """
+
+    try:
+        aperture_method='exact' #'exact' 'center' 'subpixel'
+        fiber_radius = 0.75 #in arcsecs
+        psf_width = 10.5 #in arcsec ... only compute out to here. Never truly goes to zero, but rapidly asymptotes
+        step = 0.25 #in arcsec to generate moffat PSF
+
+        E = Extract()
+        moffat = E.moffat_psf(fwhm, psf_width, step)
+        w,x,y = np.shape(moffat)
+        x -= 1 #size to max index
+        y -= 1
+        # (0,0) is in lower left corner (or upper left ... does not matter) x/2, y/2 is the center
+        pix_aperture = CircularAperture((x/2.0, y/2.0), r=fiber_radius/step) #in pixel space
+        phot_table = aperture_photometry(moffat[0], pix_aperture, method=aperture_method)
+        counts = phot_table['aperture_sum'][0]
+
+        #treat the weights of the moffat like a height, so the volume is the area of the fiber x "height"
+        #since the moffat is normalized to a "volume" of 1, this is vol is the fractional volume covered by the
+        #fiber footprint
+        vol = counts*np.pi*fiber_radius**2
+
+        #weights assuming fibers starting at the center of the moffat
+        weights = E.build_weights(0, 0, [0], [0], moffat)[0]
+        scale = np.max(weights) #i.e. the peak of the moffat (or norm s|t the moffat would integrate to 1)
+
+        #since we need to virtually "fill" the moffat with fibers we need a correction for the missing area between 3 dithers
+        #(ie. area between 3 fiber circles: the equalateral triange area - 3*sigle sector area)
+        #or 1/2 b*h - 3* 1/6 * pi* r**2  where the 60deg angle of the sector is 1/6 of the 360 deg circle
+        # or 1/2 (2r * root(3)*r) - 1/2 pi r**2) == (r**2) * (root(3)-pi/2)
+        missing = (fiber_radius**2)*(np.sqrt(3.0)-np.pi/2.0)
+
+        #now "integrate" over the moffat by fitting the weight volume occupied by the fiber footprint at the center
+        #taking out the correction for the missing area footprints between the fibers in a perfect dither sampling
+        int_flux = fiber_flux/scale/vol*(1.0-missing)
+        int_flux_err = fiber_flux_err/scale/vol*(1.0-missing)
+
+        return int_flux, int_flux_err
+    except:
+        log.error("Exception! Exception in spectrum_utilities.psf_overlap().",exc_info=True)
+
+    return None, None
+
+def spectra_deblend(measured_flux_matrix, overlap_matrix):
+    """
+    Single iteration call. Expected that the caller will resample measured_flux_matrix from the uncertainties and call
+    this function repeatedly.
+
+    :param measured_flux_matrix: each row is a mesured spectrum (or from flat in fnu) (columns are the wavebins)
+    :param overlap_matrix: pair-wise PSF overlaps; row or column corresponses to the row index in measured_flux_matrix
+    :return: true (deblended) flux matrix (same shape as measured_flux_matrix)
+    """
+
+    try:
+        row,col = np.shape(measured_flux_matrix) #rows are the sources, columns are the measured fluxes
+        true_flux_matrix = np.full((row,col),np.nan) #not strictly "True" flux, just estimated deblend, but keeps the paper naming convention
+
+        for c in range(col):
+            true_flux_matrix[:,c] = np.linalg.solve(overlap_matrix,measured_flux_matrix[:,c])
+
+            #debug
+            # flux_vector =  measured_flux_matrix[:,c] #a slice down the flux matrix, all rows, column = c
+            # solve = np.linalg.solve(overlap_matrix,flux_vector)
+            #
+            # #print(solve)
+            # true_flux_matrix[:,c] = solve
+
+        return true_flux_matrix
+    except:
+        log.error("Exception! Exception in spectrum_utilities.spectra_deblend().",exc_info=True)
+
+    return None
+
+
+##################################
+# Cloned from LyCon project
+##################################
+
+
+def shift_to_rest_luminosity(z,flux_density,wave,eflux=None):
+    """
+
+    Assume z, wavelengths, and luminosity distances are without error
+
+    :param z:
+    :param flux_density:
+    :param wave:
+    :param eflux:
+    :return:
+    """
+
+    if z < 0.0:
+        log.error(f"What? invalid z: {z}")
+        return None, None, None
+
+    if ( (flux_density is None) or (wave is None)) or (len(flux_density) != len(wave)) or (len(flux_density) == 0):
+        log.error("Invalid flux_density and wavelengths")
+        return None, None, None
+
+    try:
+        wave = wave / (1.0 + z)
+        ld = luminosity_distance(z).to(U.cm) #this is in Mpc
+        conv = 4.0 * np.pi * ld * ld * (1.0 + z)
+        lum = flux_density * conv
+        if (eflux is not None) and (len(eflux) == len(wave)):
+            lum_err = eflux * conv
+        else:
+            lum_err =None
+
+        return lum, wave , lum_err
+
+    except Exception as e:
+        print(e)
+
+    return None, None, None
+
+
+
+def rest_line_luminosity(z,line_flux,line_flux_err=None):
+    """
+
+    Assume z, wavelengths, and luminosity distances are without error
+
+    :param z:
+    :param line_flux: in erg/s/cm2
+    :param line_flux_err: in erg/s/cm2
+    :return:
+    """
+
+    # if z < 0.0:
+    #     print("What? invalid z: ", z)
+    #     return None, None
+    #
+    # if (line_flux is None) :
+    #     print("Invalid line_flux")
+    #     return None, None
+
+    lum = np.nan
+    lum_err = np.nan
+    try:
+        ld = luminosity_distance(z)
+        factor = (4.0 * np.pi * ld * ld ).to(U.cm**2) #no DO NOT have (1+z) in there ... this is line flux, not a density
+        #and the 1+z factors are handled in the Luminosity Distance
+
+        units = None
+        try:
+            units = lum.unit
+            if units != (U.erg / (U.s * U.cm**2)):
+                if units != U.dimensionless_unscaled:
+                    log.error(f"Invalid line flux units {units}")
+                else:
+                    units = None
+        except:
+            pass
+
+        if units is None:
+            lum = line_flux * factor.value
+        else:
+            lum = line_flux * factor
+
+        if line_flux_err is not None:
+            if units is None:
+                lum_err = line_flux_err * factor.value
+            else:
+                lum_err = line_flux_err * factor
+
+    except:
+        pass
+
+    return lum, lum_err
+
+
+
+def shift_to_rest_flam(z, flux_density, wave, eflux=None, block_skylines=True):
+    ### WARNING !!! REMINDER !!! np.arrays are mutable so what are passed in here get modified (flux_density, etc)
+
+    """
+    Really, the "observed" flux density in the reference frame of the rest-frame
+
+    We are assuming no (or insignificant) error in wavelength and z ...
+
+    All three numpy arrays must be of the same length and same indexing
+    :param z:
+    :param flux_density: numpy array of flux densities ...  erg s^-1 cm^-2 AA^-1
+    :param wave: numpy array of wavelenths ... units don't matter
+    :param eflux:  numpy array of flux densities errors ... again, units don't matter, but same as the flux
+                   (note: the is NOT the wavelengths of the flux error)
+    :return:
+    """
+
+    #todo: how are the wavelength bins defined? edges? center of bin?
+    #that is; 4500.0 AA bin ... is that 4490.0 - 4451.0  or 4500.00 - 4502.0 .....
+
+    if z < 0.0:
+        log.error(f"What? invalid z: {z}")
+        flux_density *= 0.0 #zero out the flux, something seriously wrong
+        return flux_density, wave, eflux
+
+    # if block_skylines:
+    #     flux_density[np.where((3535 < wave)&(wave < 3555))] = float("nan")
+
+    try:
+        #rescale the wavelengths
+        wave /= (1.+z) #shift to lower z and squeeze bins
+
+        flux_density *= ((1.+z) * (1.+z)) #shift up flux (shorter wavelength = higher energy)
+        #sanity check .... "density" goes up by (1+z) because of smaller wavebin, energy goes up by (1+z) because of shorter wavelength
+    except:
+        pass
+
+    # if block_skylines:
+    #     flux_density[np.where((3535 < wave)&(wave < 3555))] = float("nan")
+
+
+    #todo: deal with wavelength bin compression (change in counting error?)
+
+    #todo: deal with the various errors (that might not have been passed in)
+    # if eflux is None or len(eflux) == 0:
+    #     eflux = np.zeros(np.shape(flux))
+    #
+    # if ewave is None or len(ewave) == 0:
+    #     ewave = np.zeros(np.shape(flux))
+
+    #todo: deal with luminosity distance (undo dimming?) and turn into luminosity??
+    #
+    #lum = flux*4.*np.pi*(luminosity_distance(z))**2
+    #
+    # or just boost the flux to zero distance point source (don't include the 4*pi)
+    #
+    #flux = flux * (luminosity_distance(z))**2
+
+    return flux_density, wave, eflux
+
+
+def make_grid(all_waves):
+    """
+    Takes in all the wavelength arrays to figure the best grid so that
+    the interpolation only happens on a single grid
+
+    The grid is on the step size of the spectrum with the smallest steps and the range is
+    between the shortest and longest wavelengths that are in all spectra.
+
+    :param all_waves: 2d array of all wavelengths
+    :return: grid (1d array) of wavelengths
+
+    """
+
+    all_waves = np.array(all_waves)
+    #set the range to the maximum(minimum) to the minimum(maximum)
+    mn = np.max(np.amin(all_waves,axis=1)) #maximum of the minimums of each row
+    mx = np.min(np.amax(all_waves,axis=1)) #minimum of the maximums of each row
+
+    # the step is the smallest of the step sizes
+    # assume (within each wavelength array) the stepsize is uniform
+    step = np.min(all_waves[:,1] - all_waves[:,0])
+
+    #return the grid
+    return np.arange(mn, mx + step, step)
+
+
+def make_grid_max_length(all_waves):
+    """
+    Takes in all the wavelength arrays to figure the best grid so that
+    the interpolation only happens on a single grid
+
+    The grid is on the step size of the spectrum with the smallest steps and the range is
+    the maximum of ALL spectral ranges (NOT THE MAX OVERLAP, but the absolute max)
+
+    :param all_waves: 2d array of all wavelengths
+    :return: grid (1d array) of wavelengths
+
+    """
+
+    #all_waves = np.array(all_waves)
+    # matrix_waves = np.vstack(all_waves) #can only vstack if lengths are the same
+    # #set the range to the maximum(minimum) to the minimum(maximum)
+    # mn = np.min(np.amin(matrix_waves,axis=1)) #minimum of the minimums of each row
+    # mx = np.max(np.amax(matrix_waves,axis=1)) #maximums of the maximums of each row
+    # # the step is the smallest of the step sizes
+    # # assume (within each wavelength array) the stepsize is uniform
+    # step = np.min(matrix_waves[:,1] - matrix_waves[:,0])
+
+    mn = min(x[0] for x in all_waves)
+    mx = max(x[-1] for x in all_waves)
+    step = min(x[1]-x[0] for x in all_waves)
+
+    #return the grid
+    return np.arange(mn, mx + step, step)
+
+def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="weighted_biweight",straight_error=False):
+    """
+        Assumes all spectra are in the same frame (ie. all in restframe) and ignores the flux type, but
+        assumes all in the same units and scale (for flux, flux err and wave).
+
+    flux, flux_err, and wave are 2D matrices (array of arrays)
+
+    :param fluxes: should be unitless values
+    :param flux_errs:  should be unitless values
+    :param waves:  should be unitless values
+    :param avg_type:
+    :param straight_error:
+    :return:
+    """
+
+    data_shape = np.shape(fluxes)
+
+    if (np.shape(flux_errs) != np.shape(waves)) or (np.shape(flux_errs) != data_shape):
+        log.error("Inconsistent data shape for fluxes, flux_errs, and waves")
+        return None,None,None,None
+
+    if grid is None or len(grid) == 0:
+        grid = make_grid_max_length(waves) #full width grid of absolute maximum spread in wavelengths
+
+    resampled_fluxes = []
+    resampled_flux_errs = []
+    contrib_count = np.zeros(len(grid)) #number of spectra contributing to this wavelength bin
+
+
+
+
+    stack_flux = np.full(len(grid),np.nan)
+    stack_flux_err = np.full(len(grid),np.nan)
+    #stack_wave # this is just the grid
+
+    #resample all input fluxes onto the same grid
+    for i in range(data_shape[0]):
+        res_flux, res_err, res_wave = interpolate(fluxes[i],waves[i],grid,eflux=flux_errs[i])
+
+        min_wave = waves[i][0]
+        max_wave = waves[i][-1]
+
+        res_flux[np.where(grid < min_wave)] = np.nan
+        res_flux[np.where(grid > max_wave)] = np.nan
+
+
+        resampled_fluxes.append(res_flux) #aka interp_flux_density_matrix
+        resampled_flux_errs.append(res_err) #aka  interp_flux_density_err_matrix
+        #all on the same wave grid, so don't need that back
+
+    #########################################################################
+    # average down each wavebin THEN across the (single) averaged spectrum
+    #########################################################################
+
+    #save the units
+
+    for i in range(len(grid)):
+        #build error first since wslice is modified and re-assigned
+        #build the error on the flux (wslice) so they stay lined up
+
+        #have to remove the quantity here, just use the float values
+        wslice_err = np.array([m[i] for m in resampled_flux_errs])  # interp_flux_matrix[:, i]  # all rows, ith index
+        wslice = np.array([m[i] for m in resampled_fluxes]) #interp_flux_matrix[:, i]  # all rows, ith index
+
+        #since using np.nan and np.nan != np.nan, so where wslice == itself it is not nan
+        wslice_err = wslice_err[np.where(wslice==wslice)]  # so same as wslice, since these need to line up
+        wslice = wslice[np.where(wslice==wslice)]  # git rid of the out of range interp values
+
+        # git rid of any nans
+        wslice_err = wslice_err[~np.isnan(wslice)] #err first so the wslice is not modified
+        wslice = wslice[~np.isnan(wslice)]
+
+        contrib_count[i] = len(wslice)
+
+        if len(wslice) == 0:
+            stack_flux[i] = np.nan
+            stack_flux_err[i] = np.nan
+        elif len(wslice) == 1:
+            try:
+                stack_flux[i] = wslice[0]
+                stack_flux_err[i] = 0
+            except Exception as e:
+                print(e)
+                stack_flux[i] = 0
+                stack_flux_err[i] = 0
+        elif len(wslice) == 2:
+            try:
+                stack_flux[i] = np.nanmean(wslice)
+                stack_flux_err[i] = np.nanstd(wslice)
+            except Exception as e:
+                print(e)
+                stack_flux[i] = 0
+                stack_flux_err[i] = 0
+        else: #3 or more
+            if straight_error or (avg_type == 'mean_95'):
+                try:
+                    mean_cntr, var_cntr, std_cntr = bayes_mvs(wslice, alpha=0.95)
+                    if np.isnan(mean_cntr[0]):
+                        raise( Exception('mean_ctr is nan'))
+                    stack_flux[i] = mean_cntr[0]
+                    #an average error
+                    stack_flux_err[i] = 0.5 * (abs(mean_cntr[0]-mean_cntr[1][0]) + abs(mean_cntr[0]-mean_cntr[1][1]))
+                except Exception as e:
+                    log.error("Straight Error failed (iter=%d,wave=%f). Switching to biweight at 2 sigma  ..." %(i,grid[i]),e)
+                    try:
+                        stack_flux[i] = biweight.biweight_location(wslice)
+                        stack_flux_err[i] = biweight.biweight_scale(wslice) #* 2. #2 sigma ~ 95%
+                    except Exception as e:
+                        log.error(e)
+            elif straight_error or (avg_type == 'mean_68'):
+                try:
+                    mean_cntr, var_cntr, std_cntr = bayes_mvs(wslice, alpha=0.68)
+                    if np.isnan(mean_cntr[0]):
+                        raise (Exception('mean_ctr is nan'))
+                    stack_flux[i] = mean_cntr[0]
+                    # an average error
+                    stack_flux_err[i] = 0.5 * (
+                            abs(mean_cntr[0] - mean_cntr[1][0]) + abs(mean_cntr[0] - mean_cntr[1][1]))
+                except Exception as e:
+                    log.error("Straight Error failed (iter=%d,wave=%f). Switching to biweight at 2 sigma  ..." % (
+                        i, grid[i]), e)
+
+                    try:
+                        stack_flux[i] = biweight.biweight_location(wslice)
+                        stack_flux_err[i] = biweight.biweight_scale(wslice)   # * 2. #2 sigma ~ 95%
+                    except Exception as e:
+                        log.error(e)
+            elif (avg_type == 'mean_std'):
+                try:
+                    stack_flux[i] = np.nanmean(wslice)
+                    # an average error
+                    stack_flux_err[i] = np.nanstd(wslice) / np.sqrt(len(wslice))
+                except Exception as e:
+                    log.error("Straight Error failed (iter=%d,wave=%f). Switching to biweight at 2 sigma  ..." %(i,grid[i]),e)
+                    try:
+                        stack_flux[i] = biweight.biweight_location(wslice)
+                        stack_flux_err[i] = biweight.biweight_scale(wslice) #* 2. #2 sigma ~ 95%
+                    except Exception as e:
+                        log.error(e)
+
+            elif (avg_type == 'median'):
+                try:
+                    stack_flux[i] = np.nanmedian(wslice)
+                    #an average error
+                    stack_flux_err[i] =np.nanstd(wslice)/np.sqrt(len(wslice))
+                except Exception as e:
+                    log.error("Straight Error failed (iter=%d,wave=%f). Switching to biweight at 2 sigma  ..." %(i,grid[i]),e)
+
+                    try:
+                        stack_flux[i] = biweight.biweight_location(wslice)
+                        stack_flux_err[i] = biweight.biweight_scale(wslice)#* 2. #2 sigma ~ 95%
+                    except Exception as e:
+                        log.error(e)
+
+            elif (avg_type == 'biweight'):
+                try:
+                    stack_flux[i] = biweight.biweight_location(wslice)
+                    stack_flux_err[i] = biweight.biweight_scale(wslice) / np.sqrt(len(wslice))
+                except Exception as e:
+                    log.error("Straight Error failed (iter=%d,wave=%f). Switching to biweight at 2 sigma  ..." %(i,grid[i]),e)
+                    try:
+                        stack_flux[i] = biweight.biweight_location(wslice)
+                        stack_flux_err[i] = biweight/biweight_scale(wslice) #* 2. #2 sigma ~ 95%
+                    except Exception as e:
+                        log.error(e)
+            else: #weighted_biweight
+                #definitely keep the scale defaults (c=6,c=9) per Karl, etc .. these best wieght for Gaussian limits
+
+                try:
+                    stack_flux[i] = weighted_biweight.biweight_location_errors(wslice, errors=wslice_err)
+                    stack_flux_err[i] = weighted_biweight.biweight_scale(wslice) / np.sqrt(len(wslice))
+                except Exception as e:
+                    log.error(e)
+                    stack_flux[i] = biweight.biweight_location(wslice)
+                    stack_flux_err[i] = biweight.biweight_scale(wslice) / np.sqrt(len(wslice))
+
+        #end loop
+
+    return stack_flux,stack_flux_err,grid,contrib_count
