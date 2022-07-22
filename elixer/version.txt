@@ -1,8 +1,5 @@
 changes to elixer by version
 
-1.16.6 [2022-04-05]
-* update smerge.py to detect timeout on merging and handle easier recovery (just re-run "sbatch elixer_merge.slurm")
-* tweak spectrum::solution_consistent_with_lae() to be a little more leanient with scoring and allow for a non-vote
 
 1.16.5 [2022-03-15]
 * include whether elixer also detects the HETDEX line and if the maximum elixer found line is included in the solution(s)
