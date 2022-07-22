@@ -837,7 +837,7 @@ class CFHTLS(cat_base.Catalog):
 
 
 
-    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,error=None,do_sky_subtract=True):
+    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,error=None,do_sky_subtract=True,detobj=None):
         """
 
         :param ra:
@@ -889,7 +889,8 @@ class CFHTLS(cat_base.Catalog):
                 error = window
 
             cutout,pix_counts, mag, mag_radius,details = sci.get_cutout(ra, dec, error=error, window=window, aperture=aperture,
-                                                                        mag_func=mag_func,copy=True,return_details=True)
+                                                                        mag_func=mag_func,copy=True,return_details=True,
+                                                                        detobj=detobj)
             # don't need pix_counts or mag, etc here, so don't pass aperture or mag_func
             if cutout is not None:  # construct master cutout
                 d['cutout'] = cutout
@@ -933,7 +934,7 @@ class CFHTLS(cat_base.Catalog):
 
         return d
 
-    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False,error=None,do_sky_subtract=True):
+    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False,error=None,do_sky_subtract=True,detobj=None):
         l = list()
 
         tile = self.find_target_tile(ra, dec)
@@ -972,7 +973,7 @@ class CFHTLS(cat_base.Catalog):
                         next(i for (i, d) in enumerate(self.CatalogImages)
                              if ((d['filter'] == f) and (d['tile'] == lookup_tile)))]
                     if i is not None:
-                        cutout = self.get_single_cutout(ra, dec, window, i, aperture,error)
+                        cutout = self.get_single_cutout(ra, dec, window, i, aperture,error,detobj)
 
                         if first:
                             if cutout['cutout'] is not None:
@@ -1000,7 +1001,7 @@ class CFHTLS(cat_base.Catalog):
                 if i is None:
                     continue
 
-                l.append(self.get_single_cutout(ra,dec,window,i,aperture))
+                l.append(self.get_single_cutout(ra,dec,window,i,aperture,detobj=detobj))
 
         return l
 

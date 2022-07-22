@@ -531,7 +531,7 @@ def snr(flux,noise,flux_err=None,wave=None,center=None,delta=None):
     return None, None
 
 
-def chi_sqr(obs, exp, error=None, c=None,dof=None):
+def chi_sqr(obs, exp, error=None, c=None,dof=3):
     """
 
     :param obs: (data)
@@ -563,9 +563,9 @@ def chi_sqr(obs, exp, error=None, c=None,dof=None):
     error[error==0] = 1.0
 
     #test
-    dof = None
-    if dof is not None:
-        dof -= 1
+    #dof = None
+    # if dof is not None:
+    #     dof -= 1
 
     try:
         if dof is not None and (len(obs)-dof) > 0:

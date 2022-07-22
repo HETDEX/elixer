@@ -5,7 +5,7 @@ merge existing ELiXer catalogs
 """
 
 
-__version__ = '0.6.1' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
+__version__ = '0.6.2' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -80,6 +80,8 @@ class Detections(tables.IsDescription):
     flux_line_err = tables.Float32Col(dflt=UNSET_FLOAT)
     fwhm_line_aa = tables.Float32Col(dflt=UNSET_FLOAT)
     fwhm_line_aa_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    fwhm_line_kms = tables.Float32Col(dflt=UNSET_FLOAT)
+    fwhm_line_kms_err = tables.Float32Col(dflt=UNSET_FLOAT)
     sn = tables.Float32Col(dflt=UNSET_FLOAT)
     sn_err = tables.Float32Col(dflt=UNSET_FLOAT)
     chi2 = tables.Float32Col(dflt=UNSET_FLOAT)
@@ -851,6 +853,13 @@ def append_entry(fileh,det,overwrite=False):
 
         row['fwhm_line_aa'] = det.fwhm
         row['fwhm_line_aa_err'] = det.fwhm_unc
+
+        try:
+            row['fwhm_line_kms'] = det.fwhm / det.w * 3e5
+            row['fwhm_line_kms_err'] = det.fwhm_unc / det.w * 3e5
+        except: #this column might not exist
+            pass
+
         if det.snr is not None:
             row['sn'] = det.snr
             row['sn_err'] = det.snr_unc
@@ -3188,6 +3197,91 @@ def upgrade_0p3px_to_0p4p0(oldfile_handle,newfile_handle):
         log.error("Upgrade failed %s to %s:" %(from_version,to_version),exc_info=True)
         return False
 
+
+
+def upgrade_0p6p1_to_0p6p2(oldfile_handle,newfile_handle):
+    """
+
+    #add fwhm_line_kms and _err to Detections Table
+
+    :param oldfile_handle:
+    :param newfile_handle:
+    :return:
+    """
+
+    from_version = "0.6.1"
+    to_version = "0.6.2"
+
+    try:
+        log.info("Upgrading %s to %s ..." %(from_version,to_version))
+
+        dtb_new = newfile_handle.root.Detections
+        stb_new = newfile_handle.root.CalibratedSpectra
+        ltb_new = newfile_handle.root.SpectraLines
+        atb_new = newfile_handle.root.Aperture
+        ctb_new = newfile_handle.root.CatalogMatch
+        etb_new = newfile_handle.root.ExtractedObjects
+        xtb_new = newfile_handle.root.ElixerApertures
+
+        dtb_old = oldfile_handle.root.Detections
+        stb_old = oldfile_handle.root.CalibratedSpectra
+        ltb_old = oldfile_handle.root.SpectraLines
+        atb_old = oldfile_handle.root.Aperture
+        ctb_old = oldfile_handle.root.CatalogMatch
+        etb_old = oldfile_handle.root.ExtractedObjects
+        xtb_old = oldfile_handle.root.ElixerApertures
+
+        #Detections
+        for old_row in dtb_old.read():
+            new_row = dtb_new.row
+            for n in dtb_new.colnames:
+                try: #can be missing name (new columns)
+                    if n == "fwhm_line_kms":
+                        new_row[n] == old_row["fwhm_line_aa"] / old_row["wavelength_obs"] * 3e5
+                    elif n == "fwhm_line_kms_err":
+                        new_row[n] == old_row["fwhm_line_aa_err"] / old_row["wavelength_obs"] * 3e5
+                    else:
+                        new_row[n] = old_row[n]
+                except:
+                    log.debug("Detection column failed (%s). Default set."%n)
+            new_row.append()
+            dtb_new.flush()
+
+        #no change to Calibrated Spectra
+        stb_new.append(stb_old.read())
+        stb_new.flush()
+
+
+        #SpectraLines
+        ltb_new.append(ltb_old.read())
+        ltb_new.flush()
+
+        #no change to Aperture
+        atb_new.append(atb_old.read())
+        atb_new.flush()
+
+        #CatalogMatch
+        ctb_new.append(ctb_old.read())
+        ctb_new.flush()
+
+        #no change to ExtractedObjects
+        etb_new.append(etb_old.read())
+        etb_new.flush()
+
+        #no change to ElixerApertures
+        xtb_new.append(xtb_old.read())
+        xtb_new.flush()
+
+        flush_all(newfile_handle)
+
+        # close the merge input file
+        newfile_handle.close()
+        oldfile_handle.close()
+
+        return True
+    except:
+        log.error("Upgrade failed %s to %s:" %(from_version,to_version),exc_info=True)
+        return False
 
 
 

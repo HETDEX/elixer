@@ -45,7 +45,13 @@ import matplotlib.gridspec as gridspec
 from matplotlib.font_manager import FontProperties
 import io
 from distutils.version import LooseVersion
-import pyhetdex.tools.files.file_tools as ft
+try:
+    import pyhetdex.tools.files.file_tools as ft
+except:
+    #however, you will bomb out if you hit its use with old data
+    print("Non-fatal warning. Cannot import pyhetdex.")
+    pass #pyhetdex is not so important any more
+
 import sys
 import glob
 import os
@@ -310,6 +316,8 @@ def parse_commandline(auto_force=False):
                         required=False, action='store_true', default=False)
 
     parser.add_argument('-t', '--time', help="Max runtime as hh:mm:ss for in SLURM queue",required=False)
+    parser.add_argument('--timex', help="Multiplier on the time for SLURM. i.e. 1.1 would increase the time by 10%",
+                        required=False,type=float,default=1.0)
     parser.add_argument('--email', help="If populated, sends SLURM status to this email address", required=False)
 
     parser.add_argument('--queue', help="If populated, specifies which TACC queue (vis, gpu) to use.", required=False)

@@ -21,7 +21,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.16.6'
+__version__ = '1.16.5'
 #Logging
 GLOBAL_LOGGING = True
 
@@ -39,8 +39,8 @@ LAUNCH_PDF_VIEWER = None
 
 valid_HDR_Versions = [1,2,2.1,3,3.0]
 
-HDR_Version = "2.1"
-HDR_Version_float = 2.1
+HDR_Version = "3" #"2.1"
+HDR_Version_float = 3.0
 
 WORK_BASEPATH = "/work"
 try:
@@ -127,12 +127,12 @@ BUILD_REPORT_BY_FILTER = True #if True, multiple catalogs are used to build the 
 
 if hostname in LOCAL_DEV_HOSTNAMES:  # primary author test box
 #if False:
-    HDR_Version = "2.1"
-    HDR_Version_float = 2.1
+    HDR_Version = "3.0" #"2.1"
+    HDR_Version_float = 3.0 #2.1
     LAUNCH_PDF_VIEWER = 'qpdfview'
 else:
-    HDR_Version = "2.1"  # default HDR Version if not specified
-    HDR_Version_float = 2.1
+    HDR_Version = "3.0" #"2.1"  # default HDR Version if not specified
+    HDR_Version_float = 3.0 #2.1
 
 #look specifically (and only) for HDR version on call
 args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
@@ -196,8 +196,17 @@ def set_hdr_basepath(version=None):
             print("Invalid HDRversion configuration")
             return
 
-        try:
+        try: #might be like "hdr3.0" where "hdr3" is what is expected
             HETDEX_API_CONFIG = HDRconfig(survey=strHDRVersion)
+        except KeyError:
+            try:
+                if strHDRVersion[-2:] == ".0":
+                    HETDEX_API_CONFIG = HDRconfig(survey=strHDRVersion[:-2])
+                    strHDRVersion = strHDRVersion[:-2]
+                    version = version[:-2]
+                    HDR_Version = HDR_Version[:-2]
+            except Exception as e:
+                print(e)
         except Exception as e:
             print(e)
 
@@ -822,6 +831,7 @@ MC_PLAE_CONF_INTVL = 0.68 #currently supported 0.68, 0.95, 0.99
 
 CLASSIFY_WITH_OTHER_LINES = True
 SPEC_MAX_OFFSET_SPREAD = 2.75 #AA #maximum spread in (velocity) offset (but in AA) across all lines in a solution
+SPEC_MAX_OFFSET_SPREAD_BROAD_THRESHOLD = 15.0 #kick in broad classification (there are effectively no OII with FWHM > 15)
 MIN_MCMC_SNR = 0.0 #minium SNR from an MCMC fit to accept as a real line (if 0.0, do not MCMC additional lines)
 MIN_ADDL_EMIS_LINES_FOR_CLASSIFY = 1
 
@@ -906,13 +916,13 @@ FRAC_UNIQUE_PIXELS_AUTOCORRELATE = 0.75 #less than --> empty (with an autocorrel
 FRAC_NONZERO_PIXELS = 0.66 #0.66 #less than --> empty
 
 #note: Pan-STARRS is prioritized over SDSS (since Pan-STARRS is deeper 23.3 vs 22.0)
-DECALS_WEB_ALLOW = True #if no other catalogs match, try DECaLS as online query (default if not dispatch mode)
+DECALS_WEB_ALLOW = False #if no other catalogs match, try DECaLS as online query (default if not dispatch mode)
 DECALS_WEB_FORCE = False #ignore local catalogs and Force the use of only DECaLS
 
-PANSTARRS_ALLOW = True #if no other catalogs match, try Pan-STARRS as online query (default if not dispatch mode)
+PANSTARRS_ALLOW = False #if no other catalogs match, try Pan-STARRS as online query (default if not dispatch mode)
 PANSTARRS_FORCE = False  #ignore local catalogs and Force the use of only Pan-STARRS
 
-SDSS_ALLOW = True #if no other catalogs match, try SDSS as online query (default if not dispatch mode)
+SDSS_ALLOW = False #if no other catalogs match, try SDSS as online query (default if not dispatch mode)
 SDSS_FORCE = False  #ignore local catalogs and Force the use of only SDSS
 SDSS_SCORE_BOOST = MULTILINE_MIN_SOLUTION_SCORE #specficically for the SDSS z Catalog (other local catalogs are below)
 CHECK_SDSS_Z_CATALOG  = True #set to True to check the SDSS z-catalog
@@ -988,6 +998,7 @@ LAE_EW_MAG_TRIGGER_MAX = 25.0 #if the associated EW_rest(LyA) is less than this 
 LAE_EW_MAG_TRIGGER_MIN = 15.0 #if the associated EW_rest(LyA) is greater than this value, then look at the magnitudes
 
 LINEWIDTH_SIGMA_TRANSITION = 4.5  #larger than this, is increasingly more likely to be LyA, below .. could be either
+LINEWIDTH_SIGMA_MAX_OII = 6.5 #there just are not any larger than this (FWHM > 16.5)
 
 SEP_FIXED_APERTURE_RADIUS = 1.5 #RADIUS in arcsec ... used at the barycenter position of SEP objects
 
@@ -1029,6 +1040,7 @@ DETFLAG_POOR_IMAGING                = 0x00000200 #poor depth (in g,r) ... like j
 
 DETFLAG_LARGE_SKY_SUB               = 0x00000400 #possibly excessive sky subtraction in g or r band
                                         #can impact the magnitude calculation (so partly redundant with others)
+                                        #NOTE: this is a reserved flag, but there is no code to check it at this time
 
 DETFLAG_EXT_CAT_QUESTIONABLE_Z      = 0x00000800 #best redshift reported is from an external catalog and might be questionable
                                                  #the redshift my by uncertain or it is unclear that it belongs to our object
@@ -1048,7 +1060,10 @@ DETFLAG_NEGATIVE_SPECTRUM           = 0x00040000
 DETFLAG_POOR_THROUGHPUT             = 0x00080000
 DETFLAG_BAD_DITHER_NORM             = 0x00100000
 DETFLAG_POOR_SHOT                   = 0x00200000
-DETFLAG_QUESTIONABLE_DETECTION      = 0x00400000   #unable to fit a continuum (wide) and cont(n) is fairly negative
+DETFLAG_QUESTIONABLE_DETECTION      = 0x00400000   #unable to fit a continuum (wide) and cont(n) is fairly negative, or bad emission line fit
+DETFLAG_EXCESSIVE_ZERO_PIXELS       = 0x00800000   #too many zero valued pixels at the emission line center in 2D cutouts
+
+DETFLAG_POSSIBLE_PN                 = 0x01000000    #possible planetery nebula hit (usually 5007, without an obvious source)
 
 #todo: low SNR, weighted position is between fibers (i.e. distances from blue fiber center > 0.74 or 0.75 and SNR < 5.2 or so)
 

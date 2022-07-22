@@ -792,6 +792,81 @@ class Catalog:
         return stacked_cutout
 
 
+    def revisit_sep_selection(self,detobj):
+        """
+        Double check the SEP selection on a per aperture list basis. Could be due to astrometric or other error, the
+        selected SEP object might not be correct even though it is the closest to the HETDEX position. We want to also
+        check the g-mag for compatibility.
+
+        :param detobj:
+        :return:
+        """
+
+        try:
+            if detobj.best_gmag is None or detobj.best_gmag <= 0:
+                return #cannot check the gmag
+
+            for d in detobj.aperture_details_list:
+                if 'sep_obj_idx' in d.keys() and d['sep_obj_idx'] != None:
+                    #there is an sep object selected as best
+                    #is the selected object a good mag match?
+                    idx = d['sep_obj_idx']
+                    if  (abs(detobj.best_gmag - d['sep_objects'][idx]['mag']) < 0.5) or \
+                        ( (detobj.best_gmag < 22) and ( d['sep_objects'][idx]['mag'] < 22) ) or \
+                        ( ( d['sep_objects'][idx]['mag'] > detobj.best_gmag) and (detobj.best_gmag > G.HETDEX_CONTINUUM_MAG_LIMIT)):
+                        #yep, compatible, so keep this one
+                        pass
+                    else: #not compatible ... is there a better one?
+                        target_dist = d['sep_objects'][idx]['dist_curve'] if d['sep_objects'][idx]['dist_curve'] > 0 else d['sep_objects'][idx]['dist_baryctr']
+                        target_dist += 0.5 #allow up to 0.5"
+                        best_idx = idx
+                        best_dist = 999.9
+                        best_dmag = 999.9
+
+                        for i,s in enumerate(d['sep_objects']):
+                            bid_dist = s['dist_curve'] if s['dist_curve'] > 0 else s['dist_baryctr']
+                            bid_dmag = abs(detobj.best_gmag - s['mag'])
+                            if bid_dist <= target_dist: #sufficiently close
+                                if (bid_dmag < 0.5) or \
+                                   ((detobj.best_gmag < 22) and (s['mag'] < 22)) or \
+                                   ((s['mag'] > detobj.best_gmag) and (detobj.best_gmag > G.HETDEX_CONTINUUM_MAG_LIMIT)):
+                                    #they are compatible
+                                    if (bid_dist < best_dist) and (bid_dmag < best_dmag):
+                                        #de-select the old one
+                                        d['sep_objects'][best_idx]['selected'] = False
+
+                                        #set the new one
+                                        best_idx = i
+                                        best_dist = bid_dist
+                                        best_dmag = bid_dmag
+                                        d['sep_objects'][best_idx]['selected'] = True
+
+
+                        if best_idx != idx:
+                            log.info(f"[{detobj.entry_id}] - updated selected SEP object from "
+                                     f"{d['sep_obj_idx'] } to {best_idx} for {d['catalog_name']}-{d['filter_name']}")
+                            d['sep_obj_idx'] = best_idx
+
+                            #update the other relevant data
+                            d['ra'] = d['sep_objects'][best_idx]['ra']
+                            d['dec'] = d['sep_objects'][best_idx]['dec']
+                            d['radius'] = 0.5*np.sqrt(d['sep_objects'][best_idx]['a']*d['sep_objects'][best_idx]['b'])
+                            d['mag'] = d['sep_objects'][best_idx]['mag']
+                            d['mag_faint'] = d['sep_objects'][best_idx]['mag_faint']
+                            d['mag_bright'] = d['sep_objects'][best_idx]['mag_bright']
+                            d['aperture_counts'] = d['sep_objects'][best_idx]['flux_cts']
+
+
+
+                            # d['aperture_eqw_rest_lya']
+                            # d['aperture_eqw_rest_lya_err']
+                            # d['aperture_plae']
+                            # d['aperture_plae_min']
+                            # d['aperture_plae_max']
+
+        except:
+            log.warning("Exception in cat_base.py revisit_sep_selection", exc_info=True)
+
     def build_cat_summary_pdf_section(self,list_of_cutouts, cat_match, ra, dec, error, target_w=0,
                                   fiber_locs=None, target_flux=None,detobj=None):
         """
@@ -816,6 +891,7 @@ class Catalog:
         if len(list_of_cutouts) == 0:
             return None
 
+        #self.revisit_sep_selection(detobj)
 
         #allow master (fiber locations) and up to 5 (or 6) filters?
         the_best_cat_idx = 0
@@ -1008,19 +1084,35 @@ class Catalog:
                             continue
                         try:
                             selected_sep = d['sep_objects'][np.where([x['selected'] for x in d['sep_objects']])[0][0]]
+
+                            if  (abs(detobj.best_gmag - selected_sep['mag']) < 0.5) or \
+                                ((detobj.best_gmag < 22) and (selected_sep['mag'] < 22)) or \
+                                ((selected_sep['mag'] > detobj.best_gmag) and (detobj.best_gmag > G.HETDEX_CONTINUUM_MAG_LIMIT)):
+                                pass
+                            else:
+                                selected_sep = None #the mag is not consistent with HETDEX
+
                         except:
                             pass #usually just means that no SEP object is a selected object
 
-                    if selected_sep:
+                    #This is checking the catalog object vs the selected SEP object BUT the SEP object might not match
+                    #the HETDEX position?? This can be a problem if there is an astrometric offset between HETDEX and the
+                    #underlying imaging and the catalog which can cause the selection of the wrong SEP object
+                    if selected_sep: #there is a selected SEP, but it might not correspond to THIS catalog object
                         #are the magnitudes similar and is it inside the ellipse?
                         if utilities.is_in_ellipse(cp.bid_ra,cp.bid_dec,selected_sep['ra'],selected_sep['dec'],
-                                                selected_sep['a'],selected_sep['b'],selected_sep['theta']):
+                                                selected_sep['a'],selected_sep['b'],selected_sep['theta'])[0]:
                             #are the mags similar (or SEP is fainter than limit?)
                             if (abs(selected_sep['mag'] - cp.bid_mag) < 0.5) or \
                                 ( (selected_sep['mag'] < 22) and (cp.bid_mag < 22) ) or \
                                 ( (cp.bid_mag > selected_sep['mag']) and (d['fail_mag_limit'])):
                                     selected_idx = idx
-                                    break #this is the one
+                                    break #this is the one .. the selected SEP matches the catalog object, but they might not match HETDEX g
+                            # elif  (abs(detobj.best_gmag - cp.bid_mag) < 0.5) or \
+                            #     ( (detobj.best_gmag < 22) and (cp.bid_mag < 22) ) or \
+                            #     ( (cp.bid_mag > detobj.best_gmag) and (detobj.best_gmag > G.HETDEX_CONTINUUM_MAG_LIMIT)):
+                            #         #did not match the SEP selected object but DOES match with HETDEX g
+                            #
                             else:
                                 if alternate_idx is None:
                                     alternate_idx = idx
@@ -1606,7 +1698,8 @@ class Catalog:
 
 
         window = error * 3
-        cutouts = self.get_cutouts(ra,dec,window/3600.,aperture=-1,filter=None,first=False,error=error,do_sky_subtract=do_sky_subtract)
+        cutouts = self.get_cutouts(ra,dec,window/3600.,aperture=-1,filter=None,first=False,error=error,
+                                   do_sky_subtract=do_sky_subtract,detobj=detobj)
 
         #do other stuff
         #1 get PLAE/POII for "best" aperture in each cutout image with details
@@ -2383,7 +2476,7 @@ class Catalog:
             return None
 
 
-    def get_single_cutout(self,ra,dec,window,catalog_image,aperture=None,error=None,do_sky_subtract=True):
+    def get_single_cutout(self,ra,dec,window,catalog_image,aperture=None,error=None,do_sky_subtract=True,detobj=None):
         #window is in DEGREES
         #error in arcsec and is for internal ELiXer use
 
@@ -2434,7 +2527,8 @@ class Catalog:
                     pass
 
             cutout,pix_counts, mag, mag_radius,details = sci.get_cutout(ra, dec, error=error, window=window, aperture=aperture,
-                                             mag_func=mag_func,copy=True,return_details=True,do_sky_subtract=do_sky_subtract)
+                                             mag_func=mag_func,copy=True,return_details=True,do_sky_subtract=do_sky_subtract,
+                                             detobj=detobj)
             #don't need pix_counts or mag, etc here, so don't pass aperture or mag_func
 
             if cutout is not None:  # construct master cutout
@@ -2543,7 +2637,20 @@ class Catalog:
         return list(set(cat_filters))
 
     #generic, can be used by most catalogs (like CANDELS), only override if necessary
-    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False,error=None,do_sky_subtract=True):
+    def get_cutouts(self,ra,dec,window,aperture=None,filter=None,first=False,error=None,do_sky_subtract=True,detobj=None):
+        """
+
+        :param ra:
+        :param dec:
+        :param window:
+        :param aperture:
+        :param filter:
+        :param first:
+        :param error:
+        :param do_sky_subtract:
+       # :param mag_check: usually the HETDEX-gmag, if known. selected SEP objects should also match the mag
+        :return:
+        """
         l = list()
 
         #not every catalog has a list of filters, and some contain multiples
@@ -2577,7 +2684,7 @@ class Catalog:
                             next(i for (i, d) in enumerate(self.CatalogImages)
                              if ((d['filter'] == f)))]
 
-                    cutout = self.get_single_cutout(ra, dec, window, i, aperture,error,do_sky_subtract)
+                    cutout = self.get_single_cutout(ra, dec, window, i, aperture,error,do_sky_subtract,detobj)
 
                     if first:
                         if cutout['cutout'] is not None:
@@ -2598,7 +2705,7 @@ class Catalog:
                 # note: this works, but can be grossly inefficient and
                 # should be overwritten by the child-class
                 try:
-                    l.append(self.get_single_cutout(ra, dec, window, i, aperture))
+                    l.append(self.get_single_cutout(ra, dec, window, i, aperture,detobj=detobj))
                     if first:
                         break
                 except:

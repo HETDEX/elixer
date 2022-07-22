@@ -216,6 +216,8 @@ def get_sdss_gmag(flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_SIZ
     :return: AB mag in g-band and continuum estimate (erg/s/cm2/AA)
             if flux_err is specified then also returns error on mag and error on the flux (continuum)
     """
+    #todo: in caller or here, enfore a limit based on the 1-sigma flux limits at the CCD position and the seeing FWHM
+    log.debug("++++  #todo: in caller or here, enfore a limit based on the 1-sigma flux limits at the CCD position and the seeing FWHM")
 
     try:
         mag = None
@@ -333,8 +335,12 @@ def get_hetdex_gmag(flux_density, wave, flux_density_err=None):
             if flux_err is specified then also returns error on mag and error on the flux (continuum)
     """
 
+    #todo: in caller or here, enfore a limit based on the 1-sigma flux limits at the CCD position and the seeing FWHM
+    log.debug("++++  #todo: in caller or here, enfore a limit based on the 1-sigma flux limits at the CCD position and the seeing FWHM")
+
     try:
         #use the SDSS-g wavelength if can as would be used by the get_sdss_gmag() above
+        filter_name = 'sdss2010-g'
         f_lam_iso = speclite_filters.load_filters(filter_name).effective_wavelengths[0].value
     except:
         f_lam_iso = 4726.1 #should be about this value anyway
@@ -1359,9 +1365,11 @@ class EmissionLineInfo:
                 not ((self.fwhm < MAX_FWHM) and (self.snr > MIN_HUGE_FWHM_SNR)):
             log.debug(f"Line sigma {self.fit_sigma} in broad range {LIMIT_BROAD_SIGMA} and broad line not allowed.")
             return False
-        elif not self.absorber and not G.CONTINUUM_RULES and (self.fit_sigma > GOOD_BROADLINE_SIGMA) and (self.line_score < GOOD_BROADLINE_MIN_LINE_SCORE):
+        elif not self.absorber and not G.CONTINUUM_RULES and (self.fit_sigma > GOOD_BROADLINE_SIGMA) and \
+                (self.line_score < (1.5 * GOOD_MIN_LINE_SCORE * self.fit_sigma/GOOD_BROADLINE_SIGMA)):
+            #and  ((self.eqw_obs - self.eqw_obs_err) < 5.0) and (abs(self.fit_dx0) > 5.0):
             log.debug(f"Line sigma {self.fit_sigma} in broad range {GOOD_BROADLINE_SIGMA} but "
-                      f"line_score {self.line_score} below minumum {GOOD_BROADLINE_MIN_LINE_SCORE}.")
+                      f"line_score {self.line_score} below minumum {1.5 * GOOD_MIN_LINE_SCORE * self.fit_sigma/GOOD_BROADLINE_SIGMA}.")
             result = False
         # minimum to be possibly good
         elif (self.line_score >= line_score_multiplier * GOOD_MIN_LINE_SCORE) and (self.fit_sigma >= GOOD_MIN_SIGMA):
@@ -3901,6 +3909,7 @@ class Classifier_Solution:
         self.name = ""
         self.color = None
         self.emission_line = None
+        self.possible_pn = 0 #the higher the number, the more "possible"
 
         self.prob_noise = 1.0
         self.lines = [] #list of EmissionLine
@@ -4031,7 +4040,7 @@ class Spectrum:
             # big in AGN (never alone in our range)
             EmissionLine("CIV".ljust(w), 1549, "blueviolet",solution=True,display=True,rank=3,broad=True),
             # big in AGN (alone before CIV enters from blue and after MgII exits to red) [HeII too unreliable to set max_obs_wave]
-            EmissionLine("CIII".ljust(w), 1909, "purple",solution=False,display=True,rank=3,broad=True,
+            EmissionLine("CIII".ljust(w), 1909, "purple",solution=True,display=True,rank=3,broad=True,
                          min_fwhm=12.0,min_obs_wave=3751.0-20.0,max_obs_wave=4313.0+20.0),
             #big in AGN (too weak to be alone)
             EmissionLine("CII".ljust(w),  2326, "purple",solution=False,display=True,rank=4,broad=True),  # in AGN
@@ -4721,6 +4730,7 @@ class Spectrum:
             line_flux_err = [self.estflux_unc] + [l.flux_err for l in sol_lines]
             line_fwhm = [self.fwhm] + [l.sigma * 2.355 for l in sol_lines]
             line_fwhm_err = [self.fwhm_unc] + [l.sigma_err * 2.355 for l in sol_lines]
+            #line_rank = [solution.emission_line.rank] + [l.rank for l in sol_lines]
 
             overlap, rest_idx, line_idx = np.intersect1d(rest_waves, line_waves, return_indices=True)
 
@@ -4799,6 +4809,13 @@ class Spectrum:
                                 diff_fwhm = max(0,abs(fwhm_i - fwhm_j) - (fwhm_err_i+fwhm_err_j))
 
                                 if avg_fwhm > 0 and diff_fwhm/avg_fwhm < 0.5:
+                                    # bump = min(1, 2.0 / max(line_rank[i],line_rank[j]))
+                                    # score += bump
+                                    # log.debug(f"Ratio match (+{bump:0.2f}) for solution = {solution.central_rest}: "
+                                    #           f"rest {overlap[j]} to {overlap[i]}: "
+                                    #           f"{min_ratio:0.2f} < {ratio:0.2f} +/- {ratio_err:0.2f} < {max_ratio:0.2f} "
+                                    #           f"FWHM {fwhm_j}, {fwhm_i}")
+
                                     score += 1
                                     log.debug(f"Ratio match (+1) for solution = {solution.central_rest}: "
                                               f"rest {overlap[j]} to {overlap[i]}: "
@@ -5027,6 +5044,7 @@ class Spectrum:
             line_fwhm = [self.fwhm] + [l.sigma * 2.355 for l in sol_lines]
             line_fwhm_err = [self.fwhm_unc] + [l.sigma_err * 2.355 for l in sol_lines]
             line_broad = [solution.emission_line.broad] + [l.broad for l in sol_lines] #can they be broad
+            line_rank = [solution.emission_line.rank] + [l.rank for l in sol_lines]
 
             overlap, rest_idx, line_idx = np.intersect1d(rest_waves,line_waves,return_indices=True)
 
@@ -5172,8 +5190,11 @@ class Spectrum:
                                     adjust = 0.5  #
 
                                 if avg_fwhm > 0 and adjust*diff_fwhm/avg_fwhm < 0.5:
-                                    score += 1
-                                    log.debug(f"Ratio match (+1) for solution = {solution.central_rest}: "
+                                    #full 1pt for rank 1,2 lines, 2/3 for rank 3, 0.5 for rank 4 ...
+                                    #want the max line rank (the lower "reliable" or "quality" line)
+                                    bump = min(1, 2.0 / max(line_rank[i],line_rank[j]))
+                                    score += bump
+                                    log.debug(f"Ratio match (+{bump:0.2f}) for solution = {solution.central_rest}: "
                                               f"rest {overlap[j]} to {overlap[i]}: "
                                               f"{min_ratio:0.2f} < {ratio:0.2f} +/- {ratio_err:0.2f} < {max_ratio:0.2f} "
                                               f"FWHM {fwhm_j}, {fwhm_i}")
@@ -5304,6 +5325,7 @@ class Spectrum:
             sel = np.where(np.array([l.absorber for l in solution.lines])==False)[0]
             sol_lines = np.array(solution.lines)[sel]
             line_waves = [solution.central_rest] + [l.w_rest for l in sol_lines]
+            line_obs_waves = [solution.central_rest*(1+solution.z)] + [l.w_obs for l in sol_lines]
             line_eli = [None] + [l.eli for l in sol_lines]
             #line_ew = [self.eqw_obs/(1+solution.z)] + [l.eqw_rest for l in sol_lines]
             # line_flux is maybe more reliable ... the continuum estimates for line_ew can go wrong and give horrible results
@@ -5312,6 +5334,7 @@ class Spectrum:
             line_fwhm = [self.fwhm] + [l.sigma * 2.355 for l in sol_lines]
             line_fwhm_err = [self.fwhm_unc] + [l.sigma_err * 2.355 for l in sol_lines]
             line_broad = [solution.emission_line.broad] + [l.broad for l in sol_lines] #can they be broad
+            #line_rank = [solution.emission_line.rank] + [l.rank for l in sol_lines]
 
             overlap, rest_idx, line_idx = np.intersect1d(rest_waves,line_waves,return_indices=True)
 
@@ -5394,8 +5417,19 @@ class Spectrum:
                         score = 0.5 * snr/8.0
                     else:
                         score = 0.25 * snr/8.0
-                elif ew > 16.0 and ew_err < 5.0:
-                    score = 0 #probably not an LAE, by definition, but might be an LBG or could be something else, but let's no penalize
+                #this could be an AGN and then the continuum measure from the band pass can be way too high, and then
+                #the EW too low, so give it some room, if the continuum is a little high and the line is at least a little broad
+                elif (ew > 15.0) or (ew+ew_err) > 20.0 or self.fwhm > 16.0:
+                    if  (line_flux[lya_idx] > 5e-17) and \
+                        (lya_idx == np.argmax(line_flux)) and \
+                        (SU.cgs2mag(continuum,line_obs_waves[lya_idx]) < 24.0) and \
+                        (line_fwhm[lya_idx]/line_obs_waves[lya_idx]*3e5 > 600.0):
+                        score = 0.25 * snr/8.0
+                    else:
+                        score = 0 #probably not an LAE, by definition, but might be an LBG or could be something else, but let's no penalize
+
+               # elif ew > 15.0 and ew_err < 5.0:
+               #     score = 0 #probably not an LAE, by definition, but might be an LBG or could be something else, but let's no penalize
                 else:
                     score = -1.0
 
@@ -5424,7 +5458,7 @@ class Spectrum:
                 #     pass
 
                 #last sanity check ... however, this CAN be an AGN and that throws this off, esp since this has another line
-                if score < 0.5 and (SU.cgs2mag(continuum-continuum_err,G.LyA_rest*(1+solution.z)) < (G.LAE_G_MAG_ZERO-0.5)):
+                if self.fwhm < 16.0 and score < 0.5 and (SU.cgs2mag(continuum-continuum_err,G.LyA_rest*(1+solution.z)) < (G.LAE_G_MAG_ZERO-0.5)):
                     score = min(-1.0,score) #very inconsistent with LyA, so at least -1.0 or lower
 
                 return score
@@ -6724,9 +6758,10 @@ class Spectrum:
                                     # delta sigma is okay, the higher rank is larger sigma (negative result) or within 50%
                                 pass
                             else:
-                                log.debug(f"Sigma sanity check failed {self.identifier}. Disallowing {a.name} at sigma {eli.fit_sigma:0.2f} "
-                                          f" vs anchor sigma {self.central_eli.fit_sigma:0.2f}")
-                                add_to_sol = False
+                                if a.snr < 5.7:
+                                    log.debug(f"Sigma sanity check failed {self.identifier}. Disallowing {a.name} at sigma {eli.fit_sigma:0.2f} "
+                                              f" vs anchor sigma {self.central_eli.fit_sigma:0.2f}")
+                                    add_to_sol = False
                                 # this line should not be part of the solution
                         except:
                             pass
@@ -6924,9 +6959,13 @@ class Spectrum:
                 all_score = [l.line_score for l in s.lines]
                 rescore = False
                 #enforce similar all_dx0
+                if self.fwhm > G.SPEC_MAX_OFFSET_SPREAD_BROAD_THRESHOLD: #allow extra slop ... the broad lines are hard to center and may have absorption in them
+                    max_offset_spread = self.fwhm/2.355 #i.e. about one sigma of the anchor line sigma
+                else:
+                    max_offset_spread = G.SPEC_MAX_OFFSET_SPREAD
                 while len(all_dx0) > 1:
                     #todo: no ... throw out the line farthest from the average and recompute ....
-                    if max(all_dx0) - min(all_dx0) > G.SPEC_MAX_OFFSET_SPREAD: #differ by more than 2 AA
+                    if max(all_dx0) - min(all_dx0) > max_offset_spread: #differ by more than 2 AA
                         #throw out lowest score? or greatest dx0?
                         i = np.argmin(all_score)
                         log.info("Removing lowest score from solution %s (%s at %0.1f) due to extremes in fit_dx0 (%f,%f)."
@@ -7095,21 +7134,36 @@ class Spectrum:
                     #!!! do not impose a boost minium limit on the check for oiii_lines ... you CAN get OIII 5007 and
                     #not a significant OII line, or HBeta, so the boost criteria may be << 1 and that is okay
                     if s.score < G.MULTILINE_MIN_SOLUTION_SCORE and oiii_lines:# and boost > 0.2:
-                        log.info(f"Solution: {s.name} score {s.score} raised to minimum {G.MULTILINE_MIN_SOLUTION_SCORE} for 4959+5007")
-                        s.score = G.MULTILINE_MIN_SOLUTION_SCORE
-                        if boost > 0:
-                            s.prob_noise = min(s.prob_noise,0.5/boost)
+
+                        if s.rejected_lines is not None and \
+                            np.any(np.intersect1d([4959,5007], [rl.w_rest for rl in s.rejected_lines])):
+                            #predicated on both OIII lines being present, but at least one was rejected
+                            pass #no boost
+                        else:
+                            log.info(f"Solution: {s.name} score {s.score} raised to minimum {G.MULTILINE_MIN_SOLUTION_SCORE} for 4959+5007")
+                            s.score = G.MULTILINE_MIN_SOLUTION_SCORE
+                            if boost > 0:
+                                s.prob_noise = min(s.prob_noise,0.5/boost)
 
                     per_line_total_score += s.score
                 elif ((s.central_rest == 5007) or (s.central_rest == 4959)) and oiii_lines:
+
                     if s.score < G.MULTILINE_MIN_SOLUTION_SCORE:# and boost > 0.2:
-                        log.info(f"Solution: {s.name} score {s.score} raised to minimum {G.MULTILINE_MIN_SOLUTION_SCORE} for including possible OIII")
-                        s.score = G.MULTILINE_MIN_SOLUTION_SCORE
-                        if boost > 0:
-                            s.prob_noise = min(s.prob_noise,0.5)
+                        if s.rejected_lines is not None and \
+                                np.any(np.intersect1d([4959,5007], [rl.w_rest for rl in s.rejected_lines])):
+                            #predicated on both OIII lines being present, but at least one was rejected
+                            s.possible_pn += 1
+                            pass #no boost
+                        else:
+                            log.info(f"Solution: {s.name} score {s.score} raised to minimum {G.MULTILINE_MIN_SOLUTION_SCORE} for including possible OIII")
+                            s.score = G.MULTILINE_MIN_SOLUTION_SCORE
+                            s.possible_pn += 2 #possible planetary nebula .. still need more info (like lack of a discrete SEP source)
+                            if boost > 0:
+                                s.prob_noise = min(s.prob_noise,0.5)
+                    else:
+                        s.possible_pn += 3 #possible planetary nebula .. still need more info (like lack of a discrete SEP source)
 
                     per_line_total_score += s.score
-
 
                 #H&K a low-z galaxy or star
                 if G.CONTINUUM_RULES:

@@ -83,6 +83,24 @@ if ("--help" in args) or ("--version" in args):
     elixer.parse_commandline(auto_force=True)
     exit(0)
 
+
+if "--cluster" in args:
+    i = args.index("--cluster")
+    if i != -1:
+        try:
+            from os.path import exists
+            if exists(sys.argv[i + 1]):
+                pass #all good
+            else:
+                print(f"Warning! --cluster file does not exist: {sys.argv[i + 1]}")
+                exit(0)
+        except:
+            print("Exception processing command line for --cluster")
+            exit(-1)
+
+
+
+
 #check for --merge (if so just call elixer
 MERGE = False
 if "--merge" in args:
@@ -153,6 +171,15 @@ if "--no_recover" in args:
 else:
     recover_mode = True
 
+
+if "--neighborhood" in args:
+    i = args.index("--neighborhood")
+    try:
+        neighborhood = sys.argv[i + 1]
+    except:
+        neighborhood = 0
+else:
+    neighborhood = 0
 
 if "--neighborhood_only" in args:
     neighborhood_only = True
@@ -321,11 +348,15 @@ elif hostname == "stampede2":
         if recover_mode:
             if neighborhood_only:
                 MAX_TIME_PER_TASK = 0.25
+            elif neighborhood == 0:
+                MAX_TIME_PER_TASK = 0.9
             else:
-                MAX_TIME_PER_TASK = 0.95  # in recover mode, can bit more agressive in timing (easier to continue if timeout)
+                MAX_TIME_PER_TASK = 1.2  # in recover mode, can bit more agressive in timing (easier to continue if timeout)
         else:
             if neighborhood_only:
                 MAX_TIME_PER_TASK = 0.5
+            elif neighborhood == 0:
+                MAX_TIME_PER_TASK = 2.0
             else:
                 MAX_TIME_PER_TASK = 3.0  # MINUTES max
 
@@ -349,11 +380,15 @@ elif hostname == "stampede2":
         if recover_mode:
             if neighborhood_only:
                 MAX_TIME_PER_TASK = 0.5
+            elif neighborhood == 0:
+                MAX_TIME_PER_TASK = 4.0
             else:
                 MAX_TIME_PER_TASK = 5.0  # in recover mode, can bit more agressive in timing (easier to continue if timeout)
         else:
             if neighborhood_only:
                 MAX_TIME_PER_TASK = 1.5
+            elif neighborhood == 0:
+                MAX_TIME_PER_TASK = 4.5
             else:
                 MAX_TIME_PER_TASK = 6.0  # MINUTES max
 
@@ -436,6 +471,16 @@ if i != -1:
        pass
 else:
     pass
+
+timex = 1.0
+if "--timex" in args:
+    i = args.index("--timex")
+    try:
+        timex = float(sys.argv[i + 1])
+    except:
+        timex = 1.0
+else:
+    timex = 1.0
 
 #sanity check the time ... might be just hh:mm
 #count the colons
@@ -798,11 +843,12 @@ if not time_set: #update time
             mx += gridsearch_task_boost
 
         # set a minimum time ... always AT LEAST 5 or 10 minutes requested?
-        minutes = int(TIME_OVERHEAD + MAX_TIME_PER_TASK * mx * mult * base_time_multiplier)
+        minutes = int(TIME_OVERHEAD + MAX_TIME_PER_TASK * mx * mult * base_time_multiplier * timex)
         if continuum_mode:
             minutes = int(minutes * 1.05) #small boost since continuum objects have extra processing
         time = str(timedelta(minutes=max(minutes,10.0)))
-        print(f"auto-set time: TIME_OVERHEAD {TIME_OVERHEAD} + MAX_TIME_PER_TASK {MAX_TIME_PER_TASK} x mx {mx} x mult {mult} x base_time_multiplier {base_time_multiplier}")
+        print(f"auto-set time: TIME_OVERHEAD {TIME_OVERHEAD} + MAX_TIME_PER_TASK {MAX_TIME_PER_TASK} x mx {mx} "
+              f"x mult {mult} x base_time_multiplier {base_time_multiplier} x timex {timex}")
         print("--time %s" %time)
 
     except Exception as e:

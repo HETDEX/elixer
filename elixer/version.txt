@@ -459,6 +459,462 @@ arrray and small differences in MCMC line flux fit) but they will be close.
 * add dashed red lines to the mini png plots to indicate the top cutout as a zoom of the boxed section of the
   bottom imaging cutout, better aligned top edge, widened top right border (and filled in gap)
 
+
+1.16.5 [2022-03-15]
+* include whether elixer also detects the HETDEX line and if the maximum elixer found line is included in the solution(s)
+  in the Q(z) logic.
+* if we can't get a gmag continuum estiamte and the other estimates are negative and there are 2x negative bins as positive
+  and the whole spectrum in negative, flag for review
+* update H&K rules
+
+1.16.4 [2022-03-13]
+* add WD compatibility check
+* fix missing OII-3727 requirement if OIII-4959 and OIII-5007 found
+* fix coords file read if only one line
+* allow re-extractions/forced extractions to turn on CONTINUUM_RULES
+* further restrict meteor trigger. If possibly near a bright object and there is a strong, multiline solution with few
+  to no unaccounted lines, remove the solution lines from the spectrum and then check to see if the remaining lines
+  trigger a meteor condition.
+* tweak title line for EW to be single digit float, capped at 9999.0
+* fix missing imaging contributions to continuum
+* add DETFLAG_POSSIBLE_LOCAL_TRANSIENT for meteors and satellite. Lower threshold to trigger. Meteor
+  label made a higher threshold to trigger.
+
+
+1.16.3 [2022-03-01]
+* add continuum_masked as the continuum estimate from the DEX spectra with emission and absorption lines masked
+  and restored the original continuum_wide as the estimate from the DEX spectrum as g-mag (band pass)
+* fix issue where unselected SEP objects and unselected catalog matches (or too distant catalog matches) were adding in
+  continuum estimates and where there should only be imaging non-detects
+* change former P(LyA) disqualifiers to allow the classification to continue and just add a corresponding flag instead
+* turn off bad pixel flat as a weighted vote. Will only add as a flag.
+
+1.16.2 [2022-02-25]
+* small update to the gmag continuum adjustment to re-measue with emission and absorption lines masked, then fall back
+  on EW if that fails. For the EW, use the denominator as the "safe" red wavelength - blue wavelength instead of the
+  full width.
+* fixed but that was leaving the prob_noise = 1 for single line "multi-line" solutions where other lines are present
+  but not fitted (and we use the summed flux method).
+* small correction in comparing FHWM of lines when testing for compatibility with AGN or low-z galaxies
+
+1.16.1 [2022-02-16]
+* fix report and neighborhood if DECaLS fails to move on to PanSTARRS and SDSS (if allowed)
+
+1.16.0 [2022-02-16]
+* set version for HDR3 runs
+
+1.16.0a5 [2022-02-15]
+* turn off DECam (SHELA and stackCOSMOS catalogs)
+* for *_mini.png, collect a sqrt(2) larger line image to handle any rotation issues. For main report and neighbors, still
+  use smaller size with North box rather than rotate to the master_cutout WCS.
+
+1.16.0a4 [2022-02-12]
+* fix bad tile selection where tile RA crosses the 0/360 degree boundary
+* added HSC SSP PDF3 object catalogs
+* fix issue with mini's where in chain mode (not dispatch) the neighborhood map and line image are overwritten by the
+  last run before the mini's are produced (so all get the same map and line image).
+* add explicit high continuum, no strong emission lines vote for not LyA
+* updated cosmology for PLAE/POII to use HETDEX consistent Planck18 values
+
+
+1.16.0a3 [2022-02-09]
+* update mini to add line image cutout
+* use sytem call to convert PDF to PNG only if in dispatch mode and not on the jupyter-hub
+* restore original scoring. Using EW_obs is unreliable at this time
+* updated HSC SSP with PDR3 (imaging only; catalogs not yet added)
+
+
+1.16.0a2 [2022-02-08]
+* test of alternate scoring with observed equivalent width replaceing integrated line flux (use when have good continuum measure)
+* overly broad line fitting requirements should not apply to absorption lines
+* fix missing Line FWHM, EWr (w), etc on report for continuum objects
+
+1.16.0a1 [2022-02-02]
+* Adjust consitency check vs LyA to allow for un-fitted LyA at blue end (< 3700AA) when the anchor line is broad. If not
+  found in line search, check the integrated flux at the expected LyA position +/- 2*sigma (of the sigma of the anchor line)
+  vs the corresponding integrated flux of the anchor line. If similar and LyA is larger and the error is small, assume
+  LyA is there, so no penalty, but only a very small score bump so can trigger AGN compatibility check.
+* Adjust NV/CIV line ratio check to allow for NV > CIV (as sometimes happens).
+* Allow the minimum sigma to fit in LSQ to float up from 1.0 in the targetted search
+* Added a vote for LyA (really, a vote against OII) if the fit sigma is really broad (> 5.1 or FWHM > 12) with weights
+  between 0.0 and 0.5 (have seen OII, rarely, up to sigma 7-8)
+* set PDF to PNG conversion to use system call only. Experiment since pdf2image partial failures are more frequent on
+  stampede2
+* added combined_eqw_rest_lya and _err to elixer h5 Detections table
+* set a maximum line score cap (to 100.0 for now). This prevents a solution that has been deliberately down scored by
+  a multiplier penalty to still have an enormously large "good" score just becuase the emission line(s) in it are high
+  SNR and bright
+* added sliding PLAE/POII 50/50 value. Per Leung+2015, for z(LyA) < 2.5, use 1.38 and z > 2.5 use 10.3. For this version
+  until we have a large trusted data set of Truth to test against, we always set to 1.0. This is temporary and will
+  update as a linear or maybe sigmoid xlat based on experimentation. This adjusts the P(LyA) vote and the voting
+  weight.
+* deactivate hard EW vote ... too redundant with PLAE/POII and dilutes the PLAE/POII weight
+* add in a 1-sigma (but minium of 3 wavebins) vote for flux asymmetry (red/blue flux) as 1sigma to either side of the
+  line center (excluding the wavebin that includes the line center). If strongly red, votes for LyA. If blue, for OII
+  (or really, just not LyA). Limited to SNR > 7.0.
+* simplified physical size more angular size. Uses line FWHM if angular size is big to allow for possible AGN.
+* added photometric magnitude rejection in combine_all_cotinuum when using maxed out elixer aperture and there is a
+  bright, nearby SEP object and the aperture measure is 5x or more brigher than the DEX-gmag. Helps classify LAEs near
+  bright foreground objects.
+* change aggregate PLAE/POII vote to be strictly binary based on the midpoint; place all uncertainty in the weight assigned
+  (since fore those near the midpoint, the weight goes to zero anyway, as a no-vote) [note: midpoint still at 1.0]
+* change PLAE/POII weight sigma to 3x from 5x
+* changed DEX-g voting from binary weight to sigmoid weight (up to 4x when brigher than mag limit and falls to (near) zero by
+  0.1x past mag limit)
+* changed combine_all_contiuum() to also drop deepest non-detect if that non-detect is fainter than the faintest positive
+  detection (e.g. there is probably something wrong with the non-detect imaging).
+* change PLAE/POII midpoint to vary linearly with wavelength, based on the hard binary condition in Leung+2015. Runs from 1.0
+  at 4000AA to 10.0 at 4500AA and holds constant on either end.
+* added back straight 20AA vote with low weight. Linear weight varies as distance from 20AA up to a max of 0.5 (min 0.1)
+* use HETDEX_API config pixflat_dir for pixel flat in all HDR versions 2+
+* fix to bright nearby fiber check to handle None
+* fix to UNCERTAIN_CLASSIFICATION check when best_z has not yet been set
+* add EW (combined) to top report line
+
+1.15.0a4-x [2022-01-xx]
+* experimental series ... small changes tracked in spreadsheet. Not intended for any release candidate.
+
+1.15.0a3 [2022-01-14]
+* fixed bug in checking SDSS redshift consistency with emission lines
+* added Q(z) sanity check for possible AGN (as defined by a FWHM velocity > 1500 km/s)
+* switch to use the mean of the SDSS gmag and the direct summed gmag from the DEX spectrum
+  + the DEX only PLAE/POII also updated to use this to sample for the continuum estimate
+* fix typo (long standing bug) in spectrum.get_hetdex_gmag in flux to flux_density that was ADDING in a 2.0AA
+  rather than multiply by 2.0AA. Since sdss_g mag was being used until 1.15.0a2, this was not exposed.
+* add correction to DEX-g (the average from SDSS-g and direct HETDEX spectrum) as the net sum of observed EW of
+  emission (- absoption) as fraction of full width of spectrum. This is to help correct for the emission and
+  absorption lines in the continuum estimate (the band pass mag is NOT modified). The effect is usually small (few %),
+  and only larger for AGN or spectra with really broad lines.
+* limit g and r OII/LAE mag zero point correction to wavelengths > ~4250 (LyA z > 2.5) per Leung+2017 (section 4.3)
+
+1.15.0a2 [2022-01-11]
+* tweak the contrast stretch on the line image to better match with hetdex_api
+* flipped preference to use HETDEX spectrum gmag over speclite SDSS gmag. Set flag if difference > 0.5 and > uncertainty
+  in the two measures. HETDEX spectrum tends to be brighter than speclite and seems to "fix" marginal PLAE/POII.
+* add source extractor object large neighbor flag. If no multi-line solution, lowers the Q(z) to max of 0.4
+* adjust down Q(z) if apcor is large
+
+
+1.15.0a1 [2021-12-22]
+* bump minor version number due to large number of changes over 1.14.x series (see 1.14.0a9)
+* minor logging changes
+* Update consistency check for 1.88 < z < 3.52 to check not only LyA, but presence of other required lines given the
+  proposed solution lines.
+* Update clustering to allow use of mean redshift even if no neighbor is sufficienly brighter than target if the stddev
+  is tight.
+* Tweak line scoring to penalize low SNR high sigma lines.
+
+
+1.14.0a9 [2021-12-20]
+* Always plot SEP apertures even if elixer circular apeture is used (e.g. if SEP too far from allowed distance)
+* Only use estimated physical size IF there are qualified SEP detections (i.e. if the deepest g or r images have
+  detections within the allowed maximum separation)
+* If different imaging yields very different on-sky aperture sizes, only use the size from the deepest imaging (here
+  using if the std > min(all apertures))
+* Catalog and SDSS z matching, restrict phot_z (large z error > 0.1) to rank 3 and better line matches (spec_z allow
+  rank 4).
+* Catalog and SDSS z matching for single line solution only restrited to LyA, OII, OIII-5007 at any wavelength or MgII,
+  CIII, CIV at specific wavelengths where they can be found "alone"
+* Make OII rank 1 (was 2), MgII rank 2 (was 3)
+* Update scoring and selection for catalog spec-z and phot-z match. Must come from "selected" counterpart OR within 1"
+* If phot_z does not match an existing solution, it can only contribute to low-z vs high-z vote
+* Fix error in 20AA hard cut (sanity) vote. Had both LAE and OII at vote = 0
+* Resumed at single 1+z, mag zero shifting for OII vs LyA. Recalibrated mag zeros to 24.0 (g) and 23.8 (r) at z = 2.5 (LyA)
+* For unspecified phot_z error, set z_err to +/- 0.25
+
+
+1.14.0a8 [2021-12-15]
+* fixed bug in solution_consistent_with_lae() [was using observed EW instead of rest EW]
+* tweak physical size votes
+* retstrict neighbors for clustering to have no critical flags
+
+
+1.14.0a7 [2021-12-11]
+* added ra, dec index on elixer h5 detections table for faster coordinate searches
+* added clustering search for bright neighbors with different classification. Intended to find and correct high-z
+  mis-classifications of outskirts of bright objects
+* tweak OII/H_beta ratio ... OII must be 2x to 50x stronger than H_beta. Not sure about this change though.
+
+
+1.14.0a6 [2021-12-08]
+* update solution_consitent_with_lae() to also run if main line is LyA. Basically includes an additional assertion that
+  the EW is consistent with LyA in the 20AA cut (with error and > 15AA).
+* add extra 20AA hard cut vote (currently at 0.5 weight) for brighter than DEX limit g-mag and EW < 15 or > 25.
+* (HSC-NEP) turn off tile B6 as identified with a WCS problem
+* fix missing Dec correction in FITS footprint sanity check in science_image.py
+
+1.14.0a5 [2021-12-01]
+* adding explicit check for solution_consitent_with_lae() for when LyA is NOT the central line, but is one of the elixer
+  found lines. Can return positve, neutral, or negative results.
+* tweak external catalog phot_z and spec_z checks to enforce loose magnitude consistency with target along with distance
+
+1.14.0a4 [2021-11-29]
+* turn mag zero adjustment down to a single (1+z). The (1+z)**3 is way too strong.
+
+1.14.0a3 [2021-11-23]
+* working on consistency checks on external catalog redshifts. If inconsistent with HETDEX data, the external catalog
+  redshift solution is downweighted.
+* work around on pandas numpy float32 vs float bug
+
+1.14.0a2 [2021-11-12]
+* expand HSC NEP (by manual request only)
+
+1.14.0a1 [2021-11-04]
+* add in hetdex_api line images to cutout panel
+
+1.13.3a5 [2021-11-04]
+* revised non-detects in imaging contribution to P(LyA) to use only single deepest non-detect as continuum upper limit
+* make LAE_G_MAG_ZERO, LAE_R_MAG_ZERO on scale, centered at z = 2.5 for  1.9 < z < 3.5 and tuning by 1+z such that the
+magnitude is 0.20 brigher at z = 1.9 to 0.27 fainter by z = 3.5. Used to nudge ambiguous P(LyA) toward OII or LAE if the
+object magnitude is brigher or fainter. Base values are 24.5 (g) and 24.3 (r)
+
+1.13.3a4 [2021-10-28]
+* update ff-sky column name to "calfib_ffsky" from "spec_fullsky_sub"
+* fixed bug in weighted_biweigh introduced in 1.13.1.a3 (made data = NaN where error was finite ... should be where infinite)
+* added "A=xxx" aperture correction at 4500 to upper left text panel
+* rename catalogs: HyperSuprimeCam to HSC-DEX and HyperSuprimeCam_SSP to HSC-SSP nd HyperSuprieCam_NEP to HSC-NEP
+* update for hetdex_api name change for extract() : "weights" to "apcor"
+* start including hetdex_api phot_tools (for line images)
+
+
+1.13.3a3 [2021-10-07]
+* [HDR3 continuum test]
+* Allow detection processing to continue if shot info not found in survey file. Use out of range values
+  (i.e. seeing fwhm = 999, throughput = 0, etc) to trigger flagging errors
+
+1.13.3a2 [2021-10-04]
+* [HDR3 continuum test]
+* add allowed versions for HDR3 (NOTE: Default still at HDR2.1 for now), so must specify --hdr 3 on command line
+* added --check_z commandline option: Bitmask: 1 = Galaxy Mask, 2 = DEX-GAIA, 4=SDSS, 8=Local Catalogs.
+  by default all are turned ON
+
+
+1.13.3a1 [2021-09-22]
+* renamed elixer h5 Detections table "plae_classification" column to "plya_classification"
+* replaced elixer h5 Detections table "combined_plae_err" column with "combined_plae_hi" and "combined_plae_lo"
+
+1.13.2a1 [2021-09-09]
+* added LyCon project code from its spectrum_utilities to ELiXer spectrum_utilities for stacking and redshifting
+
+1.13.1a5 [2021-08-26]
+* Tweak to continuum estimates from imaging where we are at the mag-limit. Now assumes a 1-mag uncertainty and scales
+  the weighting linearly from 0-1 over 24 to 25 mag. This is an attempt to better utilize non-detects when then imaging
+  depth is deeper than 24 (and esp. deeper than 25) rather than just having a very large uncertainty.
+
+1.13.1a4 [2021-08-19]
+* Fixed bug where a numpy.add opertation included a multiplication by None. Was in try/catch but still segfaulted.
+  In cat_base.stack_image_cutouts().
+* Minor revision to elixer.prune_detection_list() for recovery to also auto-check the --neighborbood --png and --mini
+  switches and check that those pngs are also present. If the switch requests a png that is not found, the detection
+  will be re-run.
+
+
+1.13.1a3 [2021-08-12]
+* fix bug that was assigning max flux as the wavelength if no suitable emission line could be fit (should have been the
+  wavelength with the max flux, not the max flux).
+* for continuum source, check continuum around the emission line and if the line is not 1sigma or more above, then
+* spectrum_utilities code for Lyman Continuum project
+
+1.13.1a2 [2021-08-05]
+* add two letter AMP code to the Primary
+* add --special to activate in-code special behavior (currently just (1) turn of all catalog z checks). Intended only
+  for experiment and debugging.
+
+1.13.1a1 [2021-07-29]
+* adding in extra table in h5 (NeighborSpectra) for use with --lyc. Contains the spectra (if available) and other information
+  on HETDEX detection neighbors for use with Lyman Contiuum project (specfically, in deblending)
+* fixed bug in ExtractedObjects where the RA, Dec was reported incorrectly (the pixel offset into the WCS was being sent
+  in as a offset in arcsec)
+
+1.13.0a8 [2021-07-27]
+* update specified central wavelength with MCMC fit wavelength for elixer re-extractions (does not apply to HETDEX detections)
+* added --mcmc option to force MCMC fit for all LSQ fit lines if LSQ fit SNR > FORCE_MCMC_MIN_SNR (4.0 by default)
+  --NOTE: this also increases the estimated TACC SLURM time by x4.0
+* added chi2 column to SpectraLines h5 table
+* switched to standard chi2 for line fit (stopped using dof=3 == #fit -1))
+
+1.13.0a7 [2021-07-21]
+* reduced the standard spectra range to fit to the central peak +/- 20AA (was at 50AA and was failing to find some noisy
+  lines).
+* added explicit check for H&K lines as a separated double Gaussian for continuum objects (HETDEX definition) or emission
+  line objects where g-band magnitued is brigher than approx 20 AB (5e-17 cgs at 4500AA f_iso)
+
+1.13.0a6 [2021-07-19]
+* fixed bug where fitted line flux error for extra lines did not get the scale (1e-17, usually) and 2AA applied
+  so as reported in SpectraLines table, the error could be (by units) in the 10s or 100s instead of e-19 - e-17 or so.
+
+1.13.0a5 [2021-07-06]
+* update SNR bin definitions
+
+1.13.0a4 [2021-07-01]
+* SNR on line fit set to use +/- 2 sigma
+* updated bundled emcee to version 3.1.0
+
+1.13.0a3 [2021-06-30]
+* trigger blended spectra flag if 2 or more source extractor objects within central 1.5"
+* trigger uncertain classification flag if single line 15 < EW < 25 and mag ~ 24
+* fixed tab alignment that was skipping red_vs_blue (pesudo color calculation)
+* refined catalog phot-z vs spec-z matching. Restrict to lines that can be single line solutions IF there is no matching
+  multiline solution already. Tweaked boost scale and factor for error on the z. Add in the line_score of the (central)
+  matched line.
+
+1.13.0a2 [2021-06-16]
+* bumping alpha number as a checkpoint
+
+1.13.0a1 [2021-06-15]
+* working on adapting classification to continuum catalog sources
+* allow MCMC Gaussian to fit aborption lines (negative A); restrict initial walker positions to valid ranges for each
+  parameter to be fit (i.e. sigma cannot be negative, mu cannot be negative, for emission A must be positive (for absorption
+  A must be negative)), etc
+* align elixer SNR definition to base HETDEX definition. There will still be some variation (+/- 1 or 2 pixels in the noise
+arrray and small differences in MCMC line flux fit) but they will be close.
+    SNR = fit lineflux/sqrt(sum(err**2)) over line center +/- 4 sigma
+* sped up neighborhood search (was missing the shot downselection)
+* if --continuum specified, auto set DISPLAY_ABSORPTION_LINES and MAX_SCORE_ABSORPTION_LINES
+* allow central (anchor) line to be an absorption line
+* updates to Q(z)
+* multiline solution scaled score now translated to a confidence (as probability) ... currently manually mapped (will
+  change to map based on scaled_score to confirmed z test)
+  + elixer h5 file "multiline_prob" is now this map and not the scaled_score
+* fix very old bug in spectrum::raw_snr() that selected first wavebin only and not the whole range
+
+1.12.0a1 [2021-05-20]
+* add explicit flux 5007/4959 check to the special OIII case (to allow a nudge to OIII 4959+5007 when the weaker line (4959)
+  is not successfully fit). This does not always work with known OIII emitters (the flux ratio check sometimes fails) but
+  the classification usually still succeeds with the usual multiline fit checks).
+* add explicit flux check (as above) to galaxy mask check. Will not accept 4959 as solution IF it does not pass the OIII
+    3:1 flux check. (example: 2102421773 at RA, Dec 210.540436 +54.042873, near-ish to M101 but IS NOT OIII-4959)
+* activate DETFLAG_UNCERTAIN_CLASSIFICATION check (for weak to moderate multi-line solution that does not match best_z
+  and suggest CIV,CII,MgII,OII, or OIII-5007) ... the top LyA contaminants
+* add explicit check in cat_hsc for catalog nan flux values (where the HSC object catalog flags are not set)
+
+1.11.0 [2021-05-11]
+* promoted to release for HDR2.1.3
+
+1.11.0a12 [2021-05-11]
+* Added fixed aperture photometry on all SEP objects (radius set in global_config.py SEP_FIXED_APERTURE_RADIUS)
+  + includes new columns ("fixed_aper_xxx") in the ExtractedObjects table
+* Add science_image check for "empty" or "bad" for stacking neighborhood cutouts. Only stack images of the same, "best"
+ (largest) pixel counts (e.g. from the same instrument).
+* Restrict filter colors (u-r, u-g, g-r) to fixed aperture on source extractor objects from same instrument/survey
+
+1.11.0a11 [2021-04-28]
+* Changed global LyA rest from 1216AA to 1215.67AA, OII from 3727.0 to 3727.8
+* Add a correction for r-mag to g-mag based on an assumed UV Beta slope (G.R_BAND_UV_BETA_SLOPE, -2.4) for using r-band
+  to estimate continuum for LyA equivalent width
+* Add photometric filter colors to Detections table (color_ur, color_ug, color_gr)
+* Add P(LyA) votes for g and r magnitudes; zero (or 50/50) point set in global_config: LAE_?_MAG_ZERO
+  if the EW_rest(LyA) is between the LAE_EW_TRIGGERS (15 < ew < 25) by default
+* changed overlapping tile selection to be the tile with the largest minium distance from an edge (assumes roughly
+    rectangular coordinates and ignores RA curvature correction for DEC, given the tiles are usually at nearly the
+    same DEC)
+
+1.11.0a10 [2021-04-22]
+* changed labelling of Primary IFU (3rd line in the top left text block) to report SpecID_SlotID_IFUID
+* Add flagging system (printed top center on report and new "flag" column in Detections table)
+* Changed catalog counterpart listing to combine across all catalogs and sorted (initially) by distance
+  (Previoulsy displayed only the top 3 by the single deepest catalog). Duplicates (by position) -- keeping the one with
+  spec_z (if available), phot_z (if available), and smallest magnitude uncertainty
+* Add "selected" column to CatalogMatch (ELiXer choosed best match based on alignment with SEP ellipse and magnitude)
+
+1.11.0a9 [2021-04-13]
+* Changed science_image annulus sky subtraction limit and allow any change to aperture magnitude; changes > 2 mags are
+  logged with a warning but allowed to continue. May result in aperture mags being set to mag-limit.
+* Fix bug for empty cutout position where fiber_locs was not handling extra ifux, ifuy
+* Missing weight for OII (with MgII) in spectrum::solution_consistent_with_agn()
+* Limit multi-line solution consideration to scale-scores > 0.7
+
+
+1.11.0a8 [2021-04-08]
+* Attempt full line scan to find central wavelength if not provided and the simplified scan only if the full scan fails
+* Add optional 5th column to --coords file to specify a numeric (integer) ID to name the detection on a forced extraction
+
+1.11.0a7 [2021-03-29]
+* Populating "image_depth_mag" in elixer h5 "Aperture" table
+* Added "image_depth_mag" in elixer h5 "ExtractedObjects" and "ElixerApertures" tables
+
+1.11.0a6 [2021-03-22]
+* Incorporate catalog phot-z and spec-z into solutions
+* Build a primitive P(z), z based on the multi-line solution best z and consistency with P(LyA)
+* Add new columns to Detections table: best_z, best_pz and bumped version to 0.3.0
+* Allow all rank 3 lines to be solution anchors (except NV)
+* Allow down-scoring of emission lines based on identification. (i.e. NV downscored to 25% to avoid confusion between
+  LyA+NV and OII+complex at 3800AA)
+
+
+1.11.0a5 [2021-03-11]
+* Added SDSS z-catalog () as redshift check for any/all imaging surveys. Not explicit to SDSS.
+* Changed cat_base::is_edge_fiber() to use the IFUx and IFUy position instead of nominal grid of fiber IDs
+* If emission line (or additional lines) are in a sky line window and have a width (sigma * 1.1775) that does not clear
+  the edge of the sky line, cut the emission line scoring in half as it *could* just be the sky line. Stong lines would
+  escape the edge or still have a high score, weak lines could fall out.
+* fix assignment of HETDEX detectID for re-extraction if HETDEX detectID is supplied (dispatch case)
+
+1.11.0a4 [2021-03-04]
+* Added 20AA EWr cut sanity check for low-z OII ( <~ 0.1) (or LyA <~ 2.4) where PLAE/POII seems to give odd results.
+ There might be an issue with the spatial volume at low-z (the LAE volume / OII volume rises very fast below
+ z(OII) < 0.1 and explodes by z(OII) < 0.04).
+* Still perform local sky subtraction on an image cutout aperture if the counts are negative (the local sky may be
+  oversubtracted and negative too).
+* Add 20AA sanity check when aggregating for P(LyA) for OII low-z < 0.1 where PLAE/POII has issues with the luminosity
+  functions and vast and rapidly growing volume differentials between low-z (OII) and high-z (LAE)
+* Fix bug that was not generating the fiber positions cutout for the mini (zooniverse) png following the re-organization
+  of the catalogs in version 1.11.0a1
+
+
+1.11.0a3 [2021-02-21]
+* Add galaxy_mask. Detections found within galaxy mask are flagged and if a redshift matched emission line is found, are
+  re-scored to boost solution.
+* fixed bug when inverting PLAE/POII (if set to zero) for weighting
+* Allow conintuum estimtates at or below flux limit to still go into aggregation as the flux limit with 100% error
+
+1.11.0a2 [2021-02-11]
+* Tweak P(Lya) physical size for high-z 25 to 40 kpc to vote from 0.5 to 0.1 (linearly ) and weight 0.1 to 1.0 (linearly)
+* Updated pandas required version to >= 1.1.0 in setup.py
+* Removed auto change of ALLOW_EMPTY_IMAGE to True if all web service options are turned off
+* Tweak unmatched line scores to down-weight lines blueward of 3700 (lowers penality for unmatched lines blue of 3700AA)
+* Added low P(LyA) voting weight check. Insert 0.5 valued votes at 1.0-sum of weights to bring weight to 1.0 (encourages
+  move toward P(LyA) == 0.5 for exceeding low voting weights).
+* [check point] given to O.Chavez for NEP testing
+
+1.11.0a1 [2021-01-29]
+* Major update to catalog organization to allow for inclusion of filters across multiple catalogs in report
+    toggled by global_config::BUILD_REPORT_BY_FILTER
+    All filters reported in elixer hdf5 file and up to 6 filters shown on the report (favoring bluer and deeper bands)
+* Add separate CFHTLS catalog
+* Add (restricted use) HSC NEP catalog
+* Fix mis-reported (0") distance to circular aperture center from HETDEX position when aperture allowed to drift
+* Apply meteor flux ratio multiplier if dither norm is overly large
+* Do not check for meteor if object position is off the IFU (the individual exposure triggers are unreliable)
+
+
+1.10.1a5 [2021-01-18]
+* DECaLS web request layer (name) change. Was "dr8" now "ls-dr9".
+
+1.10.1a4 [2021-01-13]
+* changed out of range dither norm from 2.0 to 3.0 per re-evaluation
+* add GLOBAL_LOGGING to global_config.py ;
+    to turn off all logging:
+    > import global_config
+    > global_config.GLOBAL_LOGGING = False
+    > import catalogs
+    ...
+
+1.10.1a3 [2020-12-17]
+* Lowered HSC (for HETDEX) survey depth to full limit to 26.0 (25.5 at 5sigma for 2")
+* Corrected default --recover behavior for selixer since --recover (True) is now the default option
+
+
+1.10.1a2 [2020-12-16]
+* Add extra checks in PDF to PNG conversion (filesize sanity with retry)
+* Improvements to broadline matching with MgII
+* Add 10 second connect and 120 second (get) timeouts for DECaLS
+
+
+1.10.1a1 [2020-11-13]
+* add dashed red lines to the mini png plots to indicate the top cutout as a zoom of the boxed section of the
+  bottom imaging cutout, better aligned top edge, widened top right border (and filled in gap)
+
 1.10.0 [2020-11-05]
 * HDR2.1.2 curated re-run
 

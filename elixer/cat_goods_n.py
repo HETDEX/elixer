@@ -839,7 +839,7 @@ class GOODS_N(cat_base.Catalog):
             #log.info("Reminder: aperture issue with .drz fits file, so no forced aperture magnitude.")
             cutout, pix_counts, mag, mag_radius, details = sci.get_cutout(ra, dec, error, window=window,
                                                      aperture=aperture, mag_func=mag_func,
-                                                    do_sky_subtract=do_sky_subtract,return_details=True)
+                                                    do_sky_subtract=do_sky_subtract,return_details=True,detobj=detobj)
 
             if (self.MAG_LIMIT < mag < 100) and (mag_radius > 0):
                 details['fail_mag_limit'] = True
@@ -1014,7 +1014,7 @@ class GOODS_N(cat_base.Catalog):
                 # master cutout needs a copy of the data since it is going to be modified  (stacked)
                 # repeat the cutout call, but get a copy
                 if self.master_cutout is None:
-                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True,reset_center=False)
+                    self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True,reset_center=False,detobj=detobj)
                     #self.master_cutout,_,_, _ = sci.get_cutout(ra, dec, error, window=window, copy=True)
                     ref_exptime = sci.exptime
                     total_adjusted_exptime = 1.0
