@@ -1,6 +1,10 @@
 changes to elixer by version
 
 
+1.17.0a3 [2022-07-25]
+* Project LineFlux Image to the WCS of the master_cutout (neighborhood) and stacked_cutout (main report) so the NorthBox
+  matches
+
 1.17.0a2 [2022-07-14]
 * Add simple bad pixel check on emission line (very narrow with strong negative dip to one side), includes new flag
 

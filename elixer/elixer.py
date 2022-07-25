@@ -62,6 +62,7 @@ import numpy as np
 #import re
 from PIL import Image as PIL_Image
 from PIL import ImageFile as PIL_ImageFile
+FIG_DPI = 300
 
 use_wand = False
 OS_PNG_ONLY = True #can be overriden later in main()
@@ -3053,7 +3054,7 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
         #     plt.gca().add_patch(plt.Rectangle((zero_x - rx,  zero_y - ry), width=rx * 2, height=ry * 2,
         #                                       angle=0, color='red', fill=False))
         #     image_cutout_fiber_pos_frame = io.BytesIO()
-        #     plt.savefig(image_cutout_fiber_pos_frame, format='png', dpi=300, transparent=True)
+        #     plt.savefig(image_cutout_fiber_pos_frame, format='png', dpi=FIG_DPI, transparent=True)
         #     plt.close('all')
         # except:
         #     log.debug("Exception! adding outline box to fiber POS plot in for mini report.",exc_info=True)
@@ -3208,7 +3209,7 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
 
         if True: #make True if want to build image then crop it, otherwise leave as False and just save the plt
             buf = io.BytesIO()
-            plt.savefig(buf, format='png', dpi=300, bbox_inches='tight', transparent=True,facecolor=fig.get_facecolor())
+            plt.savefig(buf, format='png', dpi=FIG_DPI, bbox_inches='tight', transparent=True,facecolor=fig.get_facecolor())
             plt.close()
 
             plt.figure()
@@ -3261,11 +3262,11 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
             plt.gca().axis('off')
 
             #fig.tight_layout()
-            plt.savefig(fname, format='png', dpi=300,bbox_inches='tight',transparent=False,facecolor=fig.get_facecolor())
+            plt.savefig(fname, format='png', dpi=FIG_DPI,bbox_inches='tight',transparent=False,facecolor=fig.get_facecolor())
             log.debug("File written: %s" % (fname))
             plt.close()
         else:
-            plt.savefig(fname, format='png', dpi=300, bbox_inches='tight', transparent=False,facecolor=fig.get_facecolor())
+            plt.savefig(fname, format='png', dpi=FIG_DPI, bbox_inches='tight', transparent=False,facecolor=fig.get_facecolor())
             log.debug("File written: %s" % (fname))
             plt.close()
 
@@ -3297,6 +3298,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     just_mini_cutout = False
     nei_buf = None
     line_buf = None
+    line_buf_tight = None
 
     if G.ZOO_MINI:
         if ((detectid is None) and ((ra is None) or (dec is None))):
@@ -3689,7 +3691,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
 
             nei_buf = io.BytesIO()
-            plt.savefig(nei_buf, format='png', dpi=300, transparent=True)
+            plt.savefig(nei_buf, format='png', dpi=FIG_DPI, transparent=True)
             #plt.savefig(nei_buf, format='jpg', dpi=150, quality=90,optimize=True,transparent=True)
         except:
             log.info("Exception! Unable to make mini-cutout from Neighborhood master.",exc_info=True)
@@ -3768,13 +3770,13 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                     except:
                         log.debug("Exception! adding zoom box to mini-cutout.",exc_info=True)
 
-                plt.savefig(line_buf, format='png', dpi=300, transparent=True)
+                plt.savefig(line_buf, format='png', dpi=FIG_DPI, transparent=True)
             else:
                 im_ext = mini_line_image.shape[0] * pixscale / 2.
                 plt.imshow(mini_line_image.data, origin='lower', interpolation='none', #extent=[-im_ext, im_ext, -im_ext, im_ext],
                            vmin=mini_line_image.vmin,vmax=mini_line_image.vmax)#,cmap=plt.get_cmap('gray_r'))
                 plt.gca().set_axis_off()
-                plt.savefig(line_buf, format='png', dpi=300, transparent=True)
+                plt.savefig(line_buf, format='png', dpi=FIG_DPI, transparent=True)
         except:
             log.debug("Exception! Exception saving line_buf.")
 
@@ -3949,8 +3951,10 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                                                       sigma=None,
                                                       return_coords=False)
 
-            #for convenience at this point, make a smaller version that will not be rotated and is part of the neighborhood
-            if master_cutout is not None and mini_line_image is not None:
+            #for convenience at this point, make a smaller version that will not be rotated and is part of the neighborhoo
+            if G.PROJECT_LINE_IMAGE_TO_COMMON_WCS:
+                line_image = mini_line_image
+            elif master_cutout is not None and mini_line_image is not None:
                 line_image = copy.deepcopy(mini_line_image)
                 m0,m1 = master_cutout.data.shape
                 l0,l1 = line_image.data.shape
@@ -3968,6 +3972,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         plt.close('all')
         fig = plt.figure()
         line_buf = io.BytesIO()
+        line_buf_tight = io.BytesIO()
 
         if master_cutout is not None:
 
@@ -3983,10 +3988,15 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                        transform=im_ax.get_transform(mini_line_image.wcs))
             im_ax.set_axis_off()
 
+
+
             #on the same pixel scale by design (uses the master_cutout pixel scale) ... off by, at most 1/2 pixel and are square
             #so use the master_cutout shape to "trim" off the excess collected to deal with potential rotations to align WCS
             im_ax.set_xlim(-0.5, master_cutout.data.shape[1] - 0.5)
             im_ax.set_ylim(-0.5, master_cutout.data.shape[0] - 0.5)
+
+            #this buffer is for display later in this neighborhood function, the other is for the Zooniverse (mini)
+            plt.savefig(line_buf_tight, format='png', dpi="figure", transparent=True, bbox_inches='tight')
 
             if original_distance is not None and original_distance > 0:
                 #add zoom window
@@ -4007,13 +4017,14 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                 except:
                     log.debug("Exception! adding zoom box to mini-cutout.",exc_info=True)
 
-            plt.savefig(line_buf, format='png', dpi=300, transparent=True)
+            plt.savefig(line_buf, format='png', dpi=FIG_DPI, transparent=True)#,bbox_inches='tight')
         else:
             im_ext = mini_line_image.shape[0] * pixscale / 2.
             plt.imshow(mini_line_image.data, origin='lower', interpolation='none',#extent=[-im_ext, im_ext, -im_ext, im_ext],
                            vmin=mini_line_image.vmin,vmax=mini_line_image.vmax)#,cmap=plt.get_cmap('gray_r'))
             plt.gca().set_axis_off()
-            plt.savefig(line_buf, format='png', dpi=300, transparent=True)
+            plt.savefig(line_buf, format='png', dpi=FIG_DPI, transparent=True)
+            plt.savefig(line_buf_tight, format='png', dpi="figure", transparent=True, bbox_inches='tight')
 
     except:
         log.debug("Exception! Exception saving line_buf.",exc_info=True)
@@ -4055,6 +4066,8 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         gs = gridspec.GridSpec(row_step*num_rows,10) #rows, columns
 
     gs_idx = -1 #so will start at zero
+
+    top_axes = None
     for i in range(num_rows):
         #first the cutout
         gs_idx += 1
@@ -4073,6 +4086,8 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                     plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
 
                     plt.plot(0, 0, "r+")
+
+                    top_axes = plt.gca()
 
 
                     # add all locations
@@ -4116,6 +4131,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                                                           angle=0.0, color='white', alpha=0.75,fill=False, linewidth=1.0, zorder=2))
 
                     #add (overwrite) the highlighted location
+                    top_axes = plt.gca()
                     plt.gca().add_patch(plt.Rectangle((fx - target_box_side / 2.0, fy - target_box_side / 2.0),
                                                       width=target_box_side, height=target_box_side,
                                                       angle=0.0, color=neighbor_color, fill=False, linewidth=1.0, zorder=2))
@@ -4154,8 +4170,81 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             #todo: check the specta lines (each detection's main line ... if 3600 to 5400, do not include
             #todo: ends in the y-limit calculation (to avoid run-away range values)
 
-            #special case for line image
-            if i == 0 and line_image is not None: #second position
+            #special case for line image (new way ... use image projected onto master cutout WCS
+            if G.PROJECT_LINE_IMAGE_TO_COMMON_WCS and i == 0 and line_buf_tight is not None: #second position
+                gs_idx += 1
+
+                #lets try displaying the figure buffer
+                #line_buf line_buf_tight = io.BytesIO()
+
+                line_buf_tight.seek(0)
+                im_line = PIL_Image.open(line_buf_tight)
+                i_ext = ext
+
+                #don't set origin lower?
+                em = 1.06 #needs a little nudge
+                im_ax = plt.subplot(gs[gs_idx * row_step + 1:(gs_idx + 1) * row_step - 1, 0:3])
+                #im_ax.set_axis_off()
+                #yes, need to keep the extent
+                im_ax.imshow(im_line,extent=[-i_ext*em, i_ext*em, -i_ext*em, i_ext*em])
+                # do NOT use aspect
+                #, aspect='auto',interpolation='nearest')#
+                #, aspect='none',
+                             #origin='upper',extent=[-i_ext*em, i_ext*em, -i_ext*em, i_ext*em],
+                             #vmin=line_image.vmin, vmax=line_image.vmax)
+
+                #plt.axis('tight')
+                im_ax.set_xticks([int(i_ext), int(i_ext / 2.), 0, int(-i_ext / 2.), int(-i_ext)])
+                im_ax.set_yticks([int(i_ext), int(i_ext / 2.), 0, int(-i_ext / 2.), int(-i_ext)])
+                im_ax.set_xlim(-i_ext,i_ext)
+                im_ax.set_ylim(-i_ext,i_ext)
+
+                # zero position box (the detection)
+                im_ax.add_patch(plt.Rectangle(( 0 - target_box_side / 2.0,  0 - target_box_side / 2.0),
+                                              width=target_box_side, height=target_box_side,
+                                              angle=0.0, color=neighbor_color, fill=False, linewidth=1.0, zorder=2))
+                im_ax.plot(0, 0, "r+")
+
+                #use master_cutout instead of line_image since we are projecting on to the master wcs
+                cat.add_north_box(plt, sci, master_cutout, distance, 0, 0, theta=None)#np.pi/2.0)
+
+                #add other detections
+                # cx, cy = sci.get_position(ra, dec, line_image)
+                #
+                # for _ra, _dec in zip(all_ras,all_decs):
+                #     fx, fy = sci.get_position(_ra, _dec, line_image)
+                #     plt.gca().add_patch(plt.Rectangle(((fx - cx)  - target_box_side / 2.0, (fy - cy)  - target_box_side / 2.0),
+                #                                       width=target_box_side, height=target_box_side,
+                #                                       angle=0.0, color='white', alpha=0.75,fill=False, linewidth=1.0, zorder=2))
+
+                #the 1D spectrum for the line image
+                plt.subplot(gs[gs_idx*row_step+1:(gs_idx+1)*row_step-1,3:])
+                plt.title(r'Line Image: $\lambda$: %0.2f +/- %0.2f'  %(emis[i],line_image.d_wave))
+                plt.plot(wave[i],spec[i],zorder=9,color='b')
+                plt.axhline(0,color='k',lw=1,zorder=0)
+
+                if line_image.wave is not None:
+                    yl, yh = plt.gca().get_ylim()
+
+                    plt.fill_between([line_image.wave-line_image.d_wave,line_image.wave+line_image.d_wave],
+                                     yl,yh,facecolor='gold',alpha=0.5,zorder=5)
+
+
+
+                # if cwave is not None:
+                #     plt.axvline(x=cwave,linestyle="--",zorder=1,color='k',linewidth=1.0,alpha=0.5)
+                # if emis[i] != -1.0:
+                #     plt.axvline(x= emis[i],linestyle="--",zorder=1,color=neighbor_color,linewidth=1.0,alpha=0.5)
+                plt.xlim((G.CALFIB_WAVEGRID[0],G.CALFIB_WAVEGRID[-1]))
+
+                # if (cwave is not None) and (3550.0 < cwave < 5450) and (3550.0 < emis[i] < 5450):
+                #     ymx = np.max(spec[i][40:991])
+                #     ymn = np.min(spec[i][40:991])
+                #     rn = ymx - ymn
+                #     plt.ylim(ymx-rn*1.1, ymn+rn*1.1)
+
+            #special case for line image (original) ... line image is in its own orientation
+            elif i == 0 and line_image is not None: #second position
                 gs_idx += 1
                 plt.subplot(gs[gs_idx*row_step+1:(gs_idx+1)*row_step-1,0:3]) #,projection=master_cutout.wcs)
 
@@ -4174,11 +4263,11 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                    rot_line_image = PIL_Image.open(line_buf)
                    plt.imshow(rot_line_image,# origin='lower', interpolation='none',#cmap=plt.get_cmap('gray_r'),
                               vmin=line_image.vmin, vmax=line_image.vmax)#, extent=[-i_ext, i_ext, -i_ext, i_ext])
-                else:
+                else: #here_line_buff
 
+                    #original
                     plt.imshow(line_image.data, origin='lower', interpolation='none',#cmap=plt.get_cmap('gray_r'),
                               vmin=line_image.vmin, vmax=line_image.vmax,extent=[-i_ext, i_ext, -i_ext, i_ext])
-
 
                     #plt.colorbar()#,fraction=0.07)#,anchor=(0.3,0.0))
 

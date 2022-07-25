@@ -21,7 +21,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.17.0a2'
+__version__ = '1.17.0a3'
 #Logging
 GLOBAL_LOGGING = True
 
@@ -986,6 +986,9 @@ ALL_CATATLOG_PHOT_Z_BOOST = 5.0        #ie. +5; some are more reliable than othe
 USE_PHOTO_CATS = True  #default normal is True .... use photometry catalogs (if False only generate the top (HETDEX) part)
 
 MAX_NEIGHBORS_IN_MAP = 15
+
+PROJECT_LINE_IMAGE_TO_COMMON_WCS = True #if True, the lineflux image should be rotated (projected/transformed) to
+                                        #the master cutout's WCS (so North direction matches)
 
 BUILD_HDF5_CATALOG = True
 
