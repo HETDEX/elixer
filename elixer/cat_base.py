@@ -966,73 +966,70 @@ class Catalog:
             log.debug("Minor exception", exc_info=True)
             stacked_cutout = None
 
+        line_buf_tight = None
+
         if stacked_cutout is None:
             fig = self.build_empty_cat_summary_figure(ra,dec,error,None,None,target_w,fiber_locs)
         else:
-
-            #before we build up the new plt, we need to get the line image and save into a buffer for use later
-            line_buf_tight = None
-            try:
-                plt.close('all')
-                plt.figure()
-                log.debug("****************** HERE *********************")
-                log.debug("****************** HERE *********************")
-                log.debug("****************** HERE *********************")
-                log.debug("****************** HERE *********************")
-
+            if G.PROJECT_LINE_IMAGE_TO_COMMON_WCS:
+                #before we build up the new plt, we need to get the line image and save into a buffer for use later
                 try:
-                    if stacked_cutout is not None:
-                        pixscale = sci.calc_pixel_size(stacked_cutout.wcs)
-                        max_rotation_resize = np.sqrt(2.)
-                    else:
+                    plt.close('all')
+                    plt.figure()
+
+                    try:
+                        if stacked_cutout is not None:
+                            pixscale = sci.calc_pixel_size(stacked_cutout.wcs)
+                            max_rotation_resize = np.sqrt(2.)
+                        else:
+                            pixscale = 0.25  # make the line image on the same scale as the master_cutout for easier mapping
+                            max_rotation_resize = 1.0
+                    except:
                         pixscale = 0.25  # make the line image on the same scale as the master_cutout for easier mapping
                         max_rotation_resize = 1.0
+
+                    line_image = science_image.get_line_image(plt, friendid=None, detectid=None,
+                                                              coords=SkyCoord(ra=ra, dec=dec, frame='icrs', unit='deg'),
+                                                              shotid=detobj.survey_shotid, subcont=True,
+                                                              convolve_image=False,
+                                                              pixscale=pixscale, imsize=3*error*max_rotation_resize,
+                                                              wave_range=[detobj.w - 3.0 / 2.355 * detobj.fwhm,
+                                                                          detobj.w + 3.0 / 2.355 * detobj.fwhm],
+                                                              sigma=detobj.fwhm / 2.355,
+                                                              return_coords=False)
+
+                    if line_image is not None:
+                        #index += 1
+                        plt.close('all')
+                        line_fig = plt.figure()
+                        line_buf_tight = io.BytesIO()
+
+                        # might need to backup (deep copy) plt and then do this after a plt.close('all') then restore old plt and continue
+                        # or do this image first
+
+                        im_ax = line_fig.add_subplot(111, projection=stacked_cutout.wcs)
+                        # im_ax = plt.subplot(gs[1:, index],projection=stacked_cutout.wcs)
+                        #pix_size = 0.25  # make sure to match vs pixscale in above call
+                        #ext = line_image.shape[0] * pix_size / 2.
+                        # without fibers
+
+                        plt.imshow(line_image.data, origin='lower', interpolation='none',
+                                        #  extent=[-ext, ext, -ext, ext],
+                                          vmin=line_image.vmin, vmax=line_image.vmax,
+                                          transform=im_ax.get_transform(line_image.wcs))  # ,cmap=plt.get_cmap('gray_r'))
+
+                        im_ax.set_axis_off()
+
+                        # on the same pixel scale by design (uses the master_cutout pixel scale) ... off by, at most 1/2 pixel and are square
+                        # so use the master_cutout shape to "trim" off the excess collected to deal with potential rotations to align WCS
+                        im_ax.set_xlim(-0.5, stacked_cutout.data.shape[1] - 0.5)
+                        im_ax.set_ylim(-0.5, stacked_cutout.data.shape[0] - 0.5)
+
+                        plt.savefig(line_buf_tight, format='png', dpi="figure", transparent=True, bbox_inches='tight')
+
+                    plt.close("all")
                 except:
-                    pixscale = 0.25  # make the line image on the same scale as the master_cutout for easier mapping
-                    max_rotation_resize = 1.0
-
-                line_image = science_image.get_line_image(plt, friendid=None, detectid=None,
-                                                          coords=SkyCoord(ra=ra, dec=dec, frame='icrs', unit='deg'),
-                                                          shotid=detobj.survey_shotid, subcont=True,
-                                                          convolve_image=False,
-                                                          pixscale=pixscale, imsize=3*error*max_rotation_resize,
-                                                          wave_range=[detobj.w - 3.0 / 2.355 * detobj.fwhm,
-                                                                      detobj.w + 3.0 / 2.355 * detobj.fwhm],
-                                                          sigma=detobj.fwhm / 2.355,
-                                                          return_coords=False)
-
-                if line_image is not None:
-                    #index += 1
-                    plt.close('all')
-                    line_fig = plt.figure()
-                    line_buf_tight = io.BytesIO()
-
-                    # might need to backup (deep copy) plt and then do this after a plt.close('all') then restore old plt and continue
-                    # or do this image first
-
-                    im_ax = line_fig.add_subplot(111, projection=stacked_cutout.wcs)
-                    # im_ax = plt.subplot(gs[1:, index],projection=stacked_cutout.wcs)
-                    #pix_size = 0.25  # make sure to match vs pixscale in above call
-                    #ext = line_image.shape[0] * pix_size / 2.
-                    # without fibers
-
-                    plt.imshow(line_image.data, origin='lower', interpolation='none',
-                                    #  extent=[-ext, ext, -ext, ext],
-                                      vmin=line_image.vmin, vmax=line_image.vmax,
-                                      transform=im_ax.get_transform(line_image.wcs))  # ,cmap=plt.get_cmap('gray_r'))
-
-                    im_ax.set_axis_off()
-
-                    # on the same pixel scale by design (uses the master_cutout pixel scale) ... off by, at most 1/2 pixel and are square
-                    # so use the master_cutout shape to "trim" off the excess collected to deal with potential rotations to align WCS
-                    im_ax.set_xlim(-0.5, stacked_cutout.data.shape[1] - 0.5)
-                    im_ax.set_ylim(-0.5, stacked_cutout.data.shape[0] - 0.5)
-
-                    plt.savefig(line_buf_tight, format='png', dpi="figure", transparent=True, bbox_inches='tight')
-
-                plt.close("all")
-            except:
-                log.info("Excception getting line image/buffer",exc_info=True)
+                    log.info("Excception getting line image/buffer",exc_info=True)
 
 
             #now turn this into a plot object and start adding North Box and Fibers
@@ -1292,7 +1289,6 @@ class Catalog:
 
             sci = science_image.science_image() #empty science image to use for functions
 
-
             #
             # Add the left-most (stacked) image with the fiber positions
             #
@@ -1305,45 +1301,59 @@ class Catalog:
             self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, stacked_cutout)
 
 
-
-
             #
             # Add the line image if we can get it
             # subcont=True, convolve_image=False,
             #pixscale=0.25, imsize=9.0, wave_range=None, return_coords=False):
 
             try:
-                # line_image = science_image.get_line_image(plt,friendid=None,detectid=None,
-                #                                       coords=SkyCoord(ra=ra,dec=dec,frame='icrs',unit='deg'),
-                #                                       shotid=detobj.survey_shotid, subcont=True, convolve_image=False,
-                #                                       pixscale=0.25, imsize=3*error,
-                #                                       wave_range=[detobj.w - 3.0/2.355*detobj.fwhm, detobj.w + 3.0/2.355*detobj.fwhm],
-                #                                       sigma=detobj.fwhm/2.355,
-                #                                       return_coords=False)
-                #
-                # if line_image is not None:
-                #     index += 1
-                #     line_buf_tight = io.BytesIO()
-                #
-                #     #might need to backup (deep copy) plt and then do this after a plt.close('all') then restore old plt and continue
-                #     #or do this image first
-                #
-                #     line_fig = plt.figure()
-                #
-                #     im_ax = line_fig.add_subplot(111, projection=stacked_cutout.wcs)
-                #     #im_ax = plt.subplot(gs[1:, index],projection=stacked_cutout.wcs)
-                #     pix_size =0.25 #make sure to match vs pixscale in above call
-                #     ext = line_image.shape[0] * pix_size / 2.
-                #     #without fibers
-                #
-                #     im = im_ax.imshow(line_image.data, origin='lower', interpolation='none', extent=[-ext, ext, -ext, ext],
-                #                     vmin=line_image.vmin,vmax=line_image.vmax,
-                #                     transform=im_ax.get_transform(line_image.wcs))#,cmap=plt.get_cmap('gray_r'))
-                #
-                #     im_ax.set_axis_off()
-                #     line_fig.savefig(line_buf_tight, format='png', dpi="figure", transparent=True, bbox_inches='tight')
-                #
-                if line_buf_tight is not None:
+                if not G.PROJECT_LINE_IMAGE_TO_COMMON_WCS:
+                    line_image = science_image.get_line_image(plt,friendid=None,detectid=None,
+                                                          coords=SkyCoord(ra=ra,dec=dec,frame='icrs',unit='deg'),
+                                                          shotid=detobj.survey_shotid, subcont=True, convolve_image=False,
+                                                          pixscale=0.25, imsize=3*error,
+                                                          wave_range=[detobj.w - 3.0/2.355*detobj.fwhm, detobj.w + 3.0/2.355*detobj.fwhm],
+                                                          sigma=detobj.fwhm/2.355,
+                                                          return_coords=False)
+
+                    if line_image is not None:
+                        index += 1
+
+                        im_ax = plt.subplot(gs[1:, index])  # ,projection=stacked_cutout.wcs)
+                        pix_size = 0.25  # make sure to match vs pixscale in above call
+                        ext = line_image.shape[0] * pix_size / 2.
+                        # without fibers
+
+                        im = plt.imshow(line_image.data, origin='lower', interpolation='none',
+                                        extent=[-ext, ext, -ext, ext],
+                                        vmin=line_image.vmin, vmax=line_image.vmax)  # ,
+                        # transform=im_ax.get_transform(line_image.wcs))#,cmap=plt.get_cmap('gray_r'))
+
+                        # trying to get the color bar to occupy the axis label space does not seem to work
+                        # and the bar and labels just don't seem important here anyway
+                        # _ = plt.colorbar(im, orientation="horizontal",fraction=0.07)#,anchor=(0.3,0.0))
+                        self.add_north_box(plt, sci, line_image, error, 0, 0, theta=None)  # np.pi/2.0)
+
+                        # self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, line_image,use_gray_cmap=False)
+                        # add_fiber_positions also takes care of the north box and the center
+                        plt.title(f"Lineflux Map")
+                        plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+                        plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+                        self.add_zero_position(plt)
+
+                        try:
+                            plt.xlabel(
+                                f"s/b: {line_image.flux / line_image.bkg_stddev:0.2f} +/- {line_image.flux_err / line_image.bkg_stddev:0.3f}")
+                            # f"\n{line_image.bkg_stddev:0.2f}, {line_image.apcor:0.2f}")
+                        except:  # these might be None
+                            plt.xlabel(f"sn: undef")
+
+                        plt.gca().xaxis.labelpad = 0
+                        plt.subplots_adjust(bottom=0.1)
+                    else:
+                        log.info("Unable to build emission line image postage stamp.")
+
+                elif line_buf_tight is not None:
                     line_buf_tight.seek(0)
                     im_line = PIL_Image.open(line_buf_tight)
                     em = 1.06  # needs a little nudge
