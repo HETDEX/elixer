@@ -2243,9 +2243,12 @@ def get_hdf5_detectids_to_process(args):
                                             detlist.append(did)
                                         except:
                                             log.error(f"Invalid --coords / --dets file line format: {line}")
-
                                     else: #this is a set of coords
-                                        row = [float(toks[0]),float(toks[1])]
+                                        local_ra, local_dec = UTIL.coord2deg(str(toks[0]) + " " + str(toks[1]))
+                                        if local_ra is not None and local_dec is not None:
+                                            row = [local_ra, local_dec]
+                                        else:
+                                            row = [float(toks[0]),float(toks[1])]
                                         if len(toks) >= 3: #shotid or wave and might have string in it
                                             # shot = toks[2].lower()
                                             # row.append(int(float(shot.replace('v',''))))
