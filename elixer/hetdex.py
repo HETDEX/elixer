@@ -9571,6 +9571,14 @@ class HETDEX:
         except:
             self.manual_name = None
 
+        try: #if there is no hetdex data, don't generate a report
+            if args.require_hetdex:
+                self.require_hetdex = True
+            else:
+                self.require_hetdex = False
+        except:
+            self.require_hetdex = False
+
         self.cluster_list = cluster_list
         self.multiple_observations = False #set if multiple observations are used (rather than a single obsdate,obsid)
         self.ymd = None
@@ -10529,8 +10537,11 @@ class HETDEX:
 
                 else:
                     # regardless of the result, still append the DetObj so we will get the imaging cutouts
-                    self.emis_list.append(e)
-                    log.info("Unable to build full report for eid(%s). HETDEX section will not be generated." % (str(e.entry_id)))
+                    if e.require_hetdex:
+                        log.info("Required HETDEX data unavailable. Will not build report for eid(%s)." % (str(e.entry_id)))
+                    else:
+                        self.emis_list.append(e)
+                        log.info("Unable to build full report for eid(%s). HETDEX section will not be generated." % (str(e.entry_id)))
         except:
             log.error("Exception in hetdex.py make_extraction.",exc_info=True)
             self.status = -1

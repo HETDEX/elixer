@@ -5,6 +5,9 @@ changes to elixer by version
 * Project LineFlux Image to the WCS of the master_cutout (neighborhood) and stacked_cutout (main report) so the NorthBox
   matches; Added option (PROJECT_LINE_IMAGE_TO_COMMON_WCS in global_config.py) to turn this off and go back to the
   native LineFlux Image projection
+* Allow hourangle format in --coords file
+* Auto prepend (9x) and (000 - 999) to manual IDs in --coords file to allow for overlapping shots
+* Add --require_hetdex optional parameter. If present, will not generated report(s) unless HETDEX data is present
 
 
 1.17.0a2 [2022-07-14]
