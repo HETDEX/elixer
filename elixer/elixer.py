@@ -4625,6 +4625,13 @@ def main():
 
                         #otherwise this a a list of RA, Dec, ...
                         #update the args with the ra dec and shot to build an appropriate hetdex object for extraction
+
+
+                        local_ra, local_dec = UTIL.coord2deg(str(d[0]) + " " + str(d[1]))
+                        if local_ra is not None and local_dec is not None:
+                            d[0] = local_ra
+                            d[1] = local_dec
+
                         try:
                             if len(d) == 2:
                                 args.ra = float(d[0])
@@ -4679,8 +4686,16 @@ def main():
                                 #if centered (and it should be) no ifu edge is more than 12 acrmin away
                                 shotlist = survey.get_shotlist(SkyCoord(args.ra, args.dec, unit='deg',frame='icrs'),
                                                                radius=G.FOV_RADIUS_DEGREE*U.deg)
-                                for s in shotlist:
+                                for i,s in enumerate(shotlist):
                                     args.shotid = s
+                                    if args.manual_name is not None: #leave three spaces for extra shots, very rare to have
+                                        #more than a few, but this separates it nicely
+                                        try:
+                                            args.manual_name = args.manual_name * 1000 + i
+                                            if args.manual_name < 9e9:
+                                                args.manual_name = args.manual_name + int(9e10) #add leading 9
+                                        except:
+                                            pass
                                     hd = hetdex.HETDEX(args, basic_only=basic_only,cluster_list=cluster_list)
                                     if hd.status == 0:
                                         hd_list.append(hd)

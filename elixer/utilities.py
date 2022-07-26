@@ -20,6 +20,31 @@ log = G.Global_Logger('utilities')
 log.setlevel(G.LOG_LEVEL)
 
 
+def coord2deg(coord_str):
+    """
+    take the coordinate string and covert it to degrees
+
+    assumes we are either already in decimal degrees or as hourangle + deg
+
+    :param coord_str: as a string as ra dec (space separated)
+    :return:
+    """
+    ra,dec = None,None
+    try:
+        if ":" in coord_str.split()[0]:
+            #assume hour angle
+            c = SkyCoord(coord_str,frame="icrs",unit=(units.hourangle, units.deg))
+            ra = c.ra.value
+            dec = c.dec.value
+        else: #might already be in decimal degrees
+            c = SkyCoord(coord_str, frame="icrs", unit=(units.deg, units.deg))
+            ra = c.ra.value
+            dec = c.dec.value
+    except:
+        pass
+
+    return ra, dec
+
 def angular_distance(ra1,dec1,ra2,dec2):
     """
     :param ra1: decimal degrees
