@@ -6,7 +6,7 @@ changes to elixer by version
   matches; Added option (PROJECT_LINE_IMAGE_TO_COMMON_WCS in global_config.py) to turn this off and go back to the
   native LineFlux Image projection
 * Allow hourangle format in --coords file
-* Auto prepend (9x) and (000 - 999) to manual IDs in --coords file to allow for overlapping shots
+* Auto prepend (9x) and (000 - 999) to manual IDs in --coords file to allow for overlapping shots (if shotid not specified)
 * Add --require_hetdex optional parameter. If present, will not generated report(s) unless HETDEX data is present
 
 

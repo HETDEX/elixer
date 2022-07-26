@@ -487,7 +487,7 @@ def parse_commandline(auto_force=False):
                         required=False)#,default=None)#"elixer_merged_cat.h5")
 
     parser.add_argument('--require_hetdex', help="If there is no HETDEX data, do not generate a report.",
-                        required=False)#,default=None)#"elixer_merged_cat.h5")
+                        required=False, action='store_true', default=False)#,default=None)#"elixer_merged_cat.h5")
 
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
