@@ -10537,7 +10537,7 @@ class HETDEX:
 
                 else:
                     # regardless of the result, still append the DetObj so we will get the imaging cutouts
-                    if e.require_hetdex:
+                    if self.require_hetdex:
                         log.info("Required HETDEX data unavailable. Will not build report for eid(%s)." % (str(e.entry_id)))
                     else:
                         self.emis_list.append(e)
