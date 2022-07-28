@@ -5136,9 +5136,17 @@ def main():
                                                     try:
                                                         if G.CONTINUUM_RULES and e.spec_obj.solutions is not None and \
                                                             len(e.spec_obj.solutions) > 0 and e.spec_obj.solutions[0].emission_line.absorber:
-                                                            line_label = e.spec_obj.match_line(e.w,best_z,z_error=0.001,allow_absorption=True).name
+                                                            if e.spec_obj.central_eli.absorber:
+                                                                line_label = e.spec_obj.match_line(e.w,best_z,aa_error=6.0,
+                                                                                                   allow_absorption=True,
+                                                                                                   allow_emission=False).name
+                                                            else:
+                                                                line_label = e.spec_obj.match_line(e.w, best_z,
+                                                                                                   aa_error=6.0,
+                                                                                                   allow_absorption=False,
+                                                                                                   allow_emission=True).name
                                                         else:
-                                                            line_label = e.spec_obj.match_line(e.w,best_z,z_error=0.001).name
+                                                            line_label = e.spec_obj.match_line(e.w,best_z,aa_error=6.0).name
                                                     except:
                                                         line_label = ""
 

@@ -2599,7 +2599,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             if cont_avg is not None and cont_std is not None:
                 if eli.fit_h < (cont_avg + cont_std):
                     #not a real emssion line, probably a return to continuum between two aborbers
-                    log.info(f"Fit rejected. Emission probably continuum between two absorbers. @ {eli.fit_x0:0.2f}, peak = {eli.fit_h:0.2f}, cont = {cont_avg:0.2f} +/- {cont_std:0.2f}")
+                    log.info(f"Fit rejected. Emission probably continuum between two absorbers. @ {eli.fit_x0:0.2f}, "
+                             f"peak = {eli.fit_h:0.2f}, cont = {cont_avg:0.2f} +/- {cont_std:0.2f}")
                     eli.raw_score = 0
                     eli.score = 0
                     eli.snr = 0.0
@@ -2614,7 +2615,6 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     else:
         log.debug("Fit rejected")
         return None
-
 
 
 
@@ -7472,12 +7472,12 @@ class Spectrum:
 
                     #note: this applies to the detection only, so really only need this once
                     if not self.wd_checked:
-                        check, wd_z, suggeste_label = self.detection_consistent_with_wd()
+                        check, wd_z, suggested_label = self.detection_consistent_with_wd()
                         #boost = self.scale_consistency_score_to_solution_score_factor(self.detection_consistent_with_wd())
                         if check > 0.0:
                             self.wd_checked = 1
                             self.wd_z = wd_z
-                            self.add_classification_label(suggeste_label) #("WD")
+                            self.add_classification_label(suggested_label) #("WD")
                         else:
                             self.wd_checked = -1
 
@@ -7514,12 +7514,44 @@ class Spectrum:
 
         #also check here, in case there were no other solutions
         if not self.wd_checked:
-            check, wd_z, suggeste_label = self.detection_consistent_with_wd()
+            check, wd_z, suggested_label = self.detection_consistent_with_wd()
             #boost = self.scale_consistency_score_to_solution_score_factor(self.detection_consistent_with_wd())
             if check > 0.0:
                 self.wd_checked = 1
                 self.wd_z = wd_z
-                self.add_classification_label(suggeste_label)#("WD")
+                self.add_classification_label(suggested_label)#("WD")
+
+                #add a z=0 solution
+                try:
+                    sol = Classifier_Solution()
+                    sol.z = 0
+                    sol.central_rest = self.central_eli.fit_x0
+
+                    #find the line (fl.fit_x0,sol.z,max_rank=3)
+                    # lineinfo = self.match_line(fl.fit_x0,sol.z,max_rank=3)
+                     #               if lineinfo is not None:
+                    lineinfo = self.match_line(sol.central_rest,0)
+                    if lineinfo is not None:
+                        sol.name = lineinfo.name
+                        sol.color = lineinfo.color
+                        sol.emission_line = copy.deepcopy(lineinfo)
+
+                    sol.emission_line.w_obs = self.central_eli.fit_x0
+                    sol.emission_line.solution = True
+                    sol.emission_line.z = 0.0
+                    sol.prob_noise = 0.0
+                    sol.emission_line.absorber = self.central_eli.absorber
+                    #need to add lines
+                    for l in self.all_found_absorbs:
+                        lineinfo = self.match_line(l.fit_x0, 0)
+                        if lineinfo is not None:
+                            sol.lines.append(lineinfo) #just to have them
+
+                    sol.score = G.MULTILINE_FULL_SOLUTION_SCORE + 0.5 * len(sol.lines) * G.MULTILINE_FULL_SOLUTION_SCORE
+                    solutions.append(sol)
+                except:
+                    pass
+
             else:
                 self.wd_checked = -1
 

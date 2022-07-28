@@ -2180,6 +2180,7 @@ class DetObj:
                 except:
                     pass
 
+                #could be a continuum object, star, wd, etc
                 log.info(f"Q(z): no multiline solutions, no strong P(LyA). z:{z} with Q(z): {p}")
 
 
