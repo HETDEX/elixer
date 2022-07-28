@@ -61,10 +61,12 @@ GAUSS_FIT_MAX_SIGMA = 17.0 #maximum width (pixels) for fit gaussian to signal (g
 GAUSS_FIT_MIN_SIGMA = 1.0 #roughly 1/2 pixel where pixel = 1.9AA (#note: "GOOD_MIN_SIGMA" below provides post
                           # check and is more strict) ... allowed to fit a more narrow sigma, but will be rejected later
                           # as not a good signal .... should these actually be the same??
-GAUSS_FIT_AA_RANGE = 20.0 #AA to either side of the line center to include in the gaussian fit attempt
+GAUSS_FIT_AA_RANGE = 50.0 #AA to either side of the line center to include in the gaussian fit attempt
                           #a bit of an art here; too wide and the general noise and continuum kills the fit (too wide)
                           #too narrow and fit hard to find if the line center is off by more than about 2 AA
+                          #20 works pretty well for faint lines
                           #40 seems (based on testing) to be about right (50 leaves too many clear, but weak signals behind)
+                          #50 is the HETDEX default, though
 GAUSS_FIT_PIX_ERROR = 4.0 #error (freedom) in pixels (usually  wavebins): have to allow at least 2 pixels of error
                           # (if aa/pix is small, _AA_ERROR takes over)
 GAUSS_FIT_AA_ERROR = 1.0 #error (freedom) in line center in AA, still considered to be okay
@@ -1436,7 +1438,8 @@ def local_continuum(wavelengths, values, errors, central, amplitude, sigma, cont
 def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=None,values_units=0, sbr=None,
                  min_sigma=GAUSS_FIT_MIN_SIGMA,show_plot=False,plot_id=None,plot_path=None,do_mcmc=False,absorber=False,
                  force_score=False,values_dx=G.FLUX_WAVEBIN_WIDTH,allow_broad=False,broadfit=1,relax_fit=False,
-                 min_fit_sigma=1.0,test_solution=None):
+                 min_fit_sigma=1.0,test_solution=None,wave_fit_side_aa=GAUSS_FIT_AA_RANGE, fit_range_AA=None,
+                 quick_fit=False):
     """
 
     :param wavelengths:
@@ -1521,20 +1524,28 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         if w:
             central = w
 
-    # want +/- 20 angstroms in pixel units (maybe should be 50 AA?
-    wave_side = int(round(GAUSS_FIT_AA_RANGE / pix_size))  # pixels
+
+    peak_pos = getnearpos(wavelengths, central)
+
+    #####################
+    #these will be recomputed  AFTER the quick fits selected the "best", for now default values are used
+    ####################
+
+    # want +/- 20 angstroms in pixel units (maybe should be 50 AA? ... HETDEX uses 50AA)
+    wave_side_pix = int(round(wave_fit_side_aa / pix_size))  # pixels
     #1.5 seems to be good multiplier ... 2.0 is a bit too much;
     # 1.0 is not bad, but occasionally miss something by just a bit
 
-    fit_range_AA = max(GAUSS_FIT_PIX_ERROR * pix_size, GAUSS_FIT_AA_ERROR)
-    #fit_range_AA = GAUSS_FIT_PIX_ERROR * pix_size #1.0  # peak must fit to within +/- fit_range AA
+    if fit_range_AA is None:
+        fit_range_AA = max(GAUSS_FIT_PIX_ERROR * pix_size, GAUSS_FIT_AA_ERROR)
+        #fit_range_AA = GAUSS_FIT_PIX_ERROR * pix_size #1.0  # peak must fit to within +/- fit_range AA
                                   # this allows room to fit, but will enforce +/- pix_size after
     #num_of_sigma = 3.0  # number of sigma to include on either side of the central peak to estimate noise
 
     len_array = len(wavelengths)
     idx = getnearpos(wavelengths,central)
-    min_idx = max(0,idx-wave_side)
-    max_idx = min(len_array,idx+wave_side)
+    min_idx = max(0,idx-wave_side_pix)
+    max_idx = min(len_array,idx+wave_side_pix)
     wave_x = wavelengths[min_idx:max_idx+1]
     wave_counts = values[min_idx:max_idx+1]
     if (errors is not None) and (len(errors) == len(wavelengths)):
@@ -1550,8 +1561,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         wave_err_sigma = None
 
     if False: #do I want to use a more narrow range for the gaussian fit? still uses the wider range for RMSE
-        min_idx = max(0, idx - wave_side/2)
-        max_idx = min(len_array, idx + wave_side/2)
+        min_idx = max(0, idx - wave_side_pix/2)
+        max_idx = min(len_array, idx + wave_side_pix/2)
         narrow_wave_x = wavelengths[min_idx:max_idx+1]
         narrow_wave_counts = values[min_idx:max_idx + 1]
         if (wave_errors is not None):
@@ -1570,7 +1581,6 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     #wave_counts = np.clip(wave_counts,0.0,np.inf)
 
     xfit = np.linspace(wave_x[0], wave_x[-1], 1000) #range over which to plot the gaussian equation
-    peak_pos = getnearpos(wavelengths, central)
 
     try:
         # find the highest point in the raw data inside the range we are allowing for the line center fit
@@ -1585,7 +1595,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                 return None
     except:
         #this can fail if on very edge, but if so, we would not use it anyway
-        log.debug("Raw Peak value failure for wavelength (%f) at index (%d). Cannot fit to gaussian. " %(central,peak_pos))
+        log.debug("Raw Peak value failure (1) for wavelength (%f) at index (%d). Cannot fit to gaussian. " %(central,peak_pos))
         return None
 
     fit_peak = None
@@ -1617,30 +1627,181 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         #   log.warning("**** NO UNCERTAINTIES ****")
 
 
-        if absorber: #area is to be negative
-            parm, pcov = curve_fit(gaussian, np.float64(narrow_wave_x), np.float64(narrow_wave_counts),
-                                   p0=(central,max(min_fit_sigma,1.5),-1.0,0.0),
-                                   bounds=((central-fit_range_AA, min_fit_sigma, -1e5, -100.0),
-                                           (central+fit_range_AA, max_fit_sigma, 0.0, 1e4)),
-                                   #sigma=1./(narrow_wave_errors*narrow_wave_errors)
-                                   sigma=narrow_wave_err_sigma#, #handles the 1./(err*err)
-                                   #note: if sigma == None, then curve_fit uses array of all 1.0
-                                   #method='trf'
-                                   )
-        else:
-            parm, pcov = curve_fit(gaussian, np.float64(narrow_wave_x), np.float64(narrow_wave_counts),
-                                p0=(central,max(min_fit_sigma,1.5),1.0,0.0),
-                                bounds=((central-fit_range_AA, min_fit_sigma, 0.0, -100.0),
-                                        (central+fit_range_AA, max_fit_sigma, 1e5, 1e4)),
-                                #sigma=1./(narrow_wave_errors*narrow_wave_errors)
-                                sigma=narrow_wave_err_sigma#, #handles the 1./(err*err)
-                               #note: if sigma == None, then curve_fit uses array of all 1.0
-                               #method='trf'
-                               )
+        #old way
+        # if absorber: #area is to be negative
+        #     parm, pcov = curve_fit(gaussian, np.float64(narrow_wave_x), np.float64(narrow_wave_counts),
+        #                            p0=(central,max(min_fit_sigma,1.5),-1.0,0.0),
+        #                            bounds=((central-fit_range_AA, min_fit_sigma, -1e5, -100.0),
+        #                                    (central+fit_range_AA, max_fit_sigma, 0.0, 1e4)),
+        #                            #sigma=1./(narrow_wave_errors*narrow_wave_errors)
+        #                            sigma=narrow_wave_err_sigma#, #handles the 1./(err*err)
+        #                            #note: if sigma == None, then curve_fit uses array of all 1.0
+        #                            #method='trf'
+        #                            )
+        #     snr, chi2, ew , parm, pcov, model =  SU.quick_fit(wavelengths,values,errors,central,
+        #                                                      fit_range_AA,wave_fit_side_aa,min_fit_sigma,max_fit_sigma,
+        #                                                       absorber=True)
+        # else:
+        #     # parm, pcov = curve_fit(gaussian, np.float64(narrow_wave_x), np.float64(narrow_wave_counts),
+        #     #                     p0=(central,max(min_fit_sigma,1.5),1.0,0.0),
+        #     #                     bounds=((central-fit_range_AA, min_fit_sigma, 0.0, -100.0),
+        #     #                             (central+fit_range_AA, max_fit_sigma, 1e5, 1e4)),
+        #     #                     #sigma=1./(narrow_wave_errors*narrow_wave_errors)
+        #     #                     sigma=narrow_wave_err_sigma#, #handles the 1./(err*err)
+        #     #                    #note: if sigma == None, then curve_fit uses array of all 1.0
+        #     #                    #method='trf'
+        #     #                    )
+        #
+        #     #alternate
+        #     # parm, pcov = curve_fit(gaussian, np.float64(narrow_wave_x), np.float64(narrow_wave_counts),
+        #     #                     p0=(central,max(min_fit_sigma,1.5),1.0,0.0),
+        #     #                     bounds=((central-fit_range_AA, min_fit_sigma, 0.0,
+        #     #                                             min(narrow_wave_counts)-max(narrow_wave_counts)),
+        #     #                             (central+fit_range_AA, max_fit_sigma,
+        #     #                                     max(narrow_wave_counts)*len(narrow_wave_counts),
+        #     #                                     max(narrow_wave_counts)*1.5)),
+        #     #                     #sigma=1./(narrow_wave_errors*narrow_wave_errors)
+        #     #                     sigma=narrow_wave_err_sigma#, #handles the 1./(err*err)
+        #     #                    #note: if sigma == None, then curve_fit uses array of all 1.0
+        #     #                    #method='trf'
+        #     #                    )
+        #
+
+        #
+        # newer way 0,999,0,[0,0,0,0],np.zeros((4,4)),np.zeros(len(waves))
+        # loop over a few ranges and choose the "best"
+        fit_dict_array = [ {"type": "small", "fit_range_AA": fit_range_AA, "wave_fit_side_aa": 20.0,
+                            "min_fit_sigma": 1.5,  "max_fit_sigma": 5.5, "min_snr":4.0,
+                            "snr":0, "chi2":999, "ew":0, "parm":[], "pcov":[], "model":None, "score":0},
+
+                           {"type": "medium", "fit_range_AA": fit_range_AA, "wave_fit_side_aa": 40.0,
+                            "min_fit_sigma": 2.0, "max_fit_sigma": 8.5, "min_snr":4.0,
+                            "snr":0, "chi2":999, "ew":0, "parm":[], "pcov":[], "model":None, "score":0},
+
+                           # {"type": "HDstd", "fit_range_AA": fit_range_AA, "wave_fit_side_aa": 50.0,
+                           #  "min_fit_sigma": 1.7, "max_fit_sigma": 8.5, "min_snr":4.0,
+                           #  "snr": 0, "chi2": 999, "ew": 0, "parm": [], "pcov": [], "model": None, "score": 0},
+
+                           {"type": "large", "fit_range_AA": fit_range_AA, "wave_fit_side_aa": 80.0,
+                            "min_fit_sigma": 4.0, "max_fit_sigma": 25.0, "min_snr":20.0,
+                            "snr":0, "chi2":999, "ew":0, "parm":[], "pcov":[], "model":None, "score":0},
+
+                           # {"type": "xlrg", "fit_range_AA": fit_range_AA, "wave_fit_side_aa": 150.0,
+                           #  "min_fit_sigma": 15.0, "max_fit_sigma": 50.0, "min_snr":50.0,
+                           #  "snr": 0, "chi2": 999, "ew": 0, "parm": [], "pcov": [], "model": None, "score": 0},
+                        ]
+        #todo: track and select the "best" to process below
+        for fd in fit_dict_array:
+            fd["snr"], fd["chi2"], fd["ew"], fd["parm"], fd["pcov"], fd["model"] = SU.quick_fit(
+                                                        wavelengths, values, errors, central,
+                                                        fd["fit_range_AA"], fd["wave_fit_side_aa"],
+                                                        fd["min_fit_sigma"], fd["max_fit_sigma"],
+                                                        absorber)
+
+            if fd["snr"] < fd["min_snr"]:
+                continue
+
+            fd["score"] = SU.quick_linescore(fd["snr"],fd["chi2"],fd["parm"][1],fd["ew"])
+
+            #may reject if at the maximum sigma
+            if np.isclose(fd["parm"][1],fd["max_fit_sigma"],atol=1e-2) or (fd["parm"][1] > fd["max_fit_sigma"]):
+                if fd["snr"] < 50: #todo: maybe also check score?
+                    fd["score"] = 0
+
+                #how to evaluate? besc score?
+        fd_idx = np.argmax([fd["score"] for fd in fit_dict_array])
+
+        if fit_dict_array[fd_idx]['score'] <=0:
+            #nothing at all here
+            return None
+
+        #log.debug(f" *** Selected: {fit_dict_array[fd_idx]['type']}")
+        #print(f" *** Selected: {fit_dict_array[fd_idx]['type']}")
+        parm = fit_dict_array[fd_idx]["parm"]
+        pcov = fit_dict_array[fd_idx]["pcov"]
+        wave_fit_side_aa = fit_dict_array[fd_idx]["wave_fit_side_aa"]
+        min_fit_sigma =  fit_dict_array[fd_idx]["min_fit_sigma"]
+        max_fit_sigma =  fit_dict_array[fd_idx]["max_fit_sigma"]
 
         perr = np.sqrt(np.diag(pcov)) #1-sigma level errors on the fitted parameters
         #e.g. flux = a = parm[2]   +/- perr[2]*num_of_sigma_confidence
         #where num_of_sigma_confidence ~ at a 5 sigma confidence, then *5 ... at 3 sigma, *3
+
+        if quick_fit:
+            eli.fit_x0 = parm[0]
+            eli.fit_x0_err = perr[0]
+            eli.fit_dx0 = central -  parm[0]
+            eli.fit_sigma = parm[1]  # units of AA not pixels
+            eli.fit_sigma_err = perr[1]
+            eli.fit_a = parm[2]  # this is an AREA so there are 2 powers of 10.0 in it (hx10 * wx10) if in e-18 units
+            eli.fit_a_err = perr[2]
+            eli.fit_y = parm[3]
+            eli.fit_y_err = perr[3]
+            eli.line_score = fit_dict_array[fd_idx]["score"]
+            return eli
+
+        ######################
+        #refigure top values
+        ######################
+
+        # want +/- 20 angstroms in pixel units (maybe should be 50 AA? ... HETDEX uses 50AA)
+        wave_side_pix = int(round(wave_fit_side_aa / pix_size))  # pixels
+        # 1.5 seems to be good multiplier ... 2.0 is a bit too much;
+        # 1.0 is not bad, but occasionally miss something by just a bit
+
+        fit_range_AA = max(GAUSS_FIT_PIX_ERROR * pix_size, GAUSS_FIT_AA_ERROR)
+        # fit_range_AA = GAUSS_FIT_PIX_ERROR * pix_size #1.0  # peak must fit to within +/- fit_range AA
+        # this allows room to fit, but will enforce +/- pix_size after
+        # num_of_sigma = 3.0  # number of sigma to include on either side of the central peak to estimate noise
+
+        len_array = len(wavelengths)
+        idx = getnearpos(wavelengths, central)
+        min_idx = max(0, idx - wave_side_pix)
+        max_idx = min(len_array, idx + wave_side_pix)
+        wave_x = wavelengths[min_idx:max_idx + 1]
+        wave_counts = values[min_idx:max_idx + 1]
+        if (errors is not None) and (len(errors) == len(wavelengths)):
+            wave_errors = errors[min_idx:max_idx + 1]
+            # replace any 0 with 1
+            wave_errors[np.where(wave_errors == 0)] = 1
+            wave_err_sigma = 1. / (
+                        wave_errors * wave_errors)  # double checked and this is correct (assuming errors is +/- as expected)
+            # as a reminder, if the errors are all the same, then it does not matter what they are, it reduces to the standard
+            # arithmetic mean :  Sum 1 to N (x_n**2, sigma_n**2) / (Sum 1 to N (1/sigma_n**2) ==> 1/N * Sum(x_n**2)
+            # since sigma_n (as a constant) divides out
+        else:
+            wave_errors = None
+            wave_err_sigma = None
+
+        narrow_wave_x = wave_x
+        narrow_wave_counts = wave_counts
+        narrow_wave_errors = wave_errors
+        narrow_wave_err_sigma = wave_err_sigma
+
+        # blunt very negative values
+        # wave_counts = np.clip(wave_counts,0.0,np.inf)
+
+        xfit = np.linspace(wave_x[0], wave_x[-1], 1000)  # range over which to plot the gaussian equation
+
+        try:
+            # find the highest point in the raw data inside the range we are allowing for the line center fit
+            dpix = int(round(fit_range_AA / pix_size))
+            if absorber:
+                raw_peak = min(values[peak_pos - dpix:peak_pos + dpix + 1])
+                # can be negative (should not be, except if saturated and with error pushes negative)
+            else:
+                raw_peak = max(values[peak_pos - dpix:peak_pos + dpix + 1])
+                if raw_peak <= 0:
+                    log.warning("Spectrum::signal_score invalid raw peak %f" % raw_peak)
+                    return None
+        except:
+            # this can fail if on very edge, but if so, we would not use it anyway
+            log.debug("Raw Peak value failure (2) for wavelength (%f) at index (%d). Cannot fit to gaussian. " % (
+            central, peak_pos))
+            return None
+
+
+
 
         try:
             if not np.any(pcov): #all zeros ... something wrong
@@ -1808,7 +1969,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                 # the fit would have failed .. and this is the "best" of those fits)
                 #dof = 3 for the 3 parameters we are fitting (mu, sigma, y)
                 try:
-                    chi2_half_width = 50.0 #eli.fit_sigma * GAUSS_SNR_SIGMA #in AA
+                    chi2_half_width = wave_fit_side_aa  # 50.0 #eli.fit_sigma * GAUSS_SNR_SIGMA #in AA
                     left,*_ = SU.getnearpos(wavelengths,eli.fit_x0 - chi2_half_width)
                     right,*_ = SU.getnearpos(wavelengths,eli.fit_x0 + chi2_half_width)
                     right = min(right+1,len(wavelengths))
@@ -1820,25 +1981,28 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                     else:
                         data_err = np.zeros(len(data_flux))
 
+                    #this is correct (full fitted width)
                     eli.fit_chi2, _ = SU.chi_sqr(data_flux,
                                                  gaussian(data_waves, eli.fit_x0, eli.fit_sigma, eli.fit_a, eli.fit_y),
                                                  error=data_err,c=1.0)#, dof=3)
                 except:
-                    pass
+                    log.debug("*** Chi2 error.",exc_info=True)
                 #scipy_chi2,scipy_pval = chisquare(wave_counts,rms_wave)
 
     except Exception as ex:
         try: #bug? in Python3 ... after 3.4 message attribute is lost?
             if ex.message.find("Optimal parameters not found") > -1:
-                log.debug("Could not fit gaussian near %f" % central,exc_info=False)
+                log.debug("Could not fit gaussian (1) near %f" % central,exc_info=False)
             else:
-                log.error("Could not fit gaussian near %f" % central, exc_info=True)
+                log.error("Could not fit gaussian (2) near %f" % central, exc_info=True)
         except:
             try:
                 if ex.args[0].find("Optimal parameters not found") > -1:
-                    log.debug("Could not fit gaussian near %f" % central, exc_info=False)
+                    log.debug("Could not fit gaussian (3) near %f" % central, exc_info=False)
+                else:
+                    log.error("Exception in signal_score()",exc_info=True)
             except:
-                log.error("Could not fit gaussian near %f" % central, exc_info=True)
+                log.error("Could not fit gaussian near (4) %f" % central, exc_info=True)
         return None
 
     #if there is a large anchor sigma (the sigma of the "main" line), then the max_sigma can be allowed to go higher
@@ -1875,10 +2039,9 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             #0.955 is since this is +/- 2 sigma (3 sigma would be 0.996, 1 sigma would be 0.682)
             #eli.snr = 0.955*abs(eli.fit_a)/np.sqrt(np.sum(errors[left:right]**2))
             eli.snr = abs(np.sum(model_fit-eli.fit_y))/np.sqrt(np.sum(errors[left:right]**2))
-            if errors is not None:
-                eli.fit_chi2, _ = SU.chi_sqr(values[left:right],model_fit, error=errors[left:right],c=1.0)#,dof=3)
-            else:
-                eli.fit_chi2, _ = SU.chi_sqr(values[left:right],model_fit, error=None,c=1.0)#,dof=3)
+
+            chi2_model_fit = gaussian(narrow_wave_x, eli.fit_x0, eli.fit_sigma, eli.fit_a, eli.fit_y)
+            eli.fit_chi2, _ = SU.chi_sqr(narrow_wave_counts, chi2_model_fit, error=narrow_wave_errors, c=1.0)  # ,dof=3)
             log.debug(f"curve_fit SNR: {eli.snr}; chi2: {eli.fit_chi2}; Area={eli.fit_a} RMSE={eli.fit_rmse} Pix={num_sn_pix}")
         except: #try alternate SNR
             log.info("signal_score() SNR fail. Falling back to RMSE based.")
@@ -2206,7 +2369,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             #def gaussian(x,x0,sigma,a=1.0,y=0.0):
             #could do this by say +/- 3 sigma (Karl uses +/- 50 AA)
             try:
-                chi2_half_width = 50.0 #mcmc.mcmc_sigma[0] * 2.5  #in AA
+                chi2_half_width = wave_fit_side_aa #GAUSS_FIT_AA_RANGE #50.0 #mcmc.mcmc_sigma[0] * 2.5  #in AA
                 left, *_ = SU.getnearpos(wavelengths,mcmc.mcmc_mu[0] - chi2_half_width)
                 right,*_ = SU.getnearpos(wavelengths,mcmc.mcmc_mu[0] + chi2_half_width)
                 right = min(right+1,len(wavelengths))
@@ -2218,13 +2381,15 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                 else:
                     data_err = np.zeros(len(data_flux))
                 mcmc_flux = gaussian(data_waves, mcmc.mcmc_mu[0], mcmc.mcmc_sigma[0], mcmc.mcmc_A[0], mcmc.mcmc_y[0])
+
+                #this is correct
                 eli.mcmc_chi2, _ = SU.chi_sqr(data_flux,mcmc_flux,error=data_err,c=1.0)#,dof=3)
 
                 #wave_x is ~ 40AA around the center[total of 41 bins in length, usually]
                 # mcmc_flux = gaussian(wave_x, mcmc.mcmc_mu[0], mcmc.mcmc_sigma[0], mcmc.mcmc_A[0], mcmc.mcmc_y[0])
                 # eli.mcmc_chi2, _ = SU.chi_sqr(wave_counts,mcmc_flux,error=wave_errors,c=1.0,dof=3)
             except:
-                pass
+                log.debug("*** Chi2 error.", exc_info=True)
 
             #if recommend_mcmc: #this was a marginal LSQ fit, so replace key the "fit_xxx" with the mcmc values
             if eli.mcmc_x0 is not None:
@@ -2453,7 +2618,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
 
 
-def run_mcmc(eli,wavelengths,values,errors,central,values_units,values_dx=G.FLUX_WAVEBIN_WIDTH):
+def run_mcmc(eli,wavelengths,values,errors,central,values_units,values_dx=G.FLUX_WAVEBIN_WIDTH,wave_fit_side_aa=GAUSS_FIT_AA_RANGE):
 
     #values_dx is the bin width for the values if multiplied out (s|t) values are flux and not flux/dx
     #   by default, Karl's data is on a 2.0 AA bin width
@@ -2464,13 +2629,13 @@ def run_mcmc(eli,wavelengths,values,errors,central,values_units,values_dx=G.FLUX
         errors, err_units = norm_values(errors, err_units)
 
     pix_size = abs(wavelengths[1] - wavelengths[0])  # aa per pix
-    wave_side = int(round(GAUSS_FIT_AA_RANGE / pix_size))  # pixels
+    wave_side_pix = int(round(wave_fit_side_aa / pix_size))  # pixels
     fit_range_AA = max(GAUSS_FIT_PIX_ERROR * pix_size, GAUSS_FIT_AA_ERROR)
 
     len_array = len(wavelengths)
     idx = getnearpos(wavelengths, central)
-    min_idx = max(0, idx - wave_side)
-    max_idx = min(len_array, idx + wave_side)
+    min_idx = max(0, idx - wave_side_pix)
+    max_idx = min(len_array, idx + wave_side_pix)
     wave_x = wavelengths[min_idx:max_idx + 1]
     wave_counts = values[min_idx:max_idx + 1]
     if (errors is not None) and (len(errors) == len(wavelengths)):
@@ -2497,7 +2662,7 @@ def run_mcmc(eli,wavelengths,values,errors,central,values_units,values_dx=G.FLUX
     except:
         # this can fail if on very edge, but if so, we would not use it anyway
         log.debug(
-            "Raw Peak value failure for wavelength (%f) at index (%d). Cannot fit to gaussian. " % (central, peak_pos))
+            "Raw Peak value failure (3) for wavelength (%f) at index (%d). Cannot fit to gaussian. " % (central, peak_pos))
         return eli
 
 
@@ -2580,7 +2745,8 @@ def run_mcmc(eli,wavelengths,values,errors,central,values_units,values_dx=G.FLUX
 # This seems to be de-volving to pretty much "is the shape broad enough and flat enough at the peak" to be
 # a HETDEX resolvable doublet (so ~ 6AA in observed frame)? MCMC fits seem moderatly accurate, but there is
 # usually so much error on the peak positions to make this useless
-def check_for_doublet(eli,wavelengths,values,errors,central,values_units,values_dx=G.FLUX_WAVEBIN_WIDTH):
+def check_for_doublet(eli,wavelengths,values,errors,central,values_units,values_dx=G.FLUX_WAVEBIN_WIDTH,
+                      wave_fit_side_aa=GAUSS_FIT_AA_RANGE):
     """
     like run_mcmc but allow a double Gaussian
 
@@ -2615,13 +2781,13 @@ def check_for_doublet(eli,wavelengths,values,errors,central,values_units,values_
         errors, err_units = norm_values(errors, err_units)
 
     pix_size = abs(wavelengths[1] - wavelengths[0])  # aa per pix
-    wave_side = int(round(GAUSS_FIT_AA_RANGE / pix_size))  # pixels
+    wave_side_pix = int(round(wave_fit_side_aa / pix_size))  # pixels
     fit_range_AA = max(GAUSS_FIT_PIX_ERROR * pix_size, GAUSS_FIT_AA_ERROR)
 
     len_array = len(wavelengths)
     idx = getnearpos(wavelengths, central)
-    min_idx = max(0, idx - wave_side)
-    max_idx = min(len_array, idx + wave_side)
+    min_idx = max(0, idx - wave_side_pix)
+    max_idx = min(len_array, idx + wave_side_pix)
     wave_x = wavelengths[min_idx:max_idx + 1]
     wave_counts = values[min_idx:max_idx + 1]
     if (errors is not None) and (len(errors) == len(wavelengths)):
@@ -2789,7 +2955,8 @@ def check_for_doublet(eli,wavelengths,values,errors,central,values_units,values_
     return eli
 
 
-def fit_for_h_and_k(k_eli,h_eli,wavelengths,values,errors,values_units,values_dx=G.FLUX_WAVEBIN_WIDTH):
+def fit_for_h_and_k(k_eli,h_eli,wavelengths,values,errors,values_units,values_dx=G.FLUX_WAVEBIN_WIDTH,
+                    wave_fit_side_aa=GAUSS_FIT_AA_RANGE):
     """
     like run_mcmc but allow a double Gaussian
 
@@ -2828,14 +2995,14 @@ def fit_for_h_and_k(k_eli,h_eli,wavelengths,values,errors,values_units,values_dx
 
         pix_size = abs(wavelengths[1] - wavelengths[0])  # aa per pix
         #may need to be wider to accomodate enough spectrum for both lines
-        wave_side = int(round(max(GAUSS_FIT_AA_RANGE,50) / pix_size))  # pixels
+        wave_side_pix = int(round(max(wave_fit_side_aa,50) / pix_size))  # pixels
         fit_range_AA = max(GAUSS_FIT_PIX_ERROR * pix_size, GAUSS_FIT_AA_ERROR)
 
         len_array = len(wavelengths)
         central = 0.5 * (h_eli.fit_x0 + k_eli.fit_x0)
         idx = getnearpos(wavelengths, central)
-        min_idx = max(0, idx - wave_side)
-        max_idx = min(len_array, idx + wave_side)
+        min_idx = max(0, idx - wave_side_pix)
+        max_idx = min(len_array, idx + wave_side_pix)
         wave_x = wavelengths[min_idx:max_idx + 1]
         wave_counts = values[min_idx:max_idx + 1]
         if (errors is not None) and (len(errors) == len(wavelengths)):
@@ -3469,7 +3636,96 @@ def sn_peakdet(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,values_units=0,
 
     return combine_lines(eli_list)
 
+
+
 def peakdet(x,vals,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,values_units=0,
+            enforce_good=True,min_sigma=GAUSS_FIT_MIN_SIGMA,absorber=False):
+    """
+    Keeping same interface as old peakdet for convenience
+
+    :param x:
+    :param vals:
+    :param err:
+    :param dw:
+    :param h:
+    :param dh:
+    :param zero:
+    :param values_units:
+    :param enforce_good:
+    :param min_sigma:
+    :param absorber:
+    :return:
+    """
+
+    if (vals is None) or (len(vals) < 3):
+        return [] #cannot execute
+
+    v = copy.copy(vals)
+    eli_list = []
+
+    #always run the SNR scan
+    log.debug("Running SN line finder...")
+    eli_list = sn_peakdet(x,v,err,values_units=values_units,enforce_good=enforce_good,min_sigma=min_sigma,
+                          absorber=absorber)
+
+    #median filter DOES help for broad lines (LINE_FINDER_MEDIAN_SCAN must be odd, so %2 needs to be not zero)
+    if G.LINE_FINDER_MEDIAN_SCAN > 0 and (G.LINE_FINDER_MEDIAN_SCAN % 2):
+        try:
+            log.debug(f"Running line finder with median ({G.LINE_FINDER_MEDIAN_SCAN}) filter...")
+            #repeat with median filter and kick up the minimum sigma for a broadfit
+            medfilter_eli_list = sn_peakdet(x,medfilt(v,G.LINE_FINDER_MEDIAN_SCAN),medfilt(err,G.LINE_FINDER_MEDIAN_SCAN),
+                                           values_units=values_units,
+                                           enforce_good=enforce_good,min_sigma=GOOD_BROADLINE_SIGMA,absorber=absorber,
+                                           allow_broad=True)
+
+            # medfilter_eli_list = sn_peakdet(x,gaussian_filter1d(v,5),gaussian_filter1d(err,5),values_units=values_units,
+            #                                 enforce_good=enforce_good,min_sigma=GOOD_BROADLINE_SIGMA,absorber=absorber,
+            #                                 allow_broad=True)
+
+            for m in medfilter_eli_list:
+                m.broadfit = True
+
+            if medfilter_eli_list and len(medfilter_eli_list) > 0:
+                eli_list += medfilter_eli_list
+        except:
+            log.debug("Exception in peakdet with median filter",exc_info=True)
+
+
+    #just iterate over signal_score
+    if G.LINE_FINDER_FULL_FIT_SCAN or len(eli_list) == 0: #this can be slow ... only run if set OR if no lines found??
+        log.debug(f"Running full fit line finder ...")
+        quick_eli_list = []
+        step = 2.0 #AA
+        for central_wave in np.arange(G.CALFIB_WAVEGRID[0],G.CALFIB_WAVEGRID[-1]+step,step): #this is very slow, but maybe use broader steps?
+            quick_eli = signal_score(x, v, err, central_wave, values_units=values_units, absorber=absorber,
+                                     fit_range_AA=step*1.5, quick_fit=True)
+
+            if (quick_eli is not None):
+                quick_eli_list.append(quick_eli)
+
+        refined_eli_list = combine_lines(quick_eli_list)
+
+        for e in refined_eli_list:
+            #now a full fit
+            eli = signal_score(x, v, err, e.fit_x0, values_units=values_units, min_sigma=min_sigma, absorber=absorber)
+
+            if (eli is not None) and ((not enforce_good) or eli.is_good()):
+                eli_list.append(eli)
+
+    #condense the list
+    combined_eli = combine_lines(eli_list,sep=6.0)
+
+    try:
+        lt = "absorption" if absorber else "emission"
+        log.debug(f"Peakdet, {len(combined_eli)} possible {lt} lines at: {[e.fit_x0 for e in combined_eli]}")
+        #print(f"*****Peakdet, {len(combined_eli)} possible {lt} lines at:\n{[e.fit_x0 for e in combined_eli]} ")
+    except:
+        log.debug("Exception logging peakdet list",exc_info=True)
+    return combined_eli
+#end (new) peakdet
+
+
+def old_peakdet(x,vals,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,values_units=0,
             enforce_good=True,min_sigma=GAUSS_FIT_MIN_SIGMA,absorber=False):
 
     """
@@ -3561,7 +3817,7 @@ def peakdet(x,vals,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.
         log.error("Unexpected pixel_size in spectrum::peakdet(). Wavelength step is zero.")
         return []
     # want +/- 20 angstroms
-    wave_side = int(round(20.0 / pix_size))  # pixels
+    wave_side_pix = int(round(20.0 / pix_size))  # pixels
 
     dw = int(dw / pix_size) #want round down (i.e. 2.9 -> 2) so this is fine
 
@@ -3719,7 +3975,7 @@ def peakdet(x,vals,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.
 
         #what is the average value in the vacinity of the peak (exlcuding the area under the peak)
         #should be 20 AA not 20 pix
-        side_pix = max(wave_side,pix_width)
+        side_pix = max(wave_side_pix,pix_width)
         left = max(0,(pi - pix_width)-side_pix)
         sub_left = v[left:(pi - pix_width)]
    #     gm_left = np.mean(v[left:(pi - pix_width)])
@@ -3783,8 +4039,13 @@ def peakdet(x,vals,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.
     #                                  dw=MIN_FWHM, h=MIN_HEIGHT, dh=MIN_DELTA_HEIGHT, zero=0.0, peaks=eli,
     #                                  annotate=False)
 
-    return combine_lines(eli_list)
-
+    combined_eli = combine_lines(eli_list,sep=4.0)
+    try:
+        log.debug(f"Peakdet, {len(combined_eli)} possible lines at: {[e.fit_x0 for e in combined_eli]}")
+        print(f"*****Peakdet, {len(combined_eli)} possible lines at:\n{[e.fit_x0 for e in combined_eli]} ")
+    except:
+        log.debug("Exception logging peakdet list",exc_info=True)
+    return combined_eli
 
 
 def combine_lines(eli_list,sep=4.0):
@@ -4516,22 +4777,26 @@ class Spectrum:
             else:
                 slope = 0 #unknown
 
+            min_wd_sigma = 10.0
+
             if self.all_found_absorbs is None or (len(self.all_found_absorbs) < 4) or slope > 0: #really expect all these lines, so if too few, just bail
                                                                         #or if it is red (positive slope) it is not a WD
-                return 0,-999
+                return 0,-999, ""
 
-            def match_lines(obs_waves, target_waves, target_points,threshold_points):
+            def match_lines(obs_waves, obs_sigmas, target_waves, target_points,threshold_points):
                 try:
                     z_list = [] #if there is a matched line, add the redshift to the z_list and expect there to be 4+ and all similar and near zero
                     z_points = 0
+                    sigma_list = []
 
-                    for w in obs_waves:
-                        w1 = w - 2.0
-                        w2 = w + 2.0
+                    for w,lw in zip(obs_waves,obs_sigmas):
+                        w1 = w - max(4.0,lw/2.0)
+                        w2 = w + max(4.0,lw/2.0)
                         s = np.array(target_waves > w1 ) & np.array(target_waves < w2)
-                        if np.sum(s) == 1: #1 match
+                        if np.count_nonzero(s) == 1: #1 match
                             z_list.append(w/target_waves[s][0] - 1.0)
                             z_points += target_points[s][0]
+                            sigma_list.append(lw)
 
 
                     if z_points > threshold_points:
@@ -4539,13 +4804,14 @@ class Spectrum:
                         z_std = np.std(z_list)
 
                         if (-0.05 < z_mean < 0.05) and (z_std < 0.01):
-                            return 1, z_mean
+                            return 1, z_mean, np.mean(sigma_list)
                 except:
                     pass
 
-                return 0, -999
+                return 0, -999, -999 #mean sigma of matches, use as another trigger
 
             line_waves = np.array([l.fit_x0 for l in self.all_found_absorbs])
+            line_sigmas = np.array([l.fit_sigma for l in self.all_found_absorbs])
 
             #
             # This should cover the DA and DAB types
@@ -4573,29 +4839,41 @@ class Spectrum:
 
 
             #check DA, DAB
-            res, z = match_lines(line_waves,hydrogen_series,hydrogen_points,11)
+            res, z, sigma = match_lines(line_waves,line_sigmas,hydrogen_series,hydrogen_points,11)
 
             if res > 0:
-                log.info(f"Matched WD to DA, DAB type.")
-                return res, z
+                if sigma > min_wd_sigma:
+                    log.info(f"Matched WD to DA, DAB type (hydrogen series). line sigma {sigma:0.1f}")
+                    return res, z, "WDa"
+                else:
+                    log.info(f"Matched A-type star (hydrogen series). line sigma {sigma:0.1f}")
+                    return res, z, "star"
 
             #check DB
-            res, z = match_lines(line_waves,helium_series,helium_points,4)
+            res, z, sigma = match_lines(line_waves,line_sigmas,helium_series,helium_points,4)
             if res > 0:
-                log.info(f"Matched WD to DB type.")
-                return res, z
+                if sigma > min_wd_sigma:
+                    log.info(f"Matched WD to DB type (helium series). line sigma {sigma:0.1f}")
+                    return res, z, "WDb"
+                else:
+                    log.info(f"Matched (helium series). line sigma {sigma:0.1f}")
+                    return res, z, "star"
 
             #check DQ
-            res, z = match_lines(line_waves,oxygen_series,oxygen_points,5)
+            res, z, sigma = match_lines(line_waves,line_sigmas,oxygen_series,oxygen_points,5)
             if res > 0:
-                log.info(f"Matched WD to DQ type.")
-                return res, z
+                if sigma > min_wd_sigma:
+                    log.info(f"Matched WD to DQ type (carbon + oxygen series). line sigma {sigma:0.1f}")
+                    return res, z, "WDq"
+                else:
+                    log.info(f"Matched star (carbon + oxygen series). line sigma {sigma:0.1f}")
+                    return res, z, "star"
 
         except:
             log.info("Exception in Spectrum::detection_consistent_with_wd", exc_info=True)
-            return 0, -999
+            return 0, -999, ""
 
-        return 0, -999
+        return 0, -999, ""
 
     def solution_consistent_with_H_and_K(self,solution):
         """
@@ -5591,13 +5869,16 @@ class Spectrum:
 
     def set_spectra(self,wavelengths, values, errors, central, values_units = 0, estflux=None, estflux_unc=None,
                     eqw_obs=None, eqw_obs_unc=None, fit_min_sigma=GAUSS_FIT_MIN_SIGMA,estcont=None,estcont_unc=None,
-                    fwhm=None,fwhm_unc=None,continuum_g=None,continuum_g_unc=None):
+                    fwhm=None,fwhm_unc=None,continuum_g=None,continuum_g_unc=None,reset=False):
         self.wavelengths = []
         self.values = []
         self.errors = []
 
-        self.all_found_lines = None
-        self.all_found_absorbs = None
+        #these could have already been done if we searched for a central wavelength
+        if reset:
+            self.all_found_lines = None
+            self.all_found_absorbs = None
+
         self.solutions = None
         #self.central_eli = None
 
@@ -5622,12 +5903,13 @@ class Spectrum:
 
         #scan for lines
         try:
-            self.all_found_lines = peakdet(wavelengths, values, errors, values_units=values_units, enforce_good=True)
+            if self.all_found_lines is None:
+                self.all_found_lines = peakdet(wavelengths, values, errors, values_units=values_units, enforce_good=True)
         except:
             log.warning("Exception in spectum::set_spectra()",exc_info=True)
 
         try:
-            if continuum_g is not None and continuum_g > G.CONTINUUM_THRESHOLD_FOR_ABSORPTION_CHECK:
+            if self.all_found_absorbs is None and continuum_g is not None and continuum_g > G.CONTINUUM_THRESHOLD_FOR_ABSORPTION_CHECK:
                 self.all_found_absorbs = peakdet(wavelengths, values, errors, values_units=values_units,
                                                  enforce_good=True,absorber=True)
         except:
@@ -7190,12 +7472,12 @@ class Spectrum:
 
                     #note: this applies to the detection only, so really only need this once
                     if not self.wd_checked:
-                        check, wd_z = self.detection_consistent_with_wd()
+                        check, wd_z, suggeste_label = self.detection_consistent_with_wd()
                         #boost = self.scale_consistency_score_to_solution_score_factor(self.detection_consistent_with_wd())
                         if check > 0.0:
                             self.wd_checked = 1
                             self.wd_z = wd_z
-                            self.add_classification_label("WD")
+                            self.add_classification_label(suggeste_label) #("WD")
                         else:
                             self.wd_checked = -1
 
@@ -7232,12 +7514,12 @@ class Spectrum:
 
         #also check here, in case there were no other solutions
         if not self.wd_checked:
-            check, wd_z = self.detection_consistent_with_wd()
+            check, wd_z, suggeste_label = self.detection_consistent_with_wd()
             #boost = self.scale_consistency_score_to_solution_score_factor(self.detection_consistent_with_wd())
             if check > 0.0:
                 self.wd_checked = 1
                 self.wd_z = wd_z
-                self.add_classification_label("WD")
+                self.add_classification_label(suggeste_label)#("WD")
             else:
                 self.wd_checked = -1
 

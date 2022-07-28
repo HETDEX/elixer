@@ -483,7 +483,12 @@ class MCMC_Gauss:
                 self.mcmc_snr_pix = len(model_fit)
                 log.info(f"MCMC SNR model Area with data error: {self.mcmc_snr} +/- {self.mcmc_snr_err}")
 
-                self.mcmc_chi2, _ = SU.chi_sqr(data_flux,model_fit,error=data_err,c=1.0)#,dof=3)
+
+                #the chi2 should be over the full fit width , not +/- 2 sigma used for the signal
+                chi2_model_fit = self.compute_model(self.data_x, self.mcmc_mu[0], self.mcmc_sigma[0],
+                                                self.mcmc_A[0], self.mcmc_y[0])
+
+                self.mcmc_chi2, _ = SU.chi_sqr(self.data_y,chi2_model_fit,error=self.err_y,c=1.0)#,dof=3)
                 log.info(f"MCMC chi2: {self.mcmc_chi2}")
 
                # print(f"***** TEST MCMC SNR: {self.mcmc_snr}")

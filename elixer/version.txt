@@ -1,13 +1,21 @@
 changes to elixer by version
 
 
-1.17.0a3 [2022-07-26]
+1.17.0a3 [2022-07-27]
 * Project LineFlux Image to the WCS of the master_cutout (neighborhood) and stacked_cutout (main report) so the NorthBox
   matches; Added option (PROJECT_LINE_IMAGE_TO_COMMON_WCS in global_config.py) to turn this off and go back to the
   native LineFlux Image projection
 * Allow hourangle format in --coords file
 * Auto prepend (9x) and (000 - 999) to manual IDs in --coords file to allow for overlapping shots (if shotid not specified)
 * Add --require_hetdex optional parameter. If present, will not generated report(s) unless HETDEX data is present
+* Fix a few chi2 calcs that were using the SNR +/- 2 sigma range rather than the full fitted range
+* Changed default GAUSSIAN_FIT_AA_RANGE for line finder from 20AA to HETDEX standard 50AA
+* Fix --aperture bug when specified with a detectID (would except out and fail as was expecting --aperture combined with
+  --ra and --dec). Will now allow --aperture with --dets and trigger a re-extraction for that detectID.
+* updated line finders; removed old peakdet with scan for line shape; added (option) to evaluate each wavelength bin
+  to fit a Gaussian (quick fit); updated curve_fit to attempt different cominations of line widths, flux arrays, etc
+  to better find weak, normal, and broad lines
+* updated WD classifier to specify DA or DAB, DB, or DQ and uses line width (sigma) to help distinguish from A stars
 
 
 1.17.0a2 [2022-07-14]

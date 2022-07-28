@@ -1603,6 +1603,267 @@ def est_linear_B_minus_V(bm,er=None):
     return b_v, b_ve
 
 
+    """
+    default min_sigma is from HETDEX spec, at 1.7
+    #HETDEX uses +/- 50AA in steps of 4AA
+    """
+
+def quick_fit(waves, flux, flux_err, w, delta_w=4.0, width=50, min_sigma=1.7, max_sigma=20,absorber=False):
+    """
+
+    :param waves: in AA
+    :param flux:  in arbitraty unit
+    :param flux_err:
+    :param w: central wavelength to fit a Gaussian
+    :param delta_w: allowed range to either side of w where the x0 can be fitted (in AA)
+    :param width:  width (in AA) to either side of w in which to sample and fit
+    :param min_sigma:
+    :param max_sigma:
+    :return:  snr, chi2, ew, parm, pcov, model_fit_full
+    """
+
+    center_pix, *_ = getnearpos(waves, w)
+
+    # width is to either side and is in AA here, so need to turn to pix
+    width = int(width / G.FLUX_WAVEBIN_WIDTH)  # to turn from AA to pix, where eachpix is 2AA wide
+
+    left = max(0, center_pix - width)
+    right = min(len(waves) - 1, center_pix + width)
+
+    narrow_wave_x = waves[left:right + 1]
+    narrow_wave_y = flux[left:right + 1]
+
+    errors = flux_err[left:right + 1]
+    errors[errors == 0] = np.nan
+    wave_err_sigma = 1. / (errors * errors)  # double checked and this is correct (assuming errors is +/- as expected)
+
+    # gaussian(x, x0, sigma, a=1.0, y=0.0):
+    try:
+        if absorber: #area goes negative
+            parm, pcov = curve_fit(f=gaussian,
+                               xdata=np.float64(narrow_wave_x),
+                               ydata=np.float64(narrow_wave_y),
+                               p0=(w, min_sigma, -1.0, 0.0),
+                               absolute_sigma=False,
+                               # bounds limit to fitting at THIS wavelength or either adjacent bin
+                               bounds=((w - delta_w, min_sigma,
+                                        -1 * max(narrow_wave_y) * len(narrow_wave_y),
+                                        min(flux) - max(flux)),
+                                       (w + delta_w, max_sigma,
+                                        0.0,
+                                        max(flux) * 1.5)),
+
+                               # sigma=1./(narrow_wave_errors*narrow_wave_errors)
+                               sigma=wave_err_sigma  # , #handles the 1./(err*err)
+                               # note: if sigma == None, then curve_fit uses array of all 1.0
+                               # method='trf'
+                               )
+        else:
+            parm, pcov = curve_fit(f=gaussian,
+                               xdata=np.float64(narrow_wave_x),
+                               ydata=np.float64(narrow_wave_y),
+                               p0=(w, min_sigma, 1.0, 0.0),
+                               absolute_sigma=False,
+                               # bounds limit to fitting at THIS wavelength or either adjacent bin
+                               bounds=((w - delta_w, min_sigma, 0.0,
+                                        min(flux) - max(flux)),
+                                       (w + delta_w, max_sigma, max(narrow_wave_y) * len(narrow_wave_y),
+                                        max(flux) * 1.5)),
+
+                               # sigma=1./(narrow_wave_errors*narrow_wave_errors)
+                               sigma=wave_err_sigma  # , #handles the 1./(err*err)
+                               # note: if sigma == None, then curve_fit uses array of all 1.0
+                               # method='trf'
+                               )
+    except Exception as ex:
+        try:  # bug? in Python3 ... after 3.4 message attribute is lost?
+            if ex.message.find("Optimal parameters not found") > -1:
+                log.debug("Could not fit gaussian (1a) near %f" % w, exc_info=False)
+            else:
+                log.error("Could not fit gaussian (2a) near %f" % w, exc_info=True)
+        except:
+            try:
+                if ex.args[0].find("Optimal parameters not found") > -1:
+                    log.debug("Could not fit gaussian (3a) near %f" % w, exc_info=False)
+                else:
+                    log.error("Could not fit gaussian (4a) near %f" % w, exc_info=True)
+            except:
+                log.error("Could not fit gaussian (5a) near %f" % w, exc_info=True)
+
+        return 0, 999, 0, [0, 0, 0, 0], np.zeros((4, 4)), np.zeros(len(waves))
+
+    perr = np.sqrt(np.diag(pcov))
+    if not np.any(pcov):
+        print("problem. pcov all zero")
+
+    xfit = np.linspace(waves[left], waves[right], len(narrow_wave_x))  # or make higher res at say 1000 ?
+    # if higher res, does that screw up the chi2??
+
+    model_fit = gaussian(waves[left:right + 1], parm[0], parm[1], parm[2], parm[3])
+    model_fit_full = gaussian(waves, parm[0], parm[1], parm[2], parm[3])
+
+    # need to decrease the snr to 2.5 sigma?
+    delta_wave = max(parm[1] * 2.0, 2.1195)  # must be at least +/- 2.1195AA
+    # new left and right
+    snr_left, *_ = getnearpos(waves, parm[0] - delta_wave)
+    snr_right, *_ = getnearpos(waves, parm[0] + delta_wave)
+
+    if waves[left] - (parm[0] - delta_wave) < 0:
+        left += 1  # less than 50% overlap in the left bin, so move one bin to the red
+    if waves[right] - (parm[0] + delta_wave) > 0:
+        right -= 1  # less than 50% overlap in the right bin, so move one bin to the blue
+
+    snr = abs(np.sum(model_fit_full[snr_left:snr_right + 1] - parm[3])) / np.sqrt(
+        np.sum(flux_err[snr_left:snr_right + 1] ** 2))  # or error as flux_err[left:right+1]**2
+
+    # chi2 should be checked over the full width of the fit, not the +/- 2 sigma of the emission
+    # that left/right is set at the top of this func
+    chi2, _ = chi_sqr(flux[left:right + 1], model_fit_full[left:right + 1], error=flux_err[left:right + 1],
+                             c=1.0, dof=2)
+
+    try:
+        ew = parm[2] / parm[3]  # "area" / y (observed)
+    except:
+        ew = 0
+
+    return snr, chi2, ew, parm, pcov, model_fit_full
+
+
+def quick_linescore(snr, chi2, sigma, ew):
+    """
+    something like the line score, but simpler .. just for fast comparision
+    """
+    try:
+
+        return 5.0 * snr / np.sqrt(2 * sigma) \
+               - 1.0 * max(0.1, chi2) \
+               + 1.0 * abs(min(200, ew) / np.sqrt(2 * sigma) / 100.0)
+    except:
+        return 0
+
+
+
+def quick_line_finder(waves,flux,flux_err,delta_w=2.0,width=50,min_sigma=1.5,max_sigma=8.5, absorber=False):
+
+    """
+    HETDEX is +/- 50 in steps of 4AA (or 8AA, depending on search)
+    """
+
+    try:
+        max_idx = None
+        all_snr = []
+        all_chi2 = []
+        all_sigma = []
+        all_area = []
+        all_cw =[]
+        all_ew = []
+
+
+        #Karl's search is in steps of 8AA ... the step of 2AA here might be too narrow
+        waves = np.arange(3470,5542,2)
+        for w in tqdm(waves):
+            snr, chi2, ew, parm, pcov, model = fit(waves,flux,flux_err,w=w,delta_w=delta_w,width=width,
+                                                   min_sigma=min_sigma,max_sigma=max_sigma,absorber=absorber)
+
+            #reject any that are at maximum sigma
+            if np.isclose(parm[1],max_sigma,atol=1e-2) or parm[1] > max_sigma:
+                pass
+            else:
+                all_snr.append(snr)
+                all_chi2.append(chi2)
+                all_ew.append(ew)
+                all_sigma.append(parm[1])
+                all_area.append(parm[2])
+                all_cw.append(parm[0])
+
+
+        waves = np.array(waves)
+        all_cw = np.array(all_cw)
+        all_chi2 = np.array(all_chi2)
+        all_snr = np.array(all_snr)
+        all_sigma = np.array(all_sigma)
+        all_area = np.array(all_area)
+        all_ew = np.array(all_ew)
+        all_score = np.zeros(len(all_ew))
+
+        #condense ... keep a "best" from sets within some distance
+        if True:
+            csel = np.full(len(all_cw),False)
+            ci = 0 #current index
+            #wave_limit = 6.0 #AA #maybe dynamic? like at least 2.0 but up to 2*sigma?
+            csel[ci] = True
+            all_score[ci] = simple_score(all_snr[ci],all_chi2[ci],all_sigma[ci],all_ew[ci])
+            for i in range(1,len(all_cw)):
+
+                wave_limit = np.clip(3*all_sigma[ci],6.0,20.0)
+
+                if abs(all_cw[i] - all_cw[ci]) < wave_limit:
+                    all_score[i] = simple_score(all_snr[i],all_chi2[i],all_sigma[i],all_ew[i])
+                    if all_score[i] > all_score[ci]: #replace the current index with the new index
+                        csel[ci] = False
+                        ci = i
+                        csel[i] = True
+                else:
+                    ci = i
+                    csel[ci] = True
+                    all_score[ci] = simple_score(all_snr[ci],all_chi2[ci],all_sigma[ci],all_ew[ci])
+
+
+        #choose the "Best" to keep
+        #first, must have a reasonable chi2 , but don't be too strict
+        #best_sel = csel & np.array(all_chi2/np.sqrt(2*all_sigma) < 1.1)
+        best_sel = csel & np.array(all_chi2 < 5.0)
+        #and a minimum sigma
+        best_sel = best_sel & np.array(all_sigma > 1.5)
+        #and a minimum SNR
+        best_sel = best_sel & np.array(all_snr > 3.0)
+        best_sel = best_sel & np.array(all_score > 5.0)
+        #more restrictive
+        best_sel = best_sel & ( np.array(all_snr > 4.5) | np.array(all_score > 7.0) )
+
+
+        if True: #debugging
+            try:
+                max_idx = np.argmax(np.array(all_score)[best_sel])
+                print(f"Candidates = {np.count_nonzero(csel)}, {np.count_nonzero(best_sel)}")
+                #print(f"wavebin = {waves[best_sel][max_idx]}, wave = {all_cw[best_sel][max_idx]:0.2f}, \
+    #             print(f"wave = {all_cw[best_sel][max_idx]:0.2f}, \
+    #             snr = {all_snr[best_sel][max_idx]:0.2f}, chi2 = {all_chi2[best_sel][max_idx]:0.2f}, \
+    #             sigma = {all_sigma[best_sel][max_idx]:0.2f}, area = {all_area[best_sel][max_idx]:0.2f}, \
+    #             flux = {all_area[best_sel][max_idx]/20.0:0.2f}, ew = {all_ew[best_sel][max_idx]:0.2f}, \
+    #             score = {all_score[best_sel][max_idx]:0.2f}")
+
+                print("wave",[float(f"{x:0.2f}") for x in all_cw[best_sel]])
+                print(" snr",[float(f"{x:0.2f}") for x in all_snr[best_sel]])
+                print("chi2",[float(f"{x:0.2f}") for x in all_chi2[best_sel]])
+                print("sigm",[float(f"{x:0.2f}") for x in all_sigma[best_sel]])
+                print("scre",[float(f"{x:0.2f}") for x in all_score[best_sel]])
+            except:
+                pass
+
+        if True:
+            #return only the "best"
+            all_cw = all_cw[best_sel]
+            all_chi2 = all_chi2[best_sel]
+            all_snr = all_snr[best_sel]
+            all_sigma = all_sigma[best_sel]
+            all_area = all_area[best_sel]
+            all_ew = all_ew[best_sel]
+            all_score = all_score[best_sel]
+            try:
+                max_idx = np.argmax(all_score)
+                #print("****",max_idx)
+            except Exception as e:
+                print(e)
+                max_idx = None
+
+        return max_idx, all_cw, all_snr, all_score, all_ew, all_chi2, all_sigma, all_area
+
+    except Exception as e:
+        print(e)
+        return None, [], [], [], [], [], [], []
+
+
 def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=500.0,max_fwhm=15.0):
     """
     Simple curve_fit to gaussian; lsq "best"

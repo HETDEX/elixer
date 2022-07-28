@@ -2240,7 +2240,10 @@ def get_hdf5_detectids_to_process(args):
                             for line in f:  #these COULD be ra dec shot wave OR just a detectid
                                 try:
                                     toks = line.split()
-                                    if len(toks)==1: #this is probably just a detectid
+                                    if toks is None or len(toks) == 0:
+                                        log.error("Invalid dispatch line.")
+                                        continue
+                                    elif len(toks)==1: #this is probably just a detectid
                                         try:
                                             did = np.int64(toks[0])
                                             detlist.append(did)
@@ -4618,10 +4621,13 @@ def main():
 
                         #for safety
                         try:
-                            d = np.array(d)
-                            d[d==None] = '0'
-                        except: #this really should never happen
-                            log.warning("Exception checking hdf5_detectid_list for None-types",exc_info=True)
+                            _ = d[0] #if d is an array, set any None's to '0'
+                            d[d == None] = '0'
+                        except:
+                            #d is not an array, but need to make it one, this is probably a detectID
+                            d = np.array([d])
+                            d[d == None] = '0'
+                        #    log.warning("Exception checking hdf5_detectid_list for None-types",exc_info=True)
 
                         if isinstance(d,np.int64): #this is a detetid, not list of values RA, Dec, ...
                             hd = hetdex.HETDEX(args, fcsdir_list=None, hdf5_detectid_list=[d], basic_only=basic_only,cluster_list=cluster_list)
@@ -4632,14 +4638,30 @@ def main():
                         #otherwise this a a list of RA, Dec, ...
                         #update the args with the ra dec and shot to build an appropriate hetdex object for extraction
 
-
-                        local_ra, local_dec = UTIL.coord2deg(str(d[0]) + " " + str(d[1]))
-                        if local_ra is not None and local_dec is not None:
-                            d[0] = local_ra
-                            d[1] = local_dec
+                        #d might just be a detectID
+                        try:
+                            local_ra, local_dec = UTIL.coord2deg(str(d[0]) + " " + str(d[1]))
+                            if local_ra is not None and local_dec is not None:
+                                d[0] = local_ra
+                                d[1] = local_dec
+                        except:
+                            pass
 
                         try:
-                            if len(d) == 2:
+                            if len(d) == 0:
+                                log.error(f"Invalid detectID list entry: {d} ")
+                                continue
+
+                            elif len(d) == 1: #should be a detectid
+                                plt.close('all')
+                                hd = hetdex.HETDEX(args, fcsdir_list=None, hdf5_detectid_list=d,
+                                                       basic_only=basic_only, cluster_list=cluster_list)
+
+                                if hd.status == 0:
+                                    hd_list.append(hd)
+                                continue #either way, this entry is handled, we don't want to add it again below
+
+                            elif len(d) == 2:
                                 args.ra = float(d[0])
                                 args.dec = float(d[1])
                                 args.shotid = None
