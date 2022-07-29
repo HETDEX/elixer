@@ -5139,7 +5139,9 @@ def main():
                                                             if e.spec_obj.central_eli.absorber:
                                                                 line_label = e.spec_obj.match_line(e.w,best_z,aa_error=6.0,
                                                                                                    allow_absorption=True,
-                                                                                                   allow_emission=False).name
+                                                                                                   allow_emission=True).name
+                                                                #need to allow emission since most lines are kept that way
+                                                                #but can be both (like hydrogen series in a WD)
                                                             else:
                                                                 line_label = e.spec_obj.match_line(e.w, best_z,
                                                                                                    aa_error=6.0,

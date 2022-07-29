@@ -4582,7 +4582,8 @@ class Spectrum:
         except:
             log.warning("Exception rescoring solutions.",exc_info=True)
 
-    def match_line(self,obs_w,z,z_error=0.05,aa_error=None,allow_emission=True,allow_absorption=False,max_rank=5):
+    def match_line(self,obs_w,z,z_error=None,aa_error=8.0,allow_emission=True,allow_absorption=False,max_rank=5,
+                   line_sigma=None,continuum=False):
         """
         Given an input obsevered wavelength and a target redshift, return the matching emission line if found with the
             +/- aa_error in angstroms of the main (central) emission line
@@ -4595,7 +4596,8 @@ class Spectrum:
         :return:
         """
         try:
-            all_match = self.match_lines(obs_w,z,z_error,aa_error,allow_emission,allow_absorption,max_rank)
+            all_match = self.match_lines(obs_w,z,z_error,aa_error,allow_emission,allow_absorption,max_rank,
+                                         line_sigma=line_sigma,continuum=continuum)
 
             if (all_match is None) or (len(all_match) == 0):
                 return None
@@ -4606,7 +4608,27 @@ class Spectrum:
                 #choose "best" ... lowest rank
                 #todo: this can be an issue ... can get, say LyA and NV and CIII to all
                 # be possible if the z_error is even moderalely big (~ 0.3 or so)
-                idx = np.argmin([e.rank for e in all_match])
+
+                #select the highest rank (if there is exactly one)
+                ranks = np.array([e.rank for e in all_match])
+                sel = np.array(ranks == min(ranks))
+                if np.count_nonzero(sel) == 1:
+                    return np.array(all_match)[sel][0]
+
+                #still more than one
+                all_match = np.array(all_match)[sel]
+                #
+                # #cetain pairs show up a lot, NeIII + H_delta for example, check those
+                # if len(all_match) == 2:
+                #     w_rest = np.array([e.w_rest for e in all_match])
+                #     if G.Hdelta_4101 in w_rest and allow_absorption:
+                #         sel = np.array([w_rest == G.Hdelta_4101])
+                #         return all_match[sel][0]
+
+                #lastly just choose the one that is nearest the obs_w, even though any remaining are in the acceptable range
+                #least sepearation between obs_w and rest at the given z
+                idx = np.argmin([e.w_rest * (1.0 + z) for e in all_match])
+                #idx = np.argmin([e.rank for e in all_match])
                 return all_match[idx]
         except:
             log.warning("Exception in Spectrum::match_line()",exc_info=True)
@@ -4614,7 +4636,8 @@ class Spectrum:
         return None
 
 
-    def match_lines(self,obs_w,z,z_error=None,aa_error=None,allow_emission=True,allow_absorption=False,max_rank=5):
+    def match_lines(self,obs_w,z,z_error=None,aa_error=None,allow_emission=True,allow_absorption=False,max_rank=5,
+                    line_sigma=None,continuum=False):
         """
 
         Like match_line, but plural. Can return multiple lines
@@ -4633,22 +4656,40 @@ class Spectrum:
         try:
             all_match = []
 
+            if continuum: #then normal  emission (like hydrogen series) can also be in absorption
+                allow_absorption = True
+
+            # continuum over rides broad and not abosorption (if there is continuum then we can allow any to be "broad"
+            # and be in absorption
+
             if z_error is not None:
                 #lines are far enough apart that we don't need to worry about multiple matches
                 for e in self.emission_lines:
                     if (e.rank <= max_rank) and ((e.see_in_emission and allow_emission) or (e.see_in_absorption and allow_absorption)):
                         if  (e.w_rest * (1.0 + max(z-z_error,0))) <=  obs_w  <= (e.w_rest * (1.0 + z+z_error)):
-                            #could match to a faint line by happenstance and not really be that line
-                            #but this is position only
-                            all_match.append(e)
+                            if not continuum and (line_sigma is not None) and (line_sigma > 6.0):
+                                if e.broad:
+                                    all_match.append(e)
+                                else:
+                                    pass
+                            else:
+                                #could match to a faint line by happenstance and not really be that line
+                                #but this is position only
+                                all_match.append(e)
             elif aa_error is not None:
                 #lines are far enough apart that we don't need to worry about multiple matches
                 for e in self.emission_lines:
                     if (e.rank <= max_rank) and ((e.see_in_emission and allow_emission) or (e.see_in_absorption and allow_absorption)):
                         if abs(e.w_rest * (1.0 + z) - obs_w) < aa_error:
-                            #could match to a faint line by happenstance and not really be that line
-                            #but this is position only
-                            all_match.append(e)
+                            if not continuum and (line_sigma is not None) and (line_sigma > 6.0):
+                                if e.broad:
+                                    all_match.append(e)
+                                else:
+                                    pass
+                            else:
+                                # could match to a faint line by happenstance and not really be that line
+                                # but this is position only
+                                all_match.append(e)
             else:
                 log.debug("Invalid parameters passed to Spectrum::match_lines()")
 
