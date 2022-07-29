@@ -1216,7 +1216,7 @@ class EmissionLineInfo:
                                           min((self.pix_size * self.sn_pix)/21.0,1.0) / \
                                           (1. + abs(adjusted_dx0_error / self.pix_size))
 
-                        self.line_score = min(G.MAXIMUM_LINE_SCORE_CAP,self.line_score)
+                        #self.line_score = min(G.MAXIMUM_LINE_SCORE_CAP,self.line_score) #cap at the end??
 
                         try:
                             if (self.snr < 8.0 and self.fit_chi2 > 3.0) or \
@@ -1242,8 +1242,6 @@ class EmissionLineInfo:
                         if self.absorber:
                             self.line_score *= -1
 
-
-
                         #check for line in the nasty sky-lines 3545
                         if G.PENALIZE_FOR_EMISSION_IN_SKYLINE:
                             for k in SKY_LINES_DICT.keys():
@@ -1256,6 +1254,7 @@ class EmissionLineInfo:
                                              f"Rescoring: {self.line_score} to {self.line_score/2.0}")
                                     self.line_score /= 2.0
 
+                        self.line_score = min(G.MAXIMUM_LINE_SCORE_CAP, self.line_score)
                 else:
                     log.debug(f"Huge fwhm {self.fwhm}, Probably bad fit or merged lines. Rejecting score.")
                     self.line_score = 0
@@ -1737,7 +1736,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             eli.fit_a_err = perr[2]
             eli.fit_y = parm[3]
             eli.fit_y_err = perr[3]
-            eli.line_score = fit_dict_array[fd_idx]["score"]
+            eli.line_score = fit_dict_array[fd_idx]["score"] #just for now, will get replaced with actual line_score
             return eli
 
         ######################
@@ -2112,6 +2111,11 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             #eli.snr = max(eli.fit_vals) / (np.sqrt(num_sn_pix) * eli.fit_rmse)
             snr = eli.snr
     else:
+        #    if (eli.fit_rmse > 0) and (eli.fit_sigma >= min_sigma) and ( 0 < (eli.fit_sigma-eli.fit_sigma_err) <= max_sigma) and \
+        #(eli.fit_a_err < abs(eli.fit_a) ):
+        log.debug(f"Fit rejected ({eli.fit_x0:0.2f}) : fit_rmse {eli.fit_rmse:0.2f}, "
+                  f"sigma {eli.fit_sigma:0.2f} +/- {eli.fit_sigma_err:0.2f}, "
+                  f"fit_a {eli.fit_a:0.2f} +/- {eli.fit_a_err:0.2f}. Allow Broad ({allow_broad})")
         accept_fit = False
         snr = 0.0
         eli.snr = 0.0
@@ -2132,114 +2136,119 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             log.warning("Could not determine SBR at wavelength = %f. Will use SNR." %central)
             sbr = snr
 
-    score = sbr
+    score = eli.line_score
     eli.sbr = sbr
-    sk = -999
-    ku = -999
-    si = -999
-    dx0 = -999 #in AA
-    rh = -999
-    if absorber:
-        mx_norm = min(wave_counts)/100.0
-    else:
-        mx_norm = max(wave_counts)/100.0
 
     fit_wave = eli.fit_vals
     error = eli.fit_norm_rmse
 
     #fit around designated emis line
-    if (fit_wave is not None):
-        sk = skew(fit_wave)
-        ku = kurtosis(fit_wave) # remember, 0 is tail width for Normal Dist. ( ku < 0 == thinner tails)
-        si = eli.fit_sigma  #*1.9 #scale to angstroms
-        dx0 = eli.fit_dx0 #*1.9
+    #print("*!*!*!*!*!*! TRUNED OFF original scoring adjustments to line fit *!*!*!*!*!*!")
+    if False:
 
-        #si and ku are correlated at this scale, for emission lines ... fat si <==> small ku
-
-        height_pix = raw_peak
-        height_fit = scaled_fit_h
-
-        if height_pix > 0:
-            rh = height_fit/height_pix
+        score = sbr
+        sk = -999
+        ku = -999
+        si = -999
+        dx0 = -999  # in AA
+        rh = -999
+        if absorber:
+            mx_norm = min(wave_counts) / 100.0
         else:
-            log.debug("Minimum peak height (%f) too small. Score zeroed." % (height_pix))
-            dqs_raw = 0.0
-            score = 0.0
-            rh = 0.0
+            mx_norm = max(wave_counts) / 100.0
 
-        #todo: for lower S/N, sigma (width) can be less and still get bonus if fibers have larger separation
+        if (fit_wave is not None):
+            sk = skew(fit_wave)
+            ku = kurtosis(fit_wave) # remember, 0 is tail width for Normal Dist. ( ku < 0 == thinner tails)
+            si = eli.fit_sigma  #*1.9 #scale to angstroms
+            dx0 = eli.fit_dx0 #*1.9
 
-        #new_score:
-        if (0.75 < rh < 1.25) and (error < 0.2): # 1 bad pixel in each fiber is okay, but no more
+            #si and ku are correlated at this scale, for emission lines ... fat si <==> small ku
 
-            #central peak position
-            #2020-03-09 turn off ... being off in dx0 is handled elsewhere and there are valid physical reasons this can be so
-            # if abs(dx0) > pix_size:# 1.9:  #+/- one pixel (in AA)  from center
-            #     val = (abs(dx0) - pix_size)** 2
-            #     score -= val
-            #     log.debug("Penalty for excessive error in X0: %f" % (val))
-            #
+            height_pix = raw_peak
+            height_fit = scaled_fit_h
 
-            #sigma scoring
-            if si < 2.0: # and ku < 2.0: #narrow and not huge tails
-                val = mx_norm*np.sqrt(2.0 - si)
-                score -= val
-                log.debug("Penalty for low sigma: %f" % (val))
-                #note: si always > 0.0 and rarely < 1.0
-            elif si < 2.5:
-                pass #zero zone
-            elif si < 10.0:
-                val = np.sqrt(si-2.5)
-                score += val
-                log.debug("Bonus for large sigma: %f" % (val))
-            elif si < 15.0:
-                pass #unexpected, but lets not penalize just yet
-            elif not allow_broad: #very wrong (could be a broadline hit)
-                if si > (5*min_sigma): #if a large min_sigma is passed in, this can be allowed to be larger w/o penalty
-                    val = np.sqrt(si-15.0)
+            if height_pix > 0:
+                rh = height_fit/height_pix
+            else:
+                log.debug("Minimum peak height (%f) too small. Score zeroed." % (height_pix))
+                dqs_raw = 0.0
+                score = 0.0
+                rh = 0.0
+
+            #todo: for lower S/N, sigma (width) can be less and still get bonus if fibers have larger separation
+
+            #new_score:
+            if (0.75 < rh < 1.25) and (error < 0.2): # 1 bad pixel in each fiber is okay, but no more
+
+                #central peak position
+                #2020-03-09 turn off ... being off in dx0 is handled elsewhere and there are valid physical reasons this can be so
+                # if abs(dx0) > pix_size:# 1.9:  #+/- one pixel (in AA)  from center
+                #     val = (abs(dx0) - pix_size)** 2
+                #     score -= val
+                #     log.debug("Penalty for excessive error in X0: %f" % (val))
+                #
+
+                #sigma scoring
+                if si < 2.0: # and ku < 2.0: #narrow and not huge tails
+                    val = mx_norm*np.sqrt(2.0 - si)
                     score -= val
-                    log.debug("Penalty for excessive sigma: %f" % (val))
+                    log.debug("Penalty for low sigma: %f" % (val))
+                    #note: si always > 0.0 and rarely < 1.0
+                elif si < 2.5:
+                    pass #zero zone
+                elif si < 10.0:
+                    val = np.sqrt(si-2.5)
+                    score += val
+                    log.debug("Bonus for large sigma: %f" % (val))
+                elif si < 15.0:
+                    pass #unexpected, but lets not penalize just yet
+                elif not allow_broad: #very wrong (could be a broadline hit)
+                    if si > (5*min_sigma): #if a large min_sigma is passed in, this can be allowed to be larger w/o penalty
+                        val = np.sqrt(si-15.0)
+                        score -= val
+                        log.debug("Penalty for excessive sigma: %f" % (val))
 
 
-            #only check the skew for smaller sigma
-            #skew scoring
+                #only check the skew for smaller sigma
+                #skew scoring
 
-            #2020-03-09 turn off ... noise can be high enough that this is not a valid test
-            #plus this gets applied to ALL lines, not just LyA, so this is not a valid check in most cases
-            # if si < 2.5:
-            #     if sk < -0.5: #skew wrong directionn
-            #         val = min(1.0,mx_norm*min(0.5,abs(sk)-0.5))
-            #         score -= val
-            #         log.debug("Penalty for low sigma and negative skew: %f" % (val))
-            #     if (sk > 2.0): #skewed a bit red, a bit peaky, with outlier influence
-            #         val = min(0.5,sk-2.0)
-            #         score += val
-            #         log.debug("Bonus for low sigma and positive skew: %f" % (val))
+                #2020-03-09 turn off ... noise can be high enough that this is not a valid test
+                #plus this gets applied to ALL lines, not just LyA, so this is not a valid check in most cases
+                # if si < 2.5:
+                #     if sk < -0.5: #skew wrong directionn
+                #         val = min(1.0,mx_norm*min(0.5,abs(sk)-0.5))
+                #         score -= val
+                #         log.debug("Penalty for low sigma and negative skew: %f" % (val))
+                #     if (sk > 2.0): #skewed a bit red, a bit peaky, with outlier influence
+                #         val = min(0.5,sk-2.0)
+                #         score += val
+                #         log.debug("Bonus for low sigma and positive skew: %f" % (val))
 
-            base_msg = "Fit dX0 = %g(AA), RH = %0.2f, rms = %0.2f, Sigma = %g(AA), Skew = %g , Kurtosis = %g "\
-                   % (dx0, rh, error, si, sk, ku)
-            log.debug(base_msg)
-        elif rh > 0.0:
-            #todo: based on rh and error give a penalty?? maybe scaled by maximum pixel value? (++val = ++penalty)
+                base_msg = "Fit dX0 = %g(AA), RH = %0.2f, rms = %0.2f, Sigma = %g(AA), Skew = %g , Kurtosis = %g "\
+                       % (dx0, rh, error, si, sk, ku)
+                log.debug(base_msg)
+            elif rh > 0.0:
+                #todo: based on rh and error give a penalty?? maybe scaled by maximum pixel value? (++val = ++penalty)
 
-            if (error > 0.3) and (0.75 < rh < 1.25): #really bad rms, but we did capture the peak
-                val = mx_norm*(error - 0.3)
-                score -= val
-                log.debug("Penalty for excessively bad rms: %f" % (val))
-            elif rh < 0.6: #way under shooting peak (should be a wide sigma) (peak with shoulders?)
-                val = mx_norm * (0.6 - rh)
-                score -= val
-                log.debug("Penalty for excessive undershoot peak: %f" % (val))
-            elif rh > 1.4: #way over shooting peak (super peaky ... prob. hot pixel?)
-                val = mx_norm * (rh - 1.4)
-                score -= val
-                log.debug("Penalty for excessively overshoot peak: %f" % (val))
+                if (error > 0.3) and (0.75 < rh < 1.25): #really bad rms, but we did capture the peak
+                    val = mx_norm*(error - 0.3)
+                    score -= val
+                    log.debug("Penalty for excessively bad rms: %f" % (val))
+                elif rh < 0.6: #way under shooting peak (should be a wide sigma) (peak with shoulders?)
+                    val = mx_norm * (0.6 - rh)
+                    score -= val
+                    log.debug("Penalty for excessive undershoot peak: %f" % (val))
+                elif rh > 1.4: #way over shooting peak (super peaky ... prob. hot pixel?)
+                    val = mx_norm * (rh - 1.4)
+                    score -= val
+                    log.debug("Penalty for excessively overshoot peak: %f" % (val))
+            else:
+                log.debug("Too many bad pixels or failure to fit peak or overall bad fit. ")
+                score = 0.0
         else:
-            log.debug("Too many bad pixels or failure to fit peak or overall bad fit. ")
+            log.debug("Unable to fit gaussian. ")
             score = 0.0
-    else:
-        log.debug("Unable to fit gaussian. ")
-        score = 0.0
 
     mcmc = None
 
@@ -3618,12 +3627,13 @@ def sn_peakdet(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,values_units=0,
 
         #now pos has the indicies in the original arrays of the highest values in runs of high S/N bins
         for p in pos:
+            #log.debug(f"*** sn_peakdet {wave[p]}")
             try:
                 eli = signal_score(wave, spec, spec_err, wave[p], values_units=values_units, min_sigma=min_sigma,
                                absorber=absorber,do_mcmc=do_mcmc,allow_broad=allow_broad)
 
                 # if (eli is not None) and (eli.score > 0) and (eli.snr > 7.0) and (eli.fit_sigma > 1.6) and (eli.eqw_obs > 5.0):
-                if (eli is not None) and ((not enforce_good) or eli.is_good()):
+                if (eli is not None) and ((not enforce_good) or eli.is_good(allow_broad=True)):
                     #extra check for broadlines the score must be higher than usual
                     #if (min_sigma < 4.0) or ((min_sigma >= 4.0) and (eli.line_score > 25.0)):
                     eli_list.append(eli)
@@ -3692,7 +3702,7 @@ def peakdet(x,vals,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.
 
 
     #just iterate over signal_score
-    if G.LINE_FINDER_FULL_FIT_SCAN or len(eli_list) == 0: #this can be slow ... only run if set OR if no lines found??
+    if (G.LINE_FINDER_FULL_FIT_SCAN or len(eli_list) == 0) and not absorber: #this can be slow ... only run if set OR if no lines found??
         log.debug(f"Running full fit line finder ...")
         quick_eli_list = []
         step = 2.0 #AA

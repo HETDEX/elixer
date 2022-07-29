@@ -11424,6 +11424,12 @@ class HETDEX:
                     title += "EWr = %s$\AA$\n" %(eqw_lya_str)
 
         if self.panacea:
+            if e.snr is None:
+                try:
+                    e.snr = e.spec_obj.central_eli.snr
+                except:
+                    pass
+
             snr = e.sigma
             snr_unc = 0.0
             if (e.snr is not None) and (e.snr != 0.0):
@@ -11432,6 +11438,12 @@ class HETDEX:
             title += "S/N = %0.1f($\pm$%0.1f) " % (snr,snr_unc)
         else:
             title += "$\sigma$ = %g " % (e.sigma)
+        #e.spec_obj.central_eli
+        if e.chi2 is None:
+            try:
+                e.chi2 = e.spec_obj.central_eli.fit_chi2
+            except:
+                pass
 
         if (e.chi2 is not None) and (e.chi2 != 666) and (e.chi2 != 0):
             title += " $\chi^2$ = %0.1f($\pm$%0.1f)" % (e.chi2,e.chi2_unc)
