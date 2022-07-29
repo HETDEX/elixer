@@ -1033,8 +1033,9 @@ ALLOW_BROADLINE_FIT = True
 
 LINE_FINDER_MEDIAN_SCAN = 5 #SNR scan after applying a median filter to the flux; the value is the #of pixels, must be odd
                             #set to 0 to turn off
-LINE_FINDER_FULL_FIT_SCAN = True #scan at each pixel (each bin in CALFIB_WAVEGRID) and try to fit emission and/or abosrption
+LINE_FINDER_FULL_FIT_SCAN = False #scan at each pixel (each bin in CALFIB_WAVEGRID) and try to fit emission and/or abosrption
                             #NOTE: this will still run if False when no lines are found with other methods
+                            #if True (always on) increases line finder run-time by ~ 50%
 
 SUBTRACT_HETDEX_SKY_RESIDUAL = False #if true compute a per-shot sky residual, convolve with per-shot PSF and subtract
 # from the HETDEX spectrum (only applies to re-extractions (forced extractions) with ffsky

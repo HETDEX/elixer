@@ -16,6 +16,9 @@ changes to elixer by version
   to fit a Gaussian (quick fit); updated curve_fit to attempt different cominations of line widths, flux arrays, etc
   to better find weak, normal, and broad lines
 * updated WD classifier to specify DA or DAB, DB, or DQ and uses line width (sigma) to help distinguish from A stars
+* fix typo in line ID matcher; was using too large a window (delta z = 0.05, was supposed to be 0.0005); switched to
+  rest_AA matching as preferred at delta wavelength 8.0AA
+
 
 
 1.17.0a2 [2022-07-14]
