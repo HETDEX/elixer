@@ -1,7 +1,7 @@
 changes to elixer by version
 
 
-1.17.0a3 [2022-07-27]
+1.17.0a3 [2022-08-01]
 * Project LineFlux Image to the WCS of the master_cutout (neighborhood) and stacked_cutout (main report) so the NorthBox
   matches; Added option (PROJECT_LINE_IMAGE_TO_COMMON_WCS in global_config.py) to turn this off and go back to the
   native LineFlux Image projection

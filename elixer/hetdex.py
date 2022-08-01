@@ -7726,6 +7726,11 @@ class DetObj:
                 if self.spec_obj is None:
                     self.spec_obj = elixer_spectrum.Spectrum()
 
+                self.spec_obj.est_g_cont = self.cont_cgs
+                self.spec_obj.est_g_cont_unc = self.cont_cgs_unc
+                self.spec_obj.gmag = self.best_gmag
+                self.spec_obj.gmag_unc = self.best_gmag_unc
+
                 log.info("Scanning for anchor line ...")
                 #self.all_found_lines = elixer_spectrum.peakdet(self.sumspec_wavelength,self.sumspec_flux,self.sumspec_fluxerr,values_units=-17)
                 w = self.spec_obj.find_central_wavelength(self.sumspec_wavelength,self.sumspec_flux,
@@ -8148,7 +8153,8 @@ class DetObj:
                                           values_units=-17, estflux=self.estflux, estflux_unc=self.estflux_unc,
                                           eqw_obs=self.eqw_obs, eqw_obs_unc=self.eqw_obs_unc,
                                           estcont=self.cont_cgs, estcont_unc=self.cont_cgs_unc,
-                                          continuum_g=self.best_gmag_cgs_cont,continuum_g_unc=self.best_gmag_cgs_cont_unc)
+                                          continuum_g=self.best_gmag_cgs_cont,continuum_g_unc=self.best_gmag_cgs_cont_unc,
+                                          gmag=self.best_gmag,gmag_err=self.best_gmag_unc)
 
 
                 if self.spec_obj.central_eli is not None:
@@ -8734,7 +8740,7 @@ class DetObj:
                     (self.estflux_unc / self.estflux) ** 2 +
                     (self.cont_cgs_unc / self.cont_cgs) ** 2))
 
-                self.spec_obj.est_g_cont = self.cont_cgs
+
 
             if (G.CONTINUUM_RULES or self.cont_cgs > G.CONTNIUUM_RULES_THRESH) and (self.w is None) or (self.w == 0.0):
 
@@ -8742,6 +8748,11 @@ class DetObj:
                 #spectrum = elixer_spectrum.Spectrum()
                 if self.spec_obj is None:
                     self.spec_obj = elixer_spectrum.Spectrum()
+
+                self.spec_obj.est_g_cont = self.cont_cgs
+                self.spec_obj.est_g_cont_unc = self.cont_cgs_unc
+                self.spec_obj.gmag = self.best_gmag
+                self.spec_obj.gmag_unc = self.best_gmag_unc
 
                 #self.all_found_lines = elixer_spectrum.peakdet(self.sumspec_wavelength,self.sumspec_flux,self.sumspec_fluxerr,values_units=-17)
                 w = self.spec_obj.find_central_wavelength(self.sumspec_wavelength,self.sumspec_flux,
@@ -9076,7 +9087,8 @@ class DetObj:
                                       eqw_obs=self.eqw_obs,eqw_obs_unc=self.eqw_obs_unc,
                                       estcont=self.cont_cgs,estcont_unc=self.cont_cgs_unc,
                                       fwhm=self.fwhm,fwhm_unc=self.fwhm_unc,
-                                      continuum_g=self.best_gmag_cgs_cont,continuum_g_unc=self.best_gmag_cgs_cont_unc)
+                                      continuum_g=self.best_gmag_cgs_cont,continuum_g_unc=self.best_gmag_cgs_cont_unc,
+                                      gmag=self.best_gmag, gmag_err=self.best_gmag_unc)
             # print("DEBUG ... spectrum peak finder")
             # if G.DEBUG_SHOW_GAUSS_PLOTS:
             #    self.spec_obj.build_full_width_spectrum(show_skylines=True, show_peaks=True, name="testsol")
@@ -14070,8 +14082,6 @@ class HETDEX:
                                     datakeep['fw_spec'][ind[j]] * datakeep['fiber_weight'][ind[j]]) )
 
 
-
-
             #peak_height = near get the approximate peak height
             try:
                 mn = np.min(F)
@@ -14202,7 +14212,6 @@ class HETDEX:
                                       color=sol.color,fontsize=10)  # use the e color for this family
 
                     #highlight the matched lines
-
                     yl, yh = specplot.get_ylim()
 
                     #adjust if necessary for zero reference line
