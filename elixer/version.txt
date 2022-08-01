@@ -19,6 +19,7 @@ changes to elixer by version
 * fix typo in line ID matcher; was using too large a window (delta z = 0.05, was supposed to be 0.0005); switched to
   rest_AA matching as preferred at delta wavelength 8.0AA
 * improved broad line fitting
+* relax line scoring minium thresholds when the line is targetted as as supporting line (slightly lower scores are acceptable)
 
 
 1.17.0a2 [2022-07-14]

@@ -1350,7 +1350,7 @@ class EmissionLineInfo:
 
         return s
 
-    def is_good(self,z=0.0,allow_broad=False):
+    def is_good(self,z=0.0,allow_broad=False,supporting_line=False):
         #(self.score > 0) and  #until score can be recalibrated, don't use it here
         #(self.sbr > 1.0) #not working the way I want. don't use it
         result = False
@@ -1367,18 +1367,23 @@ class EmissionLineInfo:
         else:
             line_score_multiplier = 1.0
 
+        if supporting_line:
+            good_min_line_score = GOOD_MIN_LINE_SCORE * 0.8 #supporting (or targetted fit) line is expected at this position
+        else:                                               #so give it a little extra leeway
+            good_min_line_score = GOOD_MIN_LINE_SCORE
+
         if not self.absorber and not (allow_broad or self.broadfit) and (self.fit_sigma >= LIMIT_BROAD_SIGMA) and \
                 not ((self.fwhm < MAX_FWHM) and (self.snr > MIN_HUGE_FWHM_SNR)):
             log.debug(f"Line sigma {self.fit_sigma} in broad range {LIMIT_BROAD_SIGMA} and broad line not allowed.")
             return False
         elif not self.absorber and not G.CONTINUUM_RULES and (self.fit_sigma > GOOD_BROADLINE_SIGMA) and \
-                (self.line_score < (1.5 * GOOD_MIN_LINE_SCORE * self.fit_sigma/GOOD_BROADLINE_SIGMA)):
+                (self.line_score < (1.5 * good_min_line_score * self.fit_sigma/GOOD_BROADLINE_SIGMA)):
             #and  ((self.eqw_obs - self.eqw_obs_err) < 5.0) and (abs(self.fit_dx0) > 5.0):
             log.debug(f"Line sigma {self.fit_sigma} in broad range {GOOD_BROADLINE_SIGMA} but "
-                      f"line_score {self.line_score} below minumum {1.5 * GOOD_MIN_LINE_SCORE * self.fit_sigma/GOOD_BROADLINE_SIGMA}.")
+                      f"line_score {self.line_score} below minumum {1.5 * good_min_line_score * self.fit_sigma/GOOD_BROADLINE_SIGMA}.")
             result = False
         # minimum to be possibly good
-        elif (self.line_score >= line_score_multiplier * GOOD_MIN_LINE_SCORE) and (self.fit_sigma >= GOOD_MIN_SIGMA):
+        elif (self.line_score >= line_score_multiplier * good_min_line_score) and (self.fit_sigma >= GOOD_MIN_SIGMA):
         #if(self.snr >= GOOD_MIN_LINE_SNR) and (self.fit_sigma >= GOOD_MIN_SIGMA):
             if not ratty(self.snr,self.fit_sigma):
                 s = self.peak_sigma_above_noise()
@@ -1443,7 +1448,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                  min_sigma=GAUSS_FIT_MIN_SIGMA,show_plot=False,plot_id=None,plot_path=None,do_mcmc=False,absorber=False,
                  force_score=False,values_dx=G.FLUX_WAVEBIN_WIDTH,allow_broad=False,broadfit=1,relax_fit=False,
                  min_fit_sigma=1.0,test_solution=None,wave_fit_side_aa=GAUSS_FIT_AA_RANGE, fit_range_AA=None,
-                 quick_fit=False,spec_obj=None):
+                 quick_fit=False,spec_obj=None,targetted_fit=False):
     """
 
     :param wavelengths:
@@ -1688,19 +1693,22 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         # loop over a few ranges and choose the "best"
        # print(f"{fit_range_AA}")
         fit_dict_array = [ {"type": "small", "fit_range_AA": fit_range_AA, "wave_fit_side_aa": 20.0,
-                            "min_fit_sigma": 1.5, "max_fit_sigma": 5.5, "min_snr":4.0, "max_gmag":99, "min_gmag": 22.0,
+                            "min_fit_sigma": 1.5, "max_fit_sigma": 5.5, "min_snr":3.5 if targetted_fit else 4.0,
+                            "max_gmag":99, "min_gmag": 22.0,
                             "snr":0, "chi2":999, "ew":0, "parm":[], "pcov":[], "model":None, "score":0},
 
                            {"type": "medium", "fit_range_AA": fit_range_AA, "wave_fit_side_aa": 40.0,
-                            "min_fit_sigma": 2.0, "max_fit_sigma": 8.5, "min_snr":4.0, "max_gmag":99,"min_gmag": 0.0,
+                            "min_fit_sigma": 2.0, "max_fit_sigma": 8.5, "min_snr":3.8 if targetted_fit else 4.3,
+                            "max_gmag":99,"min_gmag": 0.0,
                             "snr":0, "chi2":999, "ew":0, "parm":[], "pcov":[], "model":None, "score":0},
 
                            # {"type": "HDstd", "fit_range_AA": fit_range_AA, "wave_fit_side_aa": 50.0,
-                           #  "min_fit_sigma": 1.7, "max_fit_sigma": 8.5, "min_snr":4.0, "max_gmag":99,"min_gmag": 22.0,
+                           #  "min_fit_sigma": 1.7, "max_fit_sigma": 8.5, "min_snr":3.5 if targetted_fit else 4.0,
+                           #  "max_gmag":99,"min_gmag": 22.0,
                            #  "snr": 0, "chi2": 999, "ew": 0, "parm": [], "pcov": [], "model": None, "score": 0},
 
                            {"type": "large", "fit_range_AA": fit_range_AA*2.0, "wave_fit_side_aa": 80.0,
-                            "min_fit_sigma": 4.0, "max_fit_sigma": 25.0, "min_snr":20.0, "max_gmag":99,"min_gmag": 0.0,
+                            "min_fit_sigma": 4.0, "max_fit_sigma": 25.0, "min_snr":15.0, "max_gmag":99,"min_gmag": 0.0,
                             "snr":0, "chi2":999, "ew":0, "parm":[], "pcov":[], "model":None, "score":0},
 
                            {"type": "xlrg", "fit_range_AA": fit_range_AA*4.0, "wave_fit_side_aa": 150.0,
@@ -1759,7 +1767,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                   f"sigma {fit_dict_array[fd_idx]['parm'][1]:0.1f}, area {fit_dict_array[fd_idx]['parm'][2]:0.1f}, "
                   f"ew {fit_dict_array[fd_idx]['ew']:0.1f} ")
 
-
+        #EXTRA logging for debugging
         # for idx in range(len(fit_dict_array)):
         #     try:
         #         log.debug(f"*** All fit:  ({fit_dict_array[fd_idx]['parm'][0]:0.1f}) "
@@ -7053,7 +7061,7 @@ class Spectrum:
                                    show_plot=False, do_mcmc=False,min_fit_sigma=min_sigma,
                                    allow_broad= (a.broad and e.broad),
                                    relax_fit=(e.w_rest==G.OIII_5007)and(a.w_rest==G.OIII_4959),absorber=a.see_in_absorption,
-                                   test_solution=sol,spec_obj=self)
+                                   test_solution=sol,spec_obj=self,targetted_fit=True)
 
                 if eli and a.broad and e.broad and (eli.fit_sigma < eli.fit_sigma_err) and \
                     ((eli.fit_sigma + eli.fit_sigma_err) > GOOD_BROADLINE_SIGMA):
@@ -7061,7 +7069,7 @@ class Spectrum:
                         eli = signal_score(wavelengths=wavelengths, values=medfilt(values, 5), errors=medfilt(errors, 5),
                             central=a_central, central_z = central_z, values_units=values_units, spectrum=self,
                             show_plot=False, do_mcmc=False, allow_broad= (a.broad and e.broad), absorber=a.see_in_absorption,
-                                           spec_obj=self)
+                                           spec_obj=self,targetted_fit=True)
                 elif eli is None and a.broad and e.broad:
                     #are they in the same family? OII, OIII, OIV :  CIV, CIII, CII : H_beta, ....
                     samefamily = in_same_family(a,e)
@@ -7071,7 +7079,7 @@ class Spectrum:
                                        central=a_central, central_z=central_z, values_units=values_units, spectrum=self,
                                        show_plot=False, do_mcmc=False, allow_broad=(a.broad and e.broad),broadfit=5,
                                            absorber=a.see_in_absorption,
-                                           spec_obj=self)
+                                           spec_obj=self,targetted_fit=True)
                 # elif a.broad: #the supporting line could be broad
                 #     common_combo = False
                 #
@@ -7123,7 +7131,7 @@ class Spectrum:
                     elif a.w_rest == G.OII_rest: #OII is sometimes broad
                         allow_broad_check = True
 
-                if (eli is not None) and eli.is_good(z=sol.z,allow_broad=allow_broad_check):
+                if (eli is not None) and eli.is_good(z=sol.z,allow_broad=allow_broad_check,supporting_line=True):
                     good = True
 
                 #This has to happen AFTER is good check
@@ -7300,7 +7308,10 @@ class Spectrum:
                                  %(line_type, self.identifier,l.name,l.w_rest,l.w_obs,l.snr, eli.mcmc_snr, l.flux,
                                   l.sigma, l.line_score,l.prob_noise))
                 else: #is not good
-                    log.debug("Line rejected (failed is_good).")
+                    if eli is None:
+                        log.debug("Line rejected (failed to fit).")
+                    else:
+                        log.debug("Line rejected (failed is_good).")
 
                     #however ... the median filter fit might have something, esp. true for broad LyA with strong blue
                     #is there a line found where expected??
@@ -7403,6 +7414,7 @@ class Spectrum:
                     if max(all_dx0) - min(all_dx0) > max_offset_spread: #differ by more than 2 AA
                         #throw out lowest score? or greatest dx0?
                         i = np.argmin(all_score)
+                        #if s.lines[i].score >
                         log.info("Removing lowest score from solution %s (%s at %0.1f) due to extremes in fit_dx0 (%f,%f)."
                                  " Line (%s) Score (%f)"
                                  %(self.identifier,s.emission_line.name,s.central_rest,min(all_dx0),max(all_dx0),

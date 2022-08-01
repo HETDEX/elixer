@@ -38,6 +38,11 @@ except Exception as e:
     print("WARNING!!!! CANNOT IMPORT hetdex_api survey: ",e)
 
 try:
+    from hetdex_api.flux_limits.shot_sensitivity import ShotSensitivity
+except Exception as e:
+    print("WARNING!!!! CANNOT IMPORT hetdex_api.flux_limits.shot_sensitivity ShotSensitivity: ",e)
+
+try:
     from hetdex_api.extract import Extract
     # from hetdex_api.shot import get_fibers_table as hda_get_fibers_table
 except Exception as e:
@@ -112,7 +117,8 @@ filter_iso_dict = {'u': 3650.0,
                    }
 
 
-MULTILINE_CONFIDENCE = [0.00, 0.01, 0.02, 0.03, 0.04, 0.05, 0.10, 0.25, 0.45, 0.70, 0.85, 0.90, 0.98]
+#MULTILINE_CONFIDENCE = [0.00, 0.01, 0.02, 0.03, 0.04, 0.05, 0.10, 0.25, 0.45, 0.70, 0.85, 0.90, 0.98]
+MULTILINE_CONFIDENCE = [0.00, 0.01, 0.02, 0.03, 0.04, 0.05, 0.15, 0.45, 0.60, 0.70, 0.85, 0.90, 0.98]
 MULTILINE_SCORE      = [0.00, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.85, 0.90, 0.93, 1.00]
 INTERP_MULTILINE_SCORE = np.linspace(0.0,1.0,100)
 INTERP_MULTILINE_CONFIDENCE = np.interp(INTERP_MULTILINE_SCORE,MULTILINE_SCORE,MULTILINE_CONFIDENCE)
@@ -122,6 +128,40 @@ from astropy import time, coordinates as Coord
 from astropy import constants as Const
 
 McDonald_Coord = Coord.EarthLocation.of_site('mcdonald')
+
+def get_fluxlimit_apcor(ra,dec,wave,datevobs,snrcut=4.8,flim_model="v4"):
+    """
+    wrapper to call into HETDEX API
+
+    This would be the 50% flux limit (i.e. we detect 50% of emission lines as this location (ra,dec,wave,shot) at that
+    flux level (with an assummed linewidth) (?? linewidth is sigma? fhwm?
+
+    :param datevobs:  string
+    :param flim_model: string (current is "v4"?)
+    :param snrcut:
+    :param ra:
+    :param dec:
+    :param wave:
+    :return:
+    """
+    try:
+        log.info(f"Retreiving flux limits and apcor using flim_mode {flim_model} ...")
+
+        try: #if wave is an array of wavelenghts, then ra, dec need to be arrays of equal length
+            ra = np.full(len(wave),ra)
+            dec = np.full(len(wave), dec)
+        except:
+            #waves has no length, single value
+            pass
+
+        shot_sens = ShotSensitivity(datevobs, flim_model=flim_model, log_level="CRITICAL")
+        f50, apcor = shot_sens.get_f50(ra, dec, wave, sncut)
+
+        return f50, apcor
+    except Exception as e:
+        log.error(f"Exception attempting to get flux limits and apcor.",exc_info=True)
+        print(e)
+        return None, None
 
 #cloned with minor changes from Erin Cooper's HETDEX_API
 def get_bary_corr(shotid, units='km/s'):

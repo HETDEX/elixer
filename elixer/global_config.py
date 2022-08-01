@@ -879,7 +879,7 @@ MC_PLAE_SAMPLE_SIZE = 250 #number of random samples to run
 MC_PLAE_CONF_INTVL = 0.68 #currently supported 0.68, 0.95, 0.99
 
 CLASSIFY_WITH_OTHER_LINES = True
-SPEC_MAX_OFFSET_SPREAD = 2.75 #AA #maximum spread in (velocity) offset (but in AA) across all lines in a solution
+SPEC_MAX_OFFSET_SPREAD = 4.0 #2.75 #AA #maximum spread in (velocity) offset (but in AA) across all lines in a solution
 SPEC_MAX_OFFSET_SPREAD_BROAD_THRESHOLD = 15.0 #kick in broad classification (there are effectively no OII with FWHM > 15)
 MIN_MCMC_SNR = 0.0 #minium SNR from an MCMC fit to accept as a real line (if 0.0, do not MCMC additional lines)
 MIN_ADDL_EMIS_LINES_FOR_CLASSIFY = 1

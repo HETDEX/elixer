@@ -1814,7 +1814,7 @@ class DetObj:
                     multiline_top_frac_score = self.spec_obj.solutions[0].frac_score
                     multiline_top_rest = self.spec_obj.solutions[0].central_rest
                     log.info(f"{self.entry_id} Top solution: z={multiline_top_z:0.4f} rest={multiline_top_rest:0.1f}, "
-                             f"score={multiline_top_score:0.1f}, frac_score={multiline_top_frac_score:0.3f}")
+                             f"score={multiline_top_score:0.1f}, scaled score = {multiline_top_scale_score:0.2f}, frac_score={multiline_top_frac_score:0.3f}")
                 else:
                     multiline_top_z = -1
                     multiline_top_score = -1
@@ -1988,7 +1988,8 @@ class DetObj:
                         #voting vs line solution mis-match
                         #so 0.4 to 0.6 is no-man's land, but the prob or confidence will be very low anyway
                         #keep the z, but reduce the p(z)
-                        if pscore > p:
+                        #if pscore > p:
+                        if (p <= 0) or (pscore / p > 0.9): #give a slight nod to the multi-line score
                             p = max(0.05,pscore - p)
                             log.info(f"Q(z): Multiline solution favors z = {sol.z}; {pscore}. "
                                      f"P(LyA) favors LyA {scaled_plae_classification}. Set to z:{z} with Q(z): {p}")
@@ -1997,6 +1998,10 @@ class DetObj:
                             z = self.w / G.LyA_rest - 1.0
                             log.info(f"Q(z): Multiline solution favors z = {sol.z}; {pscore}. "
                                      f"P(LyA) favors LyA {scaled_plae_classification}. Set to LyA z:{z} with Q(z): {p}")
+
+                        self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
+                        self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
+                        self.needs_review = True
 
                     elif pscore < 0.6: #we are ignoring the Q(z) of the multiline solution as too inconsistent
                         #we will use the P(Lya)
@@ -6225,23 +6230,30 @@ class DetObj:
             # need to tune this
             # score is the sum of the observed eq widths
             if  (self.spec_obj.solutions[0].score >= G.MULTILINE_MIN_SOLUTION_SCORE) and \
-                (self.spec_obj.solutions[0].scale_score >= G.MULTILINE_MIN_SOLUTION_CONFIDENCE) and \
                 (self.spec_obj.solutions[0].frac_score > 0.5):# and \
+                # (self.spec_obj.solutions[0].scale_score >= G.MULTILINE_MIN_SOLUTION_CONFIDENCE) and \
                 #(len(self.spec_obj.solutions[0].lines) >= G.MIN_ADDL_EMIS_LINES_FOR_CLASSIFY):
 
                 if (len(self.spec_obj.solutions) == 1) or \
                     ((len(self.spec_obj.solutions) > 1) and (self.spec_obj.solutions[1].score == 0) or \
                       (self.spec_obj.solutions[0].score / self.spec_obj.solutions[1].score > G.MULTILINE_MIN_NEIGHBOR_SCORE_RATIO)):
 
-                    self.multiline_z_minimum_flag = True
-                    return True, self.spec_obj.solutions[0].scale_score, SU.map_multiline_score_to_confidence(self.spec_obj.solutions[0].scale_score)
+                    if  self.spec_obj.solutions[0].scale_score >= G.MULTILINE_MIN_SOLUTION_CONFIDENCE:
+                        self.multiline_z_minimum_flag = True
+                        return True, self.spec_obj.solutions[0].scale_score, SU.map_multiline_score_to_confidence(self.spec_obj.solutions[0].scale_score)
+                    else:
+                        return False, self.spec_obj.solutions[0].scale_score, SU.map_multiline_score_to_confidence(self.spec_obj.solutions[0].scale_score)
                 #not a clear winner, but the top is a display (or primary) line and the second is not, so use the first
                 elif (self.spec_obj.solutions[0].emission_line.display is True) and \
                         (self.spec_obj.solutions[0].emission_line.display is False):
 
                     log.debug("multiline_solution_score, using display line over non-display line")
                     self.multiline_z_minimum_flag = True
-                    return True, self.spec_obj.solutions[0].scale_score,SU.map_multiline_score_to_confidence(self.spec_obj.solutions[0].scale_score)
+                    if  self.spec_obj.solutions[0].scale_score >= G.MULTILINE_MIN_SOLUTION_CONFIDENCE:
+                        self.multiline_z_minimum_flag = True
+                        return True, self.spec_obj.solutions[0].scale_score,SU.map_multiline_score_to_confidence(self.spec_obj.solutions[0].scale_score)
+                    else:
+                        return False, self.spec_obj.solutions[0].scale_score,SU.map_multiline_score_to_confidence(self.spec_obj.solutions[0].scale_score)
 
             if G.MULTILINE_ALWAYS_SHOW_BEST_GUESS:
                 self.multiline_z_minimum_flag = False
@@ -11549,8 +11561,15 @@ class HETDEX:
                 title += "\nQ(%0.2f) %s(%d) z = %0.4f  EW_r = %0.1f$\AA$" % \
                          ( p_score, sol.name, int(sol.central_rest), sol.z,l_eqw_obs / (1.0 + sol.z))
             else:
-                title += "\n" #just to keep the spacing
-            #    log.info("No singular, strong emission line solution.")
+                try:
+                    sol = datakeep['detobj'].spec_obj.solutions[0]
+                    title += "\nQ(%0.2f) %s(%d) z = %0.4f  EW_r = %0.1f$\AA$" % \
+                             (p_score, sol.name, int(sol.central_rest), sol.z, l_eqw_obs / (1.0 + sol.z))
+                except:
+                    title += "\n"  # just to keep the spacing
+            # else:
+            #     title += "\n" #just to keep the spacing
+            # #    log.info("No singular, strong emission line solution.")
 
 
         #plt.subplot(gs[0:2, 0:3])
