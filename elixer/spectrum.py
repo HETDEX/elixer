@@ -1163,7 +1163,7 @@ class EmissionLineInfo:
                 adjusted_dx0_error = self.fit_dx0
 
             if allow_broad:
-                if self.gmag is not None and self.gmag < 22.0:
+                if self.gmag is not None and self.gmag < G.BROADLINE_GMAG_MAX:
                     max_fwhm = 130.0 #e.g. 55.0 sigma x 2.355 to match the 55.0 sigma limit on the xlrg type for signal score
                 else:
                     max_fwhm = MAX_FWHM * 1.5
@@ -1630,7 +1630,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             gmag = spec_obj.gmag
             gmag_err = spec_obj.gmag_unc
             if gmag <= 0:
-                gmag = NOne
+                gmag = None
         except:
             pass
 
@@ -1694,25 +1694,27 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
        # print(f"{fit_range_AA}")
         fit_dict_array = [ {"type": "small", "fit_range_AA": fit_range_AA, "wave_fit_side_aa": 20.0,
                             "min_fit_sigma": 1.5, "max_fit_sigma": 5.5, "min_snr":3.5 if targetted_fit else 4.0,
-                            "max_gmag":99, "min_gmag": 22.0,
+                            "max_gmag":99, "min_gmag": G.BROADLINE_GMAG_MAX,
                             "snr":0, "chi2":999, "ew":0, "parm":[], "pcov":[], "model":None, "score":0},
 
                            {"type": "medium", "fit_range_AA": fit_range_AA, "wave_fit_side_aa": 40.0,
                             "min_fit_sigma": 2.0, "max_fit_sigma": 8.5, "min_snr":3.8 if targetted_fit else 4.3,
-                            "max_gmag":99,"min_gmag": 0.0,
+                            "max_gmag":99, "min_gmag": 0.0,
                             "snr":0, "chi2":999, "ew":0, "parm":[], "pcov":[], "model":None, "score":0},
 
                            # {"type": "HDstd", "fit_range_AA": fit_range_AA, "wave_fit_side_aa": 50.0,
                            #  "min_fit_sigma": 1.7, "max_fit_sigma": 8.5, "min_snr":3.5 if targetted_fit else 4.0,
-                           #  "max_gmag":99,"min_gmag": 22.0,
+                           #  "max_gmag":99,"min_gmag": 0.0,
                            #  "snr": 0, "chi2": 999, "ew": 0, "parm": [], "pcov": [], "model": None, "score": 0},
 
                            {"type": "large", "fit_range_AA": fit_range_AA*2.0, "wave_fit_side_aa": 80.0,
-                            "min_fit_sigma": 4.0, "max_fit_sigma": 25.0, "min_snr":15.0, "max_gmag":99,"min_gmag": 0.0,
+                            "min_fit_sigma": 4.0, "max_fit_sigma": 25.0, "min_snr":10.0,
+                            "max_gmag":99,"min_gmag": 0.0,
                             "snr":0, "chi2":999, "ew":0, "parm":[], "pcov":[], "model":None, "score":0},
 
                            {"type": "xlrg", "fit_range_AA": fit_range_AA*4.0, "wave_fit_side_aa": 150.0,
-                            "min_fit_sigma": 15.0, "max_fit_sigma": 55.0, "min_snr":30.0, "max_gmag":22.0, "min_gmag": 0.0,
+                            "min_fit_sigma": 15.0, "max_fit_sigma": 55.0, "min_snr":20.0,
+                            "max_gmag":G.BROADLINE_GMAG_MAX, "min_gmag": 0.0,
                             "snr": 0, "chi2": 999, "ew": 0, "parm": [], "pcov": [], "model": None, "score": 0},
                         ]
         #track and select the "best" to process below
@@ -1725,27 +1727,27 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                 fd["parm"] = [central,0,0,0]
                 fd["pcov"] = np.zeros((4, 4))
                 fd["score"] = -1
-                continue #if this is explicitly a broadfit, don't bother with the narrowest limits
+                #if this is explicitly a broadfit, don't bother with the narrowest limits
+            else:
 
+                max_tested_sigma = max (max_tested_sigma,fd["max_fit_sigma"])
 
-            max_tested_sigma = max (max_tested_sigma,fd["max_fit_sigma"])
+                fd["snr"], fd["chi2"], fd["ew"], fd["parm"], fd["pcov"], fd["model"] = SU.quick_fit(
+                                                            wavelengths, values, errors, central,
+                                                            fd["fit_range_AA"], fd["wave_fit_side_aa"],
+                                                            fd["min_fit_sigma"], fd["max_fit_sigma"],
+                                                            absorber)
 
-            fd["snr"], fd["chi2"], fd["ew"], fd["parm"], fd["pcov"], fd["model"] = SU.quick_fit(
-                                                        wavelengths, values, errors, central,
-                                                        fd["fit_range_AA"], fd["wave_fit_side_aa"],
-                                                        fd["min_fit_sigma"], fd["max_fit_sigma"],
-                                                        absorber)
+                if fd["snr"] < fd["min_snr"]:
+                    fd["score"] = -1
+                    continue
 
-            if fd["snr"] < fd["min_snr"]:
-                fd["score"] = -1
-                continue
+                fd["score"] = SU.quick_linescore(fd["snr"],fd["chi2"],fd["parm"][1],fd["ew"],fd["wave_fit_side_aa"])
 
-            fd["score"] = SU.quick_linescore(fd["snr"],fd["chi2"],fd["parm"][1],fd["ew"],fd["wave_fit_side_aa"])
-
-            #may reject if at the maximum sigma
-            if np.isclose(fd["parm"][1],fd["max_fit_sigma"],atol=1e-2) or (fd["parm"][1] > fd["max_fit_sigma"]):
-                if fd["snr"] < 30.0: #todo: maybe also check score?
-                    fd["score"] = 0
+                #may reject if at the maximum sigma
+                if np.isclose(fd["parm"][1],fd["max_fit_sigma"],atol=1e-2) or (fd["parm"][1] > fd["max_fit_sigma"]):
+                    if fd["snr"] < 10.0: #todo: maybe also check score?
+                        fd["score"] = 0
 
 
         #how to evaluate? besc score?
@@ -2080,7 +2082,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
     #if there is a large anchor sigma (the sigma of the "main" line), then the max_sigma can be allowed to go higher
     if allow_broad:
-        # if gmag is not None and gmag < 22.0:
+        # if gmag is not None and gmag < G.BROADLINE_GMAG_MAX:
         #     max_sigma = max_tested_sigma # to match the xlrg type in the quick fit above
         # else:
         #     max_sigma = GAUSS_FIT_MAX_SIGMA * 1.5
@@ -2167,7 +2169,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         #     eli.line_flux = 0.0
         #     log.debug(f"Fit rejected: fit_a_err/fit_a {eli.fit_a_err / eli.fit_a} > 0.5")
         elif ((not allow_broad and rough_height < rough_fwhm) or (allow_broad and (rough_height * 2) < rough_fwhm)) \
-                and not recommend_mcmc and gmag is not None and gmag > 22.0: #widder than tall; skip if recommend mcmc triggered
+                and not recommend_mcmc and gmag is not None and gmag > G.BROADLINE_GMAG_MAX: #widder than tall; skip if recommend mcmc triggered
             accept_fit = False
             snr = 0.0
             eli.snr = 0.0
@@ -6854,15 +6856,25 @@ class Spectrum:
                     if abs(line.w_obs - unmatched_wave_list[i]) < (3.0*line.sigma):
                         unmatched_wave_list = np.delete(unmatched_wave_list,i)
                         unmatched_score_list = np.delete(unmatched_score_list,i)
-                        break
+
 
             #also have to to check anchor line (as fit)
-            for i in range(len(unmatched_wave_list)-1,-1,-1):
-                line = self.central_eli
-                if abs(line.fit_x0 - unmatched_wave_list[i]) < (3.0*line.fit_sigma):
-                    unmatched_wave_list = np.delete(unmatched_wave_list,i)
-                    unmatched_score_list = np.delete(unmatched_score_list,i)
-                    break
+            try:
+                if self.central_eli is not None:
+                    for i in range(len(unmatched_wave_list)-1,-1,-1):
+                        line = self.central_eli
+                        if abs(line.fit_x0 - unmatched_wave_list[i]) < (3.0*line.fit_sigma):
+                            unmatched_wave_list = np.delete(unmatched_wave_list,i)
+                            unmatched_score_list = np.delete(unmatched_score_list,i)
+
+                else: #no central eli
+                    for i in range(len(unmatched_wave_list)-1,-1,-1):
+                        if abs(self.central- unmatched_wave_list[i]) < (3.0*self.fwhm/2.355):
+                            unmatched_wave_list = np.delete(unmatched_wave_list,i)
+                            unmatched_score_list = np.delete(unmatched_score_list,i)
+            except:
+                log.info("Warning. Exception checking anchor line vs unmatched lines.",exc_info=True)
+
 
             #what is left over
             if len(unmatched_score_list) > 0:

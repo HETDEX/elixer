@@ -1030,6 +1030,7 @@ CLUSTER_SELF_MAG_THRESH = 22.0 #if brighter than this don't bother (unless there
 CLUSTER_SCORE_BOOST = 100.0
 
 ALLOW_BROADLINE_FIT = True
+BROADLINE_GMAG_MAX = 23.0 #must be less than (brighter) than this value to auto-trip broad conditions
 
 LINE_FINDER_MEDIAN_SCAN = 13 #SNR scan after applying a median filter to the flux; the value is the #of pixels, must be odd
                             #set to 0 to turn off
