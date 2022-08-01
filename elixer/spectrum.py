@@ -1738,7 +1738,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                                                             fd["min_fit_sigma"], fd["max_fit_sigma"],
                                                             absorber)
 
-                if fd["snr"] < fd["min_snr"]:
+                #enforce a minimum snr UNLESS we are going to force an MCMC
+                if not forced_mcmc and fd["snr"] < fd["min_snr"]:
                     fd["score"] = -1
                     continue
 
@@ -6077,7 +6078,7 @@ class Spectrum:
                                    values_units=values_units, sbr=None, min_sigma=fit_min_sigma,
                                    show_plot=show_plot,plot_id=self.identifier,
                                    plot_path=self.plot_dir,do_mcmc=True,allow_broad=allow_broad,absorber=self.absorber,
-                                   spec_obj=self)
+                                   spec_obj=self,targetted_fit=True)
             else:
                 log.info("Skipping central line signal_score() as already computed.")
                 eli = self.central_eli

@@ -2840,7 +2840,7 @@ class DetObj:
 
         try:
             #3003173114 example type ... narrow line with strong negative dip
-            if (self.fwhm < 4.5) and (self.fwhm + self.fwhm_unc < 6.0):
+            if (self.fwhm < 4.5) and (self.fwhm + self.fwhm_unc < 6.0) and self.spec_obj.central_eli is not None:
                 #check blue and red sides for strong negative dip (vs what is predicted)
                 #look at 3sigma to 5 sigma?
                 eli = self.spec_obj.central_eli

@@ -1716,19 +1716,15 @@ def quick_fit(waves, flux, flux_err, w, delta_w=4.0, width=50, min_sigma=1.7, ma
                                # method='trf'
                                )
     except Exception as ex:
-        try:  # bug? in Python3 ... after 3.4 message attribute is lost?
-            if ex.message.find("Optimal parameters not found") > -1:
+        try:
+            if ex.args[0].find("Optimal parameters not found") > -1:
                 log.debug("Could not fit gaussian (1a) near %f" % w, exc_info=False)
+            elif ex.args[0].find("is infeasible") > -1:
+                log.debug("Could not fit gaussian (2a) near %f" % w, exc_info=False)
             else:
-                log.error("Could not fit gaussian (2a) near %f" % w, exc_info=True)
+                log.error("Could not fit gaussian (3a) near %f" % w, exc_info=True)
         except:
-            try:
-                if ex.args[0].find("Optimal parameters not found") > -1:
-                    log.debug("Could not fit gaussian (3a) near %f" % w, exc_info=False)
-                else:
-                    log.error("Could not fit gaussian (4a) near %f" % w, exc_info=True)
-            except:
-                log.error("Could not fit gaussian (5a) near %f" % w, exc_info=True)
+            log.error("Could not fit gaussian (4a) near %f" % w, exc_info=True)
 
         return 0, 999, 0, [0, 0, 0, 0], np.zeros((4, 4)), np.zeros(len(waves))
 
