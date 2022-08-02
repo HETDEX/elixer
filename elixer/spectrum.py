@@ -976,24 +976,22 @@ class EmissionLineInfo:
         #return a string with flux uncertainties in place
         s = ""
         try:
-           # ew = np.array(self.mcmc_ew_obs)/(self.fit_x0 / G.LyA_rest) #reminder this is 1+z
-           # s  =  "%0.2g($\pm$%0.2g)" %(ew[0],(0.5 * (abs(ew[1]) + abs(ew[2]))))
-
-            #more traditional way
-            ew = self.mcmc_line_flux / self.mcmc_continuum /(self.fit_x0 / G.LyA_rest)
+            ew = self.mcmc_line_flux / self.mcmc_continuum / (self.fit_x0 / G.LyA_rest)
             a_unc = 0.5 * (abs(self.mcmc_line_flux_tuple[1])+abs(self.mcmc_line_flux_tuple[2]))
             y_unc = 0.5 * (abs(self.mcmc_continuum_tuple[1])+abs(self.mcmc_continuum_tuple[2]))
 
-            #wrong!! missing the abs(ew) and the ratios inside are flipped
-            #ew_unc = np.sqrt((self.mcmc_a[0]/a_unc)**2 + (self.mcmc_y[0]/y_unc)**2)
-
-            ew_unc = abs(ew) * np.sqrt((a_unc/self.mcmc_line_flux)**2 + (y_unc/self.mcmc_continuum)**2)
-
+            ew_unc = abs(ew) * np.sqrt((a_unc / self.mcmc_line_flux) ** 2 + (y_unc / self.mcmc_continuum) ** 2)
             s = "%0.2g($\pm$%0.2g)" % (ew, ew_unc)
-
-
         except:
-            log.warning("Exception in eqw_lya_unc",exc_info=True)
+            try:
+                ew = self.line_flux / self.fit_y / (self.fit_x0 / G.LyA_rest)
+                a_unc = abs(self.line_flux_err)
+                y_unc = abs(self.fit_y_err)
+
+                ew_unc = abs(ew) * np.sqrt((a_unc / self.line_flux) ** 2 + (y_unc / self.fit_y) ** 2)
+                s = "%0.2g($\pm$%0.2g)" % (ew, ew_unc)
+            except:
+                log.warning("Exception in eqw_lya_unc",exc_info=True)
 
         return s
 
@@ -3592,7 +3590,7 @@ def filter_emission_line_as_continuum(emission_list,absorption_list,central=None
     :return: updated emission_list, bool if central is "remvoed"
     """
     try:
-        if len(absorption_list) < 2: #have to have 2 or more
+        if absorption_list is None or len(absorption_list) < 2: #have to have 2 or more
             return emission_list, False
 
         wave_order_absorption = sorted(absorption_list, key=lambda  x: x.fit_x0)
@@ -4261,8 +4259,23 @@ def combine_lines(eli_list,sep=4.0):
             if abs(e.fit_x0 - keep_list[i].fit_x0) < match_sep:
                 add = False
                 #keep the larger score
-                if e.raw_line_score > keep_list[i].raw_line_score:
-                    keep_list[i] = copy.deepcopy(e)
+                try:
+                    #if this was a result of a "quick fit", there is no raw_line_score,
+                    #so we fall back to the line_score assigned by the quick fit (which is not the same as a proper
+                    #emission line score from the build() call
+                    if e.raw_line_score is not None and keep_list[i].raw_line_score is not None:
+                        if e.raw_line_score > keep_list[i].raw_line_score:
+                            keep_list[i] = copy.deepcopy(e)
+                    elif e.line_score is not None and keep_list[i].line_score is not None:
+                        if e.line_score > keep_list[i].line_score:
+                            keep_list[i] = copy.deepcopy(e)
+                    elif e.snr is not None and keep_list[i].snr is not None:
+                        if e.snr > keep_list[i].snr:
+                            keep_list[i] = copy.deepcopy(e)
+                except:
+                    log.debug("Exception in combine_lines",exc_info=True)
+
+
         if add:
             keep_list.append(copy.deepcopy(e))
 
