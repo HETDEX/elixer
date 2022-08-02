@@ -1,7 +1,7 @@
 changes to elixer by version
 
 
-1.17.0a3 [2022-08-01]
+1.17.0a3 [2022-08-02]
 * Project LineFlux Image to the WCS of the master_cutout (neighborhood) and stacked_cutout (main report) so the NorthBox
   matches; Added option (PROJECT_LINE_IMAGE_TO_COMMON_WCS in global_config.py) to turn this off and go back to the
   native LineFlux Image projection
@@ -18,7 +18,9 @@ changes to elixer by version
 * updated WD classifier to specify DA or DAB, DB, or DQ and uses line width (sigma) to help distinguish from A stars
 * fix typo in line ID matcher; was using too large a window (delta z = 0.05, was supposed to be 0.0005); switched to
   rest_AA matching as preferred at delta wavelength 8.0AA
-* improved broad line fitting
+* improved broad line fitting with multiple passes of increasing max_sigma, wavelength ranges, and with median filtering
+   to help with absorption in broad emission; also includes attempt to detect emission as really continuum between
+   two absorption lines,
 * relax line scoring minium thresholds when the line is targetted as as supporting line (slightly lower scores are acceptable)
 
 

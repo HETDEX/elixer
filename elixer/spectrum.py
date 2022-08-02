@@ -1735,19 +1735,19 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                            #  "snr": 0, "chi2": 999, "ew": 0, "parm": [], "pcov": [], "model": None, "score": 0},
 
                            {"type": "large", "fit_range_AA": fit_range_AA*2.0, "wave_fit_side_aa": 80.0,
-                            "min_fit_sigma": 4.0, "max_fit_sigma": 25.0, "min_snr":10.0,
+                            "min_fit_sigma": 4.0, "max_fit_sigma": 25.0, "min_snr":9.0 if targetted_fit else 10.0,
                             "max_gmag":99,"min_gmag": 0.0,
                             "snr":0, "chi2":999, "ew":0, "parm":[], "pcov":[], "model":None, "score":0},
 
                            {"type": "xlrg", "fit_range_AA": fit_range_AA*4.0, "wave_fit_side_aa": 150.0,
-                            "min_fit_sigma": 15.0, "max_fit_sigma": 55.0, "min_snr":20.0,
+                            "min_fit_sigma": 15.0, "max_fit_sigma": 55.0, "min_snr":13.0 if targetted_fit else 15.0,
                             "max_gmag":G.BROADLINE_GMAG_MAX, "min_gmag": 0.0,
                             "snr": 0, "chi2": 999, "ew": 0, "parm": [], "pcov": [], "model": None, "score": 0},
                         ]
         #track and select the "best" to process below
         max_tested_sigma = GAUSS_FIT_MAX_SIGMA #if xlarge is allowed, this can be exceeded
 
-        for fd in fit_dict_array:
+        for i,fd in enumerate(fit_dict_array):
             #if the sigma limit or the gmag is out of range for the particular "type" then skip it
             if (fd["max_fit_sigma"] <= min_sigma) or \
                     (gmag is not None and ( gmag > fd["max_gmag"] or gmag < fd["min_gmag"])):
@@ -1778,6 +1778,11 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                     if np.isclose(fd["parm"][1],fd["max_fit_sigma"],atol=1e-2) or (fd["parm"][1] > fd["max_fit_sigma"]):
                         if fd["snr"] < 10.0: #todo: maybe also check score?
                             fd["score"] = 0
+                        else:
+                            try:  # add a new key for use later when filtering out emission that is just continuum between absorbers
+                                fd["next_max_sigma"] = fit_dict_array[i + 1]["max_fit_sigma"]
+                            except:
+                                pass
 
 
         #how to evaluate? besc score?
@@ -1800,15 +1805,15 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                   f"ew {fit_dict_array[fd_idx]['ew']:0.1f} ")
 
         #EXTRA logging for debugging
-        # for idx in range(len(fit_dict_array)):
-        #     try:
-        #         log.debug(f"*** All fit:  ({fit_dict_array[fd_idx]['parm'][0]:0.1f}) "
-        #                   f"{fit_dict_array[idx]['type']}, quick score {fit_dict_array[idx]['score']:0.2f}, "
-        #                   f"snr {fit_dict_array[idx]['snr']:0.2f}, chi2 {fit_dict_array[idx]['chi2']:0.2f}, "
-        #                   f"sigma {fit_dict_array[idx]['parm'][1]:0.2f}, area = {fit_dict_array[idx]['parm'][2]:0.2f}, "
-        #                   f"ew {fit_dict_array[idx]['ew']:0.2f}")
-        #     except:
-        #         log.debug(f"***** idx {idx} *****")
+        for idx in range(len(fit_dict_array)):
+            try:
+                log.debug(f"*** All fit:  ({fit_dict_array[fd_idx]['parm'][0]:0.1f}) "
+                          f"{fit_dict_array[idx]['type']}, quick score {fit_dict_array[idx]['score']:0.2f}, "
+                          f"snr {fit_dict_array[idx]['snr']:0.2f}, chi2 {fit_dict_array[idx]['chi2']:0.2f}, "
+                          f"sigma {fit_dict_array[idx]['parm'][1]:0.2f}, area = {fit_dict_array[idx]['parm'][2]:0.2f}, "
+                          f"ew {fit_dict_array[idx]['ew']:0.2f}")
+            except:
+                log.debug(f"***** idx {idx} *****")
 
 
         #print(f" *** Selected: {fit_dict_array[fd_idx]['type']}")
@@ -1821,6 +1826,12 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         perr = np.sqrt(np.diag(pcov)) #1-sigma level errors on the fitted parameters
         #e.g. flux = a = parm[2]   +/- perr[2]*num_of_sigma_confidence
         #where num_of_sigma_confidence ~ at a 5 sigma confidence, then *5 ... at 3 sigma, *3
+
+        try:# add a new parameter for use later when filtering out emission that is just continuum between absorbers
+            if "next_max_sigma" in fit_dict_array[fd_idx].keys():
+                eli.next_max_sigma = fit_dict_array[fd_idx]["next_max_sigma"]
+        except:
+            pass
 
         if quick_fit:
             eli.fit_x0 = parm[0]
@@ -3612,7 +3623,27 @@ def filter_emission_line_as_continuum(emission_list,absorption_list,central=None
                 if blue is None or red is None:
                     continue
 
-                delta_w = 2 * emis.fit_sigma * 2.355
+                #could be maxed out sigma, then this could be too small
+                #these are the current max sigmas for small, medium, large, xlrg ... if we
+                #are maxed out, then bump up to the next?
+                #alternately consider changing the fit_sigma multiplier to x3 or x4 ?
+
+                if hasattr(emis,"next_max_sigma"):
+                    sigma = emis.next_max_sigma
+                else:
+                    sigma = emis.fit_sigma
+
+                # if np.isclose(emis.fit_sigma,5.5,1e-2):
+                #     sigma = 8.5
+                # elif np.isclose(emis.fit_sigma,8.5,1e-2):
+                #     sigma = 25.0
+                # elif np.isclose(emis.fit_sigma,25,1e-2):
+                #     sigma = 55.0
+                # else:
+                #     simga = emis.fit_sigma
+
+                #delta_w = 2 * emis.fit_sigma * 2.355
+                delta_w = 2 * sigma * 2.355
 
                 if absorb_waves[red] - delta_w < emis.fit_x0 < absorb_waves[blue] + delta_w:
                     # check the fit_h?
@@ -4535,7 +4566,7 @@ class Spectrum:
             #EmissionLine("XX".ljust(w), 3800, "green", solution=False,display=True,rank=3,broad=True),
 
             EmissionLine("SiII".ljust(w), G.SiII_1260, "gray", solution=False,display=True,rank=4),
-            EmissionLine("SiIV".ljust(w), G.SiIV_1400, "gray", solution=False, display=True, rank=4), #or 1393-1403 also OIV]
+            EmissionLine("SiIV".ljust(w), G.SiIV_1400, "gray", solution=False, display=True, rank=4,broad=True), #or 1393-1403 also OIV]
 
             #big in AGN, but never alone in our range
             EmissionLine("HeII".ljust(w), G.HeII_1640, "orange", solution=True,display=True,rank=3),
@@ -7543,6 +7574,8 @@ class Spectrum:
         #clean up invalid solutions (multiple lines with very different systematic velocity offsets)
         if True:
             for s in solutions:
+                if s.emission_line.w_rest == G.LyA_rest: #does NOT apply to LyA, which can have a large velocity offset
+                    continue
                 all_dx0 = [l.fit_dx0 for l in s.lines]
                 all_score = [l.line_score for l in s.lines]
                 rescore = False
