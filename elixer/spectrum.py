@@ -789,7 +789,7 @@ class EmissionLineInfo:
         self.fwhm = -999
         self.score = None
         self.raw_score = None
-
+        self.raw_line_score = None
         self.line_score = None
         self.prob_noise = 1.0
 
@@ -1192,6 +1192,7 @@ class EmissionLineInfo:
                                   f"{self.raw_snr()} < {GOOD_BROADLINE_RAW_SNR}. "
                                   "Probably bad fit or merged lines. Rejecting score.")
                         self.line_score = 0
+                        self.raw_line_score = 0
                     else:
                         #if we have a good continuum measureuse the EW
                         # if ((self.cont is not None) and (self.cont > 0)) and \
@@ -1234,6 +1235,7 @@ class EmissionLineInfo:
                                 self.line_score /= (self.fit_chi2 - 1.0)
                         except:
                             self.line_score = 0
+                            self.raw_line_score = 0
 
                         try:
                             if self.snr < 6.0 and self.fwhm > MAX_NORMAL_FWHM: #really broad and low SNR
@@ -1243,6 +1245,7 @@ class EmissionLineInfo:
                                          f"and low SNR ({self.snr:0.2f}/6.0). Factor {rescale:0.2f}. New score = {self.line_score}")
                         except:
                             self.line_score = 0
+                            self.raw_line_score = 0
 
                         if self.absorber:
                             self.line_score *= -1
@@ -1259,13 +1262,17 @@ class EmissionLineInfo:
                                              f"Rescoring: {self.line_score} to {self.line_score/2.0}")
                                     self.line_score /= 2.0
 
+                        self.raw_line_score = self.line_score
                         self.line_score = min(G.MAXIMUM_LINE_SCORE_CAP, self.line_score)
                 else:
                     log.debug(f"Huge fwhm {self.fwhm}, Probably bad fit or merged lines. Rejecting score.")
                     self.line_score = 0
+                    self.raw_line_score = 0
+
             except:
                 log.debug(f"Exception computing score. Rejecting score.")
                 self.line_score = 0
+                self.raw_line_score = 0
 
             if self.absorber:
                 if G.MAX_SCORE_ABSORPTION_LINES: #if not scoring absorption, should never actually get here ... this is a safety
@@ -1276,10 +1283,12 @@ class EmissionLineInfo:
                         new_score = min(G.MAX_SCORE_ABSORPTION_LINES, self.line_score * ABSORPTION_LINE_SCORE_SCALE_FACTOR)
                         log.info(f"Rescalling line_score for absorption line: {self.line_score} to {new_score} @ {self.fit_x0:0.2f}AA")
                         self.line_score = new_score
+                        self.raw_line_score = self.line_score
                         self.line_score = min(G.MAXIMUM_LINE_SCORE_CAP,self.line_score)
                 else:
                     log.info(f"Zeroing line_score for absorption line. {self.fit_x0:0.2f}AA")
                     self.line_score = 0.0
+                    self.raw_line_score = 0
             #
             # !!! if you change this calculation, you need to re-calibrate the prob(Noise) (re-run exp_prob.py)
             # !!! and update the Solution cut criteria in global_config.py (MULTILINE_MIN_SOLUTION_SCORE, etc) and
@@ -1294,6 +1303,7 @@ class EmissionLineInfo:
             self.cont = -999
             self.line_flux = -999
             self.line_score = 0
+            self.raw_line_score = 0
 
 
     # def calc_line_score(self):
@@ -1691,8 +1701,27 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         #
         # newer way 0,999,0,[0,0,0,0],np.zeros((4,4)),np.zeros(len(waves))
         # loop over a few ranges and choose the "best"
-       # print(f"{fit_range_AA}")
-        fit_dict_array = [ {"type": "small", "fit_range_AA": fit_range_AA, "wave_fit_side_aa": 20.0,
+
+        if absorber:
+            fit_dict_array = [
+                               # {"type": "small", "fit_range_AA": fit_range_AA, "wave_fit_side_aa": 20.0,
+                               # "min_fit_sigma": 1.5, "max_fit_sigma": 5.5, "min_snr": 5.0,
+                               # "max_gmag": 99, "min_gmag": G.BROADLINE_GMAG_MAX,
+                               # "snr": 0, "chi2": 999, "ew": 0, "parm": [], "pcov": [], "model": None, "score": 0},
+
+                              {"type": "medium", "fit_range_AA": fit_range_AA, "wave_fit_side_aa": 40.0,
+                               "min_fit_sigma": 2.0, "max_fit_sigma": 8.5, "min_snr": 6.0, #higher SNR requireed for absorption
+                               "max_gmag": 23.0, "min_gmag": 0.0,
+                               "snr": 0, "chi2": 999, "ew": 0, "parm": [], "pcov": [], "model": None, "score": 0},
+
+                              # {"type": "HDstd", "fit_range_AA": fit_range_AA, "wave_fit_side_aa": 50.0,
+                              #  "min_fit_sigma": 1.7, "max_fit_sigma": 8.5, "min_snr":3.5 if targetted_fit else 4.0,
+                              #  "max_gmag":99,"min_gmag": 0.0,
+                              #  "snr": 0, "chi2": 999, "ew": 0, "parm": [], "pcov": [], "model": None, "score": 0},
+                            ]
+
+        else:
+            fit_dict_array = [ {"type": "small", "fit_range_AA": fit_range_AA, "wave_fit_side_aa": 20.0,
                             "min_fit_sigma": 1.5, "max_fit_sigma": 5.5, "min_snr":3.5 if targetted_fit else 4.0,
                             "max_gmag":99, "min_gmag": G.BROADLINE_GMAG_MAX,
                             "snr":0, "chi2":999, "ew":0, "parm":[], "pcov":[], "model":None, "score":0},
@@ -1746,9 +1775,11 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                 fd["score"] = SU.quick_linescore(fd["snr"],fd["chi2"],fd["parm"][1],fd["ew"],fd["wave_fit_side_aa"])
 
                 #may reject if at the maximum sigma
-                if np.isclose(fd["parm"][1],fd["max_fit_sigma"],atol=1e-2) or (fd["parm"][1] > fd["max_fit_sigma"]):
-                    if fd["snr"] < 10.0: #todo: maybe also check score?
-                        fd["score"] = 0
+                #does NOT apply to absorbers
+                if not absorber:
+                    if np.isclose(fd["parm"][1],fd["max_fit_sigma"],atol=1e-2) or (fd["parm"][1] > fd["max_fit_sigma"]):
+                        if fd["snr"] < 10.0: #todo: maybe also check score?
+                            fd["score"] = 0
 
 
         #how to evaluate? besc score?
@@ -1764,7 +1795,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         #however, we DO want a small preference for medium over small, so if the scores are close, then
         #bump medium?
 
-        log.debug(f"Best fit: ({fit_dict_array[fd_idx]['parm'][0]:0.1f}) "
+        log.debug(f"Best fit ({central:0.1f}): ({fit_dict_array[fd_idx]['parm'][0]:0.1f}) "
                   f"{fit_dict_array[fd_idx]['type']}, quick score {fit_dict_array[fd_idx]['score']:0.1f}, "
                   f"snr {fit_dict_array[fd_idx]['snr']:0.1f}, chi2 {fit_dict_array[fd_idx]['chi2']:0.1f}, "
                   f"sigma {fit_dict_array[fd_idx]['parm'][1]:0.1f}, area {fit_dict_array[fd_idx]['parm'][2]:0.1f}, "
@@ -2154,12 +2185,14 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             snr = 0.0
             eli.snr = 0.0
             eli.line_score = 0.0
+            eli.raw_line_score = 0.0
             eli.line_flux = 0.0
         elif not eli.unique and ((eli.fit_a_err / abs(eli.fit_a)) > max_allowed_peak_err_fraction) and (eli.fit_sigma > GAUSS_FIT_MAX_SIGMA):
             accept_fit = False
             snr = 0.0
             eli.snr = 0.0
             eli.line_score = 0.0
+            eli.raw_line_score = 0.0
             eli.line_flux = 0.0
         # elif (eli.fit_a_err / eli.fit_a > 0.5):
         #     #error on the area is just to great to trust, regardless of the fit height
@@ -2175,6 +2208,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             snr = 0.0
             eli.snr = 0.0
             eli.line_score = 0.0
+            eli.raw_line_score = 0.0
             eli.line_flux = 0.0
             log.debug(
                 f"Fit rejected: widder than tall. Height above y = {rough_height}, FWHM = {rough_fwhm}")
@@ -2184,6 +2218,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             snr = 0.0
             eli.snr = 0.0
             eli.line_score = 0.0
+            eli.raw_line_score = 0.0
             eli.line_flux = 0.0
             log.debug(f"Fit rejected: fit_a_err/fit_a {eli.fit_a_err / abs(eli.fit_a)} > {max_allowed_peak_err_fraction}"
                       f" and rough_height/rough_continuum {rough_height/rough_fwhm} < f{min_height_to_fwhm}")
@@ -2201,6 +2236,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         snr = 0.0
         eli.snr = 0.0
         eli.line_score = 0.0
+        eli.raw_line_score = 0.0
         eli.line_flux = 0.0
 
     log.debug("SNR at %0.2f (fiducial = %0.2f) = %0.2f"%(eli.fit_x0,central,snr))
@@ -2695,6 +2731,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                     eli.score = 0
                     eli.snr = 0.0
                     eli.line_score = 0.0
+                    eli.raw_line_score = 0.0
                     eli.line_flux = 0.0
                     return eli
 
@@ -3546,6 +3583,61 @@ def simple_peaks(x, vals, h=None, delta_v=None, values_units=0,absorber=False):
 
 
 
+def filter_emission_line_as_continuum(emission_list,absorption_list,central=None):
+    """
+    check for emission lines sandwiched between absorption lines, s|t the emission might
+    actually just be continuum between two absorption lines
+    :param emission_list:
+    :param absorption_list:
+    :return: updated emission_list, bool if central is "remvoed"
+    """
+    try:
+        if len(absorption_list) < 2: #have to have 2 or more
+            return emission_list, False
+
+        wave_order_absorption = sorted(absorption_list, key=lambda  x: x.fit_x0)
+        absorb_waves = [x.fit_x0 for x in wave_order_absorption]
+        removed_central = False
+
+        #is there an absorption line to the blue and to the red within 2x FWHM of emis?
+        #or do emssion + 3 sigma overlap with absorption + its 3 sigma (BUT absorption sigma is restricted/limited)
+        #what about at the extremes (blue and red end)?
+
+        #getnearpos to blue and to red and if both within 2xFWHM of emission AND each abs(peak height -y) is similar (all 3)
+        #then delete the emission line
+        keep = np.full(len(emission_list),True)
+        for i,emis in enumerate(emission_list):
+            try:
+                _,blue,_ = SU.getnearpos(absorb_waves,emis.fit_x0)
+                _,_,red = SU.getnearpos(absorb_waves,emis.fit_x0)
+
+                if blue is None or red is None:
+                    continue
+
+                delta_w = 2 * emis.fit_sigma * 2.355
+
+                if absorb_waves[red] - delta_w < emis.fit_x0 < absorb_waves[blue] + delta_w:
+                    # check the fit_h?
+                    if np.mean([absorption_list[blue].fit_h,absorption_list[red].fit_h]) > 0.5 * emis.fit_h:
+                        #mark to remove emis
+                        if central is not None and abs(emis.fit_x0 - central) < 6.0:
+                            log.info(f"Removing (anchor) emission line at ({emis.fit_x0}:0.1f) as likely continuum "
+                                     f"between absorbers.")
+                            removed_central = True
+                        else:
+                            log.info(f"Removing emission line at ({emis.fit_x0}:0.1f) as likely continuum "
+                                     f"between absorbers.")
+                        keep[i] = False
+            except:
+                log.debug("Exception (interior) in flter_emission_line_as_continuum",exc_info=True)
+
+
+        return list(np.array(emission_list)[keep]), removed_central
+    except:
+        log.warning("Exception in filter_emission_line_as_continuum",exc_info=True)
+
+    return emission_list, removed_central
+
 
 def sn_peakdet_no_fit(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,absorber=False,spec_obj=None):
     """
@@ -3755,14 +3847,14 @@ def peakdet(x,vals,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.
     eli_list = []
 
     #always run the SNR scan
-    log.debug("Running SN line finder...")
+    log.debug(f"Running line finder, SN ({'absorption' if absorber else 'emission'}) ...")
     eli_list = sn_peakdet(x,v,err,values_units=values_units,enforce_good=enforce_good,min_sigma=min_sigma,
                           absorber=absorber,spec_obj=spec_obj)
 
     #median filter DOES help for broad lines (LINE_FINDER_MEDIAN_SCAN must be odd, so %2 needs to be not zero)
     if G.LINE_FINDER_MEDIAN_SCAN > 0 and (G.LINE_FINDER_MEDIAN_SCAN % 2):
         try:
-            log.debug(f"Running line finder with median ({G.LINE_FINDER_MEDIAN_SCAN}) filter...")
+            log.debug(f"Running line finder, SN with median ({G.LINE_FINDER_MEDIAN_SCAN}) filter ({'absorption' if absorber else 'emission'}) ...")
             #repeat with median filter and kick up the minimum sigma for a broadfit
             medfilter_eli_list = sn_peakdet(x,medfilt(v,G.LINE_FINDER_MEDIAN_SCAN),medfilt(err,G.LINE_FINDER_MEDIAN_SCAN),
                                            values_units=values_units,
@@ -3784,7 +3876,7 @@ def peakdet(x,vals,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.
 
     #just iterate over signal_score
     if (G.LINE_FINDER_FULL_FIT_SCAN or len(eli_list) == 0) and not absorber: #this can be slow ... only run if set OR if no lines found??
-        log.debug(f"Running full fit line finder ...")
+        log.debug(f"Running line finder, full fit ({'absorption' if absorber else 'emission'})  ...")
         quick_eli_list = []
         step = 2.0 #AA
         for central_wave in np.arange(G.CALFIB_WAVEGRID[0],G.CALFIB_WAVEGRID[-1]+step,step): #this is very slow, but maybe use broader steps?
@@ -3804,11 +3896,13 @@ def peakdet(x,vals,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.
                 eli_list.append(eli)
 
     #condense the list
+    log.debug(f"Peakdet results (pre-condense): {len(eli_list)} possible {'absorption' if absorber else 'emission'} "
+              f"lines at: {[e.fit_x0 for e in eli_list]}")
     combined_eli = combine_lines(eli_list,sep=6.0)
 
     try:
-        lt = "absorption" if absorber else "emission"
-        log.debug(f"Peakdet, {len(combined_eli)} possible {lt} lines at: {[e.fit_x0 for e in combined_eli]}")
+        log.debug(f"Peakdet results: {len(combined_eli)} possible {'absorption' if absorber else 'emission'} "
+                  f"lines at: {[e.fit_x0 for e in combined_eli]}")
         #print(f"*****Peakdet, {len(combined_eli)} possible {lt} lines at:\n{[e.fit_x0 for e in combined_eli]} ")
     except:
         log.debug("Exception logging peakdet list",exc_info=True)
@@ -4152,15 +4246,22 @@ def combine_lines(eli_list,sep=4.0):
             return True
         else:
             return False
+    #todo: consider the sigma of the fit (broad fit of higher score should consume narrow fit nearby if overlap)
 
     keep_list = []
     for e in eli_list:
         add = True
         for i in range(len(keep_list)):
-            if abs(e.fit_x0 - keep_list[i].fit_x0) < sep:
+
+            try:
+                match_sep = max(2.0 * max(e.fit_sigma,keep_list[i].fit_sigma), sep)
+            except:
+                match_sep = sep
+
+            if abs(e.fit_x0 - keep_list[i].fit_x0) < match_sep:
                 add = False
                 #keep the larger score
-                if e.line_score > keep_list[i].fit_x0:
+                if e.raw_line_score > keep_list[i].raw_line_score:
                     keep_list[i] = copy.deepcopy(e)
         if add:
             keep_list.append(copy.deepcopy(e))
@@ -4220,6 +4321,7 @@ class EmissionLine:
 
         #a bit redundant with EmissionLineInfo
         self.line_score = 0.0
+        self.raw_line_score = 0.0
         self.prob_noise = 1.0
         self.fit_dx0 = None #from EmissionLineInfo, but we want this for a later comparison of all other lines in the solution
 
@@ -4912,7 +5014,7 @@ class Spectrum:
             else:
                 slope = 0 #unknown
 
-            min_wd_sigma = 10.0
+            min_wd_sigma = 8.0
 
             if self.all_found_absorbs is None or (len(self.all_found_absorbs) < 4) or slope > 0: #really expect all these lines, so if too few, just bail
                                                                         #or if it is red (positive slope) it is not a WD
@@ -4939,7 +5041,7 @@ class Spectrum:
                         z_std = np.std(z_list)
 
                         if (-0.05 < z_mean < 0.05) and (z_std < 0.01):
-                            return 1, z_mean, np.mean(sigma_list)
+                            return 1, z_mean, np.median(sigma_list) + np.std(sigma_list)
                 except:
                     pass
 
@@ -6004,7 +6106,8 @@ class Spectrum:
 
     def set_spectra(self,wavelengths, values, errors, central, values_units = 0, estflux=None, estflux_unc=None,
                     eqw_obs=None, eqw_obs_unc=None, fit_min_sigma=GAUSS_FIT_MIN_SIGMA,estcont=None,estcont_unc=None,
-                    fwhm=None,fwhm_unc=None,continuum_g=None,continuum_g_unc=None,reset=False,gmag=None, gmag_err=None):
+                    fwhm=None,fwhm_unc=None,continuum_g=None,continuum_g_unc=None,reset=False,gmag=None, gmag_err=None,
+                    detobj=None):
         self.wavelengths = []
         self.values = []
         self.errors = []
@@ -6059,6 +6162,13 @@ class Spectrum:
         except:
             log.warning("Exception in spectum::set_spectra()",exc_info=True)
 
+        if self.all_found_lines is not None and len(self.all_found_lines) > 1:
+            self.all_found_lines, removed_central = filter_emission_line_as_continuum(self.all_found_lines, self.all_found_absorbs, self.central)
+
+            if removed_central and detobj is not None:
+                detobj.flags |= G.DETFLAG_FOLLOWUP_NEEDED
+                detobj.flags |= G.DETFLAG_BAD_EMISSION_LINE
+                detobj.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
 
         #run MCMC on this one ... the main line
         try:
@@ -6443,17 +6553,19 @@ class Spectrum:
             i = -1
             j = -1
             if found_lines:
-                i = np.argmax([x.line_score for x in found_lines])
+                i = np.argmax([x.raw_line_score for x in found_lines])
 
             if found_absorbers:
-                j = np.argmax([x.line_score for x in found_absorbers])
+                j = np.argmax([x.raw_line_score for x in found_absorbers])
 
             if (i > -1) and (j > -1):
 
                 # if found_lines[i].line_score > G.MULTILINE_GOOD_LINE_SCORE:
                 #     central = found_lines[i].fit_x0
                 #now use the line_score if both absorber and emitter found
-                if found_absorbers[j].line_score > (2.0*found_lines[i].line_score):
+                if (found_absorbers[j].raw_line_score > (1.5 * found_lines[i].raw_line_score) ) or \
+                   (found_absorbers[j].raw_line_score > found_lines[i].raw_line_score and
+                    self.gmag is not None and self.gmag < G.BROADLINE_GMAG_MAX):
                     central = found_absorbers[j].fit_x0
                     absorber = True
                 else:
@@ -6467,6 +6579,8 @@ class Spectrum:
             if update_self:
                 self.central = central#found_lines[i].fit_x0 #max scored line
                 self.absorber = absorber
+
+            log.info(f"Find central wavelength: {central}")
 
             if return_list:
                 return central, found_lines, found_absorbers
@@ -6490,7 +6604,7 @@ class Spectrum:
         #as of 2018-06-11 these are EmissionLineInfo objects
         max_score = -np.inf
         if peaks is None:
-            log.info("No viable emission lines found.")
+            log.info("Find central wavelength: No viable emission lines found.")
             if return_list:
                 return 0.,[],[]
             else:
@@ -6503,14 +6617,14 @@ class Spectrum:
             #if p[2] > max_v:
             #    max_v = p[2]
             #    central = p[4]
-            if p.line_score > max_score:
-                max_score = p.line_score
+            if p.raw_line_score > max_score:
+                max_score = p.raw_line_score
                 central = p.fit_x0
 
         if update_self:
             self.central = central
 
-        log.info("Central wavelength = %f" %central)
+        log.info("Find central wavelength = %f" %central)
 
         if return_list:
             return central,[],[]
@@ -6518,7 +6632,7 @@ class Spectrum:
             return central
 
     def classify(self,wavelengths = None,values = None, errors=None, central = None, values_units=0,known_z=None,
-                 continuum_limit=None,continuum_limit_err=None):
+                 continuum_limit=None,continuum_limit_err=None,detobj=None):
         #for now, just with additional lines
         #todo: later add in continuum
         #todo: later add in bayseian stuff
@@ -6527,7 +6641,7 @@ class Spectrum:
 
         self.solutions = []
         if (wavelengths is not None) and (values is not None) and (central is not None):
-            self.set_spectra(wavelengths,values,errors,central,values_units=values_units)
+            self.set_spectra(wavelengths,values,errors,central,values_units=values_units,detobj=detobj)
         else:
             wavelengths = self.wavelengths
             values = self.values
@@ -7302,6 +7416,7 @@ class Spectrum:
                         l.sigma = eli.fit_sigma
                         l.sigma_err = eli.fit_sigma_err
                         l.line_score = eli.line_score
+                        l.raw_line_score = eli.raw_line_score
                         l.prob_noise = eli.prob_noise
                         l.absorber = eli.absorber
                         l.fit_dx0 = eli.fit_dx0
@@ -7487,6 +7602,7 @@ class Spectrum:
                 #(can still be valid if there are mulitple other lines)
                 central_eli = EmissionLineInfo()
                 central_eli.line_score = 0.0
+                central_eli.raw_line_score = 0.0
             else:
                 central_eli = self.central_eli
 

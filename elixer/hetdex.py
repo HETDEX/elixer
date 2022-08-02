@@ -7111,7 +7111,8 @@ class DetObj:
             self.spec_obj.set_spectra(self.sumspec_wavelength, self.sumspec_flux, self.sumspec_fluxerr, self.w,
                                       values_units=-17, estflux=self.estflux, estflux_unc=self.estflux_unc,
                                       eqw_obs=self.eqw_obs, eqw_obs_unc=self.eqw_obs_unc,
-                                      continuum_g=self.best_gmag_cgs_cont,continuum_g_unc=self.best_gmag_cgs_cont_unc)
+                                      continuum_g=self.best_gmag_cgs_cont,continuum_g_unc=self.best_gmag_cgs_cont_unc,
+                                      detobj=self)
             # print("DEBUG ... spectrum peak finder")
             # if G.DEBUG_SHOW_GAUSS_PLOTS:
             #    self.spec_obj.build_full_width_spectrum(show_skylines=True, show_peaks=True, name="testsol")
@@ -7166,7 +7167,7 @@ class DetObj:
                 except:
                     log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra")
 
-            self.spec_obj.classify(known_z=self.known_z)  # solutions can be returned, also stored in spec_obj.solutions
+            self.spec_obj.classify(known_z=self.known_z,detobj=self)  # solutions can be returned, also stored in spec_obj.solutions
             self.rvb = SU.red_vs_blue(self.w, self.sumspec_wavelength,
                                       self.sumspec_flux / G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS,
                                       self.sumspec_fluxerr / G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS, self.fwhm)
@@ -7731,6 +7732,191 @@ class DetObj:
             if G.SUBTRACT_HETDEX_SKY_RESIDUAL:
                 residual_spec, residual_spec_err = shot_sky.get_shot_sky_residual(self.survey_shotid) #this is as a single averaged fiber
 
+
+            ######################
+            #gmag
+            ####################
+            sdss_okay = 0
+            hetdex_okay = 0
+
+            # sum over entire HETDEX spectrum to estimate g-band magnitude
+            try:
+                self.hetdex_gmag, self.hetdex_gmag_cgs_cont, self.hetdex_gmag_unc, self.hetdex_gmag_cgs_cont_unc = \
+                    elixer_spectrum.get_hetdex_gmag(self.sumspec_flux / 2.0 * G.HETDEX_FLUX_BASE_CGS,
+                                                    self.sumspec_wavelength,
+                                                    self.sumspec_fluxerr / 2.0 * G.HETDEX_FLUX_BASE_CGS)
+
+                log.debug(f"HETDEX spectrum gmag {self.hetdex_gmag} +/- {self.hetdex_gmag_unc}")
+                log.debug(f"HETDEX spectrum cont {self.hetdex_gmag_cgs_cont} +/- {self.hetdex_gmag_cgs_cont_unc}")
+
+                if (self.hetdex_gmag_cgs_cont is not None) and (self.hetdex_gmag_cgs_cont != 0) and not np.isnan(
+                        self.hetdex_gmag_cgs_cont):
+                    if (self.hetdex_gmag_cgs_cont_unc is None) or np.isnan(self.hetdex_gmag_cgs_cont_unc):
+                        self.hetdex_gmag_cgs_cont_unc = 0.0
+                        hetdex_okay = 1
+                    else:
+                        hetdex_okay = 2
+
+                    self.eqw_hetdex_gmag_obs = self.estflux / self.hetdex_gmag_cgs_cont
+                    self.eqw_hetdex_gmag_obs_unc = abs(self.eqw_hetdex_gmag_obs * np.sqrt(
+                        (self.estflux_unc / self.estflux) ** 2 +
+                        (self.hetdex_gmag_cgs_cont_unc / self.hetdex_gmag_cgs_cont_unc) ** 2))
+
+                if (self.hetdex_gmag is None) or np.isnan(self.hetdex_gmag):
+                    hetdex_okay = 0
+            except:
+                hetdex_okay = 0
+                log.error("Exception computing HETDEX spectrum gmag", exc_info=True)
+
+            # feed HETDEX spectrum through SDSS gband filter
+            try:
+                # reminder needs erg/s/cm2/AA and sumspec_flux in ergs/s/cm2 so divied by 2AA bin width
+                #                self.sdss_gmag, self.cont_cgs = elixer_spectrum.get_sdss_gmag(self.sumspec_flux/2.0*1e-17,self.sumspec_wavelength)
+                if False:
+                    self.sdss_gmag, self.sdss_cgs_cont = elixer_spectrum.get_sdss_gmag(
+                        self.sumspec_flux / 2.0 * G.HETDEX_FLUX_BASE_CGS,
+                        self.sumspec_wavelength)
+                    self.sdss_cgs_cont_unc = np.sqrt(np.sum(self.sumspec_fluxerr ** 2)) / len(
+                        self.sumspec_fluxerr) * G.HETDEX_FLUX_BASE_CGS
+
+                    log.debug(f"SDSS spectrum gmag {self.sdss_gmag} +/- {self.sdss_gmag_unc}")
+                    log.debug(f"SDSS spectrum cont {self.sdss_cgs_cont} +/- {self.sdss_cgs_cont_unc}")
+
+                else:
+                    self.sdss_gmag, self.sdss_cgs_cont, self.sdss_gmag_unc, self.sdss_cgs_cont_unc = \
+                        elixer_spectrum.get_sdss_gmag(self.sumspec_flux / 2.0 * G.HETDEX_FLUX_BASE_CGS,
+                                                      self.sumspec_wavelength,
+                                                      self.sumspec_fluxerr / 2.0 * G.HETDEX_FLUX_BASE_CGS)
+
+                    log.debug(f"SDSS spectrum gmag {self.sdss_gmag} +/- {self.sdss_gmag_unc}")
+                    log.debug(f"SDSS spectrum cont {self.sdss_cgs_cont} +/- {self.sdss_cgs_cont_unc}")
+
+                if (self.sdss_cgs_cont is not None) and (self.sdss_cgs_cont != 0) and not np.isnan(self.sdss_cgs_cont):
+                    if (self.sdss_cgs_cont_unc is None) or np.isnan(self.sdss_cgs_cont_unc):
+                        self.sdss_cgs_cont_unc = 0.0
+                        sdss_okay = 1
+                    else:
+                        sdss_okay = 2
+
+                    self.eqw_sdss_obs = self.estflux / self.sdss_cgs_cont
+                    self.eqw_sdss_obs_unc = abs(self.eqw_sdss_obs * np.sqrt(
+                        (self.estflux_unc / self.estflux) ** 2 +
+                        (self.sdss_cgs_cont_unc / self.sdss_cgs_cont) ** 2))
+
+                if (self.sdss_gmag is None) or np.isnan(self.sdss_gmag):
+                    sdss_okay = 0
+
+            except:
+                sdss_okay = 0
+                log.error("Exception computing SDSS g-mag", exc_info=True)
+
+            # choose the best
+            # even IF okay == 0, still record the probably bogus value (when
+            # actually using the values elsewhere they are compared to a limit and the limit is used if needed
+
+            if (hetdex_okay == sdss_okay) and (self.hetdex_gmag is not None) and (self.sdss_gmag is not None) and \
+                    abs(self.hetdex_gmag - self.sdss_gmag) < 1.0:  # use both as an average? what if they are very different?
+                # make the average
+                avg_cont = 0.5 * (self.hetdex_gmag_cgs_cont + self.sdss_cgs_cont)
+                avg_cont_unc = np.sqrt(
+                    self.hetdex_gmag_cgs_cont_unc ** 2 + self.sdss_cgs_cont_unc ** 2)  # error on the mean
+
+                self.best_gmag_selected = 'mean'
+                self.best_gmag = -2.5 * np.log10(SU.cgs2ujy(avg_cont, 4500.00) / 1e6 / 3631.)
+                mag_faint = -2.5 * np.log10(SU.cgs2ujy(avg_cont - avg_cont_unc, 4500.00) / 1e6 / 3631.)
+                mag_bright = -2.5 * np.log10(SU.cgs2ujy(avg_cont + avg_cont_unc, 4500.00) / 1e6 / 3631.)
+                self.best_gmag_unc = 0.5 * (mag_faint - mag_bright)
+
+                self.best_gmag_cgs_cont = avg_cont
+                self.best_gmag_cgs_cont_unc = avg_cont_unc
+
+                self.best_eqw_gmag_obs = self.estflux / self.best_gmag_cgs_cont
+                self.best_eqw_gmag_obs_unc = abs(self.best_eqw_gmag_obs * np.sqrt(
+                    (self.estflux_unc / self.estflux) ** 2 +
+                    (self.best_gmag_cgs_cont_unc / self.best_gmag_cgs_cont) ** 2))
+
+                log.debug("Using mean of HETDEX full width gmag and SDSS gmag.")
+                log.info(
+                    f"Mean spectrum gmag {self.best_gmag:0.2f} +/- {self.best_gmag_unc:0.3f}; cont {self.best_gmag_cgs_cont} +/- {self.best_gmag_cgs_cont_unc}")
+
+
+            elif hetdex_okay >= sdss_okay > 0 and not np.isnan(self.hetdex_gmag_cgs_cont) and (
+                    self.hetdex_gmag_cgs_cont is not None):
+                self.best_gmag_selected = 'hetdex'
+                self.best_gmag = self.hetdex_gmag
+                self.best_gmag_unc = self.hetdex_gmag_unc
+                self.best_gmag_cgs_cont = self.hetdex_gmag_cgs_cont
+                self.best_gmag_cgs_cont_unc = self.hetdex_gmag_cgs_cont_unc
+                self.best_eqw_gmag_obs = self.eqw_hetdex_gmag_obs
+                self.best_eqw_gmag_obs_unc = self.eqw_hetdex_gmag_obs_unc
+                log.debug("Using HETDEX full width gmag over SDSS gmag.")
+            elif sdss_okay > 0 and not np.isnan(self.sdss_cgs_cont) and (self.sdss_cgs_cont is not None):
+                self.best_gmag_selected = 'sdss'
+                self.best_gmag = self.sdss_gmag
+                self.best_gmag_unc = self.sdss_gmag_unc
+                self.best_gmag_cgs_cont = self.sdss_cgs_cont
+                self.best_gmag_cgs_cont_unc = self.sdss_cgs_cont_unc
+                self.best_eqw_gmag_obs = self.eqw_sdss_obs
+                self.best_eqw_gmag_obs_unc = self.eqw_sdss_obs_unc
+                log.debug("Using SDSS gmag over HETDEX full width gmag")
+            else:  # something catastrophically bad
+                log.debug("No full width spectrum g-mag estimate is valid.")
+                self.best_gmag_selected = 'limit'
+                self.best_gmag = G.HETDEX_CONTINUUM_MAG_LIMIT
+                self.best_gmag_unc = 0
+                self.best_gmag_cgs_cont = G.HETDEX_CONTINUUM_FLUX_LIMIT
+                self.best_gmag_cgs_cont_unc = 0
+                self.best_eqw_gmag_obs = self.estflux / self.best_gmag_cgs_cont
+                self.best_eqw_gmag_obs_unc = 0
+                try:
+                    # if we can't get a gmag continuum estiamte and the other estimates are negative and there
+                    # are 2x negative bins as positive and the whole spectrum in negative ... flag it
+                    if (self.cont_cgs_narrow != -9999) and (self.cont_cgs_narrow < -5.0e-18) and \
+                            (sum(self.sumspec_flux) < 0) and (
+                            sum(self.sumspec_flux < 0) > (0.67 * len(self.sumspec_flux))):
+                        self.flags |= G.DETFLAG_QUESTIONABLE_DETECTION
+                        self.needs_review = 1
+                except:
+                    pass
+
+            try:
+                diff = abs(self.hetdex_gmag - self.sdss_gmag)
+                unc = self.hetdex_gmag_unc + self.sdss_gmag_unc
+                if (hetdex_okay == sdss_okay) and \
+                        ((self.hetdex_gmag < G.HETDEX_CONTINUUM_MAG_LIMIT) or (
+                                self.sdss_gmag < G.HETDEX_CONTINUUM_MAG_LIMIT)) and \
+                        ((diff > unc) and (diff > 0.5)):
+                    self.flags |= G.DETFLAG_DEXSPEC_GMAG_INCONSISTENT
+                    log.info(f"DEX spectrum gmag disagree by {diff / unc:0.1f}x uncertainty. "
+                             f"Dex g {self.hetdex_gmag:0.2f} +/- {self.hetdex_gmag_unc:0.3f} "
+                             f"vs SDSS g {self.sdss_gmag:0.2f} +/- {self.sdss_gmag_unc:0.3f}")
+            except:
+                pass
+
+            try:
+                self.hetdex_cont_cgs = self.cont_cgs
+                self.hetdex_cont_cgs_unc = self.cont_cgs_unc
+
+                if self.cont_cgs == -9999:  # still unset ... weird?
+                    log.warning("Warning! HETDEX continuum estimate not set. Using best gmag for estimate(%g +/- %g)."
+                                % (self.best_gmag_cgs_cont, self.best_gmag_cgs_cont_unc))
+
+                    self.cont_cgs_narrow = self.cont_cgs
+                    self.cont_cgs_narrow_unc = self.cont_cgs_unc
+                    self.cont_cgs = self.best_gmag_cgs_cont
+                    self.cont_cgs_unc = self.best_gmag_cgs_cont_unc
+                    self.using_best_gmag_ew = True
+                elif self.cont_cgs <= 0.0:
+                    log.warning("Warning! (narrow) continuum <= 0.0. Using best gmag for estimate (%g +/- %g)."
+                                % (self.best_gmag_cgs_cont, self.best_gmag_cgs_cont_unc))
+                    self.cont_cgs_narrow = self.cont_cgs
+                    self.cont_cgs_narrow_unc = self.cont_cgs_unc
+                    self.cont_cgs = self.best_gmag_cgs_cont
+                    self.cont_cgs_unc = self.best_gmag_cgs_cont_unc
+                    self.using_best_gmag_ew = True
+            except:
+                pass
+
             if not self.w:
 
                 # find the "best" wavelength to use as the central peak
@@ -7980,183 +8166,6 @@ class DetObj:
                     log.info("Could not set spectrum noise_estimate to sumpsec_fluxerr", exc_info=True)
 
                     # used just below to choose between the two
-            sdss_okay = 0
-            hetdex_okay = 0
-
-            # sum over entire HETDEX spectrum to estimate g-band magnitude
-            try:
-                self.hetdex_gmag, self.hetdex_gmag_cgs_cont, self.hetdex_gmag_unc, self.hetdex_gmag_cgs_cont_unc = \
-                    elixer_spectrum.get_hetdex_gmag(self.sumspec_flux / 2.0 * G.HETDEX_FLUX_BASE_CGS,
-                                                    self.sumspec_wavelength,
-                                                    self.sumspec_fluxerr / 2.0 * G.HETDEX_FLUX_BASE_CGS)
-
-                log.debug(f"HETDEX spectrum gmag {self.hetdex_gmag} +/- {self.hetdex_gmag_unc}")
-                log.debug(f"HETDEX spectrum cont {self.hetdex_gmag_cgs_cont} +/- {self.hetdex_gmag_cgs_cont_unc}")
-
-                if (self.hetdex_gmag_cgs_cont is not None) and (self.hetdex_gmag_cgs_cont != 0) and not np.isnan(
-                        self.hetdex_gmag_cgs_cont):
-                    if (self.hetdex_gmag_cgs_cont_unc is None) or np.isnan(self.hetdex_gmag_cgs_cont_unc):
-                        self.hetdex_gmag_cgs_cont_unc = 0.0
-                        hetdex_okay = 1
-                    else:
-                        hetdex_okay = 2
-
-                    self.eqw_hetdex_gmag_obs = self.estflux / self.hetdex_gmag_cgs_cont
-                    self.eqw_hetdex_gmag_obs_unc = abs(self.eqw_hetdex_gmag_obs * np.sqrt(
-                        (self.estflux_unc / self.estflux) ** 2 +
-                        (self.hetdex_gmag_cgs_cont_unc / self.hetdex_gmag_cgs_cont_unc) ** 2))
-
-                if (self.hetdex_gmag is None) or np.isnan(self.hetdex_gmag):
-                    hetdex_okay = 0
-            except:
-                hetdex_okay = 0
-                log.error("Exception computing HETDEX spectrum gmag", exc_info=True)
-
-            # feed HETDEX spectrum through SDSS gband filter
-            try:
-                # reminder needs erg/s/cm2/AA and sumspec_flux in ergs/s/cm2 so divied by 2AA bin width
-                #                self.sdss_gmag, self.cont_cgs = elixer_spectrum.get_sdss_gmag(self.sumspec_flux/2.0*1e-17,self.sumspec_wavelength)
-                if False:
-                    self.sdss_gmag, self.sdss_cgs_cont = elixer_spectrum.get_sdss_gmag(
-                        self.sumspec_flux / 2.0 * G.HETDEX_FLUX_BASE_CGS,
-                        self.sumspec_wavelength)
-                    self.sdss_cgs_cont_unc = np.sqrt(np.sum(self.sumspec_fluxerr ** 2)) / len(
-                        self.sumspec_fluxerr) * G.HETDEX_FLUX_BASE_CGS
-
-                    log.debug(f"SDSS spectrum gmag {self.sdss_gmag} +/- {self.sdss_gmag_unc}")
-                    log.debug(f"SDSS spectrum cont {self.sdss_cgs_cont} +/- {self.sdss_cgs_cont_unc}")
-
-                else:
-                    self.sdss_gmag, self.sdss_cgs_cont, self.sdss_gmag_unc, self.sdss_cgs_cont_unc = \
-                        elixer_spectrum.get_sdss_gmag(self.sumspec_flux / 2.0 * G.HETDEX_FLUX_BASE_CGS,
-                                                      self.sumspec_wavelength,
-                                                      self.sumspec_fluxerr / 2.0 * G.HETDEX_FLUX_BASE_CGS)
-
-                    log.debug(f"SDSS spectrum gmag {self.sdss_gmag} +/- {self.sdss_gmag_unc}")
-                    log.debug(f"SDSS spectrum cont {self.sdss_cgs_cont} +/- {self.sdss_cgs_cont_unc}")
-
-                if (self.sdss_cgs_cont is not None) and (self.sdss_cgs_cont != 0) and not np.isnan(self.sdss_cgs_cont):
-                    if (self.sdss_cgs_cont_unc is None) or np.isnan(self.sdss_cgs_cont_unc):
-                        self.sdss_cgs_cont_unc = 0.0
-                        sdss_okay = 1
-                    else:
-                        sdss_okay = 2
-
-                    self.eqw_sdss_obs = self.estflux / self.sdss_cgs_cont
-                    self.eqw_sdss_obs_unc = abs(self.eqw_sdss_obs * np.sqrt(
-                        (self.estflux_unc / self.estflux) ** 2 +
-                        (self.sdss_cgs_cont_unc / self.sdss_cgs_cont) ** 2))
-
-                if (self.sdss_gmag is None) or np.isnan(self.sdss_gmag):
-                    sdss_okay = 0
-
-            except:
-                sdss_okay = 0
-                log.error("Exception computing SDSS g-mag", exc_info=True)
-
-            # choose the best
-            #even IF okay == 0, still record the probably bogus value (when
-            #actually using the values elsewhere they are compared to a limit and the limit is used if needed
-
-            if (hetdex_okay == sdss_okay) and (self.hetdex_gmag is not None) and (self.sdss_gmag is not None) and \
-                    abs(self.hetdex_gmag - self.sdss_gmag) < 1.0: #use both as an average? what if they are very different?
-                #make the average
-                avg_cont = 0.5 * (self.hetdex_gmag_cgs_cont + self.sdss_cgs_cont)
-                avg_cont_unc =  np.sqrt(self.hetdex_gmag_cgs_cont_unc**2 + self.sdss_cgs_cont_unc**2) #error on the mean
-
-
-                self.best_gmag_selected = 'mean'
-                self.best_gmag = -2.5*np.log10(SU.cgs2ujy(avg_cont,4500.00) / 1e6 / 3631.)
-                mag_faint = -2.5*np.log10(SU.cgs2ujy(avg_cont-avg_cont_unc,4500.00) / 1e6 / 3631.)
-                mag_bright = -2.5*np.log10(SU.cgs2ujy(avg_cont+avg_cont_unc,4500.00) / 1e6 / 3631.)
-                self.best_gmag_unc = 0.5 * (mag_faint-mag_bright)
-
-                self.best_gmag_cgs_cont = avg_cont
-                self.best_gmag_cgs_cont_unc = avg_cont_unc
-
-                self.best_eqw_gmag_obs = self.estflux / self.best_gmag_cgs_cont
-                self.best_eqw_gmag_obs_unc = abs(self.best_eqw_gmag_obs * np.sqrt(
-                    (self.estflux_unc / self.estflux) ** 2 +
-                    (self.best_gmag_cgs_cont_unc / self.best_gmag_cgs_cont) ** 2))
-
-                log.debug("Using mean of HETDEX full width gmag and SDSS gmag.")
-                log.info(f"Mean spectrum gmag {self.best_gmag:0.2f} +/- {self.best_gmag_unc:0.3f}; cont {self.best_gmag_cgs_cont} +/- {self.best_gmag_cgs_cont_unc}" )
-
-
-            elif hetdex_okay >= sdss_okay > 0 and not np.isnan(self.hetdex_gmag_cgs_cont) and (self.hetdex_gmag_cgs_cont is not None):
-                self.best_gmag_selected = 'hetdex'
-                self.best_gmag = self.hetdex_gmag
-                self.best_gmag_unc = self.hetdex_gmag_unc
-                self.best_gmag_cgs_cont = self.hetdex_gmag_cgs_cont
-                self.best_gmag_cgs_cont_unc = self.hetdex_gmag_cgs_cont_unc
-                self.best_eqw_gmag_obs = self.eqw_hetdex_gmag_obs
-                self.best_eqw_gmag_obs_unc = self.eqw_hetdex_gmag_obs_unc
-                log.debug("Using HETDEX full width gmag over SDSS gmag.")
-            elif sdss_okay > 0 and not np.isnan(self.sdss_cgs_cont) and (self.sdss_cgs_cont is not None):
-                self.best_gmag_selected = 'sdss'
-                self.best_gmag = self.sdss_gmag
-                self.best_gmag_unc = self.sdss_gmag_unc
-                self.best_gmag_cgs_cont = self.sdss_cgs_cont
-                self.best_gmag_cgs_cont_unc = self.sdss_cgs_cont_unc
-                self.best_eqw_gmag_obs = self.eqw_sdss_obs
-                self.best_eqw_gmag_obs_unc = self.eqw_sdss_obs_unc
-                log.debug("Using SDSS gmag over HETDEX full width gmag")
-            else: #something catastrophically bad
-                log.debug("No full width spectrum g-mag estimate is valid.")
-                self.best_gmag_selected = 'limit'
-                self.best_gmag = G.HETDEX_CONTINUUM_MAG_LIMIT
-                self.best_gmag_unc = 0
-                self.best_gmag_cgs_cont = G.HETDEX_CONTINUUM_FLUX_LIMIT
-                self.best_gmag_cgs_cont_unc = 0
-                self.best_eqw_gmag_obs = self.estflux / self.best_gmag_cgs_cont
-                self.best_eqw_gmag_obs_unc = 0
-                try:
-                    #if we can't get a gmag continuum estiamte and the other estimates are negative and there
-                    #are 2x negative bins as positive and the whole spectrum in negative ... flag it
-                    if (self.cont_cgs_narrow != -9999) and (self.cont_cgs_narrow < -5.0e-18) and \
-                            (sum(self.sumspec_flux) < 0) and (sum(self.sumspec_flux < 0) > (0.67 *len(self.sumspec_flux))):
-                        self.flags |= G.DETFLAG_QUESTIONABLE_DETECTION
-                        self.needs_review = 1
-                except:
-                    pass
-
-            try:
-                diff = abs(self.hetdex_gmag - self.sdss_gmag)
-                unc = self.hetdex_gmag_unc + self.sdss_gmag_unc
-                if (hetdex_okay == sdss_okay) and \
-                        ((self.hetdex_gmag < G.HETDEX_CONTINUUM_MAG_LIMIT) or (self.sdss_gmag <  G.HETDEX_CONTINUUM_MAG_LIMIT)) and \
-                        ((diff > unc) and (diff > 0.5)):
-                    self.flags |= G.DETFLAG_DEXSPEC_GMAG_INCONSISTENT
-                    log.info(f"DEX spectrum gmag disagree by {diff/unc:0.1f}x uncertainty. "
-                             f"Dex g {self.hetdex_gmag:0.2f} +/- {self.hetdex_gmag_unc:0.3f} "
-                             f"vs SDSS g {self.sdss_gmag:0.2f} +/- {self.sdss_gmag_unc:0.3f}")
-            except:
-                pass
-
-            try:
-                self.hetdex_cont_cgs = self.cont_cgs
-                self.hetdex_cont_cgs_unc = self.cont_cgs_unc
-
-                if self.cont_cgs == -9999:  # still unset ... weird?
-                    log.warning("Warning! HETDEX continuum estimate not set. Using best gmag for estimate(%g +/- %g)."
-                                % (self.best_gmag_cgs_cont, self.best_gmag_cgs_cont_unc))
-
-                    self.cont_cgs_narrow = self.cont_cgs
-                    self.cont_cgs_narrow_unc = self.cont_cgs_unc
-                    self.cont_cgs = self.best_gmag_cgs_cont
-                    self.cont_cgs_unc = self.best_gmag_cgs_cont_unc
-                    self.using_best_gmag_ew = True
-                elif self.cont_cgs <= 0.0:
-                    log.warning("Warning! (narrow) continuum <= 0.0. Using best gmag for estimate (%g +/- %g)."
-                                % (self.best_gmag_cgs_cont, self.best_gmag_cgs_cont_unc))
-                    self.cont_cgs_narrow = self.cont_cgs
-                    self.cont_cgs_narrow_unc = self.cont_cgs_unc
-                    self.cont_cgs = self.best_gmag_cgs_cont
-                    self.cont_cgs_unc = self.best_gmag_cgs_cont_unc
-                    self.using_best_gmag_ew = True
-            except:
-                pass
-
 
             #my own fitting
             try:
@@ -8166,7 +8175,7 @@ class DetObj:
                                           eqw_obs=self.eqw_obs, eqw_obs_unc=self.eqw_obs_unc,
                                           estcont=self.cont_cgs, estcont_unc=self.cont_cgs_unc,
                                           continuum_g=self.best_gmag_cgs_cont,continuum_g_unc=self.best_gmag_cgs_cont_unc,
-                                          gmag=self.best_gmag,gmag_err=self.best_gmag_unc)
+                                          gmag=self.best_gmag,gmag_err=self.best_gmag_unc,detobj=self)
 
 
                 if self.spec_obj.central_eli is not None:
@@ -8296,7 +8305,7 @@ class DetObj:
                     G.MAX_SCORE_ABSORPTION_LINES = 9999.9
                     G.DISPLAY_ABSORPTION_LINES = True
 
-                self.spec_obj.classify(known_z=self.known_z)  # solutions can be returned, also stored in spec_obj.solutions
+                self.spec_obj.classify(known_z=self.known_z,detobj=self)  # solutions can be returned, also stored in spec_obj.solutions
 
                 G.CONTINUUM_RULES = orig_CONTINUUM_RULES
                 G.MAX_SCORE_ABSORPTION_LINES = orig_MAX_SCORE_ABSORPTION_LINES
@@ -9100,7 +9109,7 @@ class DetObj:
                                       estcont=self.cont_cgs,estcont_unc=self.cont_cgs_unc,
                                       fwhm=self.fwhm,fwhm_unc=self.fwhm_unc,
                                       continuum_g=self.best_gmag_cgs_cont,continuum_g_unc=self.best_gmag_cgs_cont_unc,
-                                      gmag=self.best_gmag, gmag_err=self.best_gmag_unc)
+                                      gmag=self.best_gmag, gmag_err=self.best_gmag_unc,detobj=self)
             # print("DEBUG ... spectrum peak finder")
             # if G.DEBUG_SHOW_GAUSS_PLOTS:
             #    self.spec_obj.build_full_width_spectrum(show_skylines=True, show_peaks=True, name="testsol")
@@ -9209,11 +9218,11 @@ class DetObj:
             if self.best_masked_cgs_cont is not None and self.best_masked_cgs_cont > 0:
                 self.spec_obj.classify(known_z=self.known_z,
                                        continuum_limit=max(self.best_masked_cgs_cont, G.HETDEX_CONTINUUM_FLUX_LIMIT),
-                                       continuum_limit_err=self.best_masked_cgs_cont_unc)
+                                       continuum_limit_err=self.best_masked_cgs_cont_unc,detobj=self)
             else:
                 self.spec_obj.classify(known_z=self.known_z,
                                    continuum_limit=max(self.best_gmag_cgs_cont, G.HETDEX_CONTINUUM_FLUX_LIMIT),
-                                   continuum_limit_err=self.best_gmag_cgs_cont_unc) #solutions can be returned, also stored in spec_obj.solutions
+                                   continuum_limit_err=self.best_gmag_cgs_cont_unc,detobj=self) #solutions can be returned, also stored in spec_obj.solutions
 
             # if central_wave_volatile and (self.spec_obj.central_eli.w_obs != self.w):
             #     try:
@@ -14212,8 +14221,12 @@ class HETDEX:
             #
 
             matched_line_list = [] #use farther down to display line labels otherwise marked as not to be displayed
+            legend = []
+            name_waves = []
+            obs_waves = []
 
             the_solution_rest_wave = -1.0
+            solution_lines = []
             if not G.ZOO:
                 good, scale_score,p_score = datakeep['detobj'].multiline_solution_score()
                 if (scale_score > G.MULTILINE_MIN_WEAK_SOLUTION_CONFIDENCE):
@@ -14221,11 +14234,17 @@ class HETDEX:
                     sol = datakeep['detobj'].spec_obj.solutions[0]
                     absorber = datakeep['detobj'].spec_obj.solutions[0].emission_line.absorber
                     the_solution_rest_wave = sol.central_rest
+                    try:
+                        solution_lines = datakeep['detobj'].spec_obj.solutions[0].lines
+                    except:
+                        pass
                     y_pos = textplot.axis()[2]
 
-                    if good and not absorber and (p_score > 0.7):
+                    #if good and not absorber and (p_score > 0.7):
+                    if good and (p_score > 0.7):
                         textplot.text(cwave, y_pos, sol.name + " {", rotation=-90, ha='center', va='bottom',
                                       fontsize=24, color=sol.color)  # use the e color for this family
+
                     else: #weak solution, use standard font size
                         textplot.text(cwave, y_pos, sol.name + " {", rotation=-90, ha='center', va='bottom',
                                       color=sol.color,fontsize=10)  # use the e color for this family
@@ -14308,9 +14327,6 @@ class HETDEX:
             #
             wavemin = specplot.axis()[0]
             wavemax = specplot.axis()[1]
-            legend = []
-            name_waves = []
-            obs_waves = []
 
             try:
                 #use THIS detection's spectrum object's modified emission_lines list IF there is one,
@@ -14325,9 +14341,9 @@ class HETDEX:
             if datakeep['detobj'].spec_obj.all_found_absorbs is not None:
                 absorber_waves = [x.fit_x0 for x in datakeep['detobj'].spec_obj.all_found_absorbs]
 
-            for e in emission_line_list:
+            for e in emission_line_list: #the standard list of lines, not the found lines
                 if self.known_z is None:
-                    if (not e.solution) and (e.w_rest != the_solution_rest_wave): #if not a normal solution BUT it is THE solution, label it
+                    if (not e.solution) and (not np.isclose(e.w_rest,the_solution_rest_wave,atol=2.0)): #if not a normal solution BUT it is THE solution, label it
                         continue
                     z = cwave / e.w_rest - 1.0
                 else:
@@ -14342,6 +14358,8 @@ class HETDEX:
                     else:
                         continue
                 count = 0
+
+                #assuming the anchor line is the given (e) line, what other lines could be found?
                 for f in emission_line_list:
                     if (f == e) or not (wavemin <= f.redshift(z) <= wavemax) or (abs(f.redshift(z) - cwave) < 5.0):
                         continue
@@ -14355,7 +14373,9 @@ class HETDEX:
                         continue
 
                     #don't display absorbers unless they are found in the blind line finder scan
-                    if f.see_in_absorption and np.any([abs(f.w_obs-x) < 10 for x in absorber_waves]):
+                    if good and f in solution_lines:
+                        pass #keep and print this one
+                    elif f.see_in_absorption and np.any([abs(f.w_obs-x) < 10 for x in absorber_waves]):
                         pass #this is an absorber that matches to a found absorber (print)
                     elif (f.rank > 3) and np.any([abs(f.w_obs-x) < 10 for x in absorber_waves]):
                         continue #this is a weak emitter that is near a found absorber (do not print)

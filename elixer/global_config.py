@@ -61,7 +61,7 @@ HDR_BASEPATH = HDR_WORK_BASEPATH
 HDF5_DETECT_FN = None
 HDF5_CONTINUUM_FN = None
 CONTINUUM_RULES = False #use continuum rules instead of emission line rules
-CONTNIUUM_RULES_THRESH = 5e-17 #about 20 mag
+CONTNIUUM_RULES_THRESH = 8.5e-17 #about g=22, #5e-17 #about g=20
 HDF5_BROAD_DETECT_FN = None
 HDF5_SURVEY_FN = None
 OBSERVATIONS_BASEDIR = None
@@ -1032,6 +1032,7 @@ CLUSTER_SCORE_BOOST = 100.0
 ALLOW_BROADLINE_FIT = True
 BROADLINE_GMAG_MAX = 23.0 #must be less than (brighter) than this value to auto-trip broad conditions
 
+
 LINE_FINDER_MEDIAN_SCAN = 13 #SNR scan after applying a median filter to the flux; the value is the #of pixels, must be odd
                             #set to 0 to turn off
                             #13+ seems pretty good at picking up broad AGN
@@ -1131,6 +1132,7 @@ DETFLAG_EXCESSIVE_ZERO_PIXELS       = 0x00800000   #too many zero valued pixels 
 DETFLAG_POSSIBLE_PN                 = 0x01000000    #possible planetery nebula hit (usually 5007, without an obvious source)
 DETFLAG_NO_DUST_CORRECTION          = 0x02000000
 DETFLAG_BAD_PIXELS                  = 0x04000000    #hot column, maybe bad sky subtraction, etc ... possible false detection
+DETFLAG_BAD_EMISSION_LINE           = 0x08000000    #emission line is questionable, could be continuum between absorbers
 
 #todo: low SNR, weighted position is between fibers (i.e. distances from blue fiber center > 0.74 or 0.75 and SNR < 5.2 or so)
 
