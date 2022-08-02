@@ -3616,7 +3616,8 @@ def filter_emission_line_as_continuum(emission_list,absorption_list,central=None
 
                 if absorb_waves[red] - delta_w < emis.fit_x0 < absorb_waves[blue] + delta_w:
                     # check the fit_h?
-                    if np.mean([absorption_list[blue].fit_h,absorption_list[red].fit_h]) > 0.5 * emis.fit_h:
+                    if np.mean([absorption_list[blue].fit_y - absorption_list[blue].fit_h,
+                                 absorption_list[red].fit_y-absorption_list[red].fit_h]) > 0.5 * (emis.fit_h-emis.fit_y):
                         #mark to remove emis
                         if central is not None and abs(emis.fit_x0 - central) < 6.0:
                             log.info(f"Removing (anchor) emission line at ({emis.fit_x0}:0.1f) as likely continuum "
