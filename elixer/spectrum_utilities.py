@@ -189,7 +189,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640
         all_calfib = all_calfib[sel]
 
         #get rid of continuum (and negative continuum)
-        cont_calfib = np.mean(all_calfib, axis=1) / 2.0  # mean flux density
+        cont_calfib = np.nanmean(all_calfib, axis=1) / 2.0  # mean flux density
         sel = np.array(cont_calfib < 0.2) & np.array(cont_calfib > -0.2)
         # so average above 2e-18 erg/s/cm2/AA or aboout g 23.6 (should always be better than this)
         # in the original LyCon paper this was 0.5 and -0.5 (and over 500AA chunks, not bullt of the array)
@@ -204,8 +204,8 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640
         all_calfib = all_calfib[sel]
 
         #these are effectively empty fibers now and a measure of the noise
-        mean = np.mean(all_calfib)/2.0 #full mean over all remaining fibers and wavebins as  flux denisty
-        #std = np.std(all_calfib)/2.0
+        mean = np.nanmean(all_calfib)/2.0 #full mean over all remaining fibers and wavebins as  flux denisty
+        std = np.std(all_calfib)/2.0
         #std_of_mean = np.std(np.mean(all_calfib/2.0,axis=0)) #std of the means treating each fiber individually
         #mean_of_means = np.mean(np.mean(all_calfib,axis=0)) #should be the same as the full mean
 
@@ -216,7 +216,10 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640
         if aper is None or aper <= 0:
             aper = 3.5
 
-        limit = cgs2mag( ((aper/1.5)**2) * mean * 1e-17,wavelength)
+        #limit = cgs2mag( ((aper/1.5)**2) * mean * 1e-17,wavelength)
+        limit = cgs2mag( std * 1e-17,wavelength)
+        if limit is None or np.isnan(limit):
+            limit = G.HETDEX_CONTINUUM_MAG_LIMIT
     except:
         log.warning("Exception in calc_dex_g_limit",exc_info=True)
 
