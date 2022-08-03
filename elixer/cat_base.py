@@ -813,7 +813,7 @@ class Catalog:
                     idx = d['sep_obj_idx']
                     if  (abs(detobj.best_gmag - d['sep_objects'][idx]['mag']) < 0.5) or \
                         ( (detobj.best_gmag < 22) and ( d['sep_objects'][idx]['mag'] < 22) ) or \
-                        ( ( d['sep_objects'][idx]['mag'] > detobj.best_gmag) and (detobj.best_gmag > G.HETDEX_CONTINUUM_MAG_LIMIT)):
+                        ( ( d['sep_objects'][idx]['mag'] > detobj.best_gmag) and (detobj.best_gmag > detobj.hetdex_gmag_limit)):
                         #yep, compatible, so keep this one
                         pass
                     else: #not compatible ... is there a better one?
@@ -829,7 +829,7 @@ class Catalog:
                             if bid_dist <= target_dist: #sufficiently close
                                 if (bid_dmag < 0.5) or \
                                    ((detobj.best_gmag < 22) and (s['mag'] < 22)) or \
-                                   ((s['mag'] > detobj.best_gmag) and (detobj.best_gmag > G.HETDEX_CONTINUUM_MAG_LIMIT)):
+                                   ((s['mag'] > detobj.best_gmag) and (detobj.best_gmag > detobj.hetdex_gmag_limit)):
                                     #they are compatible
                                     if (bid_dist < best_dist) and (bid_dmag < best_dmag):
                                         #de-select the old one
@@ -1150,7 +1150,7 @@ class Catalog:
 
                             if  (abs(detobj.best_gmag - selected_sep['mag']) < 0.5) or \
                                 ((detobj.best_gmag < 22) and (selected_sep['mag'] < 22)) or \
-                                ((selected_sep['mag'] > detobj.best_gmag) and (detobj.best_gmag > G.HETDEX_CONTINUUM_MAG_LIMIT)):
+                                ((selected_sep['mag'] > detobj.best_gmag) and (detobj.best_gmag > detobj.hetdex_gmag_limit)):
                                 pass
                             else:
                                 selected_sep = None #the mag is not consistent with HETDEX
@@ -1173,7 +1173,7 @@ class Catalog:
                                     break #this is the one .. the selected SEP matches the catalog object, but they might not match HETDEX g
                             # elif  (abs(detobj.best_gmag - cp.bid_mag) < 0.5) or \
                             #     ( (detobj.best_gmag < 22) and (cp.bid_mag < 22) ) or \
-                            #     ( (cp.bid_mag > detobj.best_gmag) and (detobj.best_gmag > G.HETDEX_CONTINUUM_MAG_LIMIT)):
+                            #     ( (cp.bid_mag > detobj.best_gmag) and (detobj.best_gmag > detobj.hetdex_gmag_limit)):
                             #         #did not match the SEP selected object but DOES match with HETDEX g
                             #
                             else:
@@ -1186,7 +1186,7 @@ class Catalog:
                         #IF its mag is roughly compatible with DEX-g (or fainter if at the limit) and not far away
                         #note that alternate_idx does NOT come into play here
                         try:
-                            if detobj.best_gmag < G.HETDEX_CONTINUUM_MAG_LIMIT:
+                            if detobj.best_gmag < detobj.hetdex_gmag_limit:
                                 if (abs(detobj.best_gmag - cp.bid_mag) < 0.5) or \
                                     ( (detobj.best_gmag < 22) and (cp.bid_mag < 22) ) or \
                                     ( (cp.bid_mag > detobj.best_gmag) and (cp.distance < 0.75)): #allow a little slop for Ra, Dec differences

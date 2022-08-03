@@ -26,6 +26,7 @@ from photutils import CircularAperture #pixel coords
 from photutils import aperture_photometry
 
 from scipy.optimize import curve_fit
+from scipy.signal import medfilt
 
 try:
     from hetdex_tools.get_spec import get_spectra as hda_get_spectra
@@ -162,6 +163,64 @@ def get_fluxlimit_apcor(ra,dec,wave,datevobs,snrcut=4.8,flim_model="v4"):
         log.error(f"Exception attempting to get flux limits and apcor.",exc_info=True)
         print(e)
         return None, None
+
+
+def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640.,aper=3.5):
+    """
+    calcuate an approximage gband mag limit for THIS set of calfibs (e.g. typically one IFU for one shot)
+
+    losely based on what was done for LyCon and selecting "empty" fibers for a background
+    :param calfib: #as flux per 2AA bin in 1e-17
+    :param calfibe:
+    :param flux_limit:
+    :return:
+    """
+    limit = G.HETDEX_CONTINUUM_MAG_LIMIT
+    try:
+        # first trim off the ends that are not as well calibrated and/or subject to extemes
+        all_calfib =calfib[:, 100:-100]
+
+        #get rid of any with obvious emission lines
+        #make each element the mean of itself and its two neighbors and compare to the flux limit
+        #this is roughly equivalent to the LyCon paper looking for any 3 consecutive wavebins with 4.0, 5.0, 4.0 flux or greater
+        mf = calfib[:, :-2] + calfib[:, 1:-1] + calfib[:, 2:] / 3.0
+        mf = mf[:,99:-99] #to match 100:-100 having shrunk by one (though it does not really matter)
+        sel = np.max(mf, axis=1) < flux_limit
+        all_calfib = all_calfib[sel]
+
+        #get rid of continuum (and negative continuum)
+        cont_calfib = np.mean(all_calfib, axis=1) / 2.0  # mean flux density
+        sel = np.array(cont_calfib < 0.2) & np.array(cont_calfib > -0.2)
+        # so average above 2e-18 erg/s/cm2/AA or aboout g 23.6 (should always be better than this)
+        # in the original LyCon paper this was 0.5 and -0.5 (and over 500AA chunks, not bullt of the array)
+        #but I think we can close in a bit more than that. Really even 0.15 or 0.10 is probably also okay
+        all_calfib = all_calfib[sel]
+        cont_calfib = cont_calfib[sel]
+
+        #sort by the mean flux, and trim off the ends (the tails)
+        sz = len(all_calfib)
+        trim_frac = 1. / 6.
+        sel = [x for _, x in sorted(zip(cont_calfib, np.arange(sz)))][int(trim_frac * sz):int(-1 * trim_frac * sz)]
+        all_calfib = all_calfib[sel]
+
+        #these are effectively empty fibers now and a measure of the noise
+        mean = np.mean(all_calfib)/2.0 #full mean over all remaining fibers and wavebins as  flux denisty
+        #std = np.std(all_calfib)/2.0
+        #std_of_mean = np.std(np.mean(all_calfib/2.0,axis=0)) #std of the means treating each fiber individually
+        #mean_of_means = np.mean(np.mean(all_calfib,axis=0)) #should be the same as the full mean
+
+        #since this a background of "empty" fibers the PSF does not matter
+        #as we assume this to be uniform, so any PSF would give the same flux.
+        #BUT, the aperture does matter, so how much flux would we expect in a 3.5" diam aperture?
+        #well, this is for one 1.5" diam fiber, so a 3.5 diam aperture vs 1.5" diam aperture so (3.5 / 1.5)**2
+        if aper is None or aper <= 0:
+            aper = 3.5
+
+        limit = cgs2mag( ((aper/1.5)**2) * mean * 1e-17,wavelength)
+    except:
+        log.warning("Exception in calc_dex_g_limit",exc_info=True)
+
+    return limit
 
 #cloned with minor changes from Erin Cooper's HETDEX_API
 def get_bary_corr(shotid, units='km/s'):

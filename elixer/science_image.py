@@ -1532,7 +1532,7 @@ class science_image():
                             if (abs(detobj.best_gmag - source_objects[selected_obj_idx]['mag']) < 0.5) or \
                                     ((detobj.best_gmag < 22) and (source_objects[selected_obj_idx]['mag'] < 22)) or \
                                     ((source_objects[selected_obj_idx]['mag'] > detobj.best_gmag) and (
-                                            detobj.best_gmag > G.HETDEX_CONTINUUM_MAG_LIMIT)):
+                                            detobj.best_gmag > detobj.hetdex_gmag_limit)):
                                 # yep, compatible, so keep this one
                                 pass
                             else:
@@ -1551,7 +1551,7 @@ class science_image():
                                         if (bid_dmag < 0.5) or \
                                                 ((detobj.best_gmag < 22) and (s['mag'] < 22)) or \
                                                 ((s['mag'] > detobj.best_gmag) and (
-                                                        detobj.best_gmag > G.HETDEX_CONTINUUM_MAG_LIMIT)):
+                                                        detobj.best_gmag > detobj.hetdex_gmag_limit)):
                                             # they are compatible
                                             if (bid_dist < best_dist) and (bid_dmag < best_dmag):
                                                 #unset the old one

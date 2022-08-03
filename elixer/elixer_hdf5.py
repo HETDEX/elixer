@@ -5,7 +5,7 @@ merge existing ELiXer catalogs
 """
 
 
-__version__ = '0.6.2' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
+__version__ = '0.6.3' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -69,8 +69,8 @@ class Detections(tables.IsDescription):
     wavelength_obs = tables.Float32Col(dflt=UNSET_FLOAT,pos=6)
     wavelength_obs_err = tables.Float32Col(dflt=UNSET_FLOAT,pos=7)
 
-    best_z = tables.Float32Col(dflt=-1.0,pos=8)
-    best_pz = tables.Float32Col(dflt=0.0,pos=9)
+    z_best = tables.Float32Col(dflt=-1.0,pos=8)
+    z_best_pz = tables.Float32Col(dflt=0.0,pos=9)
 
     flags = tables.Int32Col(dflt=0,pos=10)
     review = tables.Int8Col(dflt=0,pos=11)
@@ -100,6 +100,7 @@ class Detections(tables.IsDescription):
     continuum_wide_err = tables.Float32Col(dflt=UNSET_FLOAT)
     mag_g_wide = tables.Float32Col(dflt=UNSET_FLOAT) #the pseudo g-band magnitude from the spectrum
     mag_g_wide_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    mag_g_wide_limit = tables.Float32Col(dflt=G.HETDEX_CONTINUUM_MAG_LIMIT)
     eqw_rest_lya_wide = tables.Float32Col(dflt=UNSET_FLOAT)
     eqw_rest_lya_wide_err = tables.Float32Col(dflt=UNSET_FLOAT)
     plae_wide = tables.Float32Col(dflt=UNSET_FLOAT)
@@ -906,6 +907,8 @@ def append_entry(fileh,det,overwrite=False):
         row['mag_g_wide'] = det.best_gmag
         if det.best_gmag_unc is not None:
             row['mag_g_wide_err'] = det.best_gmag_unc
+        if det.hetdex_gmag_limit is not None:
+            row['mag_g_wide_limit'] = det.hetdex_gmag_limit
 
         try:
             row['continuum_masked'] = det.best_masked_cgs_cont
@@ -1060,9 +1063,9 @@ def append_entry(fileh,det,overwrite=False):
 
         try:
             if det.best_z is not None:
-                row['best_z'] = det.best_z
+                row['z_best'] = det.best_z
             if det.best_p_of_z:
-                row['best_pz'] = det.best_p_of_z
+                row['z_best_pz'] = det.best_p_of_z
         except:
             pass
 
@@ -3253,9 +3256,9 @@ def upgrade_0p6p1_to_0p6p2(oldfile_handle,newfile_handle):
             for n in dtb_new.colnames:
                 try: #can be missing name (new columns)
                     if n == "fwhm_line_kms":
-                        new_row[n] == old_row["fwhm_line_aa"] / old_row["wavelength_obs"] * 3e5
+                        new_row[n] = old_row["fwhm_line_aa"] / old_row["wavelength_obs"] * 3e5
                     elif n == "fwhm_line_kms_err":
-                        new_row[n] == old_row["fwhm_line_aa_err"] / old_row["wavelength_obs"] * 3e5
+                        new_row[n] = old_row["fwhm_line_aa_err"] / old_row["wavelength_obs"] * 3e5
                     else:
                         new_row[n] = old_row[n]
                 except:
@@ -3300,6 +3303,92 @@ def upgrade_0p6p1_to_0p6p2(oldfile_handle,newfile_handle):
         return False
 
 
+def upgrade_0p6p2_to_0p6p3(oldfile_handle,newfile_handle):
+    """
+
+    #best_z and best_pz to z_best and z_best_pz
+    #added mag_g_wide_limit to Detections
+
+    :param oldfile_handle:
+    :param newfile_handle:
+    :return:
+    """
+
+    from_version = "0.6.2"
+    to_version = "0.6.3"
+
+    try:
+        log.info("Upgrading %s to %s ..." %(from_version,to_version))
+
+        dtb_new = newfile_handle.root.Detections
+        stb_new = newfile_handle.root.CalibratedSpectra
+        ltb_new = newfile_handle.root.SpectraLines
+        atb_new = newfile_handle.root.Aperture
+        ctb_new = newfile_handle.root.CatalogMatch
+        etb_new = newfile_handle.root.ExtractedObjects
+        xtb_new = newfile_handle.root.ElixerApertures
+
+        dtb_old = oldfile_handle.root.Detections
+        stb_old = oldfile_handle.root.CalibratedSpectra
+        ltb_old = oldfile_handle.root.SpectraLines
+        atb_old = oldfile_handle.root.Aperture
+        ctb_old = oldfile_handle.root.CatalogMatch
+        etb_old = oldfile_handle.root.ExtractedObjects
+        xtb_old = oldfile_handle.root.ElixerApertures
+
+        #Detections
+        for old_row in dtb_old.read():
+            new_row = dtb_new.row
+            for n in dtb_new.colnames:
+                try: #can be missing name (new columns)
+                    if n == "z_best":
+                        new_row[n] = old_row["best_z"]
+                    elif n == "z_best_pz":
+                        new_row[n] = old_row["best_pz"]
+                    elif n == "mag_g_wide_limit":
+                        new_row[n] = G.HETDEX_CONTINUUM_MAG_LIMIT
+                    else:
+                        new_row[n] = old_row[n]
+                except:
+                    log.debug("Detection column failed (%s). Default set."%n)
+            new_row.append()
+            dtb_new.flush()
+
+        #no change to Calibrated Spectra
+        stb_new.append(stb_old.read())
+        stb_new.flush()
+
+
+        #SpectraLines
+        ltb_new.append(ltb_old.read())
+        ltb_new.flush()
+
+        #no change to Aperture
+        atb_new.append(atb_old.read())
+        atb_new.flush()
+
+        #CatalogMatch
+        ctb_new.append(ctb_old.read())
+        ctb_new.flush()
+
+        #no change to ExtractedObjects
+        etb_new.append(etb_old.read())
+        etb_new.flush()
+
+        #no change to ElixerApertures
+        xtb_new.append(xtb_old.read())
+        xtb_new.flush()
+
+        flush_all(newfile_handle)
+
+        # close the merge input file
+        newfile_handle.close()
+        oldfile_handle.close()
+
+        return True
+    except:
+        log.error("Upgrade failed %s to %s:" %(from_version,to_version),exc_info=True)
+        return False
 
 def upgrade_hdf5(oldfile,newfile):
     """
@@ -3349,6 +3438,12 @@ def upgrade_hdf5(oldfile,newfile):
             elif (max_version == '0.3.1') or (max_version == '0.3.2'):
                 func_list.append(upgrade_0p3px_to_0p4p0)
                 max_version = "0.4.0"
+            elif (max_version == '0.6.1'):
+                func_list.append(upgrade_0p6p1_to_0p6p2)
+                max_version = "0.6.2"
+            elif (max_version == '0.6.2'):
+                func_list.append(upgrade_0p6p2_to_0p6p3)
+                max_version = "0.6.3"
             else:
                 done = True
 

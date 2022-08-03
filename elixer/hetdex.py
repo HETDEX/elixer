@@ -753,6 +753,7 @@ class DetObj:
         self.bad_amp_dict = None
 
         #computed directly from HETDEX spectrum (3600AA-5400AA)
+        self.hetdex_gmag_limit = G.HETDEX_CONTINUUM_MAG_LIMIT #this will be specifically computed later for this IFU+shot
         self.hetdex_gmag = None
         self.hetdex_gmag_unc = None
         self.hetdex_gmag_cgs_cont = None
@@ -1373,7 +1374,7 @@ class DetObj:
                 # and may be elliptical, so there are certainly obvious sources of discrepencies)
                 if self.best_gmag is not None:
 
-                    dex_g_depth = G.HETDEX_CONTINUUM_MAG_LIMIT #24.5
+                    dex_g_depth = self.hetdex_gmag_limit #G.HETDEX_CONTINUUM_MAG_LIMIT #24.5
                     bright_skip = 22.0 #if both are brighter than this, skip the logic ... it cannot make any difference
                                        #and we can miss more flux at brighter mags since the aperture does not grow enough
                                        #and there are no real aperture corrections applied to the imaging aperture
@@ -2239,7 +2240,7 @@ class DetObj:
                     (self.best_gmag_cgs_cont_unc / self.best_gmag_cgs_cont) > 0.9) and multiline_sol_diag < 1:
                     #if there is no multiline solution ...
                     #really faint, severely limit the quality
-                    if self.best_gmag  > G.HETDEX_CONTINUUM_MAG_LIMIT:
+                    if self.best_gmag  > self.hetdex_gmag_limit: #G.HETDEX_CONTINUUM_MAG_LIMIT:
                         p = min(p,0.1)
                     else:
                         p = min(p,0.2)
@@ -4620,13 +4621,13 @@ class DetObj:
 
                 #sanity check. g_faint can be nan or None, esp if all non-detects and super faint
                 try:
-                    if g > G.HETDEX_CONTINUUM_MAG_LIMIT:
+                    if g > self.hetdex_gmag_limit: #G.HETDEX_CONTINUUM_MAG_LIMIT:
                         if g_faint is None or np.isnan(g_faint):
                             g_faint = max(g,29.0)
                             log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote. Non-detect unset g_faint set to {g_faint} as limit.")
 
                         if g_bright is None or np.isnan(g_bright):
-                            g_bright = min(g, G.HETDEX_CONTINUUM_MAG_LIMIT)
+                            g_bright = min(g, self.hetdex_gmag_limit) #G.HETDEX_CONTINUUM_MAG_LIMIT)
                             log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote. Non-detect unset g_bright set to {g_bright} as limit.")
 
                     if ew_err > ew:
@@ -7862,7 +7863,7 @@ class DetObj:
             else:  # something catastrophically bad
                 log.debug("No full width spectrum g-mag estimate is valid.")
                 self.best_gmag_selected = 'limit'
-                self.best_gmag = G.HETDEX_CONTINUUM_MAG_LIMIT
+                self.best_gmag = self.hetdex_gmag_limit #G.HETDEX_CONTINUUM_MAG_LIMIT
                 self.best_gmag_unc = 0
                 self.best_gmag_cgs_cont = G.HETDEX_CONTINUUM_FLUX_LIMIT
                 self.best_gmag_cgs_cont_unc = 0
@@ -7883,8 +7884,8 @@ class DetObj:
                 diff = abs(self.hetdex_gmag - self.sdss_gmag)
                 unc = self.hetdex_gmag_unc + self.sdss_gmag_unc
                 if (hetdex_okay == sdss_okay) and \
-                        ((self.hetdex_gmag < G.HETDEX_CONTINUUM_MAG_LIMIT) or (
-                                self.sdss_gmag < G.HETDEX_CONTINUUM_MAG_LIMIT)) and \
+                        ((self.hetdex_gmag < self.hetdex_gmag_limit) or (
+                                self.sdss_gmag < self.hetdex_gmag_limit)) and \
                         ((diff > unc) and (diff > 0.5)):
                     self.flags |= G.DETFLAG_DEXSPEC_GMAG_INCONSISTENT
                     log.info(f"DEX spectrum gmag disagree by {diff / unc:0.1f}x uncertainty. "
@@ -8146,6 +8147,9 @@ class DetObj:
                 good_idx = good_idx[0:min(len(good_idx), 4)]
 
                 all_calfib = np.concatenate([self.fibers[i].fits.calfib for i in good_idx], axis=0)
+
+                self.hetdex_gmag_limit = SU.calc_dex_g_limit(all_calfib, fwhm=self.survey_fwhm, flux_limit=4.0,
+                                                             aper=self.extraction_aperture)
 
                 # use the std dev of all "mostly empty" (hence sigma=3.0) or "sky" fibers as the error
                 mean, median, std = sigma_clipped_stats(all_calfib, axis=0, sigma=3.0)
@@ -8698,7 +8702,7 @@ class DetObj:
             else:
                 log.debug("No full width spectrum g-mag estimate is valid.")
                 self.best_gmag_selected = 'limit'
-                self.best_gmag = G.HETDEX_CONTINUUM_MAG_LIMIT
+                self.best_gmag = self.hetdex_gmag_limit
                 self.best_gmag_unc = 0
                 self.best_gmag_cgs_cont = G.HETDEX_CONTINUUM_FLUX_LIMIT
                 self.best_gmag_cgs_cont_unc = 0
@@ -8720,7 +8724,7 @@ class DetObj:
                 diff = abs(self.hetdex_gmag - self.sdss_gmag)
                 unc = self.hetdex_gmag_unc + self.sdss_gmag_unc
                 if (hetdex_okay == sdss_okay) and \
-                    ((self.hetdex_gmag < G.HETDEX_CONTINUUM_MAG_LIMIT) or (self.sdss_gmag <  G.HETDEX_CONTINUUM_MAG_LIMIT)) and \
+                    ((self.hetdex_gmag < self.hetdex_gmag_limit) or (self.sdss_gmag <  self.hetdex_gmag_limit)) and \
                     ((diff > unc) and (diff > 0.5)):
                     self.flags |= G.DETFLAG_DEXSPEC_GMAG_INCONSISTENT
                     log.info(f"DEX spectrum gmag disagree by {diff/unc:0.1f}x uncertainty. "
@@ -9011,6 +9015,9 @@ class DetObj:
                 good_idx = good_idx[0:min(len(good_idx),4)]
 
                 all_calfib = np.concatenate([self.fibers[i].fits.calfib for i in good_idx],axis=0)
+
+                self.hetdex_gmag_limit = SU.calc_dex_g_limit(all_calfib, fwhm=self.survey_fwhm, flux_limit=4.0,
+                                                             aper=self.extraction_aperture)
 
                 #use the std dev of all "mostly empty" (hence sigma=3.0) or "sky" fibers as the error
                 mean, median, std = sigma_clipped_stats(all_calfib, axis=0, sigma=3.0)

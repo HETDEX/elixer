@@ -1,5 +1,11 @@
 changes to elixer by version
 
+1.17.0a4 [2022-08-03]
+* replace fixed HETDED gmag limit (was 25.0) with computed limit from the IFU + shot for each detection (using mean
+  of "empty" fibers as a uniform background in a 3.5" radius aperture)
+* renamed best_z and best_pz in h5 file to z_best and z_best_pz
+* added mag_g_wide_limit to h5 file as the computed HETDEX gmag limit (or 25.0 by default)
+
 
 1.17.0a3 [2022-08-02]
 * Project LineFlux Image to the WCS of the master_cutout (neighborhood) and stacked_cutout (main report) so the NorthBox
