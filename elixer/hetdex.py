@@ -9015,8 +9015,10 @@ class DetObj:
                 good_idx = good_idx[0:min(len(good_idx),4)]
 
                 all_calfib = np.concatenate([self.fibers[i].fits.calfib for i in good_idx],axis=0)
+                all_calfibe = np.concatenate([self.fibers[i].fits.calfibe for i in good_idx],axis=0)
 
-                self.hetdex_gmag_limit = SU.calc_dex_g_limit(all_calfib, fwhm=self.survey_fwhm, flux_limit=4.0,
+                self.hetdex_gmag_limit = SU.calc_dex_g_limit(all_calfib, all_calfibe,
+                                                             fwhm=self.survey_fwhm, flux_limit=4.0,
                                                              aper=self.extraction_aperture)
 
                 #use the std dev of all "mostly empty" (hence sigma=3.0) or "sky" fibers as the error

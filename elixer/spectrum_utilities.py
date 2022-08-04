@@ -165,7 +165,7 @@ def get_fluxlimit_apcor(ra,dec,wave,datevobs,snrcut=4.8,flim_model="v4"):
         return None, None
 
 
-def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640.,aper=3.5):
+def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640.,aper=3.5):
     """
     calcuate an approximage gband mag limit for THIS set of calfibs (e.g. typically one IFU for one shot)
 
@@ -179,6 +179,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640
     try:
         # first trim off the ends that are not as well calibrated and/or subject to extemes
         all_calfib =calfib[:, 100:-100]
+        #all_calfibe = calfibe[:,100:-100]
 
         #get rid of any with obvious emission lines
         #make each element the mean of itself and its two neighbors and compare to the flux limit
@@ -187,14 +188,16 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640
         mf = mf[:,99:-99] #to match 100:-100 having shrunk by one (though it does not really matter)
         sel = np.max(mf, axis=1) < flux_limit
         all_calfib = all_calfib[sel]
+        #all_calfibe = all_calfibe[sel]
 
         #get rid of continuum (and negative continuum)
         cont_calfib = np.nanmean(all_calfib, axis=1) / 2.0  # mean flux density
-        sel = np.array(cont_calfib < 0.2) & np.array(cont_calfib > -0.2)
+        sel = np.array(cont_calfib < 0.5) & np.array(cont_calfib > -0.5)
         # so average above 2e-18 erg/s/cm2/AA or aboout g 23.6 (should always be better than this)
         # in the original LyCon paper this was 0.5 and -0.5 (and over 500AA chunks, not bullt of the array)
         #but I think we can close in a bit more than that. Really even 0.15 or 0.10 is probably also okay
         all_calfib = all_calfib[sel]
+        #all_calfibe = all_calfibe[sel]
         cont_calfib = cont_calfib[sel]
 
         #sort by the mean flux, and trim off the ends (the tails)
@@ -202,12 +205,18 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640
         trim_frac = 1. / 6.
         sel = [x for _, x in sorted(zip(cont_calfib, np.arange(sz)))][int(trim_frac * sz):int(-1 * trim_frac * sz)]
         all_calfib = all_calfib[sel]
+        #all_calfibe = all_calfibe[sel]
 
         #these are effectively empty fibers now and a measure of the noise
-        mean = np.nanmean(all_calfib)/2.0 #full mean over all remaining fibers and wavebins as  flux denisty
-        std = np.std(all_calfib)/2.0
+        #mean = np.nanmean(all_calfib)/2.0 #full mean over all remaining fibers and wavebins as  flux denisty
+        #std = np.std(all_calfib)/2.0
         #std_of_mean = np.std(np.mean(all_calfib/2.0,axis=0)) #std of the means treating each fiber individually
         #mean_of_means = np.mean(np.mean(all_calfib,axis=0)) #should be the same as the full mean
+
+        #want the mean of the means of the fibers (each fiber gets its own mean and then we want the mean and the std of those)
+        fiber_means = np.nanmean(all_calfib,axis=1)
+        mean_of_fiber_means = np.nanmean(fiber_means)
+        std_of_fiber_means = np.nanstd(fiber_means)
 
         #since this a background of "empty" fibers the PSF does not matter
         #as we assume this to be uniform, so any PSF would give the same flux.
@@ -217,7 +226,9 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640
             aper = 3.5
 
         #limit = cgs2mag( ((aper/1.5)**2) * mean * 1e-17,wavelength)
-        limit = cgs2mag( std * 1e-17,wavelength)
+        #limit = cgs2mag( (std - mean) * 1e-17,wavelength)
+        limit = cgs2mag( 5 * (std_of_fiber_means - mean_of_fiber_means) * 1e-17,wavelength)
+        #limit = cgs2mag(std_of_fiber_means * 1e-17, wavelength)
         if limit is None or np.isnan(limit):
             limit = G.HETDEX_CONTINUUM_MAG_LIMIT
     except:
