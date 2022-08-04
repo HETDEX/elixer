@@ -1456,7 +1456,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                  min_sigma=GAUSS_FIT_MIN_SIGMA,show_plot=False,plot_id=None,plot_path=None,do_mcmc=False,absorber=False,
                  force_score=False,values_dx=G.FLUX_WAVEBIN_WIDTH,allow_broad=False,broadfit=1,relax_fit=False,
                  min_fit_sigma=1.0,test_solution=None,wave_fit_side_aa=GAUSS_FIT_AA_RANGE, fit_range_AA=None,
-                 quick_fit=False,spec_obj=None,targetted_fit=False):
+                 quick_fit=False,spec_obj=None,targetted_fit=False,max_sigma=999.):
     """
 
     :param wavelengths:
@@ -1749,7 +1749,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
         for i,fd in enumerate(fit_dict_array):
             #if the sigma limit or the gmag is out of range for the particular "type" then skip it
-            if (fd["max_fit_sigma"] <= min_sigma) or (not allow_broad and fd["max_fit_sigma"] > 10.0) or \
+            # yes, I want max vs max, not min vs max
+            if (fd["max_fit_sigma"] <= min_sigma) or (fd["max_fit_sigma"] > max_sigma) or \
                     (gmag is not None and ( gmag > fd["max_gmag"] or gmag < fd["min_gmag"])):
                 fd["parm"] = [central,0,0,0]
                 fd["pcov"] = np.zeros((4, 4))
@@ -3910,9 +3911,9 @@ def peakdet(x,vals,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.
         quick_eli_list = []
         step = 4.0 #AA
         for central_wave in np.arange(G.CALFIB_WAVEGRID[0],G.CALFIB_WAVEGRID[-1]+step,step): #this is very slow, but maybe use broader steps?
-            #todo: limit to small or medium?
             quick_eli = signal_score(x, v, err, central_wave, values_units=values_units, absorber=absorber,
-                                     fit_range_AA=step*1.5, quick_fit=True,allow_broad=False,spec_obj=spec_obj)
+                                     fit_range_AA=step*1.5, quick_fit=True,allow_broad=False,spec_obj=spec_obj,
+                                     max_sigma=10.0) #max_sigma at 10. alllows small and medium (and hetdex std) fits
 
             if (quick_eli is not None):
                 quick_eli_list.append(quick_eli)

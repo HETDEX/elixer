@@ -201,11 +201,28 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
         cont_calfib = cont_calfib[sel]
 
         #sort by the mean flux, and trim off the ends (the tails)
-        sz = len(all_calfib)
-        trim_frac = 1. / 6.
-        sel = [x for _, x in sorted(zip(cont_calfib, np.arange(sz)))][int(trim_frac * sz):int(-1 * trim_frac * sz)]
-        all_calfib = all_calfib[sel]
-        #all_calfibe = all_calfibe[sel]
+        if False:
+            sz = len(all_calfib)
+            trim_frac = 1. / 6.
+            sel = [x for _, x in sorted(zip(cont_calfib, np.arange(sz)))][int(trim_frac * sz):int(-1 * trim_frac * sz)]
+            all_calfib = all_calfib[sel]
+            #all_calfibe = all_calfibe[sel]
+        else:
+            #what if, instead, we sigma clip?
+            oldlen = len(all_calfib)
+            newlen = -1
+            while oldlen != newlen:
+                fiber_means = np.nanmean(all_calfib, axis=1)
+                mean_of_fiber_means = np.nanmean(fiber_means)
+                std_of_fiber_means = np.nanstd(fiber_means)
+                sclip = 3.0
+                sel = np.array( abs(mean_of_fiber_means - fiber_means) < sclip * std_of_fiber_means)
+                if np.count_nonzero(sel) < 250:
+                    break #just leave as it was
+                oldlen = len(all_calfib)
+                all_calfib = all_calfib[sel]
+                newlen = len(all_calfib)
+
 
         #these are effectively empty fibers now and a measure of the noise
         #mean = np.nanmean(all_calfib)/2.0 #full mean over all remaining fibers and wavebins as  flux denisty

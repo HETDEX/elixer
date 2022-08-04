@@ -55,6 +55,9 @@ class Detections(tables.IsDescription):
     specid = tables.StringCol(itemsize=3)
     ifuslot = tables.StringCol(itemsize=3)
     ifuid = tables.StringCol(itemsize=3)
+    amp = tables.StringCol(itemsize=2)
+    multiframe = tables.StringCol(itemsize=20)
+
     if G.HDR_Version_float == 1:
         seeing_gaussian = tables.Float32Col(dflt=UNSET_FLOAT)
         seeing_moffat = tables.Float32Col(dflt=UNSET_FLOAT)
@@ -813,6 +816,12 @@ def append_entry(fileh,det,overwrite=False):
         row['specid'] = det.fibers[0].specid
         row['ifuslot'] = det.fibers[0].ifuslot
         row['ifuid'] = det.fibers[0].ifuid
+        row['amp'] = det.fibers[0].amp
+        try:
+            row['multiframe'] = det.fibers[0].multi.rstrip('_0123456789')
+        except:
+            row['multiframe'] = "xxxxxxxxxxxxxxxxxxxx"
+
 
         if G.HDR_Version_float == 1:
             try:
@@ -3347,6 +3356,10 @@ def upgrade_0p6p2_to_0p6p3(oldfile_handle,newfile_handle):
                         new_row[n] = old_row["best_pz"]
                     elif n == "mag_g_wide_limit":
                         new_row[n] = G.HETDEX_CONTINUUM_MAG_LIMIT
+                    elif n == "amp":
+                        new_row[n] = "XX"
+                    elif n == "multiframe":
+                        new_row[n] = "xxxxxxxxxxxxxxxxxxxx"
                     else:
                         new_row[n] = old_row[n]
                 except:
