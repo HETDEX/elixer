@@ -1608,7 +1608,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         else:
             raw_peak = max(values[peak_pos-dpix:peak_pos+dpix+1])
             if raw_peak <= 0:
-                log.warning("Spectrum::signal_score invalid raw peak %f" %raw_peak)
+                if not quick_fit:
+                    log.warning("Spectrum::signal_score invalid raw peak %f" %raw_peak)
                 return None
     except:
         #this can fail if on very edge, but if so, we would not use it anyway
@@ -2387,9 +2388,9 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
         mcmc = mcmc_gauss.MCMC_Gauss()
 
-        if bad_curve_fit:
+        if bad_curve_fit and (eli.snr is None or eli.fit_chi2 is None or eli.snr < 5.0 or eli.fit_chi2 > 3.0):
             mcmc.initial_mu = central
-            mcmc.initial_sigma = 1.0
+            mcmc.initial_sigma = 1.7
             mcmc.initial_A = raw_peak * 2.355 * mcmc.initial_sigma  # / adjust
             if absorber:
                 mcmc.initial_A *= -1
@@ -2404,6 +2405,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         mcmc.data_y = narrow_wave_counts # / adjust
         mcmc.err_y = narrow_wave_errors  # not the 1./err*err .... that is done in the mcmc likelihood function
 
+
         # if using the scipy::curve_fit, 50-100 burn-in and ~1000 main run is plenty
         # if other input (like Karl's) ... the method is different and we are farther off ... takes longer to converge
         #   but still converges close to the scipy::curve_fit
@@ -2413,6 +2415,9 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         else:
             mcmc.burn_in = 250
             mcmc.main_run = 1200
+
+        print(f"**** MCMC: run ({mcmc.main_run}), mu ({mcmc.initial_mu}), data_x ({len(mcmc.data_x)}), "
+              f"sigma ({mcmc.initial_sigma}), A ({mcmc.initial_A}), y ({mcmc.initial_y }) ")
 
         # mcmc.burn_in = 250
         # mcmc.main_run = 1200
@@ -3876,6 +3881,7 @@ def peakdet(x,vals,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.
 
     v = copy.copy(vals)
     eli_list = []
+    eli_poor_list = []
 
     #always run the SNR scan
     log.info(f"Running line finder, SN ({'absorption' if absorber else 'emission'}) ...")
@@ -3912,8 +3918,10 @@ def peakdet(x,vals,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.
         step = 4.0 #AA
         for central_wave in np.arange(G.CALFIB_WAVEGRID[0],G.CALFIB_WAVEGRID[-1]+step,step): #this is very slow, but maybe use broader steps?
             quick_eli = signal_score(x, v, err, central_wave, values_units=values_units, absorber=absorber,
-                                     fit_range_AA=step*1.5, quick_fit=True,allow_broad=False,spec_obj=spec_obj,
+                                     fit_range_AA=step*0.55, quick_fit=True,allow_broad=False,spec_obj=spec_obj,
                                      max_sigma=10.0) #max_sigma at 10. alllows small and medium (and hetdex std) fits
+            #fit_range_AA is to either side, so only want some overlap so step/2 * 1.5 or step * 0.75 (may be too much of an overlap, just need a little)
+            #anything greater than 0.5
 
             if (quick_eli is not None):
                 quick_eli_list.append(quick_eli)
@@ -3924,13 +3932,26 @@ def peakdet(x,vals,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.
             #now a full fit
             eli = signal_score(x, v, err, e.fit_x0, values_units=values_units, min_sigma=min_sigma, absorber=absorber,spec_obj=spec_obj)
 
-            if (eli is not None) and ((not enforce_good) or eli.is_good()):
-                eli_list.append(eli)
+            if (eli is not None):
+                if ((not enforce_good) or eli.is_good()):
+                    eli_list.append(eli)
+                else:
+                    eli_poor_list.append(eli)
 
     #condense the list
     log.debug(f"Peakdet results (pre-condense): {len(eli_list)} possible {'absorption' if absorber else 'emission'} "
               f"lines at: {[e.fit_x0 for e in eli_list]}")
-    combined_eli = combine_lines(eli_list,sep=6.0)
+
+    if len(eli_list) == 0:
+        log.debug(
+            f"Peakdet results (pre-condense) poor list: {len(eli_poor_list)} possible {'absorption' if absorber else 'emission'} "
+            f"lines at: {[e.fit_x0 for e in eli_poor_list]}")
+        combined_eli = combine_lines(eli_poor_list, sep=6.0)
+        if len(combined_eli) > 1:
+            idx = np.argmax([e.raw_line_score for e in combined_eli])
+            combined_eli = [combined_eli[idx]]
+    else:
+        combined_eli = combine_lines(eli_list,sep=6.0)
 
     try:
         log.info(f"Peakdet results: {len(combined_eli)} possible {'absorption' if absorber else 'emission'} "

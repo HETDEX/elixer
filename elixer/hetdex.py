@@ -7919,7 +7919,6 @@ class DetObj:
                 pass
 
             if not self.w:
-
                 # find the "best" wavelength to use as the central peak
                 #spectrum = elixer_spectrum.Spectrum()
                 if self.spec_obj is None:
