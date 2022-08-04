@@ -102,7 +102,7 @@ MAX_LINESCORE_SNR = 20.0 #limit the contribution to the line score of the comput
 
 #beyond an okay fit (see GAUSS_FIT_xxx above) is this a "good" signal
 GOOD_BROADLINE_SIGMA = 6.0 #getting broad
-LIMIT_BROAD_SIGMA = 7.0 #above this the emission line must specifically allow "broad"
+LIMIT_BROAD_SIGMA = 8.49 #not 8.5 ... tend to get 8.49999, #7.0 #above this the emission line must specifically allow "broad"
 
 GOOD_BROADLINE_SNR = 11.0 # upshot ... protect against neighboring "noise" that fits a broad line ...
                           # if big sigma, better have big SNR
@@ -1749,7 +1749,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
         for i,fd in enumerate(fit_dict_array):
             #if the sigma limit or the gmag is out of range for the particular "type" then skip it
-            if (fd["max_fit_sigma"] <= min_sigma) or \
+            if (fd["max_fit_sigma"] <= min_sigma) or (not allow_broad and fd["max_fit_sigma"] > 10.0) or \
                     (gmag is not None and ( gmag > fd["max_gmag"] or gmag < fd["min_gmag"])):
                 fd["parm"] = [central,0,0,0]
                 fd["pcov"] = np.zeros((4, 4))
@@ -1805,15 +1805,15 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                   f"ew {fit_dict_array[fd_idx]['ew']:0.1f} ")
 
         #EXTRA logging for debugging
-        for idx in range(len(fit_dict_array)):
-            try:
-                log.debug(f"*** All fit:  ({fit_dict_array[fd_idx]['parm'][0]:0.1f}) "
-                          f"{fit_dict_array[idx]['type']}, quick score {fit_dict_array[idx]['score']:0.2f}, "
-                          f"snr {fit_dict_array[idx]['snr']:0.2f}, chi2 {fit_dict_array[idx]['chi2']:0.2f}, "
-                          f"sigma {fit_dict_array[idx]['parm'][1]:0.2f}, area = {fit_dict_array[idx]['parm'][2]:0.2f}, "
-                          f"ew {fit_dict_array[idx]['ew']:0.2f}")
-            except:
-                log.debug(f"***** idx {idx} *****")
+        # for idx in range(len(fit_dict_array)):
+        #     try:
+        #         log.debug(f"*** All fit:  ({fit_dict_array[fd_idx]['parm'][0]:0.1f}) "
+        #                   f"{fit_dict_array[idx]['type']}, quick score {fit_dict_array[idx]['score']:0.2f}, "
+        #                   f"snr {fit_dict_array[idx]['snr']:0.2f}, chi2 {fit_dict_array[idx]['chi2']:0.2f}, "
+        #                   f"sigma {fit_dict_array[idx]['parm'][1]:0.2f}, area = {fit_dict_array[idx]['parm'][2]:0.2f}, "
+        #                   f"ew {fit_dict_array[idx]['ew']:0.2f}")
+        #     except:
+        #         log.debug(f"***** idx {idx} *****")
 
 
         #print(f" *** Selected: {fit_dict_array[fd_idx]['type']}")
@@ -3877,14 +3877,14 @@ def peakdet(x,vals,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.
     eli_list = []
 
     #always run the SNR scan
-    log.debug(f"Running line finder, SN ({'absorption' if absorber else 'emission'}) ...")
+    log.info(f"Running line finder, SN ({'absorption' if absorber else 'emission'}) ...")
     eli_list = sn_peakdet(x,v,err,values_units=values_units,enforce_good=enforce_good,min_sigma=min_sigma,
                           absorber=absorber,spec_obj=spec_obj)
 
     #median filter DOES help for broad lines (LINE_FINDER_MEDIAN_SCAN must be odd, so %2 needs to be not zero)
     if G.LINE_FINDER_MEDIAN_SCAN > 0 and (G.LINE_FINDER_MEDIAN_SCAN % 2):
         try:
-            log.debug(f"Running line finder, SN with median ({G.LINE_FINDER_MEDIAN_SCAN}) filter ({'absorption' if absorber else 'emission'}) ...")
+            log.info(f"Running line finder, SN with median ({G.LINE_FINDER_MEDIAN_SCAN}) filter ({'absorption' if absorber else 'emission'}) ...")
             #repeat with median filter and kick up the minimum sigma for a broadfit
             medfilter_eli_list = sn_peakdet(x,medfilt(v,G.LINE_FINDER_MEDIAN_SCAN),medfilt(err,G.LINE_FINDER_MEDIAN_SCAN),
                                            values_units=values_units,
@@ -3906,12 +3906,13 @@ def peakdet(x,vals,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.
 
     #just iterate over signal_score
     if (G.LINE_FINDER_FULL_FIT_SCAN or len(eli_list) == 0) and not absorber: #this can be slow ... only run if set OR if no lines found??
-        log.debug(f"Running line finder, full fit ({'absorption' if absorber else 'emission'})  ...")
+        log.info(f"Running line finder, full fit ({'absorption' if absorber else 'emission'})  ...")
         quick_eli_list = []
-        step = 2.0 #AA
+        step = 4.0 #AA
         for central_wave in np.arange(G.CALFIB_WAVEGRID[0],G.CALFIB_WAVEGRID[-1]+step,step): #this is very slow, but maybe use broader steps?
+            #todo: limit to small or medium?
             quick_eli = signal_score(x, v, err, central_wave, values_units=values_units, absorber=absorber,
-                                     fit_range_AA=step*1.5, quick_fit=True,spec_obj=spec_obj)
+                                     fit_range_AA=step*1.5, quick_fit=True,allow_broad=False,spec_obj=spec_obj)
 
             if (quick_eli is not None):
                 quick_eli_list.append(quick_eli)
@@ -3931,11 +3932,11 @@ def peakdet(x,vals,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.
     combined_eli = combine_lines(eli_list,sep=6.0)
 
     try:
-        log.debug(f"Peakdet results: {len(combined_eli)} possible {'absorption' if absorber else 'emission'} "
+        log.info(f"Peakdet results: {len(combined_eli)} possible {'absorption' if absorber else 'emission'} "
                   f"lines at: {[e.fit_x0 for e in combined_eli]}")
         #print(f"*****Peakdet, {len(combined_eli)} possible {lt} lines at:\n{[e.fit_x0 for e in combined_eli]} ")
     except:
-        log.debug("Exception logging peakdet list",exc_info=True)
+        log.warning("Exception logging peakdet list",exc_info=True)
     return combined_eli
 #end (new) peakdet
 
