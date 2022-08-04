@@ -218,6 +218,14 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
         mean_of_fiber_means = np.nanmean(fiber_means)
         std_of_fiber_means = np.nanstd(fiber_means)
 
+
+        if abs(mean_of_fiber_means > 0.1): # 0.05 ~25.01 g, 0.075 ~ 24.57, 0.08 ~ 24.50g, 0.10 ~24.26
+            # #would be same as straight mean of all wavelength bin fluxes
+            #something is wrong
+            log.info(f"HETDEX gmag limit bad calculation. mean of fiber means {mean_of_fiber_means}. "
+                     f"Setting to default {G.HETDEX_CONTINUUM_MAG_LIMIT}.")
+            return G.HETDEX_CONTINUUM_MAG_LIMIT
+
         #since this a background of "empty" fibers the PSF does not matter
         #as we assume this to be uniform, so any PSF would give the same flux.
         #BUT, the aperture does matter, so how much flux would we expect in a 3.5" diam aperture?
@@ -228,7 +236,8 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
         #limit = cgs2mag( ((aper/1.5)**2) * mean * 1e-17,wavelength)
         #limit = cgs2mag( (std - mean) * 1e-17,wavelength)
         #limit = cgs2mag( 5 * (std_of_fiber_means - mean_of_fiber_means) * 1e-17,wavelength) #often goes negative
-        limit = cgs2mag(std_of_fiber_means * 1e-17, wavelength)
+
+        limit = cgs2mag(5. * std_of_fiber_means * 1e-17, wavelength)
         if limit is None or np.isnan(limit):
             limit = G.HETDEX_CONTINUUM_MAG_LIMIT
     except:
