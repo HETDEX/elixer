@@ -227,8 +227,8 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
 
         #limit = cgs2mag( ((aper/1.5)**2) * mean * 1e-17,wavelength)
         #limit = cgs2mag( (std - mean) * 1e-17,wavelength)
-        limit = cgs2mag( 5 * (std_of_fiber_means - mean_of_fiber_means) * 1e-17,wavelength)
-        #limit = cgs2mag(std_of_fiber_means * 1e-17, wavelength)
+        #limit = cgs2mag( 5 * (std_of_fiber_means - mean_of_fiber_means) * 1e-17,wavelength) #often goes negative
+        limit = cgs2mag(std_of_fiber_means * 1e-17, wavelength)
         if limit is None or np.isnan(limit):
             limit = G.HETDEX_CONTINUUM_MAG_LIMIT
     except:
