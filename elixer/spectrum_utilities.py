@@ -207,7 +207,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
             sel = [x for _, x in sorted(zip(cont_calfib, np.arange(sz)))][int(trim_frac * sz):int(-1 * trim_frac * sz)]
             all_calfib = all_calfib[sel]
             #all_calfibe = all_calfibe[sel]
-        else:
+        elif False:
             #what if, instead, we sigma clip?
             oldlen = len(all_calfib)
             newlen = -1
@@ -222,7 +222,13 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
                 oldlen = len(all_calfib)
                 all_calfib = all_calfib[sel]
                 newlen = len(all_calfib)
-
+        else: #a single 2-sigma clip (if normally distributed, this would be the interior 95%)
+            fiber_means = np.nanmean(all_calfib, axis=1)
+            mean_of_fiber_means = np.nanmean(fiber_means)
+            std_of_fiber_means = np.nanstd(fiber_means)
+            sclip = 2.0
+            sel = np.array(abs(mean_of_fiber_means - fiber_means) < sclip * std_of_fiber_means)
+            all_calfib = all_calfib[sel]
 
         #these are effectively empty fibers now and a measure of the noise
         #mean = np.nanmean(all_calfib)/2.0 #full mean over all remaining fibers and wavebins as  flux denisty
