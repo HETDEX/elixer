@@ -8355,7 +8355,7 @@ class DetObj:
             pass
 
 
-    def load_hdf5_fluxcalibrated_spectra(self,hdf5_fn,id,basic_only=False):
+    def load_hdf5_fluxcalibrated_spectra(self,hdf5_fn,id,basic_only=False,hdf5_survey_fqfn=None):
         """
 
         :return:
@@ -8441,6 +8441,9 @@ class DetObj:
 
             self.ifu_x = row['x_ifu']
             self.ifu_y = row['y_ifu']
+
+            if hdf5_survey_fqfn is not None:
+                self.load_hdf5_shot_info(hdf5_survey_fqfn, self.survey_shotid)
 
             if basic_only: #we're done, this is all we need
                 return
@@ -10631,10 +10634,15 @@ class HETDEX:
                     e.outdir = self.output_filename
 
                 #todo: load the HDF5 data here ...
+
+
                 #e.load_fluxcalibrated_spectra()
-                e.load_hdf5_fluxcalibrated_spectra(self.hdf5_detect_fqfn,d,basic_only=basic_only)
-                #need the shotid from the detection
-                if e.survey_shotid and (e.status >= 0):
+                e.load_hdf5_fluxcalibrated_spectra(self.hdf5_detect_fqfn,d,basic_only=basic_only,
+                                                   hdf5_survey_fqfn=self.hdf5_survey_fqfn)
+
+                # #need the shotid from the detection
+                #use survey_fhwm to check to see if this already loaded
+                if e.survey_shotid and (e.status >= 0) and (e.survey_fwhm is None):
                     e.load_hdf5_shot_info(self.hdf5_survey_fqfn, e.survey_shotid)
 
                 if e.status >= 0:

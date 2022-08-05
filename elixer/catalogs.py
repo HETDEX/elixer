@@ -119,13 +119,22 @@ class CatalogLibrary:
         return cat_catch_all.CATCH_ALL()
 
     def get_sdss(self):
-        return cat_sdss.SDSS()
+        if G.USE_PHOTO_CATS:
+            return cat_sdss.SDSS()
+        else:
+            return None
 
     def get_panstarrs(self):
-        return cat_panstarrs.PANSTARRS()
+        if G.USE_PHOTO_CATS:
+            return cat_panstarrs.PANSTARRS()
+        else:
+            return None
 
     def get_decals_web(self):
-        return cat_decals_web.DECaLS()
+        if G.USE_PHOTO_CATS:
+            return cat_decals_web.DECaLS()
+        else:
+            return None
 
 
     def find_catalogs(self,position,verify=False):

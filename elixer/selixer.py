@@ -482,6 +482,11 @@ if "--timex" in args:
 else:
     timex = 1.0
 
+#if nophot is specified (do not use photometric imaging, so will not retrieve it)
+#we want to cut the nominal time in half, so, it is the equivalent of cuting timex by 1/2
+if "--nophoto" in args:
+    timex /= 2.0
+
 #sanity check the time ... might be just hh:mm
 #count the colons
 colons = len(time.split(":"))-1
