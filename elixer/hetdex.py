@@ -9039,12 +9039,46 @@ class DetObj:
                 amp_dit = [self.fibers[i].fits.amp + str(self.fibers[i].fits.expid) for i in good_idx]
                 _,good_idx = np.unique(amp_dit,return_index=True)
 
+
+
+
+                #get 12 fits? 3 dither x 4 multiframe (amps)
+                dummy_fiber = self.fibers[0] #just use one we already have?
+                base_multi = dummy_fiber.multi[:18] #ends in _ need to add LL, LU, RU, RL
+                fits_fn = dummy_fiber.find_hdf5_multifits(loc=op.dirname(hdf5_fn))
+
+
+                fits = hetdex_fits.HetdexFits(empty=True)
+                fits.filename = fits_fn
+
+                ifu_calfib = None
+
+                for exp in range(1,4):
+                    fits.expid = 1 #then 2, 3
+                    for amp in ["LL","LU","RL","RU"]:
+                        fits.multiframe = base_multi + amp
+                        try:
+                            fits.read_hdf5()
+
+                            if ifu_calfib is None:
+                                ifu_calfib = fits.calfib
+                            else:
+                                ifu_calfib = np.concatenate((ifu_calfib,fits.calfib),axis=0)
+
+                        except:
+                            log.warning("Exception loading IFU in test",exc_info=True)
+
+
                 #this would be as the (max) of 336 fibers (112 * 3), but could be less if top fibers have more repeat amp+dither
                 #really should be the 448 x 3 fibers of whole IFU?
                 all_calfib = np.concatenate([self.fibers[i].fits.calfib for i in good_idx],axis=0)
                 #all_calfibe = np.concatenate([self.fibers[i].fits.calfibe for i in good_idx],axis=0)
 
-                self.hetdex_gmag_limit = SU.calc_dex_g_limit(all_calfib, calfibe=None,
+                # self.hetdex_gmag_limit = SU.calc_dex_g_limit(all_calfib, calfibe=None,
+                #                                              fwhm=self.survey_fwhm, flux_limit=4.0,
+                #                                              aper=self.extraction_aperture)
+
+                self.hetdex_gmag_limit = SU.calc_dex_g_limit(ifu_calfib, calfibe=None,
                                                              fwhm=self.survey_fwhm, flux_limit=4.0,
                                                              aper=self.extraction_aperture)
 
