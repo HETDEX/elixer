@@ -260,7 +260,17 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
         #limit = cgs2mag( (std - mean) * 1e-17,wavelength)
         #limit = cgs2mag( 5 * (std_of_fiber_means - mean_of_fiber_means) * 1e-17,wavelength) #often goes negative
 
-        limit = cgs2mag(5. * std_of_fiber_means * 1e-17, wavelength)
+
+        # approx area using just the heights (since the base is on a uniform grid, that will divide out)
+        inner = np.sum(gaussian(0, np.arange(0,0.75,0.01), fwhm/2.355, a=1.0, y=0.0))
+        whole = np.sum(gaussian(0, np.arange(0,aper,0.01), fwhm/2.355, a=1.0, y=0.0))
+        #this is really an area correction, but since the 1D spectrum for HETDEX is PSF weighted,
+        #this is based on the (approximate) fraction of the whole of that weight provided by the central most fiber
+        #IF we are centered on it. Better seeing (smaller fwhm) is a smaller correction since more flux is from that
+        #center fiber (narrower PSF).
+        psf_corr = whole/inner  #or 1 / (inner/whole)
+
+        limit = cgs2mag(psf_corr * 5. * std_of_fiber_means * 1e-17, wavelength) #5 for 5 sigma limit
         if limit is None or np.isnan(limit):
             limit = G.HETDEX_CONTINUUM_MAG_LIMIT
     except:

@@ -10561,14 +10561,16 @@ class HETDEX:
                     self.emis_list.append(e) #still need to append to list so the neighborhood report will generate
                     return
 
+
+                if e.survey_shotid and (e.status >= 0):
+                    e.load_hdf5_shot_info(self.hdf5_survey_fqfn,  e.survey_shotid)
+
                 e.forced_extraction()
 
                 if e.survey_shotid and (e.status >= 0):
-
                     if e.w != self.target_wavelength:
                         log.info(f"Updating Central Wavelength (Target Wavelength) from {self.target_wavelength} to {e.w}")
                         self.target_wavelength = e.w
-                    e.load_hdf5_shot_info(self.hdf5_survey_fqfn,  e.survey_shotid)
 
                 if e.status >= 0:
                     e.check_transients_and_flags()
