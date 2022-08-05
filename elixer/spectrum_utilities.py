@@ -178,9 +178,13 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
     limit = G.HETDEX_CONTINUUM_MAG_LIMIT
     try:
         # first trim off the ends that are not as well calibrated and/or subject to extemes
-        all_calfib =calfib[:, 100:-100]
+        #all_calfib = calfib[:, 100:-100]
         #all_calfibe = calfibe[:,100:-100]
+        all_calfib = calfib[:, 600:900]
+        all_calfibe = calfibe[:,600:900]
 
+
+    #could be something very wrong with the error
         #get rid of any with obvious emission lines
         #make each element the mean of itself and its two neighbors and compare to the flux limit
         #this is roughly equivalent to the LyCon paper looking for any 3 consecutive wavebins with 4.0, 5.0, 4.0 flux or greater
@@ -188,16 +192,23 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
         mf = mf[:,99:-99] #to match 100:-100 having shrunk by one (though it does not really matter)
         sel = np.max(mf, axis=1) < flux_limit
         all_calfib = all_calfib[sel]
-        #all_calfibe = all_calfibe[sel]
+        all_calfibe = all_calfibe[sel]
+
+
+        #get rid of any with calfibe issues
+        #lots of zeros or -1 values (make the califb value == nan??
+        bad_e = np.isnan(all_calfibe) | np.array(all_calfibe <=0)
+        all_calfib[bad_e] = np.nan
 
         #get rid of continuum (and negative continuum)
         cont_calfib = np.nanmean(all_calfib, axis=1) / 2.0  # mean flux density
-        sel = np.array(cont_calfib < 0.5) & np.array(cont_calfib > -0.5)
+        #sel = np.array(cont_calfib < 0.5) & np.array(cont_calfib > -0.5)
+        sel = np.array(cont_calfib < 0.2) & np.array(cont_calfib > -0.05)
         # so average above 2e-18 erg/s/cm2/AA or aboout g 23.6 (should always be better than this)
         # in the original LyCon paper this was 0.5 and -0.5 (and over 500AA chunks, not bullt of the array)
         #but I think we can close in a bit more than that. Really even 0.15 or 0.10 is probably also okay
         all_calfib = all_calfib[sel]
-        #all_calfibe = all_calfibe[sel]
+        all_calfibe = all_calfibe[sel]
         cont_calfib = cont_calfib[sel]
 
         #sort by the mean flux, and trim off the ends (the tails)
@@ -268,7 +279,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
         #this is based on the (approximate) fraction of the whole of that weight provided by the central most fiber
         #IF we are centered on it. Better seeing (smaller fwhm) is a smaller correction since more flux is from that
         #center fiber (narrower PSF).
-        psf_corr = whole/inner  #or 1 / (inner/whole)
+        psf_corr = 1.0 # whole/inner  #or 1 / (inner/whole)
 
         limit = cgs2mag(psf_corr * 5. * std_of_fiber_means * 1e-17, wavelength) #5 for 5 sigma limit
         if limit is None or np.isnan(limit):

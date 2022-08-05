@@ -9052,18 +9052,34 @@ class DetObj:
                 fits.filename = fits_fn
 
                 ifu_calfib = None
+                ifu_calfibe = None
+                already_read, alread_read_idx = np.unique([f.fits.amp + str(f.fits.expid) for f in self.fibers],return_index=True)
 
                 for exp in range(1,4):
                     fits.expid = 1 #then 2, 3
                     for amp in ["LL","LU","RL","RU"]:
                         fits.multiframe = base_multi + amp
+                        #might have already read this one
                         try:
-                            fits.read_hdf5()
+                            try: #if we already have it, don't re-read
+                                fibidx = np.where(already_read == amp + str(exp))[0][0]
+                                if ifu_calfib is None:
+                                    ifu_calfib = self.fibers[fibidx].fits.calfib
+                                    ifu_calfibe = self.fibers[fibidx].fits.calfibe
+                                else:
+                                    ifu_calfib = np.concatenate((ifu_calfib, self.fibers[fibidx].fits.calfib),
+                                                                axis=0)
+                                    ifu_calfibe = np.concatenate((ifu_calfibe, self.fibers[fibidx].fits.calfibe),
+                                                                axis=0)
+                            except:
+                                fits.read_hdf5()
 
-                            if ifu_calfib is None:
-                                ifu_calfib = fits.calfib
-                            else:
-                                ifu_calfib = np.concatenate((ifu_calfib,fits.calfib),axis=0)
+                                if ifu_calfib is None:
+                                    ifu_calfib = fits.calfib
+                                    ifu_calfibe = fits.calfibe
+                                else:
+                                    ifu_calfib = np.concatenate((ifu_calfib,fits.calfib),axis=0)
+                                    ifu_calfibe = np.concatenate((ifu_calfibe,fits.calfibe),axis=0)
 
                         except:
                             log.warning("Exception loading IFU in test",exc_info=True)
@@ -9071,14 +9087,14 @@ class DetObj:
 
                 #this would be as the (max) of 336 fibers (112 * 3), but could be less if top fibers have more repeat amp+dither
                 #really should be the 448 x 3 fibers of whole IFU?
-                all_calfib = np.concatenate([self.fibers[i].fits.calfib for i in good_idx],axis=0)
+                #all_calfib = np.concatenate([self.fibers[i].fits.calfib for i in good_idx],axis=0)
                 #all_calfibe = np.concatenate([self.fibers[i].fits.calfibe for i in good_idx],axis=0)
 
                 # self.hetdex_gmag_limit = SU.calc_dex_g_limit(all_calfib, calfibe=None,
                 #                                              fwhm=self.survey_fwhm, flux_limit=4.0,
                 #                                              aper=self.extraction_aperture)
 
-                self.hetdex_gmag_limit = SU.calc_dex_g_limit(ifu_calfib, calfibe=None,
+                self.hetdex_gmag_limit = SU.calc_dex_g_limit(ifu_calfib, calfibe=ifu_calfibe,
                                                              fwhm=self.survey_fwhm, flux_limit=4.0,
                                                              aper=self.extraction_aperture)
 
