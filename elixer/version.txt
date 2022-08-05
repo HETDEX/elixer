@@ -7,6 +7,8 @@ changes to elixer by version
 * added "amp" and "multiframe" columns to h5 file Detections table
 * added mag_g_wide_limit to h5 file as the computed HETDEX gmag limit (or 25.0 by default)
 * if --nophot specified, cut the total run time by 1/2
+* updated --nophoto to also turn of the web on-demand photometery (DECaLS, PanSTARRS, SDSS). Though they have their own
+  switches, this is the more expected behavior for --nophoto
 
 
 1.17.0a3 [2022-08-02]

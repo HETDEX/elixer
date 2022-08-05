@@ -803,6 +803,7 @@ class DetObj:
         self.relflux_virus = []
         self.amp_stats = 0.0 #todo:???
         self.survey_fieldname = None
+        self.exptimes = [None, None, None] #exposure times, usually 3 dithers
 
         self.multiline_z_minimum_flag = False #False == multiline no good solution, True = 1 good solution
 
@@ -7255,6 +7256,10 @@ class DetObj:
             except:
                 self.dither_norm = -1.0
 
+            try:
+                self.exptimes = row['exptime']
+            except:
+                self.exptimes = [None,None,None]
             #relflux_virus
 
            # astro = h5_survey.root.Astrometry.NominalVals
@@ -8143,12 +8148,25 @@ class DetObj:
             #build a noise estimate over the top 4 fibers (amps)?
             try:
                 good_idx = np.where([x.fits for x in self.fibers])[0]  # some might be None, so get those that are not
-                good_idx = good_idx[0:min(len(good_idx), 4)]
+                good_idx = good_idx[0:min(len(good_idx), 4)] #these are the amps (112 fibers) on which the top 4 fibers appear
+                                                            #there can be repeats (more than one of top 4 appears on same amp + dither)
+
+                #make unique amp + dither
+                amp_dit = [self.fibers[i].fits.amp + str(self.fibers[i].fits.expid) for i in good_idx]
+                _,good_idx = np.unique(amp_dit,return_index=True)
 
                 all_calfib = np.concatenate([self.fibers[i].fits.calfib for i in good_idx], axis=0)
 
+                #this would be as the (max) of 336 fibers (112 * 3), but could be less if top fibers have more repeat amp+dither
+                #really should be the 448 x 3 fibers of whole IFU?
                 self.hetdex_gmag_limit = SU.calc_dex_g_limit(all_calfib, fwhm=self.survey_fwhm, flux_limit=4.0,
                                                              aper=self.extraction_aperture)
+
+                try:
+                    log.debug(f"HETDED gmag limit ({self.hetdex_gmag_limit:0.2f}); seeeing ({self.survey_fwhm}), "
+                              f"thruput ({self.survey_response}), exptimes ({self.exptimes})")
+                except:
+                    pass
 
                 # use the std dev of all "mostly empty" (hence sigma=3.0) or "sky" fibers as the error
                 mean, median, std = sigma_clipped_stats(all_calfib, axis=0, sigma=3.0)
@@ -9014,14 +9032,28 @@ class DetObj:
             #build a noise estimate over the top 4 fibers (amps)?
             try:
                 good_idx = np.where([x.fits for x in self.fibers])[0] #some might be None, so get those that are not
-                good_idx = good_idx[0:min(len(good_idx),4)]
+                good_idx = good_idx[0:min(len(good_idx),4)] #these are the amps (112 fibers) on which the top 4 fibers appear
+                                                            #there can be repeats (more than one of top 4 appears on same amp + dither)
 
+                #make unique amp + dither
+                amp_dit = [self.fibers[i].fits.amp + str(self.fibers[i].fits.expid) for i in good_idx]
+                _,good_idx = np.unique(amp_dit,return_index=True)
+
+                #this would be as the (max) of 336 fibers (112 * 3), but could be less if top fibers have more repeat amp+dither
+                #really should be the 448 x 3 fibers of whole IFU?
                 all_calfib = np.concatenate([self.fibers[i].fits.calfib for i in good_idx],axis=0)
-                all_calfibe = np.concatenate([self.fibers[i].fits.calfibe for i in good_idx],axis=0)
+                #all_calfibe = np.concatenate([self.fibers[i].fits.calfibe for i in good_idx],axis=0)
 
-                self.hetdex_gmag_limit = SU.calc_dex_g_limit(all_calfib, all_calfibe,
+                self.hetdex_gmag_limit = SU.calc_dex_g_limit(all_calfib, calfibe=None,
                                                              fwhm=self.survey_fwhm, flux_limit=4.0,
                                                              aper=self.extraction_aperture)
+
+                try:
+                    log.debug(f"HETDED gmag limit ({self.hetdex_gmag_limit:0.2f}); seeeing ({self.survey_fwhm}), "
+                              f"thruput ({self.survey_response}), exptimes ({self.exptimes})")
+                except:
+                    pass
+
 
                 #use the std dev of all "mostly empty" (hence sigma=3.0) or "sky" fibers as the error
                 mean, median, std = sigma_clipped_stats(all_calfib, axis=0, sigma=3.0)
@@ -10564,8 +10596,9 @@ class HETDEX:
                     self.emis_list.append(e) #still need to append to list so the neighborhood report will generate
                     return
 
-
-                if e.survey_shotid and (e.status >= 0):
+                # #need the shotid from the detection
+                #use survey_fhwm to check to see if this already loaded
+                if e.survey_shotid and (e.status >= 0) and (e.survey_fwhm is None):
                     e.load_hdf5_shot_info(self.hdf5_survey_fqfn,  e.survey_shotid)
 
                 e.forced_extraction()
@@ -10632,9 +10665,6 @@ class HETDEX:
 
                 if e.outdir is None:
                     e.outdir = self.output_filename
-
-                #todo: load the HDF5 data here ...
-
 
                 #e.load_fluxcalibrated_spectra()
                 e.load_hdf5_fluxcalibrated_spectra(self.hdf5_detect_fqfn,d,basic_only=basic_only,

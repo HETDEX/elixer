@@ -483,9 +483,9 @@ else:
     timex = 1.0
 
 #if nophot is specified (do not use photometric imaging, so will not retrieve it)
-#we want to cut the nominal time in half, so, it is the equivalent of cuting timex by 1/2
+#we want to cut the nominal time in half, so, it is the equivalent of cuting timex down
 if "--nophoto" in args:
-    timex /= 2.0
+    timex *= 0.7  # 0.5 is a bit too much ...
 
 #sanity check the time ... might be just hh:mm
 #count the colons

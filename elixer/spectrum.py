@@ -1778,8 +1778,10 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                 #does NOT apply to absorbers
                 if not absorber:
                     if np.isclose(fd["parm"][1],fd["max_fit_sigma"],atol=1e-2) or (fd["parm"][1] > fd["max_fit_sigma"]):
-                        if fd["snr"] < 10.0: #todo: maybe also check score?
+                        if fd["chi2"] > 3.5:
                             fd["score"] = 0
+                        #if fd["snr"] < 10.0: #todo: maybe also check score?
+                        #    fd["score"] = 0
                         else:
                             try:  # add a new key for use later when filtering out emission that is just continuum between absorbers
                                 fd["next_max_sigma"] = fit_dict_array[i + 1]["max_fit_sigma"]
@@ -1807,15 +1809,15 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                   f"ew {fit_dict_array[fd_idx]['ew']:0.1f} ")
 
         #EXTRA logging for debugging
-        # for idx in range(len(fit_dict_array)):
-        #     try:
-        #         log.debug(f"*** All fit:  ({fit_dict_array[fd_idx]['parm'][0]:0.1f}) "
-        #                   f"{fit_dict_array[idx]['type']}, quick score {fit_dict_array[idx]['score']:0.2f}, "
-        #                   f"snr {fit_dict_array[idx]['snr']:0.2f}, chi2 {fit_dict_array[idx]['chi2']:0.2f}, "
-        #                   f"sigma {fit_dict_array[idx]['parm'][1]:0.2f}, area = {fit_dict_array[idx]['parm'][2]:0.2f}, "
-        #                   f"ew {fit_dict_array[idx]['ew']:0.2f}")
-        #     except:
-        #         log.debug(f"***** idx {idx} *****")
+        for idx in range(len(fit_dict_array)):
+            try:
+                log.debug(f"*** All fit:  ({fit_dict_array[fd_idx]['parm'][0]:0.1f}) "
+                          f"{fit_dict_array[idx]['type']}, quick score {fit_dict_array[idx]['score']:0.2f}, "
+                          f"snr {fit_dict_array[idx]['snr']:0.2f}, chi2 {fit_dict_array[idx]['chi2']:0.2f}, "
+                          f"sigma {fit_dict_array[idx]['parm'][1]:0.2f}, area = {fit_dict_array[idx]['parm'][2]:0.2f}, "
+                          f"ew {fit_dict_array[idx]['ew']:0.2f}")
+            except:
+                log.debug(f"***** idx {idx} *****")
 
 
         #print(f" *** Selected: {fit_dict_array[fd_idx]['type']}")
@@ -2416,8 +2418,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             mcmc.burn_in = 250
             mcmc.main_run = 1200
 
-        print(f"**** MCMC: run ({mcmc.main_run}), mu ({mcmc.initial_mu}), data_x ({len(mcmc.data_x)}), "
-              f"sigma ({mcmc.initial_sigma}), A ({mcmc.initial_A}), y ({mcmc.initial_y }) ")
+        #print(f"**** MCMC: run ({mcmc.main_run}), mu ({mcmc.initial_mu}), data_x ({len(mcmc.data_x)}), "
+        #      f"sigma ({mcmc.initial_sigma}), A ({mcmc.initial_A}), y ({mcmc.initial_y }) ")
 
         # mcmc.burn_in = 250
         # mcmc.main_run = 1200
