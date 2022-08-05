@@ -178,10 +178,10 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
     limit = G.HETDEX_CONTINUUM_MAG_LIMIT
     try:
         # first trim off the ends that are not as well calibrated and/or subject to extemes
-        #all_calfib = calfib[:, 100:-100]
-        #all_calfibe = calfibe[:,100:-100]
-        all_calfib = calfib[:, 600:900]
-        all_calfibe = calfibe[:,600:900]
+        all_calfib = calfib[:, 100:-100]
+        all_calfibe = calfibe[:,100:-100]
+        # all_calfib = calfib[:, 600:900] #try a redward, stable region (avoid skylines and "chip gap" and poor blue calibration)
+        # all_calfibe = calfibe[:,600:900]
 
 
     #could be something very wrong with the error
@@ -201,11 +201,11 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
         all_calfib[bad_e] = np.nan
 
         #get rid of continuum (and negative continuum)
-        cont_calfib = np.nanmean(all_calfib, axis=1) / 2.0  # mean flux density
+        cont_calfib = np.nanmean(all_calfib, axis=1) /2.0 # mean flux denisties
         #sel = np.array(cont_calfib < 0.5) & np.array(cont_calfib > -0.5)
         sel = np.array(cont_calfib < 0.2) & np.array(cont_calfib > -0.05)
         # so average above 2e-18 erg/s/cm2/AA or aboout g 23.6 (should always be better than this)
-        # in the original LyCon paper this was 0.5 and -0.5 (and over 500AA chunks, not bullt of the array)
+        # in the original LyCon paper this was 0.5 and -0.5 (and over 500AA chunks, not built of the array)
         #but I think we can close in a bit more than that. Really even 0.15 or 0.10 is probably also okay
         all_calfib = all_calfib[sel]
         all_calfibe = all_calfibe[sel]
@@ -248,7 +248,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
         #mean_of_means = np.mean(np.mean(all_calfib,axis=0)) #should be the same as the full mean
 
         #want the mean of the means of the fibers (each fiber gets its own mean and then we want the mean and the std of those)
-        fiber_means = np.nanmean(all_calfib,axis=1)
+        fiber_means = np.nanmean(all_calfib,axis=1) / 2.0 #!! don't forget the 2.0 !! these are fluxes in 2AA bins, need flux densities
         mean_of_fiber_means = np.nanmean(fiber_means)
         std_of_fiber_means = np.nanstd(fiber_means)
 
@@ -273,13 +273,16 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
 
 
         # approx area using just the heights (since the base is on a uniform grid, that will divide out)
-        inner = np.sum(gaussian(0, np.arange(0,0.75,0.01), fwhm/2.355, a=1.0, y=0.0))
-        whole = np.sum(gaussian(0, np.arange(0,aper,0.01), fwhm/2.355, a=1.0, y=0.0))
         #this is really an area correction, but since the 1D spectrum for HETDEX is PSF weighted,
         #this is based on the (approximate) fraction of the whole of that weight provided by the central most fiber
         #IF we are centered on it. Better seeing (smaller fwhm) is a smaller correction since more flux is from that
         #center fiber (narrower PSF).
-        psf_corr = 1.0 # whole/inner  #or 1 / (inner/whole)
+
+        #BUT can we argue that for point sources, we capture (approximately) all the flux in aperture regardless
+        #of the PSF (to a point, but with a 3.5" radius aperuture and PSF below 3", typically ~1.7")
+        inner = np.sum(gaussian(0, np.arange(0,0.75,0.01), fwhm/2.355, a=1.0, y=0.0))
+        whole = np.sum(gaussian(0, np.arange(0,aper,0.01), fwhm/2.355, a=1.0, y=0.0))
+        psf_corr = whole/inner  #or 1 / (inner/whole)
 
         limit = cgs2mag(psf_corr * 5. * std_of_fiber_means * 1e-17, wavelength) #5 for 5 sigma limit
         if limit is None or np.isnan(limit):
