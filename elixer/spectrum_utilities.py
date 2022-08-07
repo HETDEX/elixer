@@ -261,11 +261,11 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
 
         #want the mean of the means of the fibers (each fiber gets its own mean and then we want the mean and the std of those)
         fiber_means = np.nanmean(all_calfib,axis=1) / 2.0 #!! don't forget the 2.0 !! these are fluxes in 2AA bins, need flux densities
-        fiber_mean_errors = np.nanmean(np.sqrt(all_calfibe * all_calfibe),axis=1)/2.0
+        #fiber_mean_errors = np.nanmean(np.sqrt(all_calfibe * all_calfibe),axis=1)/2.0
         mean_of_fiber_means = np.nanmean(fiber_means)
         std_of_fiber_means = np.nanstd(fiber_means)
-        mean_of_fiber_errors = np.nanmean(fiber_mean_errors)
-        std_of_fiber_errors = np.nanstd(fiber_mean_errors)
+        #mean_of_fiber_errors = np.nanmean(fiber_mean_errors)
+        #std_of_fiber_errors = np.nanstd(fiber_mean_errors)
 
         if abs(mean_of_fiber_means > 0.1): # 0.05 ~25.01 g, 0.075 ~ 24.57, 0.08 ~ 24.50g, 0.10 ~24.26
             # #would be same as straight mean of all wavelength bin fluxes
@@ -298,8 +298,9 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
         whole = np.sum(gaussian(np.arange(0,aper,0.01),0, fwhm/2.355, a=1.0, y=0.0))
         psf_corr = whole/inner  #or 1 / (inner/whole)
 
-        #limit = cgs2mag(psf_corr * 5. * std_of_fiber_means * 1e-17, wavelength) #5 for 5 sigma limit
-        limit = cgs2mag(psf_corr * 5. * std_of_fiber_errors * 1e-17, wavelength) #5 for 5 sigma limit
+        limit = cgs2mag(psf_corr * 5. * std_of_fiber_means * 1e-17, wavelength) #5 for 5 sigma limit
+        #this one (std_of_fiber_errors) does not make sense as the way to go, but was just a test
+        #limit = cgs2mag(psf_corr * 5. * std_of_fiber_errors * 1e-17, wavelength) #5 for 5 sigma limit
         if limit is None or np.isnan(limit):
             limit = G.HETDEX_CONTINUUM_MAG_LIMIT
     except:
