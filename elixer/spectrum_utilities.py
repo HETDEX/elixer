@@ -202,8 +202,8 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
 
         #get rid of continuum (and negative continuum)
         cont_calfib = np.nanmean(all_calfib, axis=1) /2.0 # mean flux denisties
-        #sel = np.array(cont_calfib < 0.5) & np.array(cont_calfib > -0.5)
-        sel = np.array(cont_calfib < 0.2) & np.array(cont_calfib > -0.05)
+        sel = np.array(cont_calfib < 0.5) & np.array(cont_calfib > -0.5)
+        #sel = np.array(cont_calfib < 0.2) & np.array(cont_calfib > -0.05)
         # so average above 2e-18 erg/s/cm2/AA or aboout g 23.6 (should always be better than this)
         # in the original LyCon paper this was 0.5 and -0.5 (and over 500AA chunks, not built of the array)
         #but I think we can close in a bit more than that. Really even 0.15 or 0.10 is probably also okay
@@ -211,13 +211,25 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
         all_calfibe = all_calfibe[sel]
         cont_calfib = cont_calfib[sel]
 
+
+
+        #todo: !!! try flipping a bit ... sort and trim very edges, say last 2.5% from either end (keeping roughly
+        #todo: the interrior 2-sigma; then perform a single (3?) sigma clip on what remains and us that as the sample
+        #todo: s|t we probably get rid of any extreme outliers but keep more than just the interior 1-sigma
+
+        #todo: ***could*** also see about a weighted biweight and use the scale instead of std dev and make use of
+        #todo: the calfibe to weight the weighted biweight; or have the stddev of the means include the errors on those
+        #todo: means which would come from the calfibe (in quadrature) ...
+        #todo: !!! so, compute the mean +/- calfibe (in quadrature) for each fiber, then feed that into weighted biweight
+        #todo: !!! and use the biweight scale x5 instead of std dev x5
+
         #sort by the mean flux, and trim off the ends (the tails)
         if True: #this gives the "deepest" results #~ 24.9 +/- 0.35 with some pushing 26
             sz = len(all_calfib)
             trim_frac = 0.16 #maybe a larger range??
             sel = [x for _, x in sorted(zip(cont_calfib, np.arange(sz)))][int(trim_frac * sz):int(-1 * trim_frac * sz)]
             all_calfib = all_calfib[sel]
-            #all_calfibe = all_calfibe[sel]
+            all_calfibe = all_calfibe[sel]
         elif False: #this is about the same as the single 1-sigma clip #24.2 +/- 0.35
             #what if, instead, we sigma clip?
             oldlen = len(all_calfib)
@@ -249,9 +261,11 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
 
         #want the mean of the means of the fibers (each fiber gets its own mean and then we want the mean and the std of those)
         fiber_means = np.nanmean(all_calfib,axis=1) / 2.0 #!! don't forget the 2.0 !! these are fluxes in 2AA bins, need flux densities
+        fiber_mean_errors = np.nanmean(np.sqrt(all_calfibe * all_calfibe),axis=1)/2.0
         mean_of_fiber_means = np.nanmean(fiber_means)
         std_of_fiber_means = np.nanstd(fiber_means)
-
+        mean_of_fiber_errors = np.nanmean(fiber_mean_errors)
+        std_of_fiber_errors = np.nanstd(fiber_mean_errors)
 
         if abs(mean_of_fiber_means > 0.1): # 0.05 ~25.01 g, 0.075 ~ 24.57, 0.08 ~ 24.50g, 0.10 ~24.26
             # #would be same as straight mean of all wavelength bin fluxes
@@ -280,11 +294,12 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
 
         #BUT can we argue that for point sources, we capture (approximately) all the flux in aperture regardless
         #of the PSF (to a point, but with a 3.5" radius aperuture and PSF below 3", typically ~1.7")
-        inner = np.sum(gaussian(0, np.arange(0,0.75,0.01), fwhm/2.355, a=1.0, y=0.0))
-        whole = np.sum(gaussian(0, np.arange(0,aper,0.01), fwhm/2.355, a=1.0, y=0.0))
+        inner = np.sum(gaussian(np.arange(0,0.75,0.01),0, fwhm/2.355, a=1.0, y=0.0))
+        whole = np.sum(gaussian(np.arange(0,aper,0.01),0, fwhm/2.355, a=1.0, y=0.0))
         psf_corr = whole/inner  #or 1 / (inner/whole)
 
-        limit = cgs2mag(psf_corr * 5. * std_of_fiber_means * 1e-17, wavelength) #5 for 5 sigma limit
+        #limit = cgs2mag(psf_corr * 5. * std_of_fiber_means * 1e-17, wavelength) #5 for 5 sigma limit
+        limit = cgs2mag(psf_corr * 5. * std_of_fiber_errors * 1e-17, wavelength) #5 for 5 sigma limit
         if limit is None or np.isnan(limit):
             limit = G.HETDEX_CONTINUUM_MAG_LIMIT
     except:

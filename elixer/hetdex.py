@@ -9095,7 +9095,7 @@ class DetObj:
                 #                                              aper=self.extraction_aperture)
 
                 self.hetdex_gmag_limit = SU.calc_dex_g_limit(ifu_calfib, calfibe=ifu_calfibe,
-                                                             fwhm=self.survey_fwhm, flux_limit=4.0,
+                                                             fwhm=self.survey_fwhm,
                                                              aper=self.extraction_aperture)
 
                 try:
