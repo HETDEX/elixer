@@ -251,7 +251,6 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
         if False:
             #no cut
             pass
-
         elif True: #this gives the "deepest" results #~ 24.9 +/- 0.35 with some pushing 26
             sz = len(all_calfib)
             trim_frac =  0.025 #maybe a larger range??
