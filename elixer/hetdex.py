@@ -8163,7 +8163,7 @@ class DetObj:
                                                              aper=self.extraction_aperture)
 
                 try:
-                    log.debug(f"HETDED gmag limit ({self.hetdex_gmag_limit:0.2f}); seeeing ({self.survey_fwhm}), "
+                    log.debug(f"HETDEX gmag limit ({self.hetdex_gmag_limit:0.2f}); seeeing ({self.survey_fwhm}), "
                               f"thruput ({self.survey_response}), exptimes ({self.exptimes})")
                 except:
                     pass
@@ -9099,7 +9099,7 @@ class DetObj:
                                                              aper=self.extraction_aperture)
 
                 try:
-                    log.debug(f"HETDED gmag limit ({self.hetdex_gmag_limit:0.2f}); seeeing ({self.survey_fwhm}), "
+                    log.debug(f"HETDEX gmag limit ({self.hetdex_gmag_limit:0.2f}); seeeing ({self.survey_fwhm}), "
                               f"thruput ({self.survey_response}), exptimes ({self.exptimes})")
                 except:
                     pass

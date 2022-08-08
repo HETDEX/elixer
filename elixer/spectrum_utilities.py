@@ -224,12 +224,28 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
         #todo: !!! and use the biweight scale x5 instead of std dev x5
 
         #sort by the mean flux, and trim off the ends (the tails)
-        if True: #this gives the "deepest" results #~ 24.9 +/- 0.35 with some pushing 26
+        if False: #this gives the "deepest" results #~ 24.9 +/- 0.35 with some pushing 26
             sz = len(all_calfib)
             trim_frac = 0.16 #maybe a larger range??
             sel = [x for _, x in sorted(zip(cont_calfib, np.arange(sz)))][int(trim_frac * sz):int(-1 * trim_frac * sz)]
             all_calfib = all_calfib[sel]
             all_calfibe = all_calfibe[sel]
+        elif True:
+            sz = len(all_calfib)
+            trim_frac = 0.025 #maybe a larger range??
+            sel = [x for _, x in sorted(zip(cont_calfib, np.arange(sz)))][int(trim_frac * sz):int(-1 * trim_frac * sz)]
+            all_calfib = all_calfib[sel]
+            all_calfibe = all_calfibe[sel]
+
+            #now single sigma cli
+            fiber_means = np.nanmean(all_calfib, axis=1)
+            mean_of_fiber_means = np.nanmean(fiber_means)
+            std_of_fiber_means = np.nanstd(fiber_means)
+            sclip = 3.0
+            sel = np.array(abs(mean_of_fiber_means - fiber_means) < sclip * std_of_fiber_means)
+            all_calfib = all_calfib[sel]
+            all_calfibe = all_calfibe[sel]
+
         elif False: #this is about the same as the single 1-sigma clip #24.2 +/- 0.35
             #what if, instead, we sigma clip?
             oldlen = len(all_calfib)
