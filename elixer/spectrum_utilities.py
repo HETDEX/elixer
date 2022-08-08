@@ -243,7 +243,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
             sel = [x for _, x in sorted(zip(cont_calfib, np.arange(sz)))][int(trim_frac * sz):int(-1 * trim_frac * sz)]
             all_calfib = all_calfib[sel]
             all_calfibe = all_calfibe[sel]
-        elif True:
+        elif False:
             #single sigma clip
             fiber_means = np.nanmean(all_calfib, axis=1)
             mean_of_fiber_means = np.nanmean(fiber_means)
@@ -268,7 +268,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
             plt.hist(np.nanmean(all_calfib, axis=1), bins=50)
             plt.savefig("glimit_hist3.png")
 
-        elif False: #this is about the same as the single 1-sigma clip #24.2 +/- 0.35
+        elif True: #this is about the same as the single 1-sigma clip #24.2 +/- 0.35
             #what if, instead, we sigma clip?
             oldlen = len(all_calfib)
             newlen = -1
