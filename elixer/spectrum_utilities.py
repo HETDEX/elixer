@@ -248,7 +248,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
         #Since this is based on the scatter about an effectively zero measure, the more I trim the sample,
         #the smaller the scatter and the fainter the measured mag-limit, SO, we do want to trim those that have
         #detected flux and any with problems, but need to be very careful about triming anything else
-        if False:
+        if True:
             #no cut
             pass
 
