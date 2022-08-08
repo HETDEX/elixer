@@ -188,7 +188,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
         # plt.savefig("glimit_hist1.png")
 
 
-    #could be something very wrong with the error
+        #could be something very wrong with the error
         #get rid of any with obvious emission lines
         #make each element the mean of itself and its two neighbors and compare to the flux limit
         #this is roughly equivalent to the LyCon paper looking for any 3 consecutive wavebins with 4.0, 5.0, 4.0 flux or greater
@@ -203,12 +203,18 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
         #lots of zeros or -1 values (make the califb value == nan??
         bad_e = np.isnan(all_calfibe) | np.array(all_calfibe <=0)
         all_calfib[bad_e] = np.nan
+        all_calfib[all_calfib==0] = np.nan #some could legit be exactly zero, but that would be very rare
+
+        #remove any fibers with more than 20 nans ?
+        sel = np.array([np.count_nonzero(np.isnan(x)) for x in all_calfib[:]]) < 20
+        all_calfib = all_calfib[sel]
+        all_calfibe = all_calfibe[sel]
 
         #get rid of continuum (and negative continuum)
         cont_calfib = np.nanmean(all_calfib, axis=1) /2.0 # mean flux denisties
         #sel = np.array(cont_calfib < 0.5) & np.array(cont_calfib > -0.5)
         sel = np.array(cont_calfib < 0.2) & np.array(cont_calfib > -0.2)
-        # so average above 2e-18 erg/s/cm2/AA or aboout g 23.6 (should always be better than this)
+        # so average above 2e-18 erg/s/cm2/AA or aboout g 23.5 (should always be better than this)
         # in the original LyCon paper this was 0.5 and -0.5 (and over 500AA chunks, not built of the array)
         #but I think we can close in a bit more than that. Really even 0.15 or 0.10 is probably also okay
         all_calfib = all_calfib[sel]
@@ -237,9 +243,18 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
         # !!! and use the biweight scale x5 instead of std dev x5
 
         #sort by the mean flux, and trim off the ends (the tails)
-        if False: #this gives the "deepest" results #~ 24.9 +/- 0.35 with some pushing 26
+
+
+        #Since this is based on the scatter about an effectively zero measure, the more I trim the sample,
+        #the smaller the scatter and the fainter the measured mag-limit, SO, we do want to trim those that have
+        #detected flux and any with problems, but need to be very careful about triming anything else
+        if False:
+            #no cut
+            pass
+
+        elif True: #this gives the "deepest" results #~ 24.9 +/- 0.35 with some pushing 26
             sz = len(all_calfib)
-            trim_frac = 0.16 #maybe a larger range??
+            trim_frac =  0.05 #maybe a larger range??
             sel = [x for _, x in sorted(zip(cont_calfib, np.arange(sz)))][int(trim_frac * sz):int(-1 * trim_frac * sz)]
             all_calfib = all_calfib[sel]
             all_calfibe = all_calfibe[sel]
@@ -268,7 +283,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
             plt.hist(np.nanmean(all_calfib, axis=1), bins=50)
             plt.savefig("glimit_hist3.png")
 
-        elif True: #this is about the same as the single 1-sigma clip #24.2 +/- 0.35
+        elif False: #this is about the same as the single 1-sigma clip #24.2 +/- 0.35
             #what if, instead, we sigma clip?
             oldlen = len(all_calfib)
             newlen = -1
@@ -287,7 +302,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
             fiber_means = np.nanmean(all_calfib, axis=1)
             mean_of_fiber_means = np.nanmean(fiber_means)
             std_of_fiber_means = np.nanstd(fiber_means)
-            sclip = 3.0
+            sclip = 5.0
             sel = np.array(abs(mean_of_fiber_means - fiber_means) < sclip * std_of_fiber_means)
             all_calfib = all_calfib[sel]
 
@@ -311,6 +326,11 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
             log.info(f"HETDEX gmag limit bad calculation. mean of fiber means {mean_of_fiber_means}. "
                      f"Setting to default {G.HETDEX_CONTINUUM_MAG_LIMIT}.")
             return G.HETDEX_CONTINUUM_MAG_LIMIT
+
+
+        plt.close('all')
+        plt.hist(np.nanmean(all_calfib,axis=1),bins=50)
+        plt.savefig("glimit_hist_f.png")
 
         #since this a background of "empty" fibers the PSF does not matter
         #as we assume this to be uniform, so any PSF would give the same flux.
