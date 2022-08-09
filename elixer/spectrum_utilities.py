@@ -233,6 +233,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
         #lots of zeros or -1 values (make the califb value == nan??
         bad_e = np.isnan(all_calfibe) | np.array(all_calfibe <=0)
         all_calfib[bad_e] = np.nan
+        all_calfibe[bad_e] = np.nan #will want the nan later; do not want any 0 values for this purpose
         all_calfib[all_calfib==0] = np.nan #some could legit be exactly zero, but that would be very rare
 
         #remove any fibers with more than 20 nans ?
@@ -283,7 +284,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
         if False:
             #no cut
             pass
-        elif True: #this gives the "deepest" results #~ 24.9 +/- 0.35 with some pushing 26
+        elif False: #this gives the "deepest" results #~ 24.9 +/- 0.35 with some pushing 26
             sz = len(all_calfib)
             trim_frac =  0.05 #maybe a larger range??
             sel = [x for _, x in sorted(zip(cont_calfib, np.arange(sz)))][int(trim_frac * sz):int(-1 * trim_frac * sz)]
@@ -293,10 +294,28 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
             #check here ... which fibers are trimmed off
             all_fibers = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid]) / len(ifu_fibid)
             remaining_fibers = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid[sel]])/len(sel)
+        elif True: #clip the largest ERRORS (Calfibe) (clip one side only
+
+            # plt.close('all')
+            # plt.hist(np.nanmean(all_calfibe,axis=1),bins=np.arange(0.1,0.3,0.001))
+            # plt.savefig("calfibe_hist_pre.png")
 
 
+            sz = len(all_calfibe)
+            trim_frac = 0.10  # maybe a larger range??
+            #sort is in assending order (low to high)
+            #nanmean is better than sum since there may be nan's along the way
+            sel = [x for _, x in sorted(zip(np.nanmean(all_calfibe, axis=1), np.arange(sz)))][0:int(-1 * trim_frac * sz)]
+            all_calfib = all_calfib[sel]
+            all_calfibe = all_calfibe[sel]
 
+            # plt.close('all')
+            # plt.hist(np.nanmean(all_calfibe,axis=1),bins=np.arange(0.1,0.3,0.001))
+            # plt.savefig("calfibe_hist_post.png")
 
+            # check here ... which fibers are trimmed off
+            all_fibers = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid]) / len(ifu_fibid)
+            remaining_fibers = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid[sel]]) / len(sel)
 
         elif False:
             #single sigma clip

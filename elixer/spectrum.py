@@ -1809,15 +1809,15 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                   f"ew {fit_dict_array[fd_idx]['ew']:0.1f} ")
 
         #EXTRA logging for debugging
-        for idx in range(len(fit_dict_array)):
-            try:
-                log.debug(f"*** All fit:  ({fit_dict_array[fd_idx]['parm'][0]:0.1f}) "
-                          f"{fit_dict_array[idx]['type']}, quick score {fit_dict_array[idx]['score']:0.2f}, "
-                          f"snr {fit_dict_array[idx]['snr']:0.2f}, chi2 {fit_dict_array[idx]['chi2']:0.2f}, "
-                          f"sigma {fit_dict_array[idx]['parm'][1]:0.2f}, area = {fit_dict_array[idx]['parm'][2]:0.2f}, "
-                          f"ew {fit_dict_array[idx]['ew']:0.2f}")
-            except:
-                log.debug(f"***** idx {idx} *****")
+        # for idx in range(len(fit_dict_array)):
+        #     try:
+        #         log.debug(f"*** All fit:  ({fit_dict_array[fd_idx]['parm'][0]:0.1f}) "
+        #                   f"{fit_dict_array[idx]['type']}, quick score {fit_dict_array[idx]['score']:0.2f}, "
+        #                   f"snr {fit_dict_array[idx]['snr']:0.2f}, chi2 {fit_dict_array[idx]['chi2']:0.2f}, "
+        #                   f"sigma {fit_dict_array[idx]['parm'][1]:0.2f}, area = {fit_dict_array[idx]['parm'][2]:0.2f}, "
+        #                   f"ew {fit_dict_array[idx]['ew']:0.2f}")
+        #     except:
+        #         log.debug(f"***** idx {idx} *****")
 
 
         #print(f" *** Selected: {fit_dict_array[fd_idx]['type']}")
