@@ -130,6 +130,31 @@ from astropy import constants as Const
 
 McDonald_Coord = Coord.EarthLocation.of_site('mcdonald')
 
+
+def is_edge_fiber(absolute_fiber_num, ifux=None, ifuy=None):
+    """
+    fiber_num is the ABSOLUTE fiber number 1-448
+    NOT the per amp number (1-112)
+
+    or use fiber center IFUx and IFUy as the fiber may be in a non-standard location
+    but the IFUx and IFUy should be correct
+
+    # -22.88 < x < 22.88 ,  -24.24 < y < 24.24
+
+    :param fiber_num:
+    :return:
+    """
+
+    if ifux is None or ifuy is None:
+        return absolute_fiber_num in G.CCD_EDGE_FIBERS_ALL
+    else:
+        # back off just a bit for some slop
+        if (-22.5 < ifux < 22.5) and (-24.0 < ifuy < 24.0):
+            return False
+        else:
+            return True
+
+
 def get_fluxlimit_apcor(ra,dec,wave,datevobs,snrcut=4.8,flim_model="v4"):
     """
     wrapper to call into HETDEX API
@@ -165,7 +190,7 @@ def get_fluxlimit_apcor(ra,dec,wave,datevobs,snrcut=4.8,flim_model="v4"):
         return None, None
 
 
-def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640.,aper=3.5):
+def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640.,aper=3.5,ifu_fibid = None):
     """
     calcuate an approximage gband mag limit for THIS set of calfibs (e.g. typically one IFU for one shot)
 
@@ -180,6 +205,10 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
         # first trim off the ends that are not as well calibrated and/or subject to extemes
         all_calfib = calfib[:, 100:-100]
         all_calfibe = calfibe[:,100:-100]
+        if ifu_fibid is None:
+            ifu_fibid = np.full(len(all_calfib,axis=1),-1)
+
+        base_edge = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid]) / len(ifu_fibid)
         # all_calfib = calfib[:, 600:900] #try a redward, stable region (avoid skylines and "chip gap" and poor blue calibration)
         # all_calfibe = calfibe[:,600:900]
 
@@ -197,6 +226,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
         sel = np.max(mf, axis=1) < flux_limit
         all_calfib = all_calfib[sel]
         all_calfibe = all_calfibe[sel]
+        ifu_fibid = ifu_fibid[sel]
 
 
         #get rid of any with calfibe issues
@@ -209,6 +239,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
         sel = np.array([np.count_nonzero(np.isnan(x)) for x in all_calfib[:]]) < 20
         all_calfib = all_calfib[sel]
         all_calfibe = all_calfibe[sel]
+        ifu_fibid = ifu_fibid[sel]
 
         #get rid of continuum (and negative continuum)
         cont_calfib = np.nanmean(all_calfib, axis=1) /2.0 # mean flux denisties
@@ -220,6 +251,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
         all_calfib = all_calfib[sel]
         all_calfibe = all_calfibe[sel]
         cont_calfib = cont_calfib[sel]
+        ifu_fibid = ifu_fibid[sel]
 
 
 
@@ -253,10 +285,19 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
             pass
         elif True: #this gives the "deepest" results #~ 24.9 +/- 0.35 with some pushing 26
             sz = len(all_calfib)
-            trim_frac =  0.16 #maybe a larger range??
+            trim_frac =  0.025 #maybe a larger range??
             sel = [x for _, x in sorted(zip(cont_calfib, np.arange(sz)))][int(trim_frac * sz):int(-1 * trim_frac * sz)]
             all_calfib = all_calfib[sel]
             all_calfibe = all_calfibe[sel]
+
+            #check here ... which fibers are trimmed off
+            all_fibers = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid]) / len(ifu_fibid)
+            remaining_fibers = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid[sel]])/len(sel)
+
+            print(f"base_edge: {base_edge:0.4f}, pre-cut: {all_fibers:0.4f}, final_edge {remaining_fibers:0.4f}")
+
+
+
         elif False:
             #single sigma clip
             fiber_means = np.nanmean(all_calfib, axis=1)
@@ -327,9 +368,9 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
             return G.HETDEX_CONTINUUM_MAG_LIMIT
 
 
-        plt.close('all')
-        plt.hist(np.nanmean(all_calfib,axis=1),bins=50)
-        plt.savefig("glimit_hist_f.png")
+        # plt.close('all')
+        # plt.hist(np.nanmean(all_calfib,axis=1),bins=50)
+        # plt.savefig("glimit_hist_f.png")
 
         #since this a background of "empty" fibers the PSF does not matter
         #as we assume this to be uniform, so any PSF would give the same flux.

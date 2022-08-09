@@ -9053,7 +9053,9 @@ class DetObj:
 
                 ifu_calfib = None
                 ifu_calfibe = None
+                ifu_fibid = None
                 already_read, alread_read_idx = np.unique([f.fits.amp + str(f.fits.expid) for f in self.fibers],return_index=True)
+                AMP_OFFSET = {"LU": 1, "LL": 113, "RL": 225, "RU": 337}
 
                 for exp in range(1,4):
                     fits.expid = 1 #then 2, 3
@@ -9066,20 +9068,27 @@ class DetObj:
                                 if ifu_calfib is None:
                                     ifu_calfib = self.fibers[fibidx].fits.calfib
                                     ifu_calfibe = self.fibers[fibidx].fits.calfibe
+                                    ifu_fibid =  elixer_fiber.AMP_OFFSET[amp] + np.arange(111,-1,-1)
+
                                 else:
                                     ifu_calfib = np.concatenate((ifu_calfib, self.fibers[fibidx].fits.calfib),
                                                                 axis=0)
                                     ifu_calfibe = np.concatenate((ifu_calfibe, self.fibers[fibidx].fits.calfibe),
                                                                 axis=0)
+                                    ifu_fibid =   np.concatenate((ifu_fibid,
+                                                                  elixer_fiber.AMP_OFFSET[amp] + np.arange(111,-1,-1) ))
                             except:
                                 fits.read_hdf5()
 
                                 if ifu_calfib is None:
                                     ifu_calfib = fits.calfib
                                     ifu_calfibe = fits.calfibe
+                                    ifu_fibid = elixer_fiber.AMP_OFFSET[amp] + np.arange(111,-1,-1)
                                 else:
                                     ifu_calfib = np.concatenate((ifu_calfib,fits.calfib),axis=0)
                                     ifu_calfibe = np.concatenate((ifu_calfibe,fits.calfibe),axis=0)
+                                    ifu_fibid =   np.concatenate((ifu_fibid,
+                                                                  elixer_fiber.AMP_OFFSET[amp] + np.arange(111,-1,-1) ))
 
                         except:
                             log.warning("Exception loading IFU in test",exc_info=True)
@@ -9096,7 +9105,8 @@ class DetObj:
 
                 self.hetdex_gmag_limit = SU.calc_dex_g_limit(ifu_calfib, calfibe=ifu_calfibe,
                                                              fwhm=self.survey_fwhm,
-                                                             aper=self.extraction_aperture)
+                                                             aper=self.extraction_aperture,
+                                                             ifu_fibid = ifu_fibid)
 
                 try:
                     log.debug(f"HETDEX gmag limit ({self.hetdex_gmag_limit:0.2f}); seeeing ({self.survey_fwhm}), "
