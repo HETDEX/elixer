@@ -295,6 +295,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
             remaining_fibers = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid[sel]])/len(sel)
 
             print(f"base_edge: {base_edge:0.4f}, pre-cut: {all_fibers:0.4f}, final_edge {remaining_fibers:0.4f}")
+            log.info(f"base_edge: {base_edge:0.4f}, pre-cut: {all_fibers:0.4f}, final_edge {remaining_fibers:0.4f}")
 
 
 
