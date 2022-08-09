@@ -1145,3 +1145,16 @@ DETFLAG_BAD_EMISSION_LINE           = 0x08000000    #emission line is questionab
 # non-image or empty image or detected corrupt image?
 # unusually high sky correction in image
 #
+#
+# this is really quite simple, does it need to be a function? Just sum the flags you want to test against
+# and check if flags read in & test flags is non-zero (for any to match)
+# def combined_flag_value(flag_list):
+#     """
+#     given a list of integers (can use the DETFLAG_XXX values), return a single 32-bit integer as the bitwise sum to be
+#     used to (sub)select matches (exact or subset) from a list or array of detection flags
+#
+#     :param flag_list:
+#     :return:
+#     """
+#     out = None
+#

@@ -285,7 +285,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
             pass
         elif True: #this gives the "deepest" results #~ 24.9 +/- 0.35 with some pushing 26
             sz = len(all_calfib)
-            trim_frac =  0.025 #maybe a larger range??
+            trim_frac =  0.05 #maybe a larger range??
             sel = [x for _, x in sorted(zip(cont_calfib, np.arange(sz)))][int(trim_frac * sz):int(-1 * trim_frac * sz)]
             all_calfib = all_calfib[sel]
             all_calfibe = all_calfibe[sel]
@@ -294,8 +294,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
             all_fibers = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid]) / len(ifu_fibid)
             remaining_fibers = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid[sel]])/len(sel)
 
-            print(f"base_edge: {base_edge:0.4f}, pre-cut: {all_fibers:0.4f}, final_edge {remaining_fibers:0.4f}")
-            log.info(f"base_edge: {base_edge:0.4f}, pre-cut: {all_fibers:0.4f}, final_edge {remaining_fibers:0.4f}")
+
 
 
 
@@ -402,6 +401,10 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
         #limit = cgs2mag(psf_corr * 5. * std_of_fiber_errors * 1e-17, wavelength) #5 for 5 sigma limit
         if limit is None or np.isnan(limit):
             limit = G.HETDEX_CONTINUUM_MAG_LIMIT
+
+        print(f"base_edge: {base_edge:0.4f}, pre-cut: {all_fibers:0.4f}, final_edge {remaining_fibers:0.4f}, limit {limit:0.4f}")
+        log.info(f"base_edge: {base_edge:0.4f}, pre-cut: {all_fibers:0.4f}, final_edge {remaining_fibers:0.4f},  limit {limit:0.4f}")
+
     except:
         log.warning("Exception in calc_dex_g_limit",exc_info=True)
 

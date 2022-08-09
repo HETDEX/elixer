@@ -64,6 +64,7 @@ class Detections(tables.IsDescription):
     else:
         seeing_fwhm = tables.Float32Col(dflt=UNSET_FLOAT)
     response = tables.Float32Col(dflt=UNSET_FLOAT)
+    apcor_4500 = tables.Float32Col(dflt=UNSET_FLOAT)
     fieldname = tables.StringCol(itemsize=32)
 
     #about the detection
@@ -840,6 +841,7 @@ def append_entry(fileh,det,overwrite=False):
 
         row['response'] = det.survey_response
         row['fieldname'] = det.survey_fieldname
+        row['apcor_4500'] = det.sumspec_apcor[515]
 
         if det.wra is not None: #reminder, the displayed representation may not be full precision
             row['ra'] = det.wra
@@ -3360,6 +3362,8 @@ def upgrade_0p6p2_to_0p6p3(oldfile_handle,newfile_handle):
                         new_row[n] = "XX"
                     elif n == "multiframe":
                         new_row[n] = "xxxxxxxxxxxxxxxxxxxx"
+                    elif n == "apcor_4500":
+                        new_row[n] = UNSET_FLOAT
                     else:
                         new_row[n] = old_row[n]
                 except:
