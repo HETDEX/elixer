@@ -374,7 +374,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
 
             # check here ... which fibers are trimmed off
             all_fibers = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid]) / len(ifu_fibid)
-            remaining_fibers = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid[sel]]) / len(sel)
+            remaining_fibers = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid]) / len(ifu_fibid)
 
         elif False:
             #single sigma clip
