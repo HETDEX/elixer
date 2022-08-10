@@ -298,6 +298,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
             sel = [x for _, x in sorted(zip(cont_calfib, np.arange(sz)))][int(trim_frac * sz):int(-1 * trim_frac * sz)]
             all_calfib = all_calfib[sel]
             all_calfibe = all_calfibe[sel]
+            ifu_fibid = ifu_fibid[sel]
 
             #check here ... which fibers are trimmed off
             all_fibers = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid]) / len(ifu_fibid)
@@ -316,6 +317,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
             sel = [x for _, x in sorted(zip(np.nanmean(all_calfibe, axis=1), np.arange(sz)))][0:int(-1 * trim_frac * sz)]
             all_calfib = all_calfib[sel]
             all_calfibe = all_calfibe[sel]
+            ifu_fibid = ifu_fibid[sel]
 
             # plt.close('all')
             # plt.hist(np.nanmean(all_calfibe,axis=1),bins=np.arange(0.1,0.3,0.001))
@@ -346,6 +348,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
             sel = np.array( (calfibe_means - califbe_mu) < sclip * calfibe_std)  #one side only (remove largest errors)
             all_calfib = all_calfib[sel]
             all_calfibe = all_calfibe[sel]
+            ifu_fibid = ifu_fibid[sel]
 
             # plt.close('all')
             # plt.hist(np.nanmean(all_calfibe,axis=1),bins=np.arange(0.1,0.3,0.001))
@@ -365,6 +368,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
             sel = np.array( (calfib_means - califb_mu) < sclip * calfib_std)  #one side only (remove largest fluxes)
             all_calfib = all_calfib[sel]
             all_calfibe = all_calfibe[sel]
+            ifu_fibid = ifu_fibid[sel]
 
 
 
@@ -381,6 +385,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
             sel = np.array(abs(mean_of_fiber_means - fiber_means) < sclip * std_of_fiber_means)
             all_calfib = all_calfib[sel]
             all_calfibe = all_calfibe[sel]
+            ifu_fibid = ifu_fibid[sel]
 
             plt.close('all')
             plt.hist(np.nanmean(all_calfib, axis=1), bins=50)
@@ -392,6 +397,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
             sel = [x for _, x in sorted(zip(cont_calfib, np.arange(sz)))][int(trim_frac * sz):int(-1 * trim_frac * sz)]
             all_calfib = all_calfib[sel]
             all_calfibe = all_calfibe[sel]
+            ifu_fibid = ifu_fibid[sel]
 
             plt.close('all')
             plt.hist(np.nanmean(all_calfib, axis=1), bins=50)
@@ -411,6 +417,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
                     break #just leave as it was
                 oldlen = len(all_calfib)
                 all_calfib = all_calfib[sel]
+                ifu_fibid = ifu_fibid[sel]
                 newlen = len(all_calfib)
         elif False: #a single 2-sigma clip (if normally distributed, this would be the interior 95%)
             fiber_means = np.nanmean(all_calfib, axis=1)
@@ -419,6 +426,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
             sclip = 5.0
             sel = np.array(abs(mean_of_fiber_means - fiber_means) < sclip * std_of_fiber_means)
             all_calfib = all_calfib[sel]
+            ifu_fibid = ifu_fibid[sel]
 
         #these are effectively empty fibers now and a measure of the noise
         #mean = np.nanmean(all_calfib)/2.0 #full mean over all remaining fibers and wavebins as  flux denisty
