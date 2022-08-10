@@ -190,7 +190,8 @@ def get_fluxlimit_apcor(ra,dec,wave,datevobs,snrcut=4.8,flim_model="v4"):
         return None, None
 
 
-def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640.,aper=3.5,ifu_fibid = None):
+def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640.,aper=3.5,ifu_fibid = None,
+                     central_fiber=None):
     """
     calcuate an approximage gband mag limit for THIS set of calfibs (e.g. typically one IFU for one shot)
 
@@ -202,6 +203,13 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
     """
     limit = G.HETDEX_CONTINUUM_MAG_LIMIT
     try:
+        edge = False
+        try:
+            if central_fiber is not None and is_edge_fiber(central_fiber.number_in_ccd):
+                edge = True
+        except:
+            log.debug("Exception checking for edge fiber in calc_dex_g_limit",exc_info=True)
+
         # first trim off the ends that are not as well calibrated and/or subject to extemes
         all_calfib = calfib[:, 100:-100]
         all_calfibe = calfibe[:,100:-100]
@@ -294,7 +302,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
             #check here ... which fibers are trimmed off
             all_fibers = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid]) / len(ifu_fibid)
             remaining_fibers = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid[sel]])/len(sel)
-        elif True: #clip the largest ERRORS (Calfibe) (clip one side only
+        elif False: #clip the largest ERRORS (Calfibe) (clip one side only
 
             # plt.close('all')
             # plt.hist(np.nanmean(all_calfibe,axis=1),bins=np.arange(0.1,0.3,0.001))
@@ -312,6 +320,53 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
             # plt.close('all')
             # plt.hist(np.nanmean(all_calfibe,axis=1),bins=np.arange(0.1,0.3,0.001))
             # plt.savefig("calfibe_hist_post.png")
+
+            # check here ... which fibers are trimmed off
+            all_fibers = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid]) / len(ifu_fibid)
+            remaining_fibers = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid[sel]]) / len(sel)
+
+        elif True:  # clip the largest ERRORS (Calfibe) (clip one side only) as SIGMA
+
+            # plt.close('all')
+            # plt.hist(np.nanmean(all_calfibe,axis=1),bins=np.arange(0.1,0.3,0.001))
+            # plt.savefig("calfibe_hist_pre.png")
+
+            sz = len(all_calfibe)
+            #trim_frac = 0.10  # maybe a larger range??
+            # sort is in assending order (low to high)
+            # nanmean is better than sum since there may be nan's along the way
+            calfibe_means = np.nanmean(all_calfibe, axis=1)
+            califbe_mu = np.nanmean(calfibe_means)
+            calfibe_std = np.nanstd(calfibe_means)
+
+            if edge: # we are at the edge
+                sclip = 2.0
+            else:
+                sclip = 1.0
+            sel = np.array( (calfibe_means - califbe_mu) < sclip * calfibe_std)  #one side only (remove largest errors)
+            all_calfib = all_calfib[sel]
+            all_calfibe = all_calfibe[sel]
+
+            # plt.close('all')
+            # plt.hist(np.nanmean(all_calfibe,axis=1),bins=np.arange(0.1,0.3,0.001))
+            # plt.savefig("calfibe_hist_post.png")
+
+
+
+            #now the calfibs
+            sz = len(all_calfib)
+            # trim_frac = 0.10  # maybe a larger range??
+            # sort is in assending order (low to high)
+            # nanmean is better than sum since there may be nan's along the way
+            calfib_means = np.nanmean(all_calfib, axis=1)
+            califb_mu = np.nanmean(calfib_means)
+            calfib_std = np.nanstd(calfib_means)
+            sclip = 3.0
+            sel = np.array( (calfib_means - califb_mu) < sclip * calfib_std)  #one side only (remove largest fluxes)
+            all_calfib = all_calfib[sel]
+            all_calfibe = all_calfibe[sel]
+
+
 
             # check here ... which fibers are trimmed off
             all_fibers = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid]) / len(ifu_fibid)
@@ -421,8 +476,14 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
         if limit is None or np.isnan(limit):
             limit = G.HETDEX_CONTINUUM_MAG_LIMIT
 
-        print(f"base_edge: {base_edge:0.4f}, pre-cut: {all_fibers:0.4f}, final_edge {remaining_fibers:0.4f}, limit {limit:0.4f}")
-        log.info(f"base_edge: {base_edge:0.4f}, pre-cut: {all_fibers:0.4f}, final_edge {remaining_fibers:0.4f},  limit {limit:0.4f}")
+        print(f"base_edge: {base_edge:0.4f} pre-cut: {all_fibers:0.4f} final_edge: {remaining_fibers:0.4f} "
+              f"limit: {limit:0.4f}  mean_fluxd: {mean_of_fiber_means:0.4f}  std_fluxd {std_of_fiber_means:0.4f}  "
+              f"mean_fluxd_err: {np.nanmean(all_calfibe)/2.0:0.4f}  seeing: {fwhm:0.2f}  psf_cor:  {psf_corr:0.2f}  "
+              f"num_fibers: {len(fiber_means)}  edge: {edge}")
+        log.info(f"base_edge: {base_edge:0.4f} pre-cut: {all_fibers:0.4f} final_edge: {remaining_fibers:0.4f} "
+              f"limit: {limit:0.4f}  mean_fluxd: {mean_of_fiber_means:0.4f}  std_fluxd {std_of_fiber_means:0.4f}  "
+              f"mean_fluxd_err: {np.nanmean(all_calfibe)/2.0:0.4f}  seeing: {fwhm:0.2f}  psf_cor:  {psf_corr:0.2f}  "
+              f"num_fibers: {len(fiber_means)}  edge: {edge}")
 
     except:
         log.warning("Exception in calc_dex_g_limit",exc_info=True)
