@@ -9103,11 +9103,17 @@ class DetObj:
                 #                                              fwhm=self.survey_fwhm, flux_limit=4.0,
                 #                                              aper=self.extraction_aperture)
 
+                #self.hetdex_gmag_limit = SU.calc_dex_g_limit(ifu_calfib, calfibe=ifu_calfibe,
+                #                                             fwhm=self.survey_fwhm,
+                #                                             aper=self.extraction_aperture,
+                #                                             ifu_fibid = ifu_fibid,
+                #                                             central_fiber=self.fibers[0])
+
                 self.hetdex_gmag_limit = SU.calc_dex_g_limit(ifu_calfib, calfibe=ifu_calfibe,
                                                              fwhm=self.survey_fwhm,
-                                                             aper=self.extraction_aperture,
-                                                             ifu_fibid = ifu_fibid,
-                                                             central_fiber=self.fibers[0])
+                                                             aper=self.extraction_aperture)
+                                                            # ifu_fibid = ifu_fibid,
+                                                           #  central_fiber=self.fibers[0])
 
                 try:
                     log.debug(f"HETDEX gmag limit ({self.hetdex_gmag_limit:0.2f}); seeeing ({self.survey_fwhm}), "

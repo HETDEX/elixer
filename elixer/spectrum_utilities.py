@@ -214,7 +214,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
         all_calfib = calfib[:, 100:-100]
         all_calfibe = calfibe[:,100:-100]
         if ifu_fibid is None:
-            ifu_fibid = np.full(len(all_calfib,axis=1),-1)
+            ifu_fibid = np.full(np.shape(all_calfib)[0],-1)
 
         base_edge = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid]) / len(ifu_fibid)
         # all_calfib = calfib[:, 600:900] #try a redward, stable region (avoid skylines and "chip gap" and poor blue calibration)
