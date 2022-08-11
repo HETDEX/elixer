@@ -191,7 +191,7 @@ def get_fluxlimit_apcor(ra,dec,wave,datevobs,snrcut=4.8,flim_model="v4"):
 
 
 def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640.,aper=3.5,ifu_fibid = None,
-                     central_fiber=None):
+                     central_fiber=None, detectid=None):
     """
     calcuate an approximage gband mag limit for THIS set of calfibs (e.g. typically one IFU for one shot)
 
@@ -369,7 +369,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
 
 
             if True: #trim off the largest fluxes
-                trim_frac = 0.10
+                trim_frac = 0.05
                 sel = [x for _, x in sorted(zip(calfib_means, np.arange(sz)))][0:int(-1 * trim_frac * sz)]
             else:  #sigma clip xx
                 sclip = 3.0
@@ -496,11 +496,11 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
         print(f"base_edge: {base_edge:0.4f} pre-cut: {all_fibers:0.4f} final_edge: {remaining_fibers:0.4f} "
               f"limit: {limit:0.4f}  mean_fluxd: {mean_of_fiber_means:0.4f}  std_fluxd {std_of_fiber_means:0.4f}  "
               f"mean_fluxd_err: {np.nanmean(all_calfibe)/2.0:0.4f}  seeing: {fwhm:0.2f}  psf_cor:  {psf_corr:0.2f}  "
-              f"num_fibers: {len(fiber_means)}  edge: {edge}")
+              f"num_fibers: {len(fiber_means)}  edge: {edge}  detectid: {detectid}")
         log.info(f"base_edge: {base_edge:0.4f} pre-cut: {all_fibers:0.4f} final_edge: {remaining_fibers:0.4f} "
               f"limit: {limit:0.4f}  mean_fluxd: {mean_of_fiber_means:0.4f}  std_fluxd {std_of_fiber_means:0.4f}  "
               f"mean_fluxd_err: {np.nanmean(all_calfibe)/2.0:0.4f}  seeing: {fwhm:0.2f}  psf_cor:  {psf_corr:0.2f}  "
-              f"num_fibers: {len(fiber_means)}  edge: {edge}")
+              f"num_fibers: {len(fiber_means)}  edge: {edge}  detectid: {detectid}")
 
     except:
         log.warning("Exception in calc_dex_g_limit",exc_info=True)

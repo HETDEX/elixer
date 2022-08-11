@@ -9107,7 +9107,7 @@ class DetObj:
                                                             fwhm=self.survey_fwhm,
                                                             aper=self.extraction_aperture,
                                                             ifu_fibid = ifu_fibid,
-                                                            central_fiber=self.fibers[0])
+                                                            central_fiber=self.fibers[0],detectid=self.entry_id)
 
                 try:
                     log.debug(f"HETDEX gmag limit ({self.hetdex_gmag_limit:0.2f}); seeeing ({self.survey_fwhm}), "
