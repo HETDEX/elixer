@@ -155,7 +155,7 @@ def is_edge_fiber(absolute_fiber_num, ifux=None, ifuy=None):
             return True
 
 
-def get_fluxlimit_apcor(ra,dec,wave,datevobs,snrcut=4.8,flim_model="v4"):
+def get_fluxlimit_apcor(ra,dec,wave,datevobs,sncut=4.8,flim_model="v4"):
     """
     wrapper to call into HETDEX API
 
