@@ -180,7 +180,7 @@ def get_fluxlimit_apcor(ra,dec,wave,datevobs,sncut=4.8,flim_model="v4"):
             #waves has no length, single value
             pass
 
-        shot_sens = ShotSensitivity(datevobs, flim_model=flim_model, log_level="CRITICAL")
+        shot_sens = ShotSensitivity(datevobs, flim_model=flim_model,direct_sigmas =True, linewidth = 2.0, log_level="CRITICAL")
         f50, apcor = shot_sens.get_f50(ra, dec, wave, sncut)
 
         return f50, apcor
