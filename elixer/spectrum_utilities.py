@@ -341,10 +341,11 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
             califbe_mu = np.nanmean(calfibe_means)
             calfibe_std = np.nanstd(calfibe_means)
 
-            if edge: # we are at the edge
-                sclip = 2.0
-            else:
-                sclip = 1.0
+            #if edge: # we are at the edge
+            #    sclip = 2.0
+            #else:
+
+            sclip = 1.0
             sel = np.array( (calfibe_means - califbe_mu) < sclip * calfibe_std)  #one side only (remove largest errors)
             all_calfib = all_calfib[sel]
             all_calfibe = all_calfibe[sel]
