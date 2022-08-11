@@ -365,8 +365,16 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
             calfib_means = np.nanmean(all_calfib, axis=1)
             califb_mu = np.nanmean(calfib_means)
             calfib_std = np.nanstd(calfib_means)
-            sclip = 3.0
-            sel = np.array( (calfib_means - califb_mu) < sclip * calfib_std)  #one side only (remove largest fluxes)
+
+
+
+            if True: #trim off the largest fluxes
+                trim_frac = 0.10
+                sel = [x for _, x in sorted(zip(calfib_means, np.arange(sz)))][0:int(-1 * trim_frac * sz)]
+            else:  #sigma clip xx
+                sclip = 3.0
+                sel = np.array( (calfib_means - califb_mu) < sclip * calfib_std)  #one side only (remove largest fluxes)
+
             all_calfib = all_calfib[sel]
             all_calfibe = all_calfibe[sel]
             ifu_fibid = ifu_fibid[sel]
