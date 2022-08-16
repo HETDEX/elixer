@@ -255,7 +255,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640
         ifu_fibid = ifu_fibid[sel]
 
         #get rid of continuum (and negative continuum)
-        cont_calfib = np.nanmean(all_calfib, axis=1) /2.0 # mean flux denisties
+        cont_calfib = np.nanmedian(all_calfib, axis=1) /2.0 # mean flux denisties
         #sel = np.array(cont_calfib < 0.5) & np.array(cont_calfib > -0.5)
         sel = np.array(cont_calfib < 0.05) & np.array(cont_calfib > -0.05)
         # so average above 2e-18 erg/s/cm2/AA or aboout g 23.5 (should always be better than this)
