@@ -851,7 +851,7 @@ WAVEGRID_RED_LIMIT = 5540.
 WAVEGRID_NUM_BINS = 1036
 CALFIB_WAVEGRID = np.linspace(WAVEGRID_BLUE_LIMIT,WAVEGRID_RED_LIMIT,WAVEGRID_NUM_BINS) #np.arange(3470.,5542.,2.0) #3470 - 5540
 
-LOAD_SPEC_FROM_HETDEX_API = False #if true attempt to load through hetdex_api first and fall back on the h5 file if fail
+LOAD_SPEC_FROM_HETDEX_API = True #if true attempt to load through hetdex_api first and fall back on the h5 file if fail
 
 #Detection Quality Score Values
 FULL_WEIGHT_DISTANCE = Fiber_Radius
