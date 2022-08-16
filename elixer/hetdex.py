@@ -8564,7 +8564,7 @@ class DetObj:
 
             if G.LOAD_SPEC_FROM_HETDEX_API:
                 try:
-                    hda_spec = hda_Detections(loadtable=False).get_spectrum(id)
+                    hda_spec = hda_Detections(loadtable=False,searchable=False).get_spectrum(id)
                     hda_spec['spec1d'] *= G.FLUX_WAVEBIN_WIDTH
                     hda_spec['spec1d_err'] *= G.FLUX_WAVEBIN_WIDTH
 
