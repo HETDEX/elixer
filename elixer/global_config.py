@@ -766,14 +766,16 @@ NaI_5153 = 5153.4024 #
 CaII_K_3934 = 3933.6614
 CaII_H_3968 = 3968.4673
 
+APPLY_GALACTIC_DUST_CORRECTION = True #if true apply explicit MW dust de-reddening or de-extinction using hetdex_api
 
-APPLY_GALACTIC_DUST_CORRECTION = True
-
+LOAD_SPEC_FROM_HETDEX_API = True #if true attempt to load through hetdex_api first and fall back on the h5 file if fail
 #FLUX_CONVERSION = (1./60)*1e-17
 HETDEX_FLUX_BASE_CGS = 1e-17
 # 1.35e-18 ~ 24.0 mag in g-band
 # 8.52e-19 ~ 24.5 mag in g-band,
 # 5.38e-19 ~ 25.0 mag in g-band
+COMPUTE_HETDEX_MAG_LIMIT = True #if true, use the IFU fibers to compute a limit for the detection (otherwise just use
+                                #HETDEX_CONTINUUM_MAG_LIMIT
 HETDEX_CONTINUUM_MAG_LIMIT = 25.0 #24.5 #generous, truth is closer to 24.few
 HETDEX_CONTINUUM_FLUX_LIMIT =  5.38e-19 #flux-density based on 25 mag limit (really more like 24.5)
 
@@ -850,8 +852,6 @@ WAVEGRID_BLUE_LIMIT = 3470.
 WAVEGRID_RED_LIMIT = 5540.
 WAVEGRID_NUM_BINS = 1036
 CALFIB_WAVEGRID = np.linspace(WAVEGRID_BLUE_LIMIT,WAVEGRID_RED_LIMIT,WAVEGRID_NUM_BINS) #np.arange(3470.,5542.,2.0) #3470 - 5540
-
-LOAD_SPEC_FROM_HETDEX_API = True #if true attempt to load through hetdex_api first and fall back on the h5 file if fail
 
 #Detection Quality Score Values
 FULL_WEIGHT_DISTANCE = Fiber_Radius
@@ -1132,7 +1132,7 @@ DETFLAG_QUESTIONABLE_DETECTION      = 0x00400000   #unable to fit a continuum (w
 DETFLAG_EXCESSIVE_ZERO_PIXELS       = 0x00800000   #too many zero valued pixels at the emission line center in 2D cutouts
 
 DETFLAG_POSSIBLE_PN                 = 0x01000000    #possible planetery nebula hit (usually 5007, without an obvious source)
-DETFLAG_NO_DUST_CORRECTION          = 0x02000000
+DETFLAG_NO_DUST_CORRECTION          = 0x02000000    #dust correction was requested but failed (see APPLY_GALACTIC_DUST_CORRECTION)
 DETFLAG_BAD_PIXELS                  = 0x04000000    #hot column, maybe bad sky subtraction, etc ... possible false detection
 DETFLAG_BAD_EMISSION_LINE           = 0x08000000    #emission line is questionable, could be continuum between absorbers
 

@@ -33,7 +33,7 @@ except:
 from hetdex_api.detections import Detections as hda_Detections
 from hetdex_tools.get_spec import get_spectra as hda_get_spectra
 from hetdex_api.shot import get_fibers_table as hda_get_fibers_table
-from hetdex_api.extinction import *
+from hetdex_api.extinction import *  #includes deredden_spectra
 
 from astropy.coordinates import SkyCoord
 import astropy.units as U
@@ -8157,23 +8157,27 @@ class DetObj:
 
                 all_calfib = np.concatenate([self.fibers[i].fits.calfib for i in good_idx], axis=0)
 
-                #this would be as the (max) of 336 fibers (112 * 3), but could be less if top fibers have more repeat amp+dither
-                #really should be the 448 x 3 fibers of whole IFU?
-                self.hetdex_gmag_limit = SU.calc_dex_g_limit(all_calfib, fwhm=self.survey_fwhm, flux_limit=4.0,
-                                                             aper=self.extraction_aperture)
-
-                try:
-                    log.debug(f"HETDEX gmag limit ({self.hetdex_gmag_limit:0.2f}); seeeing ({self.survey_fwhm}), "
-                              f"thruput ({self.survey_response}), exptimes ({self.exptimes})")
-                except:
-                    pass
-
                 # use the std dev of all "mostly empty" (hence sigma=3.0) or "sky" fibers as the error
                 mean, median, std = sigma_clipped_stats(all_calfib, axis=0, sigma=3.0)
                 self.calfib_noise_estimate = std
                 if not G.MULTILINE_USE_ERROR_SPECTRUM_AS_NOISE:
                     self.spec_obj.noise_estimate = self.calfib_noise_estimate
                     self.spec_obj.noise_estimate_wave = G.CALFIB_WAVEGRID
+
+                #this would be as the (max) of 336 fibers (112 * 3), but could be less if top fibers have more repeat amp+dither
+                #really should be the 448 x 3 fibers of whole IFU?
+                if G.COMPUTE_HETDEX_MAG_LIMIT:
+                    self.hetdex_gmag_limit = SU.calc_dex_g_limit(all_calfib, fwhm=self.survey_fwhm, flux_limit=4.0,
+                                                                 aper=self.extraction_aperture)
+                    try:
+                        log.debug(f"HETDEX gmag limit ({self.hetdex_gmag_limit:0.2f}); seeeing ({self.survey_fwhm}), "
+                                  f"thruput ({self.survey_response}), exptimes ({self.exptimes})")
+                    except:
+                        pass
+                else:
+                    self.hetdex_gmag_limit = G.HETDEX_CONTINUUM_MAG_LIMIT
+                    log.debug(f"HETDEX gmag limit ({self.hetdex_gmag_limit:0.2f}); using default.")
+
 
             except:
                 log.info("Could not build DetObj calfib_noise_estimate", exc_info=True)
@@ -8564,13 +8568,14 @@ class DetObj:
 
             if G.LOAD_SPEC_FROM_HETDEX_API:
                 try:
+                    #DO NOT APPLY dust correction HERE!! it is done later
                     hda_spec = hda_Detections(loadtable=False,searchable=False).get_spectrum(id)
                     hda_spec['spec1d'] *= G.FLUX_WAVEBIN_WIDTH
                     hda_spec['spec1d_err'] *= G.FLUX_WAVEBIN_WIDTH
 
-                    self.sumspec_wavelength = hda_spec['wave1d']
-                    self.sumspec_flux = hda_spec['spec1d']  # DOES NOT have units attached, but is 10^17 (so *1e-17 to get to real units)
-                    self.sumspec_fluxerr = hda_spec['spec1d_err']
+                    self.sumspec_wavelength = np.array(hda_spec['wave1d'])
+                    self.sumspec_flux = np.array(hda_spec['spec1d']) # DOES NOT have units attached, but is 10^17 (so *1e-17 to get to real units)
+                    self.sumspec_fluxerr = np.array(hda_spec['spec1d_err'])
                 except:
                     log.warning("Exception attempting to load spectra through hetdex_api",exc_info=True)
                     log.warning("Will attempt direct load from h5 file.")
@@ -9055,89 +9060,97 @@ class DetObj:
                 amp_dit = [self.fibers[i].fits.amp + str(self.fibers[i].fits.expid) for i in good_idx]
                 _,good_idx = np.unique(amp_dit,return_index=True)
 
-
-
-
-                #get 12 fits? 3 dither x 4 multiframe (amps)
-                dummy_fiber = self.fibers[0] #just use one we already have?
-                base_multi = dummy_fiber.multi[:18] #ends in _ need to add LL, LU, RU, RL
-                fits_fn = dummy_fiber.find_hdf5_multifits(loc=op.dirname(hdf5_fn))
-
-
-                fits = hetdex_fits.HetdexFits(empty=True)
-                fits.filename = fits_fn
-
-                ifu_calfib = None
-                ifu_calfibe = None
-                ifu_fibid = None
-                already_read, alread_read_idx = np.unique([f.fits.amp + str(f.fits.expid) for f in self.fibers],return_index=True)
-                AMP_OFFSET = {"LU": 1, "LL": 113, "RL": 225, "RU": 337}
-
-                for exp in range(1,4):
-                    fits.expid = 1 #then 2, 3
-                    for amp in ["LL","LU","RL","RU"]:
-                        fits.multiframe = base_multi + amp
-                        #might have already read this one
-                        try:
-                            try: #if we already have it, don't re-read
-                                fibidx = np.where(already_read == amp + str(exp))[0][0]
-                                if ifu_calfib is None:
-                                    ifu_calfib = self.fibers[fibidx].fits.calfib
-                                    ifu_calfibe = self.fibers[fibidx].fits.calfibe
-                                    ifu_fibid =  elixer_fiber.AMP_OFFSET[amp] + np.arange(111,-1,-1)
-
-                                else:
-                                    ifu_calfib = np.concatenate((ifu_calfib, self.fibers[fibidx].fits.calfib),
-                                                                axis=0)
-                                    ifu_calfibe = np.concatenate((ifu_calfibe, self.fibers[fibidx].fits.calfibe),
-                                                                axis=0)
-                                    ifu_fibid =   np.concatenate((ifu_fibid,
-                                                                  elixer_fiber.AMP_OFFSET[amp] + np.arange(111,-1,-1) ))
-                            except:
-                                fits.read_hdf5()
-
-                                if ifu_calfib is None:
-                                    ifu_calfib = fits.calfib
-                                    ifu_calfibe = fits.calfibe
-                                    ifu_fibid = elixer_fiber.AMP_OFFSET[amp] + np.arange(111,-1,-1)
-                                else:
-                                    ifu_calfib = np.concatenate((ifu_calfib,fits.calfib),axis=0)
-                                    ifu_calfibe = np.concatenate((ifu_calfibe,fits.calfibe),axis=0)
-                                    ifu_fibid =   np.concatenate((ifu_fibid,
-                                                                  elixer_fiber.AMP_OFFSET[amp] + np.arange(111,-1,-1) ))
-
-                        except:
-                            log.warning("Exception loading IFU in test",exc_info=True)
-
-
-                #this would be as the (max) of 336 fibers (112 * 3), but could be less if top fibers have more repeat amp+dither
-                #really should be the 448 x 3 fibers of whole IFU?
-                #all_calfib = np.concatenate([self.fibers[i].fits.calfib for i in good_idx],axis=0)
-                #all_calfibe = np.concatenate([self.fibers[i].fits.calfibe for i in good_idx],axis=0)
-
-                # self.hetdex_gmag_limit = SU.calc_dex_g_limit(all_calfib, calfibe=None,
-                #                                              fwhm=self.survey_fwhm, flux_limit=4.0,
-                #                                              aper=self.extraction_aperture)
-
-                self.hetdex_gmag_limit = SU.calc_dex_g_limit(ifu_calfib, calfibe=ifu_calfibe,
-                                                            fwhm=self.survey_fwhm,
-                                                            aper=self.extraction_aperture,
-                                                            ifu_fibid = ifu_fibid,
-                                                            central_fiber=self.fibers[0],detectid=self.entry_id)
-
-                try:
-                    log.debug(f"HETDEX gmag limit ({self.hetdex_gmag_limit:0.2f}); seeeing ({self.survey_fwhm}), "
-                              f"thruput ({self.survey_response}), exptimes ({self.exptimes})")
-                except:
-                    pass
-
-
+                all_calfib = np.concatenate([self.fibers[i].fits.calfib for i in good_idx],axis=0)
+                # all_calfibe = np.concatenate([self.fibers[i].fits.calfibe for i in good_idx],axis=0)
                 #use the std dev of all "mostly empty" (hence sigma=3.0) or "sky" fibers as the error
                 mean, median, std = sigma_clipped_stats(all_calfib, axis=0, sigma=3.0)
                 self.calfib_noise_estimate = std
                 if not G.MULTILINE_USE_ERROR_SPECTRUM_AS_NOISE:
                     self.spec_obj.noise_estimate = self.calfib_noise_estimate
                     self.spec_obj.noise_estimate_wave = G.CALFIB_WAVEGRID
+
+
+                if G.COMPUTE_HETDEX_MAG_LIMIT:
+                    #this is a test and is largely unecessary ... get ALL 1344 fibers (as 3 dithers x 448 IFU fibers)
+                    #to build the mag limit estimate ... it is probably okay to just use the amp fibers in the section
+                    #immediately above
+                
+                    #get 12 fits? 3 dither x 4 multiframe (amps)
+                    dummy_fiber = self.fibers[0] #just use one we already have?
+                    base_multi = dummy_fiber.multi[:18] #ends in _ need to add LL, LU, RU, RL
+                    fits_fn = dummy_fiber.find_hdf5_multifits(loc=op.dirname(hdf5_fn))
+
+
+                    fits = hetdex_fits.HetdexFits(empty=True)
+                    fits.filename = fits_fn
+
+                    ifu_calfib = None
+                    ifu_calfibe = None
+                    ifu_fibid = None
+                    already_read, alread_read_idx = np.unique([f.fits.amp + str(f.fits.expid) for f in self.fibers],return_index=True)
+                    AMP_OFFSET = {"LU": 1, "LL": 113, "RL": 225, "RU": 337}
+
+                    for exp in range(1,4):
+                        fits.expid = 1 #then 2, 3
+                        for amp in ["LL","LU","RL","RU"]:
+                            fits.multiframe = base_multi + amp
+                            #might have already read this one
+                            try:
+                                try: #if we already have it, don't re-read
+                                    fibidx = np.where(already_read == amp + str(exp))[0][0]
+                                    if ifu_calfib is None:
+                                        ifu_calfib = self.fibers[fibidx].fits.calfib
+                                        ifu_calfibe = self.fibers[fibidx].fits.calfibe
+                                        ifu_fibid =  elixer_fiber.AMP_OFFSET[amp] + np.arange(111,-1,-1)
+
+                                    else:
+                                        ifu_calfib = np.concatenate((ifu_calfib, self.fibers[fibidx].fits.calfib),
+                                                                    axis=0)
+                                        ifu_calfibe = np.concatenate((ifu_calfibe, self.fibers[fibidx].fits.calfibe),
+                                                                    axis=0)
+                                        ifu_fibid =   np.concatenate((ifu_fibid,
+                                                                      elixer_fiber.AMP_OFFSET[amp] + np.arange(111,-1,-1) ))
+                                except:
+                                    fits.read_hdf5()
+
+                                    if ifu_calfib is None:
+                                        ifu_calfib = fits.calfib
+                                        ifu_calfibe = fits.calfibe
+                                        ifu_fibid = elixer_fiber.AMP_OFFSET[amp] + np.arange(111,-1,-1)
+                                    else:
+                                        ifu_calfib = np.concatenate((ifu_calfib,fits.calfib),axis=0)
+                                        ifu_calfibe = np.concatenate((ifu_calfibe,fits.calfibe),axis=0)
+                                        ifu_fibid =   np.concatenate((ifu_fibid,
+                                                                      elixer_fiber.AMP_OFFSET[amp] + np.arange(111,-1,-1) ))
+
+                            except:
+                                log.warning("Exception loading IFU in test",exc_info=True)
+
+
+                    #this would be as the (max) of 336 fibers (112 * 3), but could be less if top fibers have more repeat amp+dither
+                    #really should be the 448 x 3 fibers of whole IFU?
+                    #all_calfib = np.concatenate([self.fibers[i].fits.calfib for i in good_idx],axis=0)
+                    #all_calfibe = np.concatenate([self.fibers[i].fits.calfibe for i in good_idx],axis=0)
+
+                    # self.hetdex_gmag_limit = SU.calc_dex_g_limit(all_calfib, calfibe=None,
+                    #                                              fwhm=self.survey_fwhm, flux_limit=4.0,
+                    #                                              aper=self.extraction_aperture)
+
+                    self.hetdex_gmag_limit = SU.calc_dex_g_limit(ifu_calfib, calfibe=ifu_calfibe,
+                                                                fwhm=self.survey_fwhm,
+                                                                aper=self.extraction_aperture,
+                                                                ifu_fibid = ifu_fibid,
+                                                                central_fiber=self.fibers[0],detectid=self.entry_id)
+
+                    try:
+                        log.debug(f"HETDEX gmag limit ({self.hetdex_gmag_limit:0.2f}); seeeing ({self.survey_fwhm:0.2f}), "
+                                  f"thruput ({self.survey_response:0.4f}), exptimes ({self.exptimes})")
+                    except:
+                        pass
+                else:
+                    self.hetdex_gmag_limit = G. HETDEX_CONTINUUM_MAG_LIMIT
+                    log.debug(f"HETDEX gmag limit ({self.hetdex_gmag_limit:0.2f}); using default.")
+
 
             except Exception as e:
                 self.calfib_noise_estimate = np.zeros(len(G.CALFIB_WAVEGRID))

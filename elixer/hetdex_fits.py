@@ -526,6 +526,17 @@ class HetdexFits:
                     self.calfib[idx] = get_field(row,'calfib',np.shape(self.calfib[idx]),f"{logname_info}_{idx}")
                     self.calfibe[idx] = get_field(row,'calfibe',np.shape(self.calfibe[idx]),f"{logname_info}_{idx}")
 
+
+                    #temporary 7% correction for hdr3
+                    try:
+                        if "/hdr3/" in h5_multifits.filename:
+                            if (self.amp in ['RU','LL'] and (0 <= idx <= 11)) or \
+                               (self.amp in ['LU','RL'] and (100 <= idx <= 111)):
+                                log.info(f"*** HDR3 correction: Adjusting calfibe by x1.07: {q_multiframe} {idx+1}")
+                                self.calfibe[idx] *= 1.07
+                    except:
+                        pass
+
                     try: #in HDR3 the name is new
                         #self.ffsky_calfib[idx] = row['calfib_ffsky']
                         self.ffsky_calfib[idx] = get_field(row,'calfib_ffsky',np.shape(self.ffsky_calfib[idx]),f"{logname_info}_{idx}")
