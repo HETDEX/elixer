@@ -206,6 +206,11 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640
     :return:
     """
     limit = G.HETDEX_CONTINUUM_MAG_LIMIT
+    min_num_final_fibers = 448 # 1/3 of the standard ?
+    #min_std_of_fiber_means = 0.003 #e-17 ... leads to mag limits 26 and fainter; see these with large objects in the IFU
+                                   #can still push down the error ... I think it squelces variation in the IFU
+                                   # maybe an issue with the calibration?
+    min_mean_calfibe = 0.055#e-17 like above, large object squelces the error? ... this is a bit of a guess not sure it makes sense
     try:
         edge = False
         try:
@@ -473,6 +478,25 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640
         #todo: if number of fibers left is too small (say 600 or fewer, about 1/2 of 1344), then just go back to default?
         #todo: maybe as few as 200? What if just using the amp and not the whole IFU?
 
+        if len(all_calfib) < min_num_final_fibers:
+            log.info(f"HETDEX g-limit: Too few fibers ({len(all_calfib)}) to reliably compute mag limit. Using default {G.HETDEX_CONTINUUM_MAG_LIMIT}.")
+            return G.HETDEX_CONTINUUM_MAG_LIMIT
+
+        #what about other checks ... something weird with the calfibe? negative mean_of_fiber_means?
+        #negative is okay ... give the cuts above it could be very close to zero, just barely negative
+        # if np.nanmedian(fiber_means) < 0:
+        #     log.info(f"HETDEX g-limit: Negative fiber median. Using default {G.HETDEX_CONTINUUM_MAG_LIMIT}.")
+        #     return G.HETDEX_CONTINUUM_MAG_LIMIT
+
+        if abs((np.nanmean(all_calfibe)/2.0) / mean_of_fiber_means) < 10: #calfibe cannot be negative
+            log.info(f"HETDEX g-limit: Fiber errors abnormally small. Using default {G.HETDEX_CONTINUUM_MAG_LIMIT}.")
+            return G.HETDEX_CONTINUUM_MAG_LIMIT
+
+        #this is what the limit is built on ... sometimes you get a bright object (like a large-ish galaxy)
+        #in the IFU and it drives down the error
+        # if (np.nanmean(all_calfibe)/2) < min_mean_calfibe:
+        #     log.info(f"HETDEX g-limit: Fiber flux errors abnormally small. Using default {G.HETDEX_CONTINUUM_MAG_LIMIT}.")
+        #     return G.HETDEX_CONTINUUM_MAG_LIMIT
 
         #since this a background of "empty" fibers the PSF does not matter
         #as we assume this to be uniform, so any PSF would give the same flux.
