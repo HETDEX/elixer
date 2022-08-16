@@ -30,7 +30,7 @@ except:
     import cat_sdss #for the z-catalog
     import cat_gaia_dex
 
-
+from hetdex_api.detections import Detections as hda_Detections
 from hetdex_tools.get_spec import get_spectra as hda_get_spectra
 from hetdex_api.shot import get_fibers_table as hda_get_fibers_table
 from hetdex_api.extinction import *
@@ -8558,12 +8558,28 @@ class DetObj:
                 return
             row = rows[0]
 
-            self.sumspec_wavelength = row['wave1d']
+
             self.sumspec_counts = row['counts1d']#not really using this anymore
             #self.sumspec_countserr #not using this
 
-            self.sumspec_flux = row['spec1d'] #DOES NOT have units attached, but is 10^17 (so *1e-17 to get to real units)
-            self.sumspec_fluxerr = row['spec1d_err']
+            if G.LOAD_SPEC_FROM_HETDEX_API:
+                try:
+                    hda_spec = hda_Detections(loadtable=False).get_spectrum(id)
+                    hda_spec['spec1d'] *= G.FLUX_WAVEBIN_WIDTH
+                    hda_spec['spec1d_err'] *= G.FLUX_WAVEBIN_WIDTH
+
+                    self.sumspec_wavelength = hda_spec['wave1d']
+                    self.sumspec_flux = hda_spec['spec1d']  # DOES NOT have units attached, but is 10^17 (so *1e-17 to get to real units)
+                    self.sumspec_fluxerr = hda_spec['spec1d_err']
+                except:
+                    log.warning("Exception attempting to load spectra through hetdex_api",exc_info=True)
+                    log.warning("Will attempt direct load from h5 file.")
+
+            if self.sumspec_flux is None or len(self.sumspec_flux) == 0:
+                self.sumspec_wavelength = row['wave1d']
+                self.sumspec_flux = row['spec1d'] #DOES NOT have units attached, but is 10^17 (so *1e-17 to get to real units)
+                self.sumspec_fluxerr = row['spec1d_err']
+
             self.sumspec_apcor = row['apcor'] #aperture correction
 
             if G.APPLY_GALACTIC_DUST_CORRECTION:
