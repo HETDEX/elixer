@@ -194,7 +194,7 @@ def get_fluxlimit_apcor(ra,dec,wave,datevobs,sncut=4.8,flim_model="v4"):
         return None, None
 
 
-def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640.,aper=3.5,ifu_fibid = None,
+def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640.,aper=3.5,ifu_fibid = None,
                      central_fiber=None, detectid=None):
     """
     calcuate an approximage gband mag limit for THIS set of calfibs (e.g. typically one IFU for one shot)
@@ -233,7 +233,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
         #get rid of any with obvious emission lines
         #make each element the mean of itself and its two neighbors and compare to the flux limit
         #this is roughly equivalent to the LyCon paper looking for any 3 consecutive wavebins with 4.0, 5.0, 4.0 flux or greater
-        mf = calfib[:, :-2] + calfib[:, 1:-1] + calfib[:, 2:] / 3.0
+        mf = (calfib[:, :-2] + calfib[:, 1:-1] + calfib[:, 2:]) / 3.0
         mf = mf[:,99:-99] #to match 100:-100 having shrunk by one (though it does not really matter)
         sel = np.max(mf, axis=1) < flux_limit
         all_calfib = all_calfib[sel]
@@ -257,8 +257,9 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
         #get rid of continuum (and negative continuum)
         cont_calfib = np.nanmean(all_calfib, axis=1) /2.0 # mean flux denisties
         #sel = np.array(cont_calfib < 0.5) & np.array(cont_calfib > -0.5)
-        sel = np.array(cont_calfib < 0.2) & np.array(cont_calfib > -0.2)
+        sel = np.array(cont_calfib < 0.05) & np.array(cont_calfib > -0.05)
         # so average above 2e-18 erg/s/cm2/AA or aboout g 23.5 (should always be better than this)
+        # 0.05
         # in the original LyCon paper this was 0.5 and -0.5 (and over 500AA chunks, not built of the array)
         #but I think we can close in a bit more than that. Really even 0.15 or 0.10 is probably also okay
         all_calfib = all_calfib[sel]
@@ -372,16 +373,17 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
 
 
 
-            if True: #trim off the largest fluxes
-                trim_frac = 0.20
-                sel = [x for _, x in sorted(zip(calfib_means, np.arange(sz)))][0:int(-1 * trim_frac * sz)]
-            else:  #sigma clip xx
-                sclip = 3.0
-                sel = np.array( (calfib_means - califb_mu) < sclip * calfib_std)  #one side only (remove largest fluxes)
+            # if True: #trim off the largest fluxes
+            #     trim_frac = 0.16
+            #     sel = [x for _, x in sorted(zip(calfib_means, np.arange(sz)))][0:int(-1 * trim_frac * sz)]
+            #
+            # else:  #sigma clip xx
+            #     sclip = 3.0
+            #     sel = np.array( (calfib_means - califb_mu) < sclip * calfib_std)  #one side only (remove largest fluxes)
 
-            all_calfib = all_calfib[sel]
-            all_calfibe = all_calfibe[sel]
-            ifu_fibid = ifu_fibid[sel]
+            # all_calfib = all_calfib[sel]
+            # all_calfibe = all_calfibe[sel]
+            # ifu_fibid = ifu_fibid[sel]
 
 
 
