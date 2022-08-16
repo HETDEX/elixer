@@ -502,10 +502,10 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.5,wavelength=4640
         if limit is None or np.isnan(limit):
             limit = G.HETDEX_CONTINUUM_MAG_LIMIT
 
-        # print(f"base_edge: {base_edge:0.4f} pre-cut: {all_fibers:0.4f} final_edge: {remaining_fibers:0.4f} "
-        #       f"limit: {limit:0.4f}  mean_fluxd: {mean_of_fiber_means:0.4f}  std_fluxd {std_of_fiber_means:0.4f}  "
-        #       f"mean_fluxd_err: {np.nanmean(all_calfibe)/2.0:0.4f}  seeing: {fwhm:0.2f}  psf_cor:  {psf_corr:0.2f}  "
-        #       f"num_fibers: {len(fiber_means)}  edge: {edge}  detectid: {detectid}")
+        print(f"base_edge: {base_edge:0.4f} pre-cut: {all_fibers:0.4f} final_edge: {remaining_fibers:0.4f} "
+              f"limit: {limit:0.4f}  mean_fluxd: {mean_of_fiber_means:0.4f}  std_fluxd {std_of_fiber_means:0.4f}  "
+              f"mean_fluxd_err: {np.nanmean(all_calfibe)/2.0:0.4f}  seeing: {fwhm:0.2f}  psf_cor:  {psf_corr:0.2f}  "
+              f"num_fibers: {len(fiber_means)}  edge: {edge}  detectid: {detectid}")
 
 
 
