@@ -1,7 +1,15 @@
 changes to elixer by version
 
+1.17.0a5 [2022-08-17]
+* replace fixed HETDEX gmag limit (was 25.0) with computed limit from the IFU + shot for each detection (using mean
+  of "empty" fibers as a uniform background in a 3.5" radius aperture)
+  + can specify on/off and whether to use the full IFU or just the amp(s) of the top fibers via global_config
+    COMPUTE_HETDEX_MAG_LIMIT and COMPUTE_HETDEX_MAG_LIMIT_FULL_IFU (default is amps only)
+  + added the computed value (or default) to the 4th text line in upper left as g=##.#
+
+
 1.17.0a4 [2022-08-05]
-* replace fixed HETDED gmag limit (was 25.0) with computed limit from the IFU + shot for each detection (using mean
+* testing replaceing HETDEX gmag limit (was 25.0) with computed limit from the IFU + shot for each detection (using mean
   of "empty" fibers as a uniform background in a 3.5" radius aperture)
 * renamed best_z and best_pz in h5 file to z_best and z_best_pz
 * added "amp" and "multiframe" columns to h5 file Detections table

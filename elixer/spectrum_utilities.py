@@ -200,12 +200,20 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640
     calcuate an approximage gband mag limit for THIS set of calfibs (e.g. typically one IFU for one shot)
 
     losely based on what was done for LyCon and selecting "empty" fibers for a background
-    :param calfib: #as flux per 2AA bin in 1e-17
+
+    :param calfib: (or ffsky) assumed in flux units over 2AA x10^-17 erg/s/cm2
     :param calfibe:
-    :param flux_limit:
+    :param fwhm: seeing fwhm
+    :param flux_limit: default assumed limit
+    :param wavelength: f_iso wavelength
+    :param aper: extraction aperture in arcsec
+    :param ifu_fibid: fiber ID 1 - 448 (really only used in debugging)
+    :param central_fiber: the "blue" central fiber
+    :param detectid:
     :return:
     """
 
+    debug_printing = False #turn on extra debug print
     try:
         limit = G.HETDEX_CONTINUUM_MAG_LIMIT
         min_num_final_fibers = max(100, int(len(calfib)/4) )  # 1/4 of the standard, but at least 100
@@ -229,13 +237,6 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640
             ifu_fibid = np.full(np.shape(all_calfib)[0],-1)
 
         base_edge = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid]) / len(ifu_fibid)
-        # all_calfib = calfib[:, 600:900] #try a redward, stable region (avoid skylines and "chip gap" and poor blue calibration)
-        # all_calfibe = calfibe[:,600:900]
-
-        # plt.close('all')
-        # plt.hist(np.nanmean(all_calfib,axis=1),bins=50)
-        # plt.savefig("glimit_hist1.png")
-
 
         #could be something very wrong with the error
         #get rid of any with obvious emission lines
@@ -263,193 +264,33 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640
         ifu_fibid = ifu_fibid[sel]
 
         #get rid of continuum (and negative continuum)
+        #for better accuracy this really should be done in 500AA chunks or so, rather that over (almost) the whole
+        #spectral width at once
         cont_calfib = np.nanmedian(all_calfib, axis=1) /2.0 # mean flux denisties
-        #sel = np.array(cont_calfib < 0.5) & np.array(cont_calfib > -0.5)
         sel = np.array(cont_calfib < 0.02) & np.array(cont_calfib > -0.02)
-        # so average above 2e-18 erg/s/cm2/AA or aboout g 23.5 (should always be better than this)
-        # 0.05
-        # in the original LyCon paper this was 0.5 and -0.5 (and over 500AA chunks, not built of the array)
-        #but I think we can close in a bit more than that. Really even 0.15 or 0.10 is probably also okay
+        # so average above 2e-19 erg/s/cm2/AA or aboout g 23.8 at 5 sigma under a 3.5" aperture and typical seeing
+        # assuming this as a scatter (so 1.5 (seeing correction) * 5.0 (sigma) * 0.02e-17 at 4640AA => 23.8)
+        # (should always be better than this)
+        # (note: as measured flux in one single fiber, this is only about g=26)
+        # Typically these keeps about 75% of all fibers
         all_calfib = all_calfib[sel]
         all_calfibe = all_calfibe[sel]
         cont_calfib = cont_calfib[sel]
         ifu_fibid = ifu_fibid[sel]
 
+        calfibe_means = np.nanmean(all_calfibe, axis=1)
+        califbe_mu = np.nanmean(calfibe_means)
+        calfibe_std = np.nanstd(calfibe_means)
 
+        sclip = 1.0
+        sel = np.array( (calfibe_means - califbe_mu) < sclip * calfibe_std)  #one side only (remove largest errors)
+        all_calfib = all_calfib[sel]
+        all_calfibe = all_calfibe[sel]
+        ifu_fibid = ifu_fibid[sel]
 
-        #todo: !!! try flipping a bit ... sort and trim very edges, say last 2.5% from either end (keeping roughly
-        #todo: the interrior 2-sigma; then perform a single (3?) sigma clip on what remains and us that as the sample
-        #todo: s|t we probably get rid of any extreme outliers but keep more than just the interior 1-sigma
-
-
-        #todo: !!! not currently making use of throughput or chi2 arrays for the fibers
-        #todo: !!! LyCon did restrict which "sky fibers" were valid also using these
-
-        #todo: !!! Karl's variation cuts the top xx% (20%) to get anything with continuum and goes from there
-
-        #todo: !!! maybe in final, put up bumpers? limit to g 24-25?
-
-        #this does not better
-        # ***could*** also see about a weighted biweight and use the scale instead of std dev and make use of
-        # the calfibe to weight the weighted biweight; or have the stddev of the means include the errors on those
-        # means which would come from the calfibe (in quadrature) ...
-        # !!! so, compute the mean +/- calfibe (in quadrature) for each fiber, then feed that into weighted biweight
-        # !!! and use the biweight scale x5 instead of std dev x5
-
-        #sort by the mean flux, and trim off the ends (the tails)
-
-
-        #Since this is based on the scatter about an effectively zero measure, the more I trim the sample,
-        #the smaller the scatter and the fainter the measured mag-limit, SO, we do want to trim those that have
-        #detected flux and any with problems, but need to be very careful about triming anything else
-        if False:
-            #no cut
-            pass
-        elif False: #this gives the "deepest" results #~ 24.9 +/- 0.35 with some pushing 26
-            sz = len(all_calfib)
-            trim_frac =  0.05 #maybe a larger range??
-            sel = [x for _, x in sorted(zip(cont_calfib, np.arange(sz)))][int(trim_frac * sz):int(-1 * trim_frac * sz)]
-            all_calfib = all_calfib[sel]
-            all_calfibe = all_calfibe[sel]
-            ifu_fibid = ifu_fibid[sel]
-
-            #check here ... which fibers are trimmed off
-            all_fibers = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid]) / len(ifu_fibid)
-            remaining_fibers = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid[sel]])/len(sel)
-        elif False: #clip the largest ERRORS (Calfibe) (clip one side only
-
-            # plt.close('all')
-            # plt.hist(np.nanmean(all_calfibe,axis=1),bins=np.arange(0.1,0.3,0.001))
-            # plt.savefig("calfibe_hist_pre.png")
-
-
-            sz = len(all_calfibe)
-            trim_frac = 0.10  # maybe a larger range??
-            #sort is in assending order (low to high)
-            #nanmean is better than sum since there may be nan's along the way
-            sel = [x for _, x in sorted(zip(np.nanmean(all_calfibe, axis=1), np.arange(sz)))][0:int(-1 * trim_frac * sz)]
-            all_calfib = all_calfib[sel]
-            all_calfibe = all_calfibe[sel]
-            ifu_fibid = ifu_fibid[sel]
-
-            # plt.close('all')
-            # plt.hist(np.nanmean(all_calfibe,axis=1),bins=np.arange(0.1,0.3,0.001))
-            # plt.savefig("calfibe_hist_post.png")
-
-            # check here ... which fibers are trimmed off
-            all_fibers = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid]) / len(ifu_fibid)
-            remaining_fibers = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid[sel]]) / len(sel)
-
-        elif True:  # clip the largest ERRORS (Calfibe) (clip one side only) as SIGMA
-
-            # plt.close('all')
-            # plt.hist(np.nanmean(all_calfibe,axis=1),bins=np.arange(0.1,0.3,0.001))
-            # plt.savefig("calfibe_hist_pre.png")
-
-            sz = len(all_calfibe)
-            #trim_frac = 0.10  # maybe a larger range??
-            # sort is in assending order (low to high)
-            # nanmean is better than sum since there may be nan's along the way
-            calfibe_means = np.nanmean(all_calfibe, axis=1)
-            califbe_mu = np.nanmean(calfibe_means)
-            calfibe_std = np.nanstd(calfibe_means)
-
-            #if edge: # we are at the edge
-            #    sclip = 2.0
-            #else:
-
-            sclip = 1.0
-            sel = np.array( (calfibe_means - califbe_mu) < sclip * calfibe_std)  #one side only (remove largest errors)
-            all_calfib = all_calfib[sel]
-            all_calfibe = all_calfibe[sel]
-            ifu_fibid = ifu_fibid[sel]
-
-            # plt.close('all')
-            # plt.hist(np.nanmean(all_calfibe,axis=1),bins=np.arange(0.1,0.3,0.001))
-            # plt.savefig("calfibe_hist_post.png")
-
-
-
-            #now the calfibs
-            sz = len(all_calfib)
-            # trim_frac = 0.10  # maybe a larger range??
-            # sort is in assending order (low to high)
-            # nanmean is better than sum since there may be nan's along the way
-            calfib_means = np.nanmean(all_calfib, axis=1)
-            califb_mu = np.nanmean(calfib_means)
-            calfib_std = np.nanstd(calfib_means)
-
-
-
-            # if True: #trim off the largest fluxes
-            #     trim_frac = 0.16
-            #     sel = [x for _, x in sorted(zip(calfib_means, np.arange(sz)))][0:int(-1 * trim_frac * sz)]
-            #
-            # else:  #sigma clip xx
-            #     sclip = 3.0
-            #     sel = np.array( (calfib_means - califb_mu) < sclip * calfib_std)  #one side only (remove largest fluxes)
-
-            # all_calfib = all_calfib[sel]
-            # all_calfibe = all_calfibe[sel]
-            # ifu_fibid = ifu_fibid[sel]
-
-
-
-            # check here ... which fibers are trimmed off
-            all_fibers = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid]) / len(ifu_fibid)
-            remaining_fibers = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid]) / len(ifu_fibid)
-
-        elif False:
-            #single sigma clip
-            fiber_means = np.nanmean(all_calfib, axis=1)
-            mean_of_fiber_means = np.nanmean(fiber_means)
-            std_of_fiber_means = np.nanstd(fiber_means)
-            sclip = 3.0
-            sel = np.array(abs(mean_of_fiber_means - fiber_means) < sclip * std_of_fiber_means)
-            all_calfib = all_calfib[sel]
-            all_calfibe = all_calfibe[sel]
-            ifu_fibid = ifu_fibid[sel]
-
-            plt.close('all')
-            plt.hist(np.nanmean(all_calfib, axis=1), bins=50)
-            plt.savefig("glimit_hist2.png")
-
-
-            sz = len(all_calfib)
-            trim_frac = 0.025 #maybe a larger range??
-            sel = [x for _, x in sorted(zip(cont_calfib, np.arange(sz)))][int(trim_frac * sz):int(-1 * trim_frac * sz)]
-            all_calfib = all_calfib[sel]
-            all_calfibe = all_calfibe[sel]
-            ifu_fibid = ifu_fibid[sel]
-
-            plt.close('all')
-            plt.hist(np.nanmean(all_calfib, axis=1), bins=50)
-            plt.savefig("glimit_hist3.png")
-
-        elif False: #this is about the same as the single 1-sigma clip #24.2 +/- 0.35
-            #what if, instead, we sigma clip?
-            oldlen = len(all_calfib)
-            newlen = -1
-            while oldlen != newlen:
-                fiber_means = np.nanmean(all_calfib, axis=1)
-                mean_of_fiber_means = np.nanmean(fiber_means)
-                std_of_fiber_means = np.nanstd(fiber_means)
-                sclip = 3.0
-                sel = np.array( abs(mean_of_fiber_means - fiber_means) < sclip * std_of_fiber_means)
-                if np.count_nonzero(sel) < 250:
-                    break #just leave as it was
-                oldlen = len(all_calfib)
-                all_calfib = all_calfib[sel]
-                ifu_fibid = ifu_fibid[sel]
-                newlen = len(all_calfib)
-        elif False: #a single 2-sigma clip (if normally distributed, this would be the interior 95%)
-            fiber_means = np.nanmean(all_calfib, axis=1)
-            mean_of_fiber_means = np.nanmean(fiber_means)
-            std_of_fiber_means = np.nanstd(fiber_means)
-            sclip = 5.0
-            sel = np.array(abs(mean_of_fiber_means - fiber_means) < sclip * std_of_fiber_means)
-            all_calfib = all_calfib[sel]
-            ifu_fibid = ifu_fibid[sel]
+        # check here ... which fibers are trimmed off
+        all_fibers = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid]) / len(ifu_fibid)
+        remaining_fibers = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid]) / len(ifu_fibid)
 
         #these are effectively empty fibers now and a measure of the noise
         #mean = np.nanmean(all_calfib)/2.0 #full mean over all remaining fibers and wavebins as  flux denisty
@@ -468,18 +309,10 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640
         if abs(mean_of_fiber_means > 0.1): # 0.05 ~25.01 g, 0.075 ~ 24.57, 0.08 ~ 24.50g, 0.10 ~24.26
             # #would be same as straight mean of all wavelength bin fluxes
             #something is wrong
-            log.info(f"({detectid}) HETDEX gmag limit bad calculation. mean of fiber means {mean_of_fiber_means}. "
+            log.info(f"({detectid}) HETDEX g-limit: bad calculation. mean of fiber means {mean_of_fiber_means}. "
                      f"Setting to default {G.HETDEX_CONTINUUM_MAG_LIMIT}.")
             return G.HETDEX_CONTINUUM_MAG_LIMIT
 
-
-        # plt.close('all')
-        # plt.hist(np.nanmean(all_calfib,axis=1),bins=50)
-        # plt.savefig("glimit_hist_f.png")
-
-
-        #todo: if number of fibers left is too small (say 600 or fewer, about 1/2 of 1344), then just go back to default?
-        #todo: maybe as few as 200? What if just using the amp and not the whole IFU?
 
         if len(all_calfib) < min_num_final_fibers:
             log.info(f"({detectid}) HETDEX g-limit: Too few fibers ({len(all_calfib)}) to reliably compute mag limit. Using default {G.HETDEX_CONTINUUM_MAG_LIMIT}.")
@@ -508,11 +341,6 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640
         if aper is None or aper <= 0:
             aper = 3.5
 
-        #limit = cgs2mag( ((aper/1.5)**2) * mean * 1e-17,wavelength)
-        #limit = cgs2mag( (std - mean) * 1e-17,wavelength)
-        #limit = cgs2mag( 5 * (std_of_fiber_means - mean_of_fiber_means) * 1e-17,wavelength) #often goes negative
-
-
         # approx area using just the heights (since the base is on a uniform grid, that will divide out)
         #this is really an area correction, but since the 1D spectrum for HETDEX is PSF weighted,
         #this is based on the (approximate) fraction of the whole of that weight provided by the central most fiber
@@ -530,8 +358,15 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640
         #limit = cgs2mag(psf_corr * 5. * std_of_fiber_errors * 1e-17, wavelength) #5 for 5 sigma limit
         if limit is None or np.isnan(limit):
             limit = G.HETDEX_CONTINUUM_MAG_LIMIT
+        else: #round up to 0.1f
+            limit = np.ceil(limit*10.)/10.
 
-        print(f"base_edge: {base_edge:0.4f} pre-cut: {all_fibers:0.4f} final_edge: {remaining_fibers:0.4f} "
+
+        #sanity check ... what are wholly unreasonable values??
+        #normally  25.5+ would seem improbable, but what about great seeing and throughput with a long exposeure??
+
+        if debug_printing:
+            print(f"base_edge: {base_edge:0.4f} pre-cut: {all_fibers:0.4f} final_edge: {remaining_fibers:0.4f} "
               f"limit: {limit:0.4f}  mean_fluxd: {mean_of_fiber_means:0.4f}  std_fluxd {std_of_fiber_means:0.4f}  "
               f"mean_fluxd_err: {np.nanmean(all_calfibe)/2.0:0.4f}  seeing: {fwhm:0.2f}  psf_cor:  {psf_corr:0.2f}  "
               f"num_fibers: {len(fiber_means)}  edge: {edge}  detectid: {detectid}")
