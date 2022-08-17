@@ -205,13 +205,15 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640
     :param flux_limit:
     :return:
     """
-    limit = G.HETDEX_CONTINUUM_MAG_LIMIT
-    min_num_final_fibers = 448 # 1/3 of the standard ?
-    #min_std_of_fiber_means = 0.003 #e-17 ... leads to mag limits 26 and fainter; see these with large objects in the IFU
-                                   #can still push down the error ... I think it squelces variation in the IFU
-                                   # maybe an issue with the calibration?
-    min_mean_calfibe = 0.055#e-17 like above, large object squelces the error? ... this is a bit of a guess not sure it makes sense
+
     try:
+        limit = G.HETDEX_CONTINUUM_MAG_LIMIT
+        min_num_final_fibers = max(100, int(len(calfib)/3) )  # 1/3 of the standard
+        # min_std_of_fiber_means = 0.003 #e-17 ... leads to mag limits 26 and fainter; see these with large objects in the IFU
+        # can still push down the error ... I think it squelces variation in the IFU
+        # maybe an issue with the calibration?
+        min_mean_calfibe = 0.055  # e-17 like above, large object squelces the error? ... this is a bit of a guess not sure it makes sense
+
         edge = False
         try:
             if central_fiber is not None and is_edge_fiber(central_fiber.number_in_ccd):

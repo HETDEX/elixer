@@ -9074,67 +9074,65 @@ class DetObj:
                     #this is a test and is largely unecessary ... get ALL 1344 fibers (as 3 dithers x 448 IFU fibers)
                     #to build the mag limit estimate ... it is probably okay to just use the amp fibers in the section
                     #immediately above
-                
-                    #get 12 fits? 3 dither x 4 multiframe (amps)
-                    dummy_fiber = self.fibers[0] #just use one we already have?
-                    base_multi = dummy_fiber.multi[:18] #ends in _ need to add LL, LU, RU, RL
-                    fits_fn = dummy_fiber.find_hdf5_multifits(loc=op.dirname(hdf5_fn))
+
+                    if G.COMPUTE_HETDEX_MAG_LIMIT_FULL_IFU:
+
+                        #get 12 fits? 3 dither x 4 multiframe (amps)
+                        dummy_fiber = self.fibers[0] #just use one we already have?
+                        base_multi = dummy_fiber.multi[:18] #ends in _ need to add LL, LU, RU, RL
+                        fits_fn = dummy_fiber.find_hdf5_multifits(loc=op.dirname(hdf5_fn))
 
 
-                    fits = hetdex_fits.HetdexFits(empty=True)
-                    fits.filename = fits_fn
+                        fits = hetdex_fits.HetdexFits(empty=True)
+                        fits.filename = fits_fn
 
-                    ifu_calfib = None
-                    ifu_calfibe = None
-                    ifu_fibid = None
-                    already_read, alread_read_idx = np.unique([f.fits.amp + str(f.fits.expid) for f in self.fibers],return_index=True)
-                    AMP_OFFSET = {"LU": 1, "LL": 113, "RL": 225, "RU": 337}
+                        ifu_calfib = None
+                        ifu_calfibe = None
+                        ifu_fibid = None
+                        already_read, alread_read_idx = np.unique([f.fits.amp + str(f.fits.expid) for f in self.fibers],return_index=True)
+                        AMP_OFFSET = {"LU": 1, "LL": 113, "RL": 225, "RU": 337}
 
-                    for exp in range(1,4):
-                        fits.expid = 1 #then 2, 3
-                        for amp in ["LL","LU","RL","RU"]:
-                            fits.multiframe = base_multi + amp
-                            #might have already read this one
-                            try:
-                                try: #if we already have it, don't re-read
-                                    fibidx = np.where(already_read == amp + str(exp))[0][0]
-                                    if ifu_calfib is None:
-                                        ifu_calfib = self.fibers[fibidx].fits.calfib
-                                        ifu_calfibe = self.fibers[fibidx].fits.calfibe
-                                        ifu_fibid =  elixer_fiber.AMP_OFFSET[amp] + np.arange(111,-1,-1)
+                        for exp in range(1,4):
+                            fits.expid = 1 #then 2, 3
+                            for amp in ["LL","LU","RL","RU"]:
+                                fits.multiframe = base_multi + amp
+                                #might have already read this one
+                                try:
+                                    try: #if we already have it, don't re-read
+                                        fibidx = np.where(already_read == amp + str(exp))[0][0]
+                                        if ifu_calfib is None:
+                                            ifu_calfib = self.fibers[fibidx].fits.calfib
+                                            ifu_calfibe = self.fibers[fibidx].fits.calfibe
+                                            ifu_fibid =  elixer_fiber.AMP_OFFSET[amp] + np.arange(111,-1,-1)
 
-                                    else:
-                                        ifu_calfib = np.concatenate((ifu_calfib, self.fibers[fibidx].fits.calfib),
-                                                                    axis=0)
-                                        ifu_calfibe = np.concatenate((ifu_calfibe, self.fibers[fibidx].fits.calfibe),
-                                                                    axis=0)
-                                        ifu_fibid =   np.concatenate((ifu_fibid,
-                                                                      elixer_fiber.AMP_OFFSET[amp] + np.arange(111,-1,-1) ))
+                                        else:
+                                            ifu_calfib = np.concatenate((ifu_calfib, self.fibers[fibidx].fits.calfib),
+                                                                        axis=0)
+                                            ifu_calfibe = np.concatenate((ifu_calfibe, self.fibers[fibidx].fits.calfibe),
+                                                                        axis=0)
+                                            ifu_fibid =   np.concatenate((ifu_fibid,
+                                                                          elixer_fiber.AMP_OFFSET[amp] + np.arange(111,-1,-1) ))
+                                    except:
+                                        fits.read_hdf5()
+
+                                        if ifu_calfib is None:
+                                            ifu_calfib = fits.calfib
+                                            ifu_calfibe = fits.calfibe
+                                            ifu_fibid = elixer_fiber.AMP_OFFSET[amp] + np.arange(111,-1,-1)
+                                        else:
+                                            ifu_calfib = np.concatenate((ifu_calfib,fits.calfib),axis=0)
+                                            ifu_calfibe = np.concatenate((ifu_calfibe,fits.calfibe),axis=0)
+                                            ifu_fibid =   np.concatenate((ifu_fibid,
+                                                                          elixer_fiber.AMP_OFFSET[amp] + np.arange(111,-1,-1) ))
+
                                 except:
-                                    fits.read_hdf5()
-
-                                    if ifu_calfib is None:
-                                        ifu_calfib = fits.calfib
-                                        ifu_calfibe = fits.calfibe
-                                        ifu_fibid = elixer_fiber.AMP_OFFSET[amp] + np.arange(111,-1,-1)
-                                    else:
-                                        ifu_calfib = np.concatenate((ifu_calfib,fits.calfib),axis=0)
-                                        ifu_calfibe = np.concatenate((ifu_calfibe,fits.calfibe),axis=0)
-                                        ifu_fibid =   np.concatenate((ifu_fibid,
-                                                                      elixer_fiber.AMP_OFFSET[amp] + np.arange(111,-1,-1) ))
-
-                            except:
-                                log.warning("Exception loading IFU in test",exc_info=True)
-
-
-                    #this would be as the (max) of 336 fibers (112 * 3), but could be less if top fibers have more repeat amp+dither
-                    #really should be the 448 x 3 fibers of whole IFU?
-                    #all_calfib = np.concatenate([self.fibers[i].fits.calfib for i in good_idx],axis=0)
-                    #all_calfibe = np.concatenate([self.fibers[i].fits.calfibe for i in good_idx],axis=0)
-
-                    # self.hetdex_gmag_limit = SU.calc_dex_g_limit(all_calfib, calfibe=None,
-                    #                                              fwhm=self.survey_fwhm, flux_limit=4.0,
-                    #                                              aper=self.extraction_aperture)
+                                    log.warning("Exception loading IFU in test",exc_info=True)
+                    else:
+                        # this would be as the (max) of 336 fibers (112 * 3), but could be more if top fibers
+                        # cross amps
+                        ifu_calfib = all_calfib
+                        ifu_calfibe = np.concatenate([self.fibers[i].fits.calfibe for i in good_idx],axis=0)
+                        ifu_fibid = None
 
                     self.hetdex_gmag_limit = SU.calc_dex_g_limit(ifu_calfib, calfibe=ifu_calfibe,
                                                                 fwhm=self.survey_fwhm,

@@ -776,6 +776,7 @@ HETDEX_FLUX_BASE_CGS = 1e-17
 # 5.38e-19 ~ 25.0 mag in g-band
 COMPUTE_HETDEX_MAG_LIMIT = True #if true, use the IFU fibers to compute a limit for the detection (otherwise just use
                                 #HETDEX_CONTINUUM_MAG_LIMIT
+COMPUTE_HETDEX_MAG_LIMIT_FULL_IFU = False #if True, use the full IFU, if False use the amp(s) for the top 4 fibers
 HETDEX_CONTINUUM_MAG_LIMIT = 25.0 #24.5 #generous, truth is closer to 24.few
 HETDEX_CONTINUUM_FLUX_LIMIT =  5.38e-19 #flux-density based on 25 mag limit (really more like 24.5)
 
