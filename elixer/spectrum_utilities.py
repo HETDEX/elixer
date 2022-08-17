@@ -208,7 +208,8 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640
 
     try:
         limit = G.HETDEX_CONTINUUM_MAG_LIMIT
-        min_num_final_fibers = max(100, int(len(calfib)/3) )  # 1/3 of the standard
+        min_num_final_fibers = max(100, int(len(calfib)/4) )  # 1/4 of the standard, but at least 100
+        #so if 1344 passed in, would need at leat 336 ... if 336 passed in (112x3) would need 100
         # min_std_of_fiber_means = 0.003 #e-17 ... leads to mag limits 26 and fainter; see these with large objects in the IFU
         # can still push down the error ... I think it squelces variation in the IFU
         # maybe an issue with the calibration?
@@ -467,7 +468,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640
         if abs(mean_of_fiber_means > 0.1): # 0.05 ~25.01 g, 0.075 ~ 24.57, 0.08 ~ 24.50g, 0.10 ~24.26
             # #would be same as straight mean of all wavelength bin fluxes
             #something is wrong
-            log.info(f"HETDEX gmag limit bad calculation. mean of fiber means {mean_of_fiber_means}. "
+            log.info(f"({detectid}) HETDEX gmag limit bad calculation. mean of fiber means {mean_of_fiber_means}. "
                      f"Setting to default {G.HETDEX_CONTINUUM_MAG_LIMIT}.")
             return G.HETDEX_CONTINUUM_MAG_LIMIT
 
@@ -481,7 +482,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640
         #todo: maybe as few as 200? What if just using the amp and not the whole IFU?
 
         if len(all_calfib) < min_num_final_fibers:
-            log.info(f"HETDEX g-limit: Too few fibers ({len(all_calfib)}) to reliably compute mag limit. Using default {G.HETDEX_CONTINUUM_MAG_LIMIT}.")
+            log.info(f"({detectid}) HETDEX g-limit: Too few fibers ({len(all_calfib)}) to reliably compute mag limit. Using default {G.HETDEX_CONTINUUM_MAG_LIMIT}.")
             return G.HETDEX_CONTINUUM_MAG_LIMIT
 
         #what about other checks ... something weird with the calfibe? negative mean_of_fiber_means?
@@ -535,12 +536,10 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640
               f"mean_fluxd_err: {np.nanmean(all_calfibe)/2.0:0.4f}  seeing: {fwhm:0.2f}  psf_cor:  {psf_corr:0.2f}  "
               f"num_fibers: {len(fiber_means)}  edge: {edge}  detectid: {detectid}")
 
-
-
-        log.info(f"base_edge: {base_edge:0.4f} pre-cut: {all_fibers:0.4f} final_edge: {remaining_fibers:0.4f} "
-              f"limit: {limit:0.4f}  mean_fluxd: {mean_of_fiber_means:0.4f}  std_fluxd {std_of_fiber_means:0.4f}  "
+        log.info(f"({detectid}) HETDEX g-limit: limit {limit:0.4f},  mean_fluxd: {mean_of_fiber_means:0.4f}  "
+              f"std_fluxd {std_of_fiber_means:0.4f}  "
               f"mean_fluxd_err: {np.nanmean(all_calfibe)/2.0:0.4f}  seeing: {fwhm:0.2f}  psf_cor:  {psf_corr:0.2f}  "
-              f"num_fibers: {len(fiber_means)}  edge: {edge}  detectid: {detectid}")
+              f"num_fibers: {len(fiber_means)}  edge: {edge} ")
 
     except:
         log.warning("Exception in calc_dex_g_limit",exc_info=True)
