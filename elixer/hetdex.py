@@ -3642,7 +3642,30 @@ class DetObj:
                 diam_kpc = SU.physical_diameter(z_oii, self.classification_dict['diam_in_arcsec'])
                 vote_info['oii_size_in_kpc'] = diam_kpc
 
-                if diam_kpc is None:
+                if self.classification_dict['diam_in_arcsec'] > 9.0 and self.best_gmag < 21 and z_oii < 0.15:
+                    #bright and hanging off the cutout
+                    likelihood.append(0)
+                    #little extra nudge
+                    w = 0.25
+                    try: #bright, big, narrow line
+                        if self.best_eqw_gmag_obs /(self.w/G.LyA_rest) < 5:
+                            w = 0.5
+                    except:
+                        pass
+                    weight.append(w)
+                    var.append(1)
+                    prior.append(base_assumption)
+
+                    # set a base weight (will be adjusted later)
+                    # diameter_lae.append({"z":z,"kpc":diam_kpc,"weight":w,"likelihood":lk})
+                    log.info(
+                        f"{self.entry_id} Aggregate Classification, angular size ({self.classification_dict['diam_in_arcsec']:0.2})\". Likely OII:"
+                        f" z(OII)({z_oii:#.4g}) weight({weight[-1]:#.5g}) likelihood({likelihood[-1]:#.5g})")
+
+                    vote_info['size_in_psf_vote'] = likelihood[-1]
+                    vote_info['size_in_psf_weight'] = weight[-1]
+
+                elif diam_kpc is None:
                     log.info(f"{self.entry_id} Aggregate Classification angular size no vote (unresolved) or no size info.")
                 elif (diam_kpc < 3.0) or (self.classification_dict['diam_in_arcsec'] < arcsec_thresh(self.w)): #usually we fall here
                     #small to medium
@@ -3985,13 +4008,13 @@ class DetObj:
                             vote_info['bright_continuum_weight'] = weight[-1]
                     except:
                         log.debug(
-                            f"{self.entry_id} Aggregate Classification: Bright continuum -- no vote")
+                            f"{self.entry_id} Aggregate Classification: Bright continuumm, exception -- no vote")
                 else:
                     log.debug(
-                        f"{self.entry_id} Aggregate Classification: Bright continuum -- no vote")
+                        f"{self.entry_id} Aggregate Classification: Bright continuum, but too few lines found so  -- no vote")
             else:
                 log.debug(
-                    f"{self.entry_id} Aggregate Classification: Bright continuum -- no vote")
+                    f"{self.entry_id} Aggregate Classification: Bright continuum, not bright enough -- no vote")
 
         except:
             log.debug("Exception in aggregate_classification for LZG check",exc_info=True)
@@ -4244,7 +4267,23 @@ class DetObj:
                 #         w = min(w, 0.05)
                 #     else:
                 #         w = min(w,(self.w - G.OII_rest)/40 * 0.1 )
-                weight.append(w)
+
+
+                #should we limit the max weight when the line is close to 3727 observed? when z gets small
+                #plae/poii becomes unreliable
+                #(just above, commented out, was an earlier similar idea, but more severly enforced)
+                if self.w < 3725: #too blue to be OII
+                    z_mult = 1.0
+                else:
+                    z_oii = max(0,self.w / (G.OII_rest) - 1.0) #don't let it be negative
+                    #reduce the max weight from z 0 to z 0.05 by cutting in half at z 0 and full at z 0.05
+                    z_mult = min(1.0, 10.0 * z_oii + 0.5) #0.5 at z = 0 up to 1.0 from z = 0.05+
+
+                if z_mult < 1:
+                    log.info(f"{self.entry_id} Aggregate Classification: MC PLAE/POII from combined continuum down-weighted"
+                             f" due to possible low-z OII, z= {z_oii:0.4f}")
+
+                weight.append(w*z_mult)
                 var.append(1)  # todo: use the sd (scaled?) #can't use straight up here since the variances are not
                                # on the same scale
 

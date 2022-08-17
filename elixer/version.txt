@@ -1,8 +1,15 @@
 changes to elixer by version
 
+
+1.17.0a6 [2022-08-17]
+* updated size vote: if angular diameter > 9 and bright (< 21), favor OII (basically, large, bright and larger than cutout)
+* update PLAE/POII: down weight for OII z < 0.05 where the low volume is a problem
+* lower the limiting g-mag on elixer clustering to 21 (unless there are flags, then no lower limit)
+
 1.17.0a5 [2022-08-17]
 * replace fixed HETDEX gmag limit (was 25.0) with computed limit from the IFU + shot for each detection (using mean
   of "empty" fibers as a uniform background in a 3.5" radius aperture)
+  + limit is optimistic and rounded UP to a single decimal
   + can specify on/off and whether to use the full IFU or just the amp(s) of the top fibers via global_config
     COMPUTE_HETDEX_MAG_LIMIT and COMPUTE_HETDEX_MAG_LIMIT_FULL_IFU (default is amps only)
   + added the computed value (or default) to the 4th text line in upper left as g=##.#
