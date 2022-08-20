@@ -1788,8 +1788,6 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                             except:
                                 pass
 
-
-        #how to evaluate? besc score?
         fd_idx = np.argmax([fd["score"] for fd in fit_dict_array])
 
         if fit_dict_array[fd_idx]['score'] <=0:

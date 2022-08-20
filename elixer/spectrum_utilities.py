@@ -289,8 +289,13 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640
         ifu_fibid = ifu_fibid[sel]
 
         # check here ... which fibers are trimmed off
-        all_fibers = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid]) / len(ifu_fibid)
-        remaining_fibers = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid]) / len(ifu_fibid)
+        if len(ifu_fibid) == 0: #there is definitely a problem
+            log.info(f"({detectid}) HETDEX g-limit: Too few fibers ({len(all_calfib)}) to reliably compute mag limit. "
+                     f"Using default {G.HETDEX_CONTINUUM_MAG_LIMIT}.")
+            return G.HETDEX_CONTINUUM_MAG_LIMIT
+        else:
+            all_fibers = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid]) / len(ifu_fibid)
+            remaining_fibers = np.count_nonzero([is_edge_fiber(x) for x in ifu_fibid]) / len(ifu_fibid)
 
         #these are effectively empty fibers now and a measure of the noise
         #mean = np.nanmean(all_calfib)/2.0 #full mean over all remaining fibers and wavebins as  flux denisty
@@ -315,7 +320,8 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640
 
 
         if len(all_calfib) < min_num_final_fibers:
-            log.info(f"({detectid}) HETDEX g-limit: Too few fibers ({len(all_calfib)}) to reliably compute mag limit. Using default {G.HETDEX_CONTINUUM_MAG_LIMIT}.")
+            log.info(f"({detectid}) HETDEX g-limit: Too few fibers ({len(all_calfib)}) to reliably compute mag limit. "
+                     f"Using default {G.HETDEX_CONTINUUM_MAG_LIMIT}.")
             return G.HETDEX_CONTINUUM_MAG_LIMIT
 
         #what about other checks ... something weird with the calfibe? negative mean_of_fiber_means?
