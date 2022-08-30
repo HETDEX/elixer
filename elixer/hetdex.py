@@ -718,7 +718,7 @@ class DetObj:
         #flux calibrated data (from Karl's detect and calibration)
         self.fcsdir = None
         self.pdf_name = None
-        self.hdf5_detectname = None #detectname column in HDF5 representation (just for reference)
+        #self.hdf5_detectname = None #detectname column in HDF5 representation (just for reference)
         self.hdf5_shot_dir = None #used only in the forced extraction, otherwise is specified as part of data release
         #the hdf5_detectid is the same as the self.entry_id, (see propert hdf5_detectid())
 
@@ -728,7 +728,7 @@ class DetObj:
         self.line_gaussfit_unc = None
 
         self.sumspec_wavelength = []
-        self.sumspec_counts = []
+        self.sumspec_counts = [] #not used anymore but still here for backward compatibility
         self.sumspec_flux = []
         self.sumspec_flux_unit_scale = G.HETDEX_FLUX_BASE_CGS #cgs
         self.sumspec_fluxerr = []
@@ -737,10 +737,13 @@ class DetObj:
         self.sumspec_apcor = []
 
         self.sumspec_wavelength_zoom = []
-        self.sumspec_counts_zoom = []
+        self.sumspec_counts_zoom = [] #not used anymore but still here for backward compatibility
         self.sumspec_flux_zoom = []
         self.sumspec_fluxerr_zoom = []
         self.sumspec_2d_zoom = []
+
+        self.deblended_flux = []  #used wuith --lyc, the spectra post PSF deblended
+        self.deblended_fluxerr = []
 
         self.rvb = None #spectrum_utilities pseudo color dictionary (see red_vs_blue(...))
         self.spec_obj = elixer_spectrum.Spectrum() #use for classification, etc
@@ -1108,19 +1111,31 @@ class DetObj:
         #list of dicts of RA, Dec, catalog, filter, size ,etc
         # keep preferentially, deeper imaging, g then r band (g because of HETDEX in g as most representative of size in similar band)
 
-        best_idx = -1
-        best_limit = 0
-        best_filter = 'x'
+        best_g_idx = -1
+        best_g_limit = 0
+        best_r_idx = -1
+        best_r_limit = 0
+
+        #find deepest g and deepest r
+        #keep deepest g if >= r - 0.2
 
         try:
             for i,cat in enumerate(self.aperture_details_list):
-                if cat['filter_name'].lower() in ['g','r','f606w'] and cat['mag_limit'] < 99 and cat['mag_limit'] >= best_limit:
-                    if best_filter == 'g':
-                        pass # g prefered over r
-                    else:
-                        best_idx = i
-                        best_limit = cat['mag_limit']
-                        best_filter = cat['filter_name']
+                if cat['filter_name'].lower() in ['g']:
+                    if cat['mag_limit'] < 99 and cat['mag_limit'] > best_g_limit:
+                        best_g_idx = i
+                        best_g_limit = cat['mag_limit']
+                        #best_filter = cat['filter_name']
+                elif cat['filter_name'].lower() in ['r', 'f606w']:
+                    if cat['mag_limit'] < 99 and cat['mag_limit'] >= best_r_limit:
+                        best_r_idx = i
+                        best_r_limit = cat['mag_limit']
+                        #best_filter = cat['filter_name']
+
+            if best_g_limit >= best_r_limit - 0.2:
+                best_idx = best_g_idx
+            else:
+                best_idx = best_r_idx
 
             #now we should have the best catalog to check
             if best_idx < 0: #none were found
@@ -1131,7 +1146,7 @@ class DetObj:
                 self.neighbors_sep = deepcopy(self.aperture_details_list[best_idx])
                 #this is a single object with the list as a property: .sep_objects
 
-                self.neighbors_sep
+                self.neighbors_sepneighbors_sep
                 return self.neighbors_sep
 
             # #these should already be unique, but there can be overlapping ellipses
@@ -7701,6 +7716,14 @@ class DetObj:
                 sep_obj['flux_err'] = np.nan_to_num(apt['spec_err'][0]) * G.FLUX_WAVEBIN_WIDTH
                 sep_obj['flux_err'][sel_nan] = 0 #flux error gets a zero where it was NaN or where flux was NaN
 
+                if G.APPLY_GALACTIC_DUST_CORRECTION:
+                    try:
+                        dust_corr = deredden_spectra(G.CALFIB_WAVEGRID, coord)
+                        sep_obj['flux'] *= dust_corr
+                        sep_obj['flux_err'] *= dust_corr
+                    except:
+                        log.warning("Exception. Unable to apply galatic exintction correction to neighbor.", exc_info=True)
+
                 sep_obj['dex_g_mag'], _, sep_obj['dex_g_mag_err'], _ = \
                     elixer_spectrum.get_sdss_gmag(sep_obj['flux'] / G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS,
                                                   G.CALFIB_WAVEGRID,
@@ -8528,41 +8551,61 @@ class DetObj:
 
             #get the multi-fits equivalent info
             #can't use "detectid==detectid" ... context is confused
-            try:
-                rows = detection_table.read_where("detectid==id")
-            except:
-                log.error("Exception in hetdex::DetObj::load_hdf5_fluxcalibrated_spectra reading rows from detection_table",
-                          exc_info=True)
-                rows = None
 
-            if rows is None:
-                self.status = -1
-                log.error(f"Problem loading detectid {id}. None returned.")
-                return
-            elif rows.size != 1:
-                self.status = -1
-                log.error(f"Problem loading detectid {id}. {rows.size} rows returned.")
-                return
+            hda_detobj = None
+            if G.LOAD_SPEC_FROM_HETDEX_API:
+                try:
+                    #check for lines, continuum, or broad
+                    cat_type = "lines"
+                    if str(id)[2] == '9':
+                        cat_type = "continuum"
+                    elif str(id)[2] == '8':
+                        cat_type == 'broad'
 
-            row = rows[0] #should only be the one row
+                    hda_detobj = hda_Detections(loadtable=False, searchable=False, catalog_type=cat_type,curated_version=None)
+                    row = hda_detobj.get_detection_info(detectid_i=id, rawh5=False, verbose=False)[0]
+                except:
+                    hda_detobj = None
+                    log.warning("Exception attempting to load spectra through hetdex_api",exc_info=True)
+                    log.warning("Will attempt direct load from h5 file.")
+
+            if hda_detobj is None:
+                try:
+                    rows = detection_table.read_where("detectid==id")
+
+                    if rows is None:
+                        self.status = -1
+                        log.error(f"Problem loading detectid {id}. None returned.")
+                        return
+                    elif rows.size != 1:
+                        self.status = -1
+                        log.error(f"Problem loading detectid {id}. {rows.size} rows returned.")
+                        return
+
+                    row = rows[0]  # should only be the one row
+                except:
+                    log.error("Exception in hetdex::DetObj::load_hdf5_fluxcalibrated_spectra reading rows from detection_table",
+                              exc_info=True)
+                    rows = None
+
 
             #could be more than one? ... fibers from different dates, or across amps at least
             #or just the highest weight fiber?
             #mfits_name = row['multiframe']
 
             #set the pdf name (w/o the .pdf extension
-            if G.python2():
+            if G.python2():# or hda_detobj is not None:
                 self.pdf_name = row['inputid']
-                try:
-                    self.hdf5_detectname = row['detectname']
-                except:
-                    pass  #unimportant, but some versions don't have this column
+                # try: #hdf5_detectname is unused, removed 'detectname' columns from HDF5 as well as of 1.17.0a7
+                #     self.hdf5_detectname = row['detectname']
+                # except:
+                #     pass  #unimportant, but some versions don't have this column
             else:
                 self.pdf_name = row['inputid'].decode()
-                try:
-                    self.hdf5_detectname = row['detectname'].decode()
-                except:
-                    pass #unimportant, but some versions don't have this column
+                # try:
+                #     self.hdf5_detectname = row['detectname'].decode()
+                # except:
+                #     pass #unimportant, but some versions don't have this column
 
 
             ############################
@@ -8667,38 +8710,40 @@ class DetObj:
             ############################################
             #get the weighted and summed spectra info
             ############################################
-            log.debug("Loading summed spectra data from HDF5 ...")
-            rows = spectra_table.read_where("detectid==id")
-            if (rows is None) or (rows.size != 1):
-                self.status = -1
-                log.error("Problem loading detectid. Multiple rows or no rows in Spectra table.")
-                return
-            row = rows[0]
 
-
-            self.sumspec_counts = row['counts1d']#not really using this anymore
-            #self.sumspec_countserr #not using this
-
-            if G.LOAD_SPEC_FROM_HETDEX_API:
+            if G.LOAD_SPEC_FROM_HETDEX_API and hda_detobj is not None:
                 try:
                     #DO NOT APPLY dust correction HERE!! it is done later
-                    hda_spec = hda_Detections(loadtable=False,searchable=False).get_spectrum(id)
+                    hda_spec = hda_detobj.get_spectrum(id,rawh5=False,deredden=False,add_apcor=True,verbose=False)
+                    #!!!! if rawh5 == True, these are still in flux units, not the usual hetdex_api flux_denisties
                     hda_spec['spec1d'] *= G.FLUX_WAVEBIN_WIDTH
                     hda_spec['spec1d_err'] *= G.FLUX_WAVEBIN_WIDTH
 
                     self.sumspec_wavelength = np.array(hda_spec['wave1d'])
                     self.sumspec_flux = np.array(hda_spec['spec1d']) # DOES NOT have units attached, but is 10^17 (so *1e-17 to get to real units)
                     self.sumspec_fluxerr = np.array(hda_spec['spec1d_err'])
+
+                    #self.sumspec_counts = row['counts1d']  # not really using this anymore
+                    self.sumspec_apcor = hda_spec['apcor']  # aperture correction
                 except:
                     log.warning("Exception attempting to load spectra through hetdex_api",exc_info=True)
                     log.warning("Will attempt direct load from h5 file.")
+            else:
+                log.debug("Loading summed spectra data from HDF5 ...")
+                rows = spectra_table.read_where("detectid==id")
+                if (rows is None) or (rows.size != 1):
+                    self.status = -1
+                    log.error("Problem loading detectid. Multiple rows or no rows in Spectra table.")
+                    return
+                row = rows[0]
 
-            if self.sumspec_flux is None or len(self.sumspec_flux) == 0:
+                self.sumspec_counts = row['counts1d']  # not really using this anymore
+                # self.sumspec_countserr #not using this
                 self.sumspec_wavelength = row['wave1d']
                 self.sumspec_flux = row['spec1d'] #DOES NOT have units attached, but is 10^17 (so *1e-17 to get to real units)
                 self.sumspec_fluxerr = row['spec1d_err']
 
-            self.sumspec_apcor = row['apcor'] #aperture correction
+                self.sumspec_apcor = row['apcor'] #aperture correction
 
             if G.APPLY_GALACTIC_DUST_CORRECTION:
                 try:
@@ -8991,7 +9036,7 @@ class DetObj:
             self.sumspec_wavelength_zoom = self.sumspec_wavelength[left:right]
             self.sumspec_flux_zoom = self.sumspec_flux[left:right]
             self.sumspec_fluxerr_zoom = self.sumspec_fluxerr[left:right]
-            self.sumspec_counts_zoom = self.sumspec_counts[left:right]
+            #self.sumspec_counts_zoom = self.sumspec_counts[left:right] #no longer using counts
 
 
             #######################################

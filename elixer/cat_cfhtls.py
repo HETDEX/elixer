@@ -118,9 +118,14 @@ class CFHTLS(cat_base.Catalog):
         Tile_Dict[k]['filter'] = Tile_Dict[k]['filter'][0] #all of form r.MP9601
 
     mean_FWHM = 0.6 #just a rough value (seems to be 0.6 - 1.0)
+
     #checking just the W_r with 1" and 2" 2000x at 5sigma, consistently about 26.2 (25.3)
     MAG_LIMIT = 26.0 #for the _W_?_ images; rough estimate, needs to be done per tile (about the same as HSC)
-    MAG_LIMIT_DEEP = 27.3 # for the D3.xx.xx images
+    MAG_LIMIT_DEEP = 27.3 # for the D3.xx.xx images at 1"
+
+    #per reported CFHTLS documentation as quoted in elixer paper
+    MAG_LIMIT_DEEP_DICT = {'u':26.3,'g':26.0,'r':25.6,'i':25.4,'z':25.0}
+    MAG_LIMIT_DICT = {'u':25.2,'g':25.5,'r':25.0,'i':24.8,'z':23.9}
 
     WCS_Manual = False
     CONT_EST_BASE = None
@@ -524,9 +529,11 @@ class CFHTLS(cat_base.Catalog):
 
         try:
             if image_identification and image_identification[0:2] == "D3":
-                return self.MAG_LIMIT_DEEP
+                return self.MAG_LIMIT_DEEP_DICT[image_identification[3].lower()] + 0.5 #around 0.5 "deeper" when testing w/ 1" apertures
+                #return self.MAG_LIMIT_DEEP
             else:
-                return self.MAG_LIMIT
+                return self.MAG_LIMIT_DICT[image_identification[9].lower()] + 0.5 #around 0.5 "deeper" when testing w/ 1" apertures
+               # return self.MAG_LIMIT
         except:
             log.warning("cat_cfhtls.py get_mag_limit fail.",exc_info=True)
             try:

@@ -5254,6 +5254,17 @@ def main():
                 except:
                     log.error("Exception! Exception building LyC project Neighbor spectra. Top level.",exc_info=True)
 
+                #todo: now, execute the PSF deblending
+                print("!!! PSF Deblending HERE !!!")
+                #roughly
+                #SU.patch_holes_in_hetdex_spectrum ... ?? also requires the flat fnu spectra here?
+                #SU.build_separation_matrix
+                #SU.psf_overlap
+                #SU.spectra_deblend  ... maybe ~ 1000 iterations, sampling over errors and then take biweight "Avg"?
+                #                    ... that should handle the error propogation issues (use std as error)
+                #                    ... maybe as an option in the global_config, set iterations = 1 if just once?
+
+
 
             if G.BUILD_HDF5_CATALOG: #change to HDF5 catalog
                 try:

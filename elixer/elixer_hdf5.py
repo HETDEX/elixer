@@ -5,7 +5,7 @@ merge existing ELiXer catalogs
 """
 
 
-__version__ = '0.6.3' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
+__version__ = '0.7.0' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -41,7 +41,7 @@ class Version(tables.IsDescription):
 class Detections(tables.IsDescription):
 #top level detections summary, one row for each ELiXer/HETDEX detection
     detectid = tables.Int64Col(pos=0) #unique HETDEX detection ID 1e9+
-    detectname = tables.StringCol(itemsize=64,pos=1)
+    #detectname = tables.StringCol(itemsize=64,pos=1) #unused columns
 
     elixer_version = tables.StringCol(itemsize=16,pos=2) #version of elixer that generated this detection report
     elixer_datetime = tables.StringCol(itemsize=21,pos=3) #YYYY-MM-DD hh:mm:ss
@@ -297,6 +297,14 @@ class NeighborSpectra(tables.IsDescription):
     # flat_flux_err = tables.Float32Col(pos=26,shape=(1036,))
 
 
+
+class DeblendedSpectra(tables.IsDescription):
+    detectid = tables.Int64Col(pos=0)  # unique HETDEX detection ID 1e9+
+    wavelength = tables.Float32Col(shape=(1036,),pos=1)
+    flux = tables.Float32Col(shape=(1036,),pos=2 )
+    flux_err = tables.Float32Col(shape=(1036,),pos=3)
+
+
 class CalibratedSpectra(tables.IsDescription):
     detectid = tables.Int64Col(pos=0)  # unique HETDEX detection ID 1e9+
     wavelength = tables.Float32Col(shape=(1036,),pos=1)
@@ -511,6 +519,12 @@ def flush_all(fileh,reindex=True):
         except:
             ntb = None
 
+        try: #this table is not always created (only with --LyC)
+            dstb = fileh.root.DeblendedSpectra
+            dstb.flush()
+        except:
+            dstb = None
+
         try:
             vote_tb = fileh.root.ClassificationExtraFeatures
             vote_tb.flush()
@@ -612,6 +626,14 @@ def flush_all(fileh,reindex=True):
                 ntb.flush()
         except:
             log.debug("Index fail on neighbor spectra table")
+
+        try:
+            if dstb is not None:
+                dstb.cols.detectid.remove_index()
+                dstb.cols.detectid.create_csindex()
+                dstb.flush()
+        except:
+            log.debug("Index fail on deblended spectra table")
 
         try:
             if vote_tb is not None:
@@ -720,12 +742,16 @@ def get_hdf5_filehandle(fname,append=False,allow_overwrite=True,must_exist=False
 
             fileh.create_table(fileh.root, 'ElixerApertures', ElixerApertures,
                                'ELiXer Image Circular Apertures Table',
-                               expectedrows=estimated_dets*3) #mostly a g and r aperture, sometimes more
+                               expectedrows=estimated_dets*5) #mostly a g and r aperture, sometimes more
 
             if G.LyC: #special Lyman Continuum project handling (this IS called from elixer so G.LyC is set)
                 fileh.create_table(fileh.root, 'NeighborSpectra', NeighborSpectra,
                                    'NeighborSpectra Table',
-                                   expectedrows=estimated_dets*3) #mostly a g and r aperture, sometimes more
+                                   expectedrows=estimated_dets*5)
+
+                fileh.create_table(fileh.root, 'DeblendedSpectra', DeblendedSpectra,
+                                   'DeblendedSpectra Table',
+                                   expectedrows=estimated_dets)
 
             if G.VoteFeaturesTable:
                 fileh.create_table(fileh.root,'ClassificationExtraFeatures',ClassificationExtraFeatures,'ClassificationExtraFeatures Table',
@@ -777,6 +803,13 @@ def append_entry(fileh,det,overwrite=False):
             LyC = False
 
         try:
+            dstb = fileh.root.DeblendedSpectra
+            list_tables.append(dstb)
+            LyC = True
+        except:
+            LyC = False
+
+        try:
             vote_tb = fileh.root.ClassificationExtraFeatures
             list_tables.append(vote_tb)
             Vote_Table = True
@@ -807,7 +840,7 @@ def append_entry(fileh,det,overwrite=False):
         row = dtb.row
         #row[''] =
         row['detectid'] = det.hdf5_detectid
-        row['detectname'] = det.hdf5_detectname
+        #row['detectname'] = det.hdf5_detectname #this is an unused column
         row['elixer_version'] = det.elixer_version
         row['elixer_datetime'] = det.elixer_datetime #timestamp when base DetObj is built (note: is different than
                                                      #the timestamp in the PDF which is set when the PDF is built)
@@ -1478,7 +1511,7 @@ def append_entry(fileh,det,overwrite=False):
         #################################
         #NeighborSpectra table
         ################################
-        #todo: fill in table
+
         if LyC and (det.neighbors_sep is not None) and (det.neighbors_sep['sep_objects'] is not None):
             for n in det.neighbors_sep['sep_objects']:
                 try:
@@ -1539,6 +1572,27 @@ def append_entry(fileh,det,overwrite=False):
 
                 except:
                     log.error("Exception! in elixer_hdf5::append_entry",exc_info=True)
+
+
+
+        #############################
+        # DeblendedSpectra Table
+        #############################
+        row = dstb.row
+
+        row['detectid'] = det.hdf5_detectid
+        try:
+            row['wavelength'] = det.sumspec_wavelength[:]
+            row['flux'] = det.deblended_flux[:]
+            row['flux_err'] = det.deblended_fluxerr[:]
+        except:
+            row['wavelength'] = np.zeros(1036)
+            row['flux'] = np.zeros(1036)
+            row['flux_err'] = np.zeros(1036)
+
+        row.append()
+        dstb.flush()
+
 
 
         ###################################
@@ -1772,6 +1826,12 @@ def remove_duplicates(file):
             LyC = False
 
         try:
+            dstb = h5.root.DeblendedSpectra
+            LyC = True
+        except:
+            LyC = False
+
+        try:
             vote_tb = h5.root.ClassificationExtraFeatures
             Vote_Table = True
         except:
@@ -1867,6 +1927,13 @@ def remove_duplicates(file):
                         if start.is_integer():
                             start = int(start)
                             ntb.remove_rows(rows[start], rows[-1] + 1)
+
+                    rows = dstb.get_where_list("detectid==d")
+                    if rows.size > 1:
+                        start = rows.size / c
+                        if start.is_integer():
+                            start = int(start)
+                            dstb.remove_rows(rows[start], rows[-1] + 1)
 
 
                 if Vote_Table:
@@ -2114,6 +2181,12 @@ def merge_unique(newfile,file1,file2):
                 LyC = False
 
             try:
+                dstb_new = newfile_handle.root.DeblendedSpectra
+                LyC = True
+            except:
+                LyC = False
+
+            try:
                 vote_tb_new = newfile_handle.root.ClassificationExtraFeatures
                 Vote_Table = True
             except:
@@ -2229,6 +2302,13 @@ def merge_unique(newfile,file1,file2):
                             print(f"NeighborSpectra merge failed {d}")
                             print(e)
 
+                        try:
+                            dstb_src = source_h.root.DeblendedSpectra
+                            dstb_new.append(dstb_src.read_where("(detectid==d)"))
+                        except Exception as e:
+                            print(f"DeblendedSpectra merge failed {d}")
+                            print(e)
+
                     if Vote_Table:
                         try:
                             vote_tb_src = source_h.root.ClassificationExtraFeatures
@@ -2309,6 +2389,11 @@ def merge_elixer_hdf5_files(fname,flist=[]):
             pass
 
         try:
+            _ = fh.root.DeblendedSpectra
+            G.LyC = True
+        except:
+            pass
+        try:
             _ = fh.root.ClassificationExtraFeatures
             G.VoteFeaturesTable = True
         except:
@@ -2338,6 +2423,12 @@ def merge_elixer_hdf5_files(fname,flist=[]):
 
     try: #only exist if elixer was run with --lyc
         ntb = fileh.root.NeighborSpectra
+        LyC = True
+    except:
+        LyC = False
+
+    try: #only exist if elixer was run with --lyc
+        dstb = fileh.root.DeblendedSpectra
         LyC = True
     except:
         LyC = False
@@ -2388,9 +2479,15 @@ def merge_elixer_hdf5_files(fname,flist=[]):
             pass
 
         if LyC:
-            try: #might not have ElixerApertures table
+            try:
                 m_ntb = merge_fh.root.NeighborSpectra
                 ntb.append(m_ntb.read())
+            except:
+                pass
+
+            try:
+                m_dstb = merge_fh.root.DeblendedSpectra
+                dstb.append(m_dstb.read())
             except:
                 pass
 
