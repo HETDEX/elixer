@@ -2412,7 +2412,7 @@ def check_overlapping_psf(source_mag,neighbor_mag,psf,dist_baryctr,dist_ellipse=
     return fraction_overlap, overlap, flat_flux
 
 
-def get_psf(shot_fwhm,ap_radius,max_sep,scale=0.25):
+def get_psf(shot_fwhm,ap_radius,max_sep,scale=0.25,normalize=True):
     """
     Build and return a moffat profile grid
     (unless replaced in the future, this is just a wrappered call to hetdex_api)
@@ -2421,11 +2421,16 @@ def get_psf(shot_fwhm,ap_radius,max_sep,scale=0.25):
     :param ap_radius: radius of the aperture in which to sum up flux (the central object's aperture)
     :param max_sep: maximum distance (in arcsec) out to which we want to check the PSF overlap
     :param scale: arsec per pixel (sets number of pixels to use in the grid)
+    :param normalize: if True, divide the weights by the sum s|t the volume under the PSF is 1.0
     :return: [0] is the weight, [1] and [2] are the x and y grids
     """
     side = 2 * (max_sep + ap_radius)
+    psf = Extract().moffat_psf(shot_fwhm,side,scale)
 
-    return Extract().moffat_psf(shot_fwhm,side,scale)
+    if normalize:
+        psf[0] = psf[0] / np.sum(psf[0])
+
+    return psf
 
 def apply_psf(spec,err,coord,shotid,fwhm,radius=3.0,ffsky=True,hdrversion="hdr2.1"):
     """
@@ -3064,20 +3069,29 @@ def norm_overlapping_psf(psf,dist_baryctr,dist_ellipse=None,effective_radius=Non
     #distance is applied, so to keep it simple, just visualize as a shift along the x-direction to +x
     x_shift = int(ctrx/(psf[1][1][1]-psf[1][1][0]))
 
-    psf2 = copy.copy(psf[0])
+    # psf2 = copy.copy(psf[0])
+    # psf2 = np.roll(psf2,x_shift,1)
+    # psf2[:,0:x_shift+1] = 0 #zero out the cells on the right that rolled around
+    #
+    # overlap = np.sum(np.minimum(psf2,psf[0])) #this would be the overlap region
+    #
+    # #overlap = np.sum(psf2*psf[0]) #this would be the sum of the fractions of the psf weights from one object
+    #                               #included in the other by its own weights
+    #                               #i.e. if in the 0.02 weight section of the target we have the 0.03 weight section
+    #                               # of the neighbor, then that overlap section contrinbutes 0.02 * 0.03 = 0.0006 weight
+    #                               # to the target from the neighbor (that space or fiber has 2% of the target's flux
+    #                               # and 3% of the neighbors flux, so we subtract 0.06% of the True neighhor flux for that
+    #                               # section). Sum up all the sections (here, pixels of the moffat) to get the total
+    #                               # contribution of the neighbor to the target).
+    #
+    vol = np.sum(psf[0])
+
+    psf2 = copy.copy(psf[0]/vol)
+    psf1 = copy.copy(psf2)
     psf2 = np.roll(psf2,x_shift,1)
     psf2[:,0:x_shift+1] = 0 #zero out the cells on the right that rolled around
 
-    overlap = np.sum(np.minimum(psf2,psf[0])) #this would be the overlap region
-
-    #overlap = np.sum(psf2*psf[0]) #this would be the sum of the fractions of the psf weights from one object
-                                  #included in the other by its own weights
-                                  #i.e. if in the 0.02 weight section of the target we have the 0.03 weight section
-                                  # of the neighbor, then that overlap section contrinbutes 0.02 * 0.03 = 0.0006 weight
-                                  # to the target from the neighbor (that space or fiber has 2% of the target's flux
-                                  # and 3% of the neighbors flux, so we subtract 0.06% of the True neighhor flux for that
-                                  # section). Sum up all the sections (here, pixels of the moffat) to get the total
-                                  # contribution of the neighbor to the target).
+    overlap = np.sum(np.minimum(psf2,psf1))
 
     return overlap
 

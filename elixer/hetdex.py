@@ -744,6 +744,7 @@ class DetObj:
 
         self.deblended_flux = []  #used wuith --lyc, the spectra post PSF deblended
         self.deblended_fluxerr = []
+        self.deblended_flags = 0
 
         self.rvb = None #spectrum_utilities pseudo color dictionary (see red_vs_blue(...))
         self.spec_obj = elixer_spectrum.Spectrum() #use for classification, etc
@@ -1145,8 +1146,6 @@ class DetObj:
                 #so make a copy to work on
                 self.neighbors_sep = deepcopy(self.aperture_details_list[best_idx])
                 #this is a single object with the list as a property: .sep_objects
-
-                self.neighbors_sepneighbors_sep
                 return self.neighbors_sep
 
             # #these should already be unique, but there can be overlapping ellipses

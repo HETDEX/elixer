@@ -295,7 +295,7 @@ class NeighborSpectra(tables.IsDescription):
 
     # flat_flux = tables.Float32Col(pos=25,shape=(1036,)) #lets just calculate this on the fly and not waste the space
     # flat_flux_err = tables.Float32Col(pos=26,shape=(1036,))
-
+    selected = tables.BoolCol(dflt=False)
 
 
 class DeblendedSpectra(tables.IsDescription):
@@ -303,7 +303,7 @@ class DeblendedSpectra(tables.IsDescription):
     wavelength = tables.Float32Col(shape=(1036,),pos=1)
     flux = tables.Float32Col(shape=(1036,),pos=2 )
     flux_err = tables.Float32Col(shape=(1036,),pos=3)
-
+    flags = tables.Int32Col(dflt=0,pos=4) #mark if there is a problem, like resolved neighbor, etc
 
 class CalibratedSpectra(tables.IsDescription):
     detectid = tables.Int64Col(pos=0)  # unique HETDEX detection ID 1e9+
@@ -1567,6 +1567,8 @@ def append_entry(fileh,det,overwrite=False):
                         row['dex_g_mag'] = n['dex_g_mag']
                         row['dex_g_mag_err'] = n['dex_g_mag_err']
 
+                        row['selected'] = n['selected']
+
                         row.append()
                         ntb.flush()
 
@@ -1585,10 +1587,12 @@ def append_entry(fileh,det,overwrite=False):
             row['wavelength'] = det.sumspec_wavelength[:]
             row['flux'] = det.deblended_flux[:]
             row['flux_err'] = det.deblended_fluxerr[:]
+            row['flags'] = det.deblended_flags
         except:
             row['wavelength'] = np.zeros(1036)
             row['flux'] = np.zeros(1036)
             row['flux_err'] = np.zeros(1036)
+            row['flags'] = 0x01
 
         row.append()
         dstb.flush()

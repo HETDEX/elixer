@@ -5239,31 +5239,182 @@ def main():
                     for hd in hd_list:
                         for e in hd.emis_list:
                             if e.status >=0:
-                                #todo: need to refine the aperture details list
                                 #there can be multiple filters and multiple catalog/instruments
                                 #we only want ONE instance of each neighbor
-                                neighbors = e.unique_sep_neighbors() #returnd list of sep objects (list of dictionaries)
+                                e.unique_sep_neighbors() #returnd list of sep objects (list of dictionaries)
                                 #this is also a property of the DetObj (e.neighbors_sep_list)
                                 #so can work on that list
                                 #so go ahead and fetch the spectra for each entry
                                 if (e.neighbors_sep is not None) and (e.neighbors_sep['sep_objects'] is not None):
+                                    log.info(f"Forced extraction of {len(e.neighbors_sep['sep_objects'])} neighbor positions...")
                                     for n in e.neighbors_sep['sep_objects']:
                                         e.neighbor_forced_extraction(n,filter=e.neighbors_sep['filter_name'],
-                                                                     catalog_name=neighbors['catalog_name']) #populates the spectrum
+                                                                     catalog_name=e.neighbors_sep['catalog_name']) #populates the spectrum
 
                 except:
                     log.error("Exception! Exception building LyC project Neighbor spectra. Top level.",exc_info=True)
 
-                #todo: now, execute the PSF deblending
-                print("!!! PSF Deblending HERE !!!")
-                #roughly
-                #SU.patch_holes_in_hetdex_spectrum ... ?? also requires the flat fnu spectra here?
-                #SU.build_separation_matrix
-                #SU.psf_overlap
-                #SU.spectra_deblend  ... maybe ~ 1000 iterations, sampling over errors and then take biweight "Avg"?
-                #                    ... that should handle the error propogation issues (use std as error)
-                #                    ... maybe as an option in the global_config, set iterations = 1 if just once?
 
+                ##########################
+                # PSF Spectra Deblending
+                ##########################
+                try:
+                    log.info("Begninning spectra PSF deblending.")
+                    try:
+                        aperture = args.aperture
+                    except:
+                        aperture = 3.0
+
+                    #roughly
+                    # 1. select the neighbors we want to deblend (take care to select out to 2x aperture and don't double
+                    #    count the HETDEX candidate)
+                    # 2. and build out the separation matrix (includes our target, but don't double count it)
+                    # 3. correct their spectra (fix any "holes" and populate those without spectra from flat fnu from magnitude and band)
+                    #
+
+                    #pre-scan for large objects that would preclude the deblending???
+                    #conduct anyway, but flag (maybe in the deblend table)
+                    #this would be any 0 < dist_curve < 2*aperture with 'major' > seeing fwhm? or maybe a fixed 1.5" or 1.7" or 2.0" ???
+                    dcurve = np.array([x['dist_curve'] for x in e.neighbors_sep['sep_objects']])
+                    sel = dcurve <= 2*aperture
+                    major = np.array([x['a'] for x in e.neighbors_sep['sep_objects']])[sel]
+                    ap_mag = np.array([x['mag'] for x in e.neighbors_sep['sep_objects']])[sel]
+                    ap_mag_err = np.array([x['mag_err'] for x in e.neighbors_sep['sep_objects']])[sel]
+                    #ap_mag_limit = get the single maglimit from the e.neighbors_sep ... not from the h5 table
+                    dex_mag =  np.array([x['dex_g_mag'] if x['dex_g_mag'] < G.HETDEX_CONTINUUM_MAG_LIMIT
+                                         else G.HETDEX_CONTINUUM_MAG_LIMIT for x in e.neighbors_sep['sep_objects']])[sel]
+                    dex_mag_err =  np.array([x['dex_g_mag'] for x in e.neighbors_sep['sep_objects']])[sel]
+                    if np.count_nonzero(major > e.survey_fwhm) > 0:
+                        e.deblended_flags |= G.DETFLAG_LARGE_NEIGHBOR
+
+                    #get selection for the target object
+                    target_sel = np.array([x['selected'] for x in e.neighbors_sep['sep_objects']])
+
+                    if np.count_nonzero(target_sel) != 1:
+                        target_mag = e.best_gmag
+                        target_mag_err = e.best_gmag_unc
+                        target_mag_filter = 'g'
+                    else:
+                        idx = np.where(target_sel)[0][0]
+                        target_mag = e.neighbors_sep['sep_objects'][idx]['mag']
+                        target_mag_err = e.neighbors_sep['sep_objects'][idx]['mag_err']
+                        target_mag_filter = e.neighbors_sep['filter_name']
+
+
+                    #should be 1 or none where selected is True (so only a single -1 at most)
+                    #just apply the logic to the ra and select on it
+                    sm_ra = np.array([-1 if (x['selected'] or x['dist_baryctr'] > 2*aperture) else x['ra']
+                                                                            for x in e.neighbors_sep['sep_objects']])
+                    sm_dec = np.array([x['dec'] for x in e.neighbors_sep['sep_objects']])
+                    neighbor_sel = sm_ra != -1
+                    sm_ra = sm_ra[neighbor_sel]
+                    sm_dec = sm_dec[neighbor_sel]
+
+                    log.info(f"Building {len(sm_ra)+1}x{len(sm_ra)+1} separation matrix from {len(dcurve)} recoreded neighbors ...")
+                    separation_matrix = SU.build_separation_matrix([e.ra] + list(sm_ra), [e.dec]+ list(sm_dec)) #only out to 2x aperture since that is as far as we set PSF weights
+                    if separation_matrix is None: #this is a problem and we are done
+                        log.error("Separation Matrix failure. Cannot conduct deblending.")
+                    else:
+
+                        #compute the PSF and the overlap_matrix
+                        log.info(f"Building PSF overlap matrix ...")
+                        psf = SU.get_psf(e.survey_fwhm, ap_radius=aperture, max_sep=3*aperture, scale=0.25,normalize=True)
+                        overlap_matrix = SU.psf_overlap(psf, separation_matrix)
+
+                        #sanity check: only valid check if the PSF volume is normalized
+                        if np.count_nonzero(overlap_matrix > 1.0):
+                            log.warning("Warning. Deblending overlap matrix invalid. Has fractions > 1")
+                            e.deblended_flags |= G.DETFLAG_BLENDED_SPECTRA
+
+
+                        #originally in LyCon project this was part of the deblending, but here we have pulled it out
+                        #as a separate step
+
+                        #make the lists of spectra (fluxex) and errors
+                        measured_fluxes = np.array([x['flux'] for x in np.array(e.neighbors_sep['sep_objects'])[neighbor_sel]])
+                        measured_flux_errs = np.array([x['flux_err'] for x in np.array(e.neighbors_sep['sep_objects'])[neighbor_sel]])
+                        measured_mags = np.array([x['mag'] for x in np.array(e.neighbors_sep['sep_objects'])[neighbor_sel]])
+                        measured_mag_errs = np.array([x['mag_err'] for x in np.array(e.neighbors_sep['sep_objects'])[neighbor_sel]])
+                        #measured_mag_filters = np.full(len(measured_fluxes),e.neighbors_sep['filter_name'])
+                        #measured_mag_filters[0] = 'g' #for the HETDEX gmag of the target
+
+                        #should we reset those neighbor fluxes where the dex_g is fainter than the figured limit (or fixed at 24.5 or 25.0)
+                        #to be all zero s|t they will be replaced with the mag based flat_fnu spectra ?
+                        #otherwise are we just subtracting noise? .... is that okay? since it is based on the error as well ?
+                        #and / or if there is no detection above our limit, but we have spectra, wouldn't that just then be
+                        #part of the normal background and would have been (1) mostly handled as part of ffsky and (2)
+                        #the rest handled with a residual subtraction?
+
+                        # zero out the spectra of those that are fainter than the mag limit (using g or r as sufficient to compare
+                        # to dex-g
+                        s2 = ap_mag[neighbor_sel] > dex_mag[neighbor_sel]
+                        log.info(f"Replacing {np.count_nonzero(s2)} spectra with flat fnu as too faint for HETDEX.")
+                        measured_fluxes[s2] =  np.zeros(len(G.CALFIB_WAVEGRID))
+                        measured_flux_errs[s2] =  np.zeros(len(G.CALFIB_WAVEGRID))
+
+                        ##############
+                        #debug
+                        #############
+                        #np.savetxt("preflux.txt",measured_fluxes)
+                        #np.savetxt("preflux_err.txt",measured_fluxes)
+
+                        log.info(f"Filling in spectra ...")
+                        for i in range(len(measured_fluxes)): #todo: should we also check (in patch_holes) that the spectra is not grossly deformed?
+                            measured_fluxes[i], measured_flux_errs[i] = SU.patch_holes_in_hetdex_spectrum(G.CALFIB_WAVEGRID,
+                                                                                                measured_fluxes[i],
+                                                                                                measured_flux_errs[i],
+                                                                                                measured_mags[i],
+                                                                                                measured_mag_errs[i],
+                                                                                                e.neighbors_sep['filter_name'])
+
+                        #and the target candidate
+                        target_flux, target_flux_err = SU.patch_holes_in_hetdex_spectrum(G.CALFIB_WAVEGRID,
+                                                                                                      e.sumspec_flux,
+                                                                                                      e.sumspec_fluxerr,
+                                                                                                      target_mag,
+                                                                                                      target_mag_err,
+                                                                                                      target_mag_filter)
+                        ##############
+                        #debug
+                        #############
+                        #np.savetxt("postflux.txt",measured_fluxes)
+                        #np.savetxt("postflux_err.txt",measured_fluxes)
+                        #np.savetxt("overlap_matrix.txt",overlap_matrix)
+                        #np.savetxt("separation_matrix.txt",separation_matrix)
+
+                        num_mc = 999
+                        true_flux_matrix_list = []
+                        log.info(f"Running {num_mc} deblending samples ...")
+
+                        #add back in the target spectrum
+                        measured_fluxes = np.vstack((target_flux,measured_fluxes))
+                        measured_flux_errs = np.vstack((target_flux_err,measured_flux_errs))
+
+                        for i in range(num_mc):
+                            iter_measured_flux = np.random.normal(measured_fluxes, measured_flux_errs)
+                            #just a test ... maybe should only zero those that are not row 0 (the target flux)?
+                            #iter_measured_flux = np.clip(iter_measured_flux, a_min = 0, a_max = None)
+                            true_flux_matrix = SU.spectra_deblend(iter_measured_flux, overlap_matrix)
+                            true_flux_matrix_list.append(true_flux_matrix)
+
+                        true_flux_matrix_list = np.array(true_flux_matrix_list)
+                        # average over the list
+                        # really only need the zeroth entry as the LAE candidate
+                        deblended_matrix = true_flux_matrix_list[:, 0, :] #indicies are 1st: each run,  2nd: which target, 3rd: flux bins
+                        e.deblended_flux = np.mean(deblended_matrix, axis=0)
+                        e.deblended_fluxerr = np.std(deblended_matrix, axis=0)
+
+                        log.info("Deblending complete.")
+
+                        #SU.spectra_deblend  ... maybe ~ 1000 iterations, sampling over errors and then take biweight "Avg"?
+                        #                    ... that should handle the error propogation issues (use std as error)
+                        #                    ... maybe as an option in the global_config, set iterations = 1 if just once?#
+                        #!!!NOTE!!! this will NOT have the shot average background residual subtracted
+                        #
+                        # maybe modify the dex mag limit check to get entire IFU array for shot and figure the residual to subtract?
+                        # (as a new function, similar to the dex mag limit check)
+                except:
+                    log.error("Exception while deblending spectrum.",exc_info=True)
 
 
             if G.BUILD_HDF5_CATALOG: #change to HDF5 catalog
