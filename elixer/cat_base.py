@@ -1743,12 +1743,25 @@ class Catalog:
             if target_w > 0:
                 la_z = target_w / G.LyA_rest - 1.0
                 oii_z = target_w / G.OII_rest - 1.0
+
+
+                #what is the best internal multiline z solution (this is prior to figuring best_z, though)
+                try:
+                    if detobj is not None and detobj.spec_obj is not None and len(detobj.spec_obj.solutions) > 0:
+                        sol = detobj.spec_obj.solutions[0]
+                        if sol.score > (0.5 * G.MULTILINE_MIN_SOLUTION_SCORE) and \
+                                abs(sol.z-oii_z) > 0.01 and abs(sol.z - la_z) > 0.1:
+                            h = plt.axvline(x=sol.z, color='b', linestyle=':', zorder=9, label=f"Sol z = {sol.z:0.2f}")
+                            legend.append(h)
+                except:
+                    log.debug("Exception.",exc_info=True)
+
                 if (oii_z > 0):
                     h = plt.axvline(x=oii_z, color='g', linestyle='--', zorder=9,
-                                    label="OII z(virus) = % g" % oii_z)
+                                    label=f"OII z (VIRUS) = {oii_z:0.2f}")
                     legend.append(h)
                 h = plt.axvline(x=la_z, color='r', linestyle='--', zorder=9,
-                                label="LyA z (VIRUS) = %g" % la_z)
+                                label=f"LyA z (VIRUS) = {la_z:0.2f}")
                 legend.append(h)
                 plt.gca().legend(handles=legend, loc='lower center', ncol=len(legend), frameon=False,
                                  fontsize='small', borderaxespad=0, bbox_to_anchor=(0.5, -0.25))

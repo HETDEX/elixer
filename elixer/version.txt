@@ -1,12 +1,15 @@
 changes to elixer by version
 
-1.17.0a7 [2022-08-29]
+1.17.0a7 [2022-09-26]
 * testing use of HETDEX_API detections HDF5 wrapper
-* remvoed "detectname" column from elixer HDF5 Detections table as an unused column
+* removed "detectname" column from elixer HDF5 Detections table as an unused column
 * changed CFHTLS reported mag limit to be the published average limits + 0.5 (since we see about 0.5 deeper using 1" apertures)
   (note: was using fixed values of 27.3 for the deep imaging and 26.0 for the wide from g and r aperture 5-sigma tests)
 * updated deepest imaging for neighbors to prefer g-band over r-band if r-band is not more than 0.2 mag deeper
-
+* HSC-SSP photz catalogs (wide and deep, 3 different photz methods)
+* Update photz solution score boosting to use zPDFs if available and boost based on area under zPDF near solution redshift
+* Add dotted line for best multiline solution z (prior to figuring best_z) to lower-right zPDF figure when available and
+  not already OII or LyA as the solution
 
 1.17.0a6 [2022-08-17]
 * updated size vote: if angular diameter > 9 and bright (< 21), favor OII (basically, large, bright and larger than cutout)

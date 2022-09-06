@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import scipy.interpolate
 
 """
 This is for the HSC SSP data. Cloned originally from hsc_nep.py code, but modified extensively
@@ -246,14 +247,17 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                                         'src_ext_photometryKron_KronFlux_instFlux','src_ext_photometryKron_KronFlux_instFluxErr',
                                         'src_ext_photometryKron_KronFlux_radius','src_ext_photometryKron_KronFlux_psf_radius'])
 
-                    table['tract'] = tract #need this later to get the zPDF
-
                     #the RA and Dec are in RADIANS
                     table['src_coord_ra'] *= 180.0/np.pi
                     table['src_coord_dec'] *= 180.0/np.pi
 
                     #add the filter so we can identify it later
                     table['filter_str'] = filter_str
+
+                    #table['tract'] = np.tile(np.array(tract),(len(table),1))  #need this later to get the zPDF
+                    #pandas is a problem and won't let me use this as a column of arrays, so will make into a comma
+                    #separate string
+                    table['tract'] = ';'.join(tract)  # need this later to get the zPDF (use ; as some tracts could have a comma)
 
                 except Exception as e:
                     if type(e) is astropy.io.registry.IORegistryError:
@@ -517,7 +521,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
         scan the PDF root directory for all matches to th tile_id (there may be 0 to 3)
         take the mean if more than one and return the zPDF
 
-        :param tract_ids: list of the numeric tile identifier (usually just one but could be more)
+        :param tract_ids: semicolon separated string of the numeric tile identifier (usually just one but could be more)
         :param src_id: the uniuqe identifier
         :param type: to be implemented later ... specify DNNZ, DEMP, or MIZUKI
         :return: zPDF and zbins or None, None
@@ -529,11 +533,11 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
             log.debug(f"Searching for zPDFs for src_id {src_id} in tracts {tract_ids}: {self.HSC_PHOTZ_PATH}")
             files = []
             if op.isdir(self.HSC_PHOTZ_PATH):
-                for tid in tract_ids:
-                    #fn = op.join(self.HSC_PHOTZ_PATH,f"**/*{tid}*fits")
+                for tid in tract_ids.split(";"):
+                    fn = op.join(self.HSC_PHOTZ_PATH,f"**/*{tid}*fits")
                     #limit to just the mizuki ones for now
                     #all use different z ranges, z steps and can be wildly different in results
-                    fn = op.join(self.HSC_PHOTZ_PATH,f"**/*mizuki*/*{tid}*fits")
+                    #fn = op.join(self.HSC_PHOTZ_PATH,f"**/*mizuki*/*{tid}*fits")
                     files = files + [f for f in glob.iglob(fn,recursive=True)]
 
             if len(files) == 0:
@@ -546,7 +550,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
             #min_bins = np.inf
             log.debug(f"Found {len(files)} zPDF files: {files}")
             for f in files:
-                try:
+                try: #is there any way to speed this up? and HDF5
                     hdulist = astropyFITS.open(f, memmap=True, lazy_load_hdus=True, ignore_missing_simple=True)
                     idx = np.where(np.array([x[0] for x in np.array(hdulist[1].data)]) == src_id)[0][0]
                     z_bins = [x[0] for x in np.array(hdulist[2].data)]
@@ -569,14 +573,58 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
             #!!!NOPE this is NOT TRUE!!! some use steps of 0.01 and some are other steps
             #so need to rework this to interpolate to same grid and then average
 
-            #todo: interpolate and average
-            if len(z_pdf_list) > 0:
+            #interpolate and average
+            if len(z_pdf_list) > 1:
+                z_pdf_interp_list = []
+                z_bins = np.arange(0.0,6.01,0.01)
+                for pdf,bins in zip(z_pdf_list,z_bins_list):
+                    try:
+                        z_pdf_interp_list.append(np.clip(np.interp(z_bins,bins,pdf),0,1.0))
+                    except:
+                        log.debug("Exception.",exc_info=True)
+
+                if len(z_pdf_interp_list) > 1:
+                    z_pdf_avg = np.nanmean(z_pdf_interp_list, axis=0)
+                    z_pdf_max = z_bins[np.argmax(z_pdf_avg)]
+                elif len(z_pdf_interp_list) == 1:
+                    #something went wrong
+                    z_pdf_avg = z_pdf_interp_list[0]
+                    z_pdf_max = z_bins[np.argmax(z_pdf_avg)]
+                    log.debug("Partial failure in hsc_ssp get_zPDF(). Too few zPDFs in interpolation.")
+                else:
+                    #something went very wrong
+                    z_pdf_max = None
+                    z_pdf_avg = []
+                    z_bins = []
+                    log.debug("Failure in hsc_ssp get_zPDF(). No zPDFs in interpolation.")
+
+                #testing only'
+                if True:
+                    try:
+                        plt.close('all')
+                        plt.figure(figsize=(8,3))
+                        for pdf,bins in zip(z_pdf_list,z_bins_list):
+                            plt.plot(bins,pdf,alpha=0.5)
+
+                        plt.plot(z_bins,z_pdf_avg,label="avg")
+                        plt.legend()
+                        plt.tight_layout()
+                        plt.savefig("hsc_ssp_zpdf.png")
+
+                    except:
+                        log.debug("+++++ Exception",exc_info=True)
+
+            elif len(z_pdf_list) == 1 :
                 z_pdf_avg = z_pdf_list[0]
                 z_bins = z_bins_list[0]
                 z_pdf_max = z_bins[np.argmax(z_pdf_avg)]
-                return z_pdf_max, z_pdf_avg, z_bins
             else:
-                return None, [], []
+                log.info("No matching src_id found.")
+                z_pdf_max = None
+                z_pdf_avg = []
+                z_bins = []
+
+            return z_pdf_max, z_pdf_avg, z_bins
 
             #z_pdf_sum = np.sum([p[0:min_bins+1] for p in z_pdf_list],axis=0)
             #z_pdf_avg = z_pdf_sum/np.sum(z_pdf_sum)
@@ -890,7 +938,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                             bid_target.bid_flux_est_cgs_unc = filter_fl_cgs_unc
 
                             bid_target.phot_z, bid_target.phot_z_pdf_pz, bid_target.phot_z_pdf_z = \
-                                    self.get_zPDF(tract_ids=df['tract'].values, src_id=df['src_id'].values[0])
+                                    self.get_zPDF(tract_ids=df['tract'].values[0], src_id=df['src_id'].values[0])
                                 #notice for the 'tract' we want it as the array
 
                             if target_w:
