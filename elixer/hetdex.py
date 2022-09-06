@@ -2515,6 +2515,32 @@ class DetObj:
                     list_z.append({'z':b.phot_z,'z_err':min(0.25, b.phot_z * 0.2),'boost':G.ALL_CATATLOG_PHOT_Z_BOOST,'name':b.catalog_name,
                                    'mag':b.bid_mag,'filter':b.bid_filter,'distance':b.distance,'type':"p"})
 
+            #first scan existing z solutions and see if they have a matching photz with zPDF; if yes, then boost their
+            #scores by the zPDF in the z-region AND mark them as already phitz boosted so we don't double boost below
+            #with the same single value photz
+            for s in self.spec_obj.solutions:
+                for b in self.bid_target_list:
+                    try:
+                        if b.phot_z_pdf_pz is not None and len(b.phot_z_pdf_pz) > 1:
+                            zPDF_area = SU.sum_zPDF(s.z,b.phot_z_pdf_pz,b.phot_z_pdf_z,0.2)
+                            #sanity check
+                            if 0 < zPDF_area < 1.0:
+                                #don't care about any emission line ranks here
+                                #AND YES, I do want the MULTILINE_FULL_SOLUTION_SCORE ince that is based on a full score
+                                #and the expectation is the area under the photz PDF is going to be, typically,
+                                #maxed at few x 0.1. (If it happens to be extemely high, approaching 1.0, then
+                                #we assume it to be approaching a spec_z quality
+                                boost = zPDF_area * G.MULTILINE_FULL_SOLUTION_SCORE
+                                log.info(f"Boosting existing solution with zPDF: z={s.z}, zPDF=<{zPDF_area}>,"
+                                         f"old score = {s.score}, new score = {s.score + boost} ")
+                                s.score += boost
+
+                                #mark so we don't repeat with a fixed z ... BUT we can repeat with independent zPDFs
+                                s.photz_zPDF_boosted += 1
+
+                    except:
+                        log.info("Exception",exc_info=True)
+
             for bid in list_z:
                 boost = bid['boost']
                 z = bid['z']
@@ -2551,6 +2577,7 @@ class DetObj:
 
                     rank_scale = 1.0 if line.rank <= 2 else 1.0/(line.rank-1.0)
 
+
                     boost = boost * rank_scale * (1.0 if bid['z_err'] > 0.1 else 2.0) + line_score
 
                     #check the existing solutions ... if there is a corresponding z solution, boost its score
@@ -2558,8 +2585,10 @@ class DetObj:
                     for s in self.spec_obj.solutions:
                         if s.central_rest == line.w_rest:
                             new_solution = False
-                            log.info(f"Boosting ({'phot-z' if phot_z_only else 'spec-z'}) existing solution:  {line.name}({line.w_rest}) + {boost}")
-                            s.score += boost
+                            if s.photz_zPDF_boosted == 0: #if this has not already been boosted by a zPDF
+                                log.info(f"Boosting ({'phot-z' if phot_z_only else 'spec-z'}) existing solution:  {line.name}({line.w_rest}) + {boost}")
+                                s.score += boost
+                                s.photz_single_boosted += 1
 
 
                     if new_solution and (line.solution):
@@ -8625,10 +8654,7 @@ class DetObj:
             if basic_only: #we're done, this is all we need
                 return
 
-
-
-
-            #todo: need the Sky X,Y ?
+            #need the Sky X,Y ?
             #self.x = #Sky X (IFU-X)
             #self.y =
 

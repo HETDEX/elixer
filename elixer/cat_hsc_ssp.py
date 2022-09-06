@@ -25,6 +25,7 @@ except:
     import hsc_ssp_meta
 
 import os.path as op
+import glob
 import copy
 import io
 
@@ -37,6 +38,7 @@ import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 import matplotlib.gridspec as gridspec
 import astropy.table
+import astropy.io.fits as astropyFITS
 
 #log = G.logging.getLogger('Cat_logger')
 #log.setLevel(G.logging.DEBUG)
@@ -98,6 +100,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
     HSC_BASE_PATH = G.HSC_SSP_BASE_PATH
     HSC_CAT_PATH = G.HSC_SSP_CAT_PATH
     HSC_IMAGE_PATH = G.HSC_SSP_IMAGE_PATH
+    HSC_PHOTZ_PATH = G.HSC_SSP_PHOTO_Z_PATH#"/scratch/03261/polonius/hsc_photz"
 
     INCLUDE_KPNO_G = False
 
@@ -181,7 +184,8 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
     def read_catalog(cls, catalog_loc=None, name=None,tract=None,position=None, tile=None):
         """
 
-        There is not a singluar catalog for HSC-SSP ... each tile has its own.
+        There is not a singluar catalog for HSC-SSP ... each tile has its own. Mostly (maybe all?) only have entries
+        where there is i-band coverage. Photometry is definitely limited to i-band coverage targets.
 
         :param catalog_loc:
         :param name:
@@ -241,6 +245,8 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                                         'src_base_CircularApertureFlux_3_0_instFlux','src_base_CircularApertureFlux_3_0_instFluxErr',
                                         'src_ext_photometryKron_KronFlux_instFlux','src_ext_photometryKron_KronFlux_instFluxErr',
                                         'src_ext_photometryKron_KronFlux_radius','src_ext_photometryKron_KronFlux_psf_radius'])
+
+                    table['tract'] = tract #need this later to get the zPDF
 
                     #the RA and Dec are in RADIANS
                     table['src_coord_ra'] *= 180.0/np.pi
@@ -504,6 +510,85 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
             pass
 
         return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
+
+
+    def get_zPDF(self,tract_ids, src_id,type=None):
+        """
+        scan the PDF root directory for all matches to th tile_id (there may be 0 to 3)
+        take the mean if more than one and return the zPDF
+
+        :param tract_ids: list of the numeric tile identifier (usually just one but could be more)
+        :param src_id: the uniuqe identifier
+        :param type: to be implemented later ... specify DNNZ, DEMP, or MIZUKI
+        :return: zPDF and zbins or None, None
+        """
+
+        try:
+
+            #scan for matching files
+            log.debug(f"Searching for zPDFs for src_id {src_id} in tracts {tract_ids}: {self.HSC_PHOTZ_PATH}")
+            files = []
+            if op.isdir(self.HSC_PHOTZ_PATH):
+                for tid in tract_ids:
+                    #fn = op.join(self.HSC_PHOTZ_PATH,f"**/*{tid}*fits")
+                    #limit to just the mizuki ones for now
+                    #all use different z ranges, z steps and can be wildly different in results
+                    fn = op.join(self.HSC_PHOTZ_PATH,f"**/*mizuki*/*{tid}*fits")
+                    files = files + [f for f in glob.iglob(fn,recursive=True)]
+
+            if len(files) == 0:
+                log.debug(f"No matching zPDF files found for tract(s) {tract_ids}.")
+                return None, [], []
+
+            #read each one in turn
+            z_bins_list = []
+            z_pdf_list = []
+            #min_bins = np.inf
+            log.debug(f"Found {len(files)} zPDF files: {files}")
+            for f in files:
+                try:
+                    hdulist = astropyFITS.open(f, memmap=True, lazy_load_hdus=True, ignore_missing_simple=True)
+                    idx = np.where(np.array([x[0] for x in np.array(hdulist[1].data)]) == src_id)[0][0]
+                    z_bins = [x[0] for x in np.array(hdulist[2].data)]
+                    z_pdf = hdulist[1].data[idx][1:][0]
+                    z_bins_list.append(np.array(z_bins))
+                    z_pdf_list.append(np.array(z_pdf))
+                    #min_bins = min(min_bins,len(z_bins))
+                    hdulist.close()
+                    log.debug(f"Found matching src_id in {f}")
+                    break #just use the first one for now
+                except:
+                    try:
+                        hdulist.close()
+                    except:
+                        pass
+
+
+            #average together
+            #for HSC SSP the z bin scales are all the same (0.01 steps in z), but some go to z = 6 and some to z = 7
+            #!!!NOPE this is NOT TRUE!!! some use steps of 0.01 and some are other steps
+            #so need to rework this to interpolate to same grid and then average
+
+            #todo: interpolate and average
+            if len(z_pdf_list) > 0:
+                z_pdf_avg = z_pdf_list[0]
+                z_bins = z_bins_list[0]
+                z_pdf_max = z_bins[np.argmax(z_pdf_avg)]
+                return z_pdf_max, z_pdf_avg, z_bins
+            else:
+                return None, [], []
+
+            #z_pdf_sum = np.sum([p[0:min_bins+1] for p in z_pdf_list],axis=0)
+            #z_pdf_avg = z_pdf_sum/np.sum(z_pdf_sum)
+            #z_bins = np.arange(0.0,(min_bins+1)/100.0,0.01)
+            #z_pdf_max = z_bins[np.argmax(z_pdf_avg)]
+
+            #we, however, limit to z = 3.6 ?? (do that later)
+            return z_pdf_max, z_pdf_avg, z_bins
+
+        except:
+            log.info("Exception in cat_hsc_ssp HSC_SSP::get_zPDF()", exc_info=True)
+            return None, [], []
 
 
     def build_list_of_bid_targets(self, ra, dec, error):
@@ -803,6 +888,10 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                             bid_target.bid_mag_err_bright = filter_mag_bright
                             bid_target.bid_mag_err_faint = filter_mag_faint
                             bid_target.bid_flux_est_cgs_unc = filter_fl_cgs_unc
+
+                            bid_target.phot_z, bid_target.phot_z_pdf_pz, bid_target.phot_z_pdf_z = \
+                                    self.get_zPDF(tract_ids=df['tract'].values, src_id=df['src_id'].values[0])
+                                #notice for the 'tract' we want it as the array
 
                             if target_w:
 

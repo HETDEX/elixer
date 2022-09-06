@@ -4445,6 +4445,10 @@ class Classifier_Solution:
         self.galaxy_mask_d25 = None #mark if in galaxy mask
         self.separation = 0 #set to angular separation if this solution comes from an external catalog (like SDSS)
 
+        self.photz_zPDF_boosted = 0 #score has been boosted by one (or more) photz PDFs (count of the # of boosts)
+        self.specz_boosted = 0 #ditto but for specz
+        self.photz_single_boosted = 0 #ditto but for a fixed, single value photz w/o a zPDF
+
     @property
     def prob_real(self):
         #return min(1-self.prob_noise,0.999) * min(1.0, max(0.67,self.score/G.MULTILINE_MIN_SOLUTION_SCORE))

@@ -800,6 +800,7 @@ def append_entry(fileh,det,overwrite=False):
             list_tables.append(ntb)
             LyC = True
         except:
+            ntb = None
             LyC = False
 
         try:
@@ -807,6 +808,7 @@ def append_entry(fileh,det,overwrite=False):
             list_tables.append(dstb)
             LyC = True
         except:
+            dstb = None
             LyC = False
 
         try:
@@ -1512,7 +1514,7 @@ def append_entry(fileh,det,overwrite=False):
         #NeighborSpectra table
         ################################
 
-        if LyC and (det.neighbors_sep is not None) and (det.neighbors_sep['sep_objects'] is not None):
+        if (ntb is not None) and (det.neighbors_sep is not None) and (det.neighbors_sep['sep_objects'] is not None):
             for n in det.neighbors_sep['sep_objects']:
                 try:
                     if 'flux' in n.keys() and len(n['flux']>0) and np.any(n['flux']):
@@ -1580,22 +1582,23 @@ def append_entry(fileh,det,overwrite=False):
         #############################
         # DeblendedSpectra Table
         #############################
-        row = dstb.row
+        if dstb is not None:
+            row = dstb.row
 
-        row['detectid'] = det.hdf5_detectid
-        try:
-            row['wavelength'] = det.sumspec_wavelength[:]
-            row['flux'] = det.deblended_flux[:]
-            row['flux_err'] = det.deblended_fluxerr[:]
-            row['flags'] = det.deblended_flags
-        except:
-            row['wavelength'] = np.zeros(1036)
-            row['flux'] = np.zeros(1036)
-            row['flux_err'] = np.zeros(1036)
-            row['flags'] = 0x01
+            row['detectid'] = det.hdf5_detectid
+            try:
+                row['wavelength'] = det.sumspec_wavelength[:]
+                row['flux'] = det.deblended_flux[:]
+                row['flux_err'] = det.deblended_fluxerr[:]
+                row['flags'] = det.deblended_flags
+            except:
+                row['wavelength'] = np.zeros(1036)
+                row['flux'] = np.zeros(1036)
+                row['flux_err'] = np.zeros(1036)
+                row['flags'] = 0x01
 
-        row.append()
-        dstb.flush()
+            row.append()
+            dstb.flush()
 
 
 

@@ -130,6 +130,29 @@ from astropy import constants as Const
 
 McDonald_Coord = Coord.EarthLocation.of_site('mcdonald')
 
+#simple dict format to use for zPDFs
+zPDF_dict = {"PDF": [], "z": [], "path": None, "desc": None}
+
+def sum_zPDF(target_z,pdf,zarray,delta_z=0.25):
+    """
+    Sum up the zPDF probabilties over a range of redshifts
+    Does not assume the zPDF is normalized to 1.0 and forces a normalization in the sum
+
+    :param target_z: the target redshift to check
+    :param pdf: the zPDF probabilities P(z)
+    :param zarray: array of redshifts that match up with the P(z) (e.g. the z in the P(z)
+    :param delta_z: the redshift range over which to sum (e.g. target_z +/- delta_z)
+    :return: the summed P(z)
+    """
+    try:
+        left,_,_ = getnearpos(np.array(zarray).astype(float),max(0,target_z-delta_z))
+        right,_,_ = getnearpos(np.array(zarray).astype(float),target_z+delta_z)
+        p_z = np.sum(pdf[left:right+1]) / np.sum(pdf)
+    except:
+        p_z = 0
+        log.info("Exception! Exception checking P(z) in spectrum_utilities sum_zPDF.",exc_info=True)
+
+    return p_z
 
 def is_edge_fiber(absolute_fiber_num, ifux=None, ifuy=None):
     """
@@ -3086,7 +3109,7 @@ def norm_overlapping_psf(psf,dist_baryctr,dist_ellipse=None,effective_radius=Non
     #
     vol = np.sum(psf[0])
 
-    psf2 = copy.copy(psf[0]/vol)
+    psf2 = copy.copy(psf[0]/vol) #need to normalize the psf weights since we want the fractional overalp
     psf1 = copy.copy(psf2)
     psf2 = np.roll(psf2,x_shift,1)
     psf2[:,0:x_shift+1] = 0 #zero out the cells on the right that rolled around

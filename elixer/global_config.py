@@ -107,6 +107,7 @@ HSC_IMAGE_PATH = None
 HSC_SSP_BASE_PATH = None
 HSC_SSP_CAT_PATH = None
 HSC_SSP_IMAGE_PATH = None
+HSC_SSP_PHOTO_Z_PATH = None
 
 KPNO_BASE_PATH = None
 KPNO_CAT_PATH = None
@@ -289,6 +290,7 @@ def select_hdr_version(version):
     global HSC_SSP_BASE_PATH
     global HSC_SSP_CAT_PATH
     global HSC_SSP_IMAGE_PATH
+    global HSC_SSP_PHOTO_Z_PATH
 
     global KPNO_BASE_PATH
     global KPNO_CAT_PATH
@@ -524,6 +526,8 @@ def select_hdr_version(version):
             HSC_SSP_BASE_PATH = op.join(remote_imaging_basepath,"hsc_ssp")
             HSC_SSP_CAT_PATH = HSC_SSP_BASE_PATH
             HSC_SSP_IMAGE_PATH = HSC_SSP_BASE_PATH #cosmos/g, cosmos/r, w01/g , w01/r, etc ....)
+            HSC_SSP_PHOTO_Z_PATH = op.join(HSC_SSP_BASE_PATH,"photz")
+
 
         # KPNO_BASE_PATH = "/work/03261/polonius/hetdex/catalogs/KPNO_Mosaic"
         if op.exists(op.join(hdr_imaging_basepath, "KMImaging")):
