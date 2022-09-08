@@ -4,6 +4,8 @@ changes to elixer by version
 * add --deblend option to collect neighbor spectra and deblend from the target spectrum. Formerly part of --lyc, but is
   now a separate option. Note --lyc will automatically set --deblend. The displayed spectrum is still the standard
   HETDEX spectrum; the DeblendedSpecta table in the elixer hdf5 file contains the deblended spectrum.
+* if no HETDEX ID is specified and no identifier is provided in --coords file, attempt to create an ID as a 15 digit value
+   as '9'+ ra + dec where ra and dec are 7 digit integers in decimal degrees down to the 4th decimal place.
 
 1.17.0a7 [2022-09-06]
 * testing use of HETDEX_API detections HDF5 wrapper

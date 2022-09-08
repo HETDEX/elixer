@@ -561,7 +561,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                     hdulist.close()
                     log.debug(f"Found matching src_id in {f}")
                     break #just use the first one for now
-                except:
+                except: #this is due to idx being empty (can't index [0][0] on an empty array ... no matching idx were found)
                     try:
                         hdulist.close()
                     except:

@@ -20,6 +20,20 @@ log = G.Global_Logger('utilities')
 log.setlevel(G.LOG_LEVEL)
 
 
+def id_from_coord(ra,dec):
+    """
+    make an int64 id number from the ra and dec. Each provides 7 digits ([3].[4]) with leading zeros and no decimal
+    and a leading 9 is prepended
+    :param ra: float as decimal degrees
+    :param dec: float as decimal degrees
+    :return: int64
+    """
+    try:
+        return np.int64(9e14 + int(ra * 1e4) * 1e7 + int(dec * 1e4))
+    except:
+        return None
+
+
 def coord2deg(coord_str):
     """
     take the coordinate string and covert it to degrees
