@@ -1,6 +1,11 @@
 changes to elixer by version
 
-1.17.0a7 [2022-09-26]
+1.17.0a8 [2022-09-08]
+* add --deblend option to collect neighbor spectra and deblend from the target spectrum. Formerly part of --lyc, but is
+  now a separate option. Note --lyc will automatically set --deblend. The displayed spectrum is still the standard
+  HETDEX spectrum; the DeblendedSpecta table in the elixer hdf5 file contains the deblended spectrum.
+
+1.17.0a7 [2022-09-06]
 * testing use of HETDEX_API detections HDF5 wrapper
 * removed "detectname" column from elixer HDF5 Detections table as an unused column
 * changed CFHTLS reported mag limit to be the published average limits + 0.5 (since we see about 0.5 deeper using 1" apertures)

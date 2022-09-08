@@ -455,6 +455,9 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--lyc', help='Toggle [ON] Lyman Continuum special switch. Do not use unless you know what you are doing.',
                         required=False, action='store_true', default=False)
 
+    parser.add_argument('--deblend', help='Toggle [ON] PSF spectra + flat fnu deblending of neighbors from target spectra.',
+                        required=False, action='store_true', default=False)
+
     parser.add_argument('--dependency', help="For use with SLURM only. Set optional condition and SLURM_ID of job to "
                                              "finish prior to this one starting. e.g: afterok:123456  or afterany:123456",
                         required=False)
@@ -557,6 +560,10 @@ def parse_commandline(auto_force=False):
 
     if args.lyc:
         G.LyC = True
+        G.DeblendSpectra = True
+
+    if args.deblend:
+        G.DeblendSpectra = True
 
     if args.mcmc:
         G.FORCE_MCMC = True
@@ -5233,7 +5240,7 @@ def main():
 
 
 
-            if G.LyC:
+            if G.LyC or G.DeblendSpectra:
                 #top level call to fetch the neighbor spectra for each of the detection objects
                 try:
                     for hd in hd_list:
@@ -5382,7 +5389,7 @@ def main():
                         #np.savetxt("overlap_matrix.txt",overlap_matrix)
                         #np.savetxt("separation_matrix.txt",separation_matrix)
 
-                        num_mc = 999
+                        num_mc = 1000
                         true_flux_matrix_list = []
                         log.info(f"Running {num_mc} deblending samples ...")
 

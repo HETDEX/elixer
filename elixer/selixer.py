@@ -247,9 +247,8 @@ if "--mcmc" in args: #impacts the base_time_multiplier
 #else:
 #    force_mcmc = False
 
-if "--lyc" in args: #some extra processing
-    base_time_multiplier *= 1.2 #20% bump in time
-
+if ("--lyc" in args) or ("--deblend" in args): #some extra processing
+    base_time_multiplier *= 3.0 #3x bump in time, largely due to deblending and extra fetching of spectra
 
 if "--cluster" in args: #runs a clustering search per detectid but only re-runs a handful after that
     base_time_multiplier *= 0.2

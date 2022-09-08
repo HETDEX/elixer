@@ -21,7 +21,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.17.0a7'
+__version__ = '1.17.0a8'
 #Logging
 GLOBAL_LOGGING = True
 
@@ -811,6 +811,8 @@ GRID_SZ_X = 3 # equivalent figure_sz_x for a grid width (e.g. one column)
 GRID_SZ_Y = 3 # equivalent figure_sz_y for a grid height (e.g. one row)
 
 LyC = False #switch for Lyman Continuum specialized code
+DeblendSpectra = False #if true (automatically true if --LyC), get spectra or mags with flat fnu and PSF deblend neighbors
+                        # from the target spectra
 VoteFeaturesTable = True #if true, include the P(LyA) extra voting features table
 PLOT_FULLWIDTH_2D_SPEC = False #if true, show the combined full-width 2D spectra just under the 1D plot
 
