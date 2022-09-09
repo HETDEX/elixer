@@ -1,5 +1,12 @@
 changes to elixer by version
 
+1.18.0a1 [2022-09-09]
+* fixed(?) issue where continuum from the emission line fit (from HETDEX and from elixer fit) was being reported as flux
+  in the fit bins (so, normally in x2AA bins) rather than a flux density, or, in other words, as the fitted 'y' value.
+  This made the narrow (line) fitted EW also wrong by a factor of 2. The wide fit continuum and EW (and combined estimates
+  of both) were all correct and only the narrow (line) fit version was incorrect but was also not being used in the
+  classifications, so was only a reporting issue.
+
 1.17.0a8 [2022-09-08]
 * add --deblend option to collect neighbor spectra and deblend from the target spectrum. Formerly part of --lyc, but is
   now a separate option. Note --lyc will automatically set --deblend. The displayed spectrum is still the standard

@@ -21,7 +21,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.17.0a8'
+__version__ = '1.18.0a1'
 #Logging
 GLOBAL_LOGGING = True
 
@@ -126,14 +126,17 @@ LOCAL_DEV_HOSTNAMES = ["z50","dg5"]
 BUILD_REPORT_BY_FILTER = True #if True, multiple catalogs are used to build the report, with the deepest survey by filter
                            #if False, then the single deepest catalog that overlaps is used with what ever filters it has
 
+LOCAL_DEVBOX = False
 if hostname in LOCAL_DEV_HOSTNAMES:  # primary author test box
 #if False:
     HDR_Version = "3.0" #"2.1"
     HDR_Version_float = 3.0 #2.1
     LAUNCH_PDF_VIEWER = 'qpdfview'
+    LOCAL_DEVBOX = True
 else:
     HDR_Version = "3.0" #"2.1"  # default HDR Version if not specified
     HDR_Version_float = 3.0 #2.1
+    LOCAL_DEVBOX = False
 
 #look specifically (and only) for HDR version on call
 args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here

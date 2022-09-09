@@ -529,6 +529,12 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
         try:
 
+            if G.LOCAL_DEVBOX:
+                log.info("***** Skipping HSC-SSP zPDFs due to large size and removet connection from local dev box. *****")
+                print("***** Skipping HSC-SSP zPDFs due to large size and removet connection from local dev box. *****")
+                return None,[],[]
+
+
             #scan for matching files
             log.debug(f"Searching for zPDFs for src_id {src_id} in tracts {tract_ids}: {self.HSC_PHOTZ_PATH}")
             files = []

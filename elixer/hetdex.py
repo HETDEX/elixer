@@ -679,7 +679,7 @@ class DetObj:
         self.eqw_sdss_obs_unc = None
 
         self.cont = -9999
-        self.cont_cgs = -9999
+        self.cont_cgs = -9999 #from HETDEX file this is per x2AA bins, but we divide to make it a flux denisty /1AA
         self.cont_cgs_unc = 0.0
 
         self.cont_cgs_narrow = -9999 #kept for reporting, not used elsewhere
@@ -6443,7 +6443,12 @@ class DetObj:
 
         # rsp1 (when t5all was provided and we want to load specific fibers for a single detection)
 
-    def load_fluxcalibrated_spectra(self):
+    def defunct_load_fluxcalibrated_spectra(self): #defunct
+
+
+        print("!!!!! DEFUNCT load_fluxcalibrated_spectra !!!!!")
+        log.critical("!!!!! DEFUNCT load_fluxcalibrated_spectra !!!!!")
+
 
         self.panacea = True  # if we are here, it can only be panacea
 
@@ -7993,7 +7998,7 @@ class DetObj:
                 self.hetdex_cont_cgs = self.cont_cgs
                 self.hetdex_cont_cgs_unc = self.cont_cgs_unc
 
-                if self.cont_cgs == -9999:  # still unset ... weird?
+                if self.cont_cgs == -9999:  # still unset ... that can be true
                     log.warning("Warning! HETDEX continuum estimate not set. Using best gmag for estimate(%g +/- %g)."
                                 % (self.best_gmag_cgs_cont, self.best_gmag_cgs_cont_unc))
 
@@ -8378,8 +8383,11 @@ class DetObj:
                         self.estflux = self.spec_obj.central_eli.fit_line_flux
                         self.estflux_unc = self.spec_obj.central_eli.fit_line_flux_err
 
-                        self.cont_cgs = self.spec_obj.central_eli.fit_continuum
+                        self.cont_cgs = self.spec_obj.central_eli.fit_continuum / G.FLUX_WAVEBIN_WIDTH #this is fit in the 2AA bins, so need to remove that
                         self.cont_cgs_unc = 0 # not computed correctly right now self.spec_obj.central_eli.fit_continuum_err
+
+                        self.cont_cgs_narrow = self.cont_cgs
+                        self.cont_cgs_narrow_unc = self.cont_cgs_unc
 
                         self.eqw_obs = self.spec_obj.central_eli.eqw_obs
                         self.eqw_obs_unc = 0 #self.eqw_obs * np.sqrt( (self.estflux_unc/self.estflux)**2 + (self.cont_cgs_unc/self.cont_cgs)**2)
@@ -8401,9 +8409,12 @@ class DetObj:
                         self.eqw_obs_unc = 0.5 * (self.spec_obj.central_eli.mcmc_ew_obs[1] +
                                                   self.spec_obj.central_eli.mcmc_ew_obs[2])
 
-                        self.cont_cgs = self.spec_obj.central_eli.mcmc_continuum
+                        self.cont_cgs = self.spec_obj.central_eli.mcmc_continuum  #already in 1 width density (2AA already removed)
                         self.cont_cgs_unc = 0.5*(self.spec_obj.central_eli.mcmc_continuum_tuple[1] +
                                                  self.spec_obj.central_eli.mcmc_continuum_tuple[2])
+
+                        self.cont_cgs_narrow = self.cont_cgs
+                        self.cont_cgs_narrow_unc = self.cont_cgs_unc
                         # self.snr = self.spec_obj.central_eli.mcmc_snr
                         self.snr = self.spec_obj.central_eli.mcmc_snr
                         self.snr_unc = self.spec_obj.central_eli.mcmc_snr_err
@@ -8678,8 +8689,8 @@ class DetObj:
             self.estflux_h5_unc = self.estflux_unc
 
 
-            self.cont_cgs = row['continuum'] #units of e-17 set below
-            self.cont_cgs_unc = row['continuum_err']
+            self.cont_cgs = row['continuum'] / G.FLUX_WAVEBIN_WIDTH #units of e-17 set below !!!this is in 2AA bins so /2AA
+            self.cont_cgs_unc = row['continuum_err'] /G.FLUX_WAVEBIN_WIDTH
 
             #bad idea (leaving here just as a reminder)... setting as a small value leads to artifically
             #huge EW (even with correspodingly huge error)
@@ -8693,9 +8704,9 @@ class DetObj:
 
             # mu, sigma, Amplitude, y, dx   (dx is the bin width if flux instead of flux/dx)
             #continuum does NOT get the bin scaling
-            self.line_gaussfit_parms = (self.w,self.sigma,self.estflux*G.FLUX_WAVEBIN_WIDTH,self.cont_cgs,
+            self.line_gaussfit_parms = (self.w,self.sigma,self.estflux*G.FLUX_WAVEBIN_WIDTH,self.cont_cgs*G.FLUX_WAVEBIN_WIDTH,
                                         G.FLUX_WAVEBIN_WIDTH) #*2.0 for Karl's bin width
-            self.line_gaussfit_unc = (self.w_unc,self.sigma_unc,self.estflux_unc*G.FLUX_WAVEBIN_WIDTH,self.cont_cgs_unc,
+            self.line_gaussfit_unc = (self.w_unc,self.sigma_unc,self.estflux_unc*G.FLUX_WAVEBIN_WIDTH,self.cont_cgs_unc*G.FLUX_WAVEBIN_WIDTH,
                                       0.0)
 
             log.debug(f"DEX Gaussian parms: x0 = {self.w:0.2f}AA, sigma = {self.sigma:0.3f}, A = {self.estflux*G.FLUX_WAVEBIN_WIDTH:0.2f}e-17, "
@@ -10990,7 +11001,7 @@ class HETDEX:
                     e.id = G.UNIQUE_DET_ID_NUM
                     if e.outdir is None:
                         e.outdir = self.output_filename
-                    e.load_fluxcalibrated_spectra()
+                    e.defunct_load_fluxcalibrated_spectra()
                     if e.status >= 0:
                         e.check_transients_and_flags()
                         self.emis_list.append(e)
@@ -11015,7 +11026,7 @@ class HETDEX:
                     e.entry_id = G.UNIQUE_DET_ID_NUM
 
                 e.id = G.UNIQUE_DET_ID_NUM
-                e.load_fluxcalibrated_spectra()
+                e.defunct_load_fluxcalibrated_spectra()
                 if e.status >= 0:
                     e.check_transients_and_flags()
                     self.emis_list.append(e)
@@ -11160,7 +11171,7 @@ class HETDEX:
 
 
         for e in self.emis_list:
-            e.load_fluxcalibrated_spectra()
+            e.defunct_load_fluxcalibrated_spectra()
 
         return
 

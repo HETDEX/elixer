@@ -3,6 +3,11 @@ try:
 except:
     import global_config as G
 
+try:
+    from hetdex_api.shot import get_fibers_table as hda_get_fibers_table
+except:
+    log.error("Unable to import get_fibers_table",exc_info=True)
+
 import numpy as np
 import tables
 
@@ -286,8 +291,11 @@ class HetdexFits:
             self.okay = False
             return None
 
+
+
         try:
             log.debug("Reading HDF5 file: %s" %(self.filename))
+
             with tables.open_file(self.filename, mode="r") as h5_multifits:
                 fibers_table = h5_multifits.root.Data.Fibers
                 images_table = h5_multifits.root.Data.Images
@@ -399,174 +407,258 @@ class HetdexFits:
                 # idx = np.where(mf == b'q_multiframe') #these will be for ALL expIDs as well though
                 # rows = fiber_table.read_coordinates(idx[0]) # again, note you'll get ALL 3 expIDs
 
-                try:
-                    directquery = 'multiframe' in fibers_table.colindexes.keys()
-                    #log.debug("read_hdf5, Fibers table has multiframe index. Will use direct query.")
-                except:
-                    directquery = False
-                    #log.debug("read_hdf5, Fibers table missing multiframe index. Will use indirect query via FiberIndex table.")
-
-                if directquery: #other table read and try to match up indexes as above comment
-                    rows = fibers_table.read_where("(multiframe==q_multiframe) & (expnum==q_expnum)")
+                use_hdf5 = True #load from the hdf5 directly if fibers table fails
+                # some of the info can now come through hetdex_api and have extra corrections applied to it
+                if G.LOAD_SPEC_FROM_HETDEX_API:
+                    try:
+                        hda_fibers_table = hda_get_fibers_table(shot=int(str(self.obs_date) + str(self.obsid).zfill(3)), coords=None,
+                                                                ifuslot=None, multiframe=self.multiframe,
+                                                                expnum=int(self.expid), radius=None,
+                                                                survey="hdr" + G.HDR_Version,
+                                                                astropy=True, verbose=False, rawh5=False)
+                    except:
+                        hda_fibers_table = None
+                        log.warning("Exception loading fibers table from hetdex_api. Will use hdf5 files directly.",
+                                    exc_info=True)
                 else:
-                    mfcol = h5_multifits.root.Data.FiberIndex.col('multiframe')
-                    mfidx = np.where(mfcol==q_multiframe.encode()) #encode because in b'xxx' format
-                    try: #if the expnum col exists, get it also
-                        #and then get the indices for matches vs the multiframe AND the expnum
-                        expcol = h5_multifits.root.Data.FiberIndex.col('expnum')
-                        expidx = np.where(expcol==q_expnum)
-                        joinidx = np.intersect1d(mfidx,expidx)
-                        rows = fibers_table.read_coordinates(joinidx)
-                    except: #expnum col does not exist so query all multiframe, then trim to expnum
-                        allexp = fibers_table.read_coordinates(mfidx[0],field='expnum')
-                        allrows = fibers_table.read_coordinates(mfidx[0])
-                        idx = np.where(allexp==q_expnum)
-                        rows = allrows[idx[0]]
+                    hda_fibers_table = None
 
-                    ###
-                    #rows = fibers_table.read_where("(multiframe==q_multiframe) & (expnum==q_expnum)",field=expnum)
-
-
-                #expect there to be 112 fibers (though maybe fewer if some are dead)
-                if (rows is None) or (rows.size == 0):
-                    self.okay = False
-                    log.error(f"Problem loading multi-fits HDF5 equivalant. No fibers found. {q_multiframe} expnum ({q_expnum})")
-                    return
-
-                # todo: maybe build up the arrays, as if they were read from a multi-fits file?
-                # that is, for each row, starting with index 0, build up the equivalent arrays for:
-                # sky_subtracted  (fe_data)  112,1032
-                # wavelength (wave_data) 112,1032
-                # trace (trace_data) 112,1032
-                # fiber_to_fiber (fiber_to_fiber) 112,1032
-                # error_analysis (error_analysis) 3,1032  ???
-                #
-                # this way, all the downstream code stays the same, even if this is duplicate data
-                # (and, as a future todo: re-organize the code so this is not necessary)
-
-                #incase something goes wrong, we want something here, not just None or empty lists
-                self.fe_data = np.zeros((112,1032))
-                self.wave_data = np.zeros((112, 1032))
-                self.trace_data = np.zeros((112, 1032))
-                self.fiber_to_fiber = np.zeros((112, 1032))
-                self.calfib = np.zeros((112, len(G.CALFIB_WAVEGRID)))
-                self.calfibe = np.zeros((112, len(G.CALFIB_WAVEGRID)))
-                self.ffsky_calfib = np.zeros((112, len(G.CALFIB_WAVEGRID)))
-                self.fiber_chi2 = np.zeros((112, 1032))
-                self.fiber_rms = np.zeros((112, 1032))
-
-
-                # self.fe_data = [[]]*112
-                # self.wave_data = [[]]*112
-                # self.trace_data = [[]]*112
-                # self.fiber_to_fiber = [[]]*112
-                # self.calfib = [[]]*112
-                # self.calfibe = [[]]*112
-
-                #todo: figure out what to do with error analysis
-                #self.error_analysis = np.zeros((3, 1032))
-
-                def get_field(row, field_name, shape,logname_info="unsp"):
+                if hda_fibers_table is not None: #use the astropy table from hetdex api
                     try:
-                        data = row[field_name]
-                        size = len(data)
-                        s = np.shape(data)
+                        def get_field(field_name,shape,logname_info="unsp"):
+                            try:
+                                data = np.array(hda_fibers_table[field_name])
+                                size = np.size(data)
+                                s = np.shape(data)
 
-                        nans = np.sum(np.isnan(data))
-                        infs = np.sum(np.isinf(data))
+                                nans = np.count_nonzero(np.isnan(data))
+                                infs = np.count_nonzero(np.isinf(data))
 
-                        if log.logger.level <= 10: #ie. only bother with this if debug
-                            zeros = np.sum(data==0)
-                            if zeros > size/10:
-                                #not as important ... can just be masked data
-                                log.debug(f"Warning! {logname_info} : Large number of 0's in {field_name}. {zeros} / {size}")
+                                if log.logger.level <= 10:  # ie. only bother with this if debug
+                                    zeros = np.count_nonzero(data == 0)
+                                    if zeros > size / 10:
+                                        # not as important ... can just be masked data
+                                        log.debug(
+                                            f"Warning! {logname_info} : Large number of 0's in {field_name}. {zeros} / {size}")
 
-                        if nans > size/10:
-                            log.info(f"Warning! {logname_info} : Large number of NaNs in {field_name}. {nans} / {size}")
+                                if nans > size / 10:
+                                    log.info(
+                                        f"Warning! {logname_info} : Large number of NaNs in {field_name}. {nans} / {size}")
 
-                        if infs > size/10:
-                            log.info(f"Warning! {logname_info} : Large number of INFs in {field_name}. {infs} / {size}")
+                                if infs > size / 10:
+                                    log.info(
+                                        f"Warning! {logname_info} : Large number of INFs in {field_name}. {infs} / {size}")
 
-                        if s != shape:
-                            log.info(f"Warning! {logname_info} : Unexpected shape for {field_name}. Got {s}. Expected {shape}.")
+                                if s != shape:
+                                    log.info(
+                                        f"Warning! {logname_info} : Unexpected shape for {field_name}. Got {s}. Expected {shape}.")
 
-                        data = np.nan_to_num(data)
-                        return data
-                    except ValueError as ve:
-                        if "no field" in str(ve): #these are generally expected
-                            log.debug(f"Exception retrieving field: {logname_info} : {field_name}")
-                            raise ve
-                            return np.full(shape,0)
+                                data = np.nan_to_num(data)
+                                return data
+                            except ValueError as ve:
+                                if "no field" in str(ve):  # these are generally expected
+                                    log.debug(f"Exception retrieving field: {logname_info} : {field_name}")
+                                    raise ve
+                                    return np.full(shape, 0)
+                            except:
+                                log.error(f"Exception retrieving field: {logname_info} : {field_name}", exc_info=True)
+                                return np.full(shape, 0)
+
+
+                        self.fe_data = get_field('sky_subtracted',(112,1032),self.multiframe) # np.zeros()
+                        self.wave_data = np.array(hda_fibers_table['wavelength']) #np.zeros((112, 1032))
+                        self.trace_data = np.array(hda_fibers_table['trace']) #np.zeros((112, 1032))
+                        self.fiber_to_fiber = np.array(hda_fibers_table['fiber_to_fiber']) #np.zeros((112, 1032))
+                        self.calfib = np.array(hda_fibers_table['calfib']) #np.zeros((112, len(G.CALFIB_WAVEGRID)))
+                        self.calfibe = np.array(hda_fibers_table['calfibe']) #np.zeros((112, len(G.CALFIB_WAVEGRID)))
+                        self.ffsky_calfib = np.array(hda_fibers_table['calfib_ffsky']) #np.zeros((112, len(G.CALFIB_WAVEGRID)))
+                        self.fiber_chi2 = np.array(hda_fibers_table['chi2']) #np.zeros((112, 1032))
+                        self.fiber_rms = np.array(hda_fibers_table['rms']) #np.zeros((112, 1032))
+
+                        #change from flux density back into flux over x2AA for consistency
+                        self.calfib *= G.FLUX_WAVEBIN_WIDTH
+                        self.calfibe *= G.FLUX_WAVEBIN_WIDTH
+                        self.ffsky_calfib *= G.FLUX_WAVEBIN_WIDTH
+
+                        use_hdf5 = False
                     except:
-                        log.error(f"Exception retrieving field: {logname_info} : {field_name}",exc_info=True)
-                        return np.full(shape,0)
-
-                for row in rows:
-                    #at some point this changes to fibidx
+                        log.warning("Exception loading fiber data from hetdex_api fiber table. "
+                                    "Will attemp to use hdf5 directly.",exc_info=True)
                     try:
-                        idx = row['fibidx']  # fibnum is 0-111 so, just like an index
-                    except:
-                        idx = row['fibnum'] # fibnum is 0-111 so, just like an index
-
-                    logname_info = f"{op.basename(self.filename)}::{self.multiframe}"
-
-                    # self.fe_data[idx] = row['sky_subtracted']
-                    # self.wave_data[idx] = row['wavelength']
-                    # self.trace_data[idx] = row['trace']
-                    # self.fiber_to_fiber[idx] = row['fiber_to_fiber']
-                    #
-                    # self.calfib[idx] = row['calfib']
-                    # self.calfibe[idx] = row['calfibe']
-
-                    self.fe_data[idx] = get_field(row,'sky_subtracted',np.shape(self.fe_data[idx]),f"{logname_info}_{idx}")
-                    self.wave_data[idx] = get_field(row,'wavelength',np.shape(self.wave_data[idx]),f"{logname_info}_{idx}")
-                    self.trace_data[idx] = get_field(row,'trace',np.shape(self.trace_data[idx]),f"{logname_info}_{idx}")
-                    self.fiber_to_fiber[idx] = get_field(row,'fiber_to_fiber',np.shape(self.fiber_to_fiber[idx]),f"{logname_info}_{idx}")
-
-                    self.calfib[idx] = get_field(row,'calfib',np.shape(self.calfib[idx]),f"{logname_info}_{idx}")
-                    self.calfibe[idx] = get_field(row,'calfibe',np.shape(self.calfibe[idx]),f"{logname_info}_{idx}")
-
-
-                    #temporary 7% correction for hdr3
-                    try:
-                        if "/hdr3/" in h5_multifits.filename:
-                            if (self.amp in ['RU','LL'] and (0 <= idx <= 11)) or \
-                               (self.amp in ['LU','RL'] and (100 <= idx <= 111)):
-                                log.info(f"*** HDR3 correction: Adjusting calfibe by x1.07: {q_multiframe} {idx+1}")
-                                self.calfibe[idx] *= 1.07
+                        if hda_fibers_table is not None:
+                            del hda_fibers_table
                     except:
                         pass
 
-                    try: #in HDR3 the name is new
-                        #self.ffsky_calfib[idx] = row['calfib_ffsky']
-                        self.ffsky_calfib[idx] = get_field(row,'calfib_ffsky',np.shape(self.ffsky_calfib[idx]),f"{logname_info}_{idx}")
-                    except:
-                        try: #HDR2
-                            #self.ffsky_calfib[idx] = row['spec_fullsky_sub']
-                            self.ffsky_calfib[idx] = get_field(row,'spec_fullsky_sub',np.shape(self.ffsky_calfib[idx]),f"{logname_info}_{idx}")
-                        except:
-                            pass #older versions may not have this column
+                if use_hdf5: #pull directly from the h5 files
                     try:
-                        # self.fiber_chi2[idx] = row['chi2']
-                        # self.fiber_rms[idx] = row['rms']
-                        self.fiber_chi2[idx] = get_field(row,'chi2',np.shape(self.fiber_chi2[idx]),f"{logname_info}_{idx}")
-                        self.fiber_rms[idx] = get_field(row,'rms',np.shape(self.fiber_rms[idx]),f"{logname_info}_{idx}")
+                        directquery = 'multiframe' in fibers_table.colindexes.keys()
+                        #log.debug("read_hdf5, Fibers table has multiframe index. Will use direct query.")
                     except:
-                        pass #older versions may not have these columns
+                        directquery = False
+                        #log.debug("read_hdf5, Fibers table missing multiframe index. Will use indirect query via FiberIndex table.")
+
+                    if directquery: #other table read and try to match up indexes as above comment
+                        rows = fibers_table.read_where("(multiframe==q_multiframe) & (expnum==q_expnum)")
+                    else:
+                        mfcol = h5_multifits.root.Data.FiberIndex.col('multiframe')
+                        mfidx = np.where(mfcol==q_multiframe.encode()) #encode because in b'xxx' format
+                        try: #if the expnum col exists, get it also
+                            #and then get the indices for matches vs the multiframe AND the expnum
+                            expcol = h5_multifits.root.Data.FiberIndex.col('expnum')
+                            expidx = np.where(expcol==q_expnum)
+                            joinidx = np.intersect1d(mfidx,expidx)
+                            rows = fibers_table.read_coordinates(joinidx)
+                        except: #expnum col does not exist so query all multiframe, then trim to expnum
+                            allexp = fibers_table.read_coordinates(mfidx[0],field='expnum')
+                            allrows = fibers_table.read_coordinates(mfidx[0])
+                            idx = np.where(allexp==q_expnum)
+                            rows = allrows[idx[0]]
+
+                        ###
+                        #rows = fibers_table.read_where("(multiframe==q_multiframe) & (expnum==q_expnum)",field=expnum)
 
 
-                #todo: deal with AMP vs AMPNAME (for flip_amp() ... the pixel flats issue)
-                # self.ampname
-                #
-                # try:
-                #     self.ampname = f[idx].header['AMPNAME']
-                # except:
-                #     log.info("FITS keyword [AMPNAME] not found. Trying alternate [AMPLIFIE] in " + self.filename)
-                #     try:
-                #         self.ampname = f[idx].header['AMPLIFIE']
-                #     except:
-                #         log.info("FITS keyword [AMPLIFIE] not found in " + self.filename)
-                #         self.ampname = None
+                    #expect there to be 112 fibers (though maybe fewer if some are dead)
+                    if (rows is None) or (rows.size == 0):
+                        self.okay = False
+                        log.error(f"Problem loading multi-fits HDF5 equivalant. No fibers found. {q_multiframe} expnum ({q_expnum})")
+                        return
+
+                    # todo: maybe build up the arrays, as if they were read from a multi-fits file?
+                    # that is, for each row, starting with index 0, build up the equivalent arrays for:
+                    # sky_subtracted  (fe_data)  112,1032
+                    # wavelength (wave_data) 112,1032
+                    # trace (trace_data) 112,1032
+                    # fiber_to_fiber (fiber_to_fiber) 112,1032
+                    # error_analysis (error_analysis) 3,1032  ???
+                    #
+                    # this way, all the downstream code stays the same, even if this is duplicate data
+                    # (and, as a future todo: re-organize the code so this is not necessary)
+
+                    #incase something goes wrong, we want something here, not just None or empty lists
+                    self.fe_data = np.zeros((112,1032))
+                    self.wave_data = np.zeros((112, 1032))
+                    self.trace_data = np.zeros((112, 1032))
+                    self.fiber_to_fiber = np.zeros((112, 1032))
+                    self.calfib = np.zeros((112, len(G.CALFIB_WAVEGRID)))
+                    self.calfibe = np.zeros((112, len(G.CALFIB_WAVEGRID)))
+                    self.ffsky_calfib = np.zeros((112, len(G.CALFIB_WAVEGRID)))
+                    self.fiber_chi2 = np.zeros((112, 1032))
+                    self.fiber_rms = np.zeros((112, 1032))
+
+
+                    # self.fe_data = [[]]*112
+                    # self.wave_data = [[]]*112
+                    # self.trace_data = [[]]*112
+                    # self.fiber_to_fiber = [[]]*112
+                    # self.calfib = [[]]*112
+                    # self.calfibe = [[]]*112
+
+                    #todo: figure out what to do with error analysis
+                    #self.error_analysis = np.zeros((3, 1032))
+
+                    def get_field(row, field_name, shape,logname_info="unsp"):
+                        try:
+                            data = row[field_name]
+                            size = np.size(data)
+                            s = np.shape(data)
+
+                            nans = np.count_nonzero(np.isnan(data))
+                            infs = np.count_nonzero(np.isinf(data))
+
+                            if log.logger.level <= 10: #ie. only bother with this if debug
+                                zeros = np.count_nonzero(data==0)
+                                if zeros > size/10:
+                                    #not as important ... can just be masked data
+                                    log.debug(f"Warning! {logname_info} : Large number of 0's in {field_name}. {zeros} / {size}")
+
+                            if nans > size/10:
+                                log.info(f"Warning! {logname_info} : Large number of NaNs in {field_name}. {nans} / {size}")
+
+                            if infs > size/10:
+                                log.info(f"Warning! {logname_info} : Large number of INFs in {field_name}. {infs} / {size}")
+
+                            if s != shape:
+                                log.info(f"Warning! {logname_info} : Unexpected shape for {field_name}. Got {s}. Expected {shape}.")
+
+                            data = np.nan_to_num(data)
+                            return data
+                        except ValueError as ve:
+                            if "no field" in str(ve): #these are generally expected
+                                log.debug(f"Exception retrieving field: {logname_info} : {field_name}")
+                                raise ve
+                                return np.full(shape,0)
+                        except:
+                            log.error(f"Exception retrieving field: {logname_info} : {field_name}",exc_info=True)
+                            return np.full(shape,0)
+
+                    for row in rows:
+                        #at some point this changes to fibidx
+                        try:
+                            idx = row['fibidx']  # fibnum is 0-111 so, just like an index
+                        except:
+                            idx = row['fibnum'] # fibnum is 0-111 so, just like an index
+
+                        logname_info = f"{op.basename(self.filename)}::{self.multiframe}"
+
+                        # self.fe_data[idx] = row['sky_subtracted']
+                        # self.wave_data[idx] = row['wavelength']
+                        # self.trace_data[idx] = row['trace']
+                        # self.fiber_to_fiber[idx] = row['fiber_to_fiber']
+                        #
+                        # self.calfib[idx] = row['calfib']
+                        # self.calfibe[idx] = row['calfibe']
+
+                        self.fe_data[idx] = get_field(row,'sky_subtracted',np.shape(self.fe_data[idx]),f"{logname_info}_{idx}")
+                        self.wave_data[idx] = get_field(row,'wavelength',np.shape(self.wave_data[idx]),f"{logname_info}_{idx}")
+                        self.trace_data[idx] = get_field(row,'trace',np.shape(self.trace_data[idx]),f"{logname_info}_{idx}")
+                        self.fiber_to_fiber[idx] = get_field(row,'fiber_to_fiber',np.shape(self.fiber_to_fiber[idx]),f"{logname_info}_{idx}")
+
+                        self.calfib[idx] = get_field(row,'calfib',np.shape(self.calfib[idx]),f"{logname_info}_{idx}")
+                        self.calfibe[idx] = get_field(row,'calfibe',np.shape(self.calfibe[idx]),f"{logname_info}_{idx}")
+
+
+                        #temporary 7% correction for hdr3
+                        try:
+                            if "/hdr3/" in h5_multifits.filename:
+                                if (self.amp in ['RU','LL'] and (0 <= idx <= 11)) or \
+                                   (self.amp in ['LU','RL'] and (100 <= idx <= 111)):
+                                    log.info(f"*** HDR3 correction: Adjusting calfibe by x1.07: {q_multiframe} {idx+1}")
+                                    self.calfibe[idx] *= 1.07
+                        except:
+                            pass
+
+                        try: #in HDR3 the name is new
+                            #self.ffsky_calfib[idx] = row['calfib_ffsky']
+                            self.ffsky_calfib[idx] = get_field(row,'calfib_ffsky',np.shape(self.ffsky_calfib[idx]),f"{logname_info}_{idx}")
+                        except:
+                            try: #HDR2
+                                #self.ffsky_calfib[idx] = row['spec_fullsky_sub']
+                                self.ffsky_calfib[idx] = get_field(row,'spec_fullsky_sub',np.shape(self.ffsky_calfib[idx]),f"{logname_info}_{idx}")
+                            except:
+                                pass #older versions may not have this column
+                        try:
+                            # self.fiber_chi2[idx] = row['chi2']
+                            # self.fiber_rms[idx] = row['rms']
+                            self.fiber_chi2[idx] = get_field(row,'chi2',np.shape(self.fiber_chi2[idx]),f"{logname_info}_{idx}")
+                            self.fiber_rms[idx] = get_field(row,'rms',np.shape(self.fiber_rms[idx]),f"{logname_info}_{idx}")
+                        except:
+                            pass #older versions may not have these columns
+
+
+                    #todo: deal with AMP vs AMPNAME (for flip_amp() ... the pixel flats issue)
+                    # self.ampname
+                    #
+                    # try:
+                    #     self.ampname = f[idx].header['AMPNAME']
+                    # except:
+                    #     log.info("FITS keyword [AMPNAME] not found. Trying alternate [AMPLIFIE] in " + self.filename)
+                    #     try:
+                    #         self.ampname = f[idx].header['AMPLIFIE']
+                    #     except:
+                    #         log.info("FITS keyword [AMPLIFIE] not found in " + self.filename)
+                    #         self.ampname = None
 
 
 
@@ -576,6 +668,7 @@ class HetdexFits:
             self.okay = False
             return None
 
+        return None
         #not used at this level ("noise" on an amp)
         #self.build_calfib_noise_estimate()
 

@@ -203,6 +203,12 @@ class SpectraLines(tables.IsDescription):
     sol_num = tables.Int32Col(dflt=-1) #-1 is unset, 0 is simple scan, no solution, 1+ = solution number in
                                        #decreasing score order
 
+    sigma = tables.Float32Col(dflt=UNSET_FLOAT)
+    sigma_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    continuum = tables.Float32Col(dflt=UNSET_FLOAT)
+    continuum_err = tables.Float32Col(dflt=UNSET_FLOAT)
+
+
 
 class ClassificationExtraFeatures(tables.IsDescription):
     """
@@ -921,9 +927,12 @@ def append_entry(fileh,det,overwrite=False):
         row['chi2'] = det.chi2
         row['chi2_err'] = det.chi2_unc
 
-        if det.hetdex_cont_cgs is not None:
+        if det.hetdex_cont_cgs is not None and det.hetdex_cont_cgs != -9999:
             row['continuum_line'] = det.hetdex_cont_cgs
             row['continuum_line_err'] = det.hetdex_cont_cgs_unc
+        elif det.cont_cgs_narrow is not None and det.cont_cgs_narrow_unc != -9999:
+            row['continuum_line'] = det.cont_cgs_narrow
+            row['continuum_line_err'] = det.cont_cgs_narrow_unc
         elif not det.using_sdss_gmag_ew:
             row['continuum_line'] = det.cont_cgs
             row['continuum_line_err'] = det.cont_cgs_unc
@@ -1249,6 +1258,14 @@ def append_entry(fileh,det,overwrite=False):
 
 
                 row['used'] = False #these are all found lines, may or may not be in solution
+
+                try:
+                    row['sigma'] = line.fit_sigma
+                    row['sigma_err'] = line.fit_sigma_err
+                    row['continuum'] = line.fit_continuum
+                    row['continuum_err'] = line.fit_continuum_err
+                except:
+                    pass
 
                 row.append()
                 ltb.flush()

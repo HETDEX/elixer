@@ -760,7 +760,7 @@ class EmissionLineInfo:
 
         self.fit_line_flux = None #has units applied
         self.fit_line_flux_err = 0.0 #has units applied
-        self.fit_continuum = None #has units applied
+        self.fit_continuum = None #has units applied (in whatever units the fit is made, so CAN BE x2AA, for example)
         self.fit_continuum_err = 0.0 #has units applied
 
         self.fit_wave = []
@@ -886,12 +886,12 @@ class EmissionLineInfo:
                 self.mcmc_y = np.array(mcmc.mcmc_y)
                 if (values_dx is not None) and (values_dx > 0):
                     self.mcmc_dx = values_dx
-                    self.mcmc_continuum = self.mcmc_y[0]
-                    self.mcmc_continuum_tuple = np.array(mcmc.mcmc_y)
+                    self.mcmc_continuum = self.mcmc_y[0] / self.mcmc_dx
+                    self.mcmc_continuum_tuple = np.array(mcmc.mcmc_y) / self.mcmc_dx
             else:
                 self.mcmc_y = np.array((0.,0.,0.))
-                self.mcmc_continuum = self.mcmc_y[0]
-                self.mcmc_continuum_tuple = np.array(self.mcmc_y)
+                self.mcmc_continuum = self.mcmc_y[0]  #/ self.mcmc_dx  just a 0 / anything
+                self.mcmc_continuum_tuple = np.array(self.mcmc_y) #/ self.mcmc_dx
 
             if values_units < 0:
                 self.mcmc_a *= 10**values_units
@@ -1088,8 +1088,8 @@ class EmissionLineInfo:
                     self.line_flux_err = self.fit_a_err / self.fit_bin_dx * unit
                     self.fit_line_flux = self.line_flux
                     self.fit_line_flux_err = self.line_flux_err
-                    self.cont = self.fit_y * unit
-                    self.cont_err = self.fit_y_err * unit
+                    self.cont = self.fit_y / self.fit_bin_dx * unit
+                    self.cont_err = self.fit_y_err / self.fit_bin_dx * unit
                     self.fit_continuum = self.cont
                     self.fit_continuum_err = self.cont_err
                     #fix fit_h
@@ -1966,6 +1966,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             eli.fit_bin_dx = values_dx
             eli.fit_line_flux = eli.fit_a / eli.fit_bin_dx
             eli.fit_line_flux_err = eli.fit_a_err/eli.fit_bin_dx #assumes no error in fit_bin_dx (and that is true)
+            #what about eli.cont
             eli.fit_continuum = eli.fit_y / eli.fit_bin_dx
             eli.fit_continuum_err = eli.fit_y_err / eli.fit_bin_dx
         else:
@@ -2473,12 +2474,12 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                 eli.mcmc_y = np.array(mcmc.mcmc_y)
                 if (values_dx is not None) and (values_dx > 0):
                     eli.mcmc_dx = values_dx
-                    eli.mcmc_continuum = eli.mcmc_y[0]
-                    eli.mcmc_continuum_tuple = np.array(mcmc.mcmc_y)
+                    eli.mcmc_continuum = eli.mcmc_y[0]  / values_dx
+                    eli.mcmc_continuum_tuple = np.array(mcmc.mcmc_y)  / values_dx
             else:
                 eli.mcmc_y = np.array((0.,0.,0.))
-                eli.mcmc_continuum = eli.mcmc_y[0]
-                eli.mcmc_continuum_tuple = np.array(eli.mcmc_y)
+                eli.mcmc_continuum = eli.mcmc_y[0]  #/ values_dx #just a 0 divide by anything
+                eli.mcmc_continuum_tuple = np.array(eli.mcmc_y)  #/ values_dx
 
             if values_units < 0:
                 eli.mcmc_a *= 10**values_units
@@ -2849,11 +2850,12 @@ def run_mcmc(eli,wavelengths,values,errors,central,values_units,values_dx=G.FLUX
         eli.mcmc_y = np.array(mcmc.mcmc_y)
         if (values_dx is not None) and (values_dx > 0):
             eli.mcmc_dx = values_dx
-            eli.mcmc_continuum = eli.mcmc_y[0]
-            eli.mcmc_continumm_tuple =  np.array(mcmc.mcmc_y)
+            eli.mcmc_continuum = eli.mcmc_y[0] / values_dx
+            eli.mcmc_continumm_tuple =  np.array(mcmc.mcmc_y) / values_dx
     else:
         eli.mcmc_y = np.array((0., 0., 0.))
         eli.mcmc_continuum = eli.mcmc_y[0]
+        eli.mcmc_continumm_tuple = eli.mcmc_y
 
     if values_units < 0:
         eli.mcmc_a *= 10 ** values_units
@@ -3118,7 +3120,7 @@ def fit_for_h_and_k(k_eli,h_eli,wavelengths,values,errors,values_units,values_dx
     :param errors:
     :param central:
     :param values_units:
-    :param values_dx:
+    :param values_dx: ? not using here?
     # :param rest_dw = wavelength separation in the peaks in the rest frame (i.e if NV, 1238.8 and 1242.8 --> == 4.0)
     # :param rest_w = rest wavelength (as if a single line), for NV == 1240.
     :return:
@@ -6578,8 +6580,8 @@ class Spectrum:
                             h.line_flux_err = lineflux_err
 
                             h.mcmc_line_flux_tuple = [h.mcmc_line_flux,h.mcmc_line_flux+lineflux_err,h.mcmc_line_flux-lineflux_err]
-                            h.mcmc_continuum = hk_mcmc.mcmc_y[0]*10**hk_mcmc.values_units
-                            h.mcmc_continuum_tuple = np.array(hk_mcmc.mcmc_y)*10**hk_mcmc.values_units
+                            h.mcmc_continuum = hk_mcmc.mcmc_y[0]*10**hk_mcmc.values_units / G.FLUX_WAVEBIN_WIDTH
+                            h.mcmc_continuum_tuple = np.array(hk_mcmc.mcmc_y)*10**hk_mcmc.values_units / G.FLUX_WAVEBIN_WIDTH
                             h.fit_continuum = h.mcmc_continuum
                             h.fit_continuum_err = 0.5*(hk_mcmc.mcmc_y[1]+hk_mcmc.mcmc_y[2])/h.fit_bin_dx*10**hk_mcmc.values_units
 
