@@ -11541,7 +11541,7 @@ class HETDEX:
                 if e.using_best_gmag_ew:
                     estcont_str = self.unc_str((e.cont_cgs, e.cont_cgs_unc))
                 else:
-                    estcont_str = self.unc_str((e.cont_cgs, e.line_gaussfit_unc[3] * G.HETDEX_FLUX_BASE_CGS))
+                    estcont_str = self.unc_str((e.cont_cgs, e.line_gaussfit_unc[3] /G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS))
                 eqw_lya_str = self.unc_str((e.eqw_obs/(1.0 + la_z),e.eqw_obs_unc/(1.0 + la_z)))
             else:
                 log.info("e.line_gaussfit_unc is None. Cannot report uncertainties in flux or EW.")
