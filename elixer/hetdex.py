@@ -11534,6 +11534,9 @@ class HETDEX:
         elif e.line_gaussfit_parms is not None:
             if e.line_gaussfit_unc is not None:
                 #the /2.0 to deal with Karl's 2AA bin width
+                #parm[2] is the Gaussian fit of the area (i.e. the flux * 2.0 * 1e-17
+                #parm[4] is 2.0 ... so we are putting the flux back as flux (from what is needed to populate
+                #the Gaussian and draw the curve
                 estflux_str = self.unc_str((e.line_gaussfit_parms[2]/e.line_gaussfit_parms[4] *G.HETDEX_FLUX_BASE_CGS,
                                             e.line_gaussfit_unc[2]/e.line_gaussfit_parms[4]*G.HETDEX_FLUX_BASE_CGS))
                 #estcont_str = self.unc_str((e.line_gaussfit_parms[3]*1e-17,e.line_gaussfit_unc[3]*1e-17))
