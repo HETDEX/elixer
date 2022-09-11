@@ -348,9 +348,9 @@ elif hostname == "stampede2":
             if neighborhood_only:
                 MAX_TIME_PER_TASK = 0.25
             elif neighborhood == 0:
-                MAX_TIME_PER_TASK = 0.9
+                MAX_TIME_PER_TASK = 1.0 #0.9 ver 1.18+ with hetdex_api is slower than HDF5 direct
             else:
-                MAX_TIME_PER_TASK = 1.2  # in recover mode, can bit more agressive in timing (easier to continue if timeout)
+                MAX_TIME_PER_TASK = 1.3 #1.2  # in recover mode, can bit more agressive in timing (easier to continue if timeout)
         else:
             if neighborhood_only:
                 MAX_TIME_PER_TASK = 0.5
