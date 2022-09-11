@@ -4628,7 +4628,9 @@ def main():
 
                         #for safety
                         try:
+                            #d is a list or a single value here
                             _ = d[0] #if d is an array, set any None's to '0'
+                            d = np.array(d)
                             d[d == None] = '0'
                         except:
                             #d is not an array, but need to make it one, this is probably a detectID
