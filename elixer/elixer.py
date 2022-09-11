@@ -4721,7 +4721,10 @@ def main():
                                 #if centered (and it should be) no ifu edge is more than 12 acrmin away
                                 shotlist = survey.get_shotlist(SkyCoord(args.ra, args.dec, unit='deg',frame='icrs'),
                                                                radius=G.FOV_RADIUS_DEGREE*U.deg)
-                                base_name = args.manual_name #need to save it off, since we are going to modify args.manual_name
+                                try:
+                                    base_name = args.manual_name #need to save it off, since we are going to modify args.manual_name
+                                except:
+                                    base_name = None
                                 for i,s in enumerate(shotlist):
                                     args.shotid = s
                                     if base_name is not None: #leave three spaces for extra shots, very rare to have
@@ -4735,7 +4738,11 @@ def main():
                                     hd = hetdex.HETDEX(args, basic_only=basic_only,cluster_list=cluster_list)
                                     if hd.status == 0:
                                         hd_list.append(hd)
-                                args.manual_name = base_name #put it back
+                                try:
+                                    if base_name is not None:
+                                        args.manual_name = base_name #put it back
+                                except:
+                                    pass
                             else:
                                 hd = hetdex.HETDEX(args,basic_only=basic_only,cluster_list=cluster_list)
                                 if hd.status == 0:
