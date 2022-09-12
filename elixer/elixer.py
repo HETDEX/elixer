@@ -2940,12 +2940,10 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
                 try:
                     # d is a list or a single value here
                     _ = d[0]  # if d is an array, set any None's to '0'
-                    d = UTIL.id_from_coord(d[0],d[1])
+                    filename = str(UTIL.id_from_coord(d[0],d[1])) #need to keep the original d aroound
                 except:
                     # d is not an array, but need to make it one, this is probably a detectID
-                    pass #assume just a normal detectid
-
-                filename = str(d)
+                    filename = str(d) #assume a normal hetdex ID
 
                 okay_to_skip = False
                 if os.path.isfile(os.path.join(args.name, args.name + "_" + filename + extension)) or \

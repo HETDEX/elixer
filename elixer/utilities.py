@@ -7,6 +7,7 @@ from astropy.coordinates import SkyCoord
 import math
 import os.path as op
 import tarfile as tar
+from datetime import date
 
 import sqlite3
 from sqlite3 import Error
@@ -20,19 +21,35 @@ log = G.Global_Logger('utilities')
 log.setlevel(G.LOG_LEVEL)
 
 
-def id_from_coord(ra,dec):
+def id_from_coord(ra,dec,count=0):
     """
     make an int64 id number from the ra and dec. Each provides 7 digits ([3].[4]) with leading zeros and no decimal
-    and a leading 9 is prepended
+    and a leading 9 is prepended (ra is [3].[4], dec is [2].[4] but has a leading 0 or 1 for the sign, i.e.
     if the dec is negative, prend a 1 infront of the dec(e.g. values -0.0001 to -90 are 1000001 to 1900000)
+
+    the last 3 digits are for collisions with an incrimenting count (e.g. if there are multiple shots with the same RA, Dec)
+    there is a limit 19 digits in total to fit in an int64
+
     :param ra: float as decimal degrees
     :param dec: float as decimal degrees
     :return: int64
     """
     try:
+        #id = np.int64(9e13 + int(ra * 1e4) * 1e10 + int(abs(dec * 1e4)*1e3)) + int(count)
+      #  if count > 999:
+      #      return None
+
+       # id = np.int64('9' + str(int(ra*1e4)).zfill(7) + str(int(abs(dec*1e4))).zfill(7) + str(count).zfill(3))
         id = np.int64(9e14 + int(ra * 1e4) * 1e7 + int(abs(dec * 1e4)))
         if dec < 0:
-            id += int(1e6)
+            id += int(1e9)
+        # if shot is not None: #expected to be YYYYMMDDNNN where NNN is 3 digit shot number
+        #     start_date = date(2017,1,1)
+        #     shot_date = date(int(str(shot)[0:4]),int(str(shot)[4:6]),int(str(shot)[6:8]))
+        #     days = (shot_date -start_date).days
+        #     obs = int(str(shot)[-3:])
+        #     id = np.int64(id*1e7 + days * 1000 + obs)
+
         return id
     except:
         return None
