@@ -2943,22 +2943,28 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
                     #might have a shot ID
                     try:
                         #shotid could be d[2] or d[3]
+                        manual_id = None
                         if len(d) == 3:
                             shotid = xlat_shotid(d[2])
                             if (shotid is not None) and (3400. < shotid < 5700.):  # assume this is really a wavelength
                                 #this is a wavelength, so there is no shot
                                 shotid = None
-                        elif len(d) > 3:
+                        elif len(d) == 4:
                             shotid = xlat_shotid(d[2])
                             if (shotid is not None) and (3400. < shotid < 5700.):  # assume this is really a wavelength
                                 # this is a wavelength, so there is no shot
                                 shotid = xlat_shotid(d[3])
+                        elif len(d) == 5: #the last field is the ID to use
+                            manual_id = d[4]
                         else:
                             shotid = None
 
-                        filename = str(UTIL.id_from_coord(d[0],d[1]),shotid) #need to keep the original d aroound
-                        if shotid is None:
-                            filename = filename[0:-5] + "?????" #strip the yy + day + shot part and replace with wildcard
+                        if manual_id is None:
+                            filename = str(UTIL.id_from_coord(d[0],d[1]),shotid) #need to keep the original d aroound
+                            if shotid is None:
+                                filename = filename[0:-5] + "?????" #strip the yy + day + shot part and replace with wildcard
+                        else:
+                            filename = str(manual_id)
                     except:
                         #no shotid
                         filename = str(UTIL.id_from_coord(d[0],d[1])) #need to keep the original d around
