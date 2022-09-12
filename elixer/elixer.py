@@ -2940,7 +2940,29 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
                 try:
                     # d is a list or a single value here
                     _ = d[0]  # if d is an array, set any None's to '0'
-                    filename = str(UTIL.id_from_coord(d[0],d[1])) #need to keep the original d aroound
+                    #might have a shot ID
+                    try:
+                        #shotid could be d[2] or d[3]
+                        if len(d) == 3:
+                            shotid = xlat_shotid(d[2])
+                            if (shotid is not None) and (3400. < shotid < 5700.):  # assume this is really a wavelength
+                                #this is a wavelength, so there is no shot
+                                shotid = None
+                        elif len(d) > 3:
+                            shotid = xlat_shotid(d[2])
+                            if (shotid is not None) and (3400. < shotid < 5700.):  # assume this is really a wavelength
+                                # this is a wavelength, so there is no shot
+                                shotid = xlat_shotid(d[3])
+                        else:
+                            shotid = None
+
+                        filename = str(UTIL.id_from_coord(d[0],d[1]),shotid) #need to keep the original d aroound
+                        if shotid is None:
+                            filename = filename[0:-5] + "?????" #strip the yy + day + shot part and replace with wildcard
+                    except:
+                        #no shotid
+                        filename = str(UTIL.id_from_coord(d[0],d[1])) #need to keep the original d around
+                        filename = filename[0:-5] + "?????"  # strip the yy + day + shot part and replace with wildcard
                 except:
                     # d is not an array, but need to make it one, this is probably a detectID
                     filename = str(d) #assume a normal hetdex ID
@@ -2953,15 +2975,18 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
                     if not args.neighborhood_only:
                         #do we need the png or the neighborhood?
                         if args.png:
-                            if not os.path.isfile(os.path.join(args.name, filename + ".png")):
+                            #if not os.path.isfile(os.path.join(args.name, filename + ".png")):
+                            if len(glob.glob(os.path.join(args.name, filename + ".png"))) == 0:
                                 okay_to_skip = False
 
                         if okay_to_skip and args.neighborhood:
-                            if not os.path.isfile(os.path.join(args.name, filename + "_nei.png")):
+                            #if not os.path.isfile(os.path.join(args.name, filename + "_nei.png")):
+                            if len(glob.glob(os.path.join(args.name, filename + "_nei.png"))) == 0:
                                 okay_to_skip = False
 
                         if okay_to_skip and args.mini:
-                            if not os.path.isfile(os.path.join(args.name, filename + "_mini.png")):
+                           # if not os.path.isfile(os.path.join(args.name, filename + "_mini.png")):
+                            if len(glob.glob(os.path.join(args.name, filename + "_mini.png"))) == 0:
                                 okay_to_skip = False
 
                     if okay_to_skip:

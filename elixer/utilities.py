@@ -20,40 +20,46 @@ except:
 log = G.Global_Logger('utilities')
 log.setlevel(G.LOG_LEVEL)
 
-
-def id_from_coord(ra,dec,count=0):
+def id_from_coord(ra,dec,shot=None):
     """
-    make an int64 id number from the ra and dec. Each provides 7 digits ([3].[4]) with leading zeros and no decimal
-    and a leading 9 is prepended (ra is [3].[4], dec is [2].[4] but has a leading 0 or 1 for the sign, i.e.
-    if the dec is negative, prend a 1 infront of the dec(e.g. values -0.0001 to -90 are 1000001 to 1900000)
+    limited to 19 digits with leading char 8 to fit in a signed int64
 
-    the last 3 digits are for collisions with an incrimenting count (e.g. if there are multiple shots with the same RA, Dec)
-    there is a limit 19 digits in total to fit in an int64
+    given ra, dec and optional shot returns a close to unique value (to nearest 0.36 arcsec in ra and dec) with the
+    last 2 digits of the year and the sum of the day of year and the shotID (+366).
+    Form:
+    first digit: 8 if Dec is non-negative, 7 if negative
+    next 7: ra as [3],[4] in decimal degrees, zero filled
+    next 6: dec as [2],[4] in decimal degrees, zero filled
+    next 2: last two of year, zero filled
+    next 3: day of year (001 to 366) + observation number + 366
 
-    :param ra: float as decimal degrees
-    :param dec: float as decimal degrees
-    :return: int64
+    :param ra: decimal degree
+    :param dec: decimal degree
+    :param shot: int or string datevobs
+    :return: None or 19 digit np.int64
     """
+
     try:
-        #id = np.int64(9e13 + int(ra * 1e4) * 1e10 + int(abs(dec * 1e4)*1e3)) + int(count)
-      #  if count > 999:
-      #      return None
+        idstr = '7' if dec < 0 else '8'
+        idstr += str(int(ra*1e4)).zfill(7)
+        idstr +=  str(int(abs(dec*1e4))).zfill(6)
 
-       # id = np.int64('9' + str(int(ra*1e4)).zfill(7) + str(int(abs(dec*1e4))).zfill(7) + str(count).zfill(3))
-        id = np.int64(9e14 + int(ra * 1e4) * 1e7 + int(abs(dec * 1e4)))
-        if dec < 0:
-            id += int(1e9)
-        # if shot is not None: #expected to be YYYYMMDDNNN where NNN is 3 digit shot number
-        #     start_date = date(2017,1,1)
-        #     shot_date = date(int(str(shot)[0:4]),int(str(shot)[4:6]),int(str(shot)[6:8]))
-        #     days = (shot_date -start_date).days
-        #     obs = int(str(shot)[-3:])
-        #     id = np.int64(id*1e7 + days * 1000 + obs)
+        if shot is not None:
+            try:
+                idstr += str(shot)[2:4] #last 2 digits of year ... that will be okay for a while
+                day = date(int(str(shot)[0:4]),int(str(shot)[4:6]),int(str(shot)[6:8])).timetuple().tm_yday #day of year, starts with 1
+                obs = int(str(shot)[-3:]) + 366 #so there is no overlap with day of year; also starts with 1
+                idstr += str(min(999,obs+day)) #smallest possible value is 367 (Jan 01 + observation 001 = 001 + 365 + 001)
+            except:
+                idstr += "00000"
+        else:
+            idstr += "00000"
 
-        return id
-    except:
+        return np.int64(idstr)
+
+    except: # Exception as e:
+        #print(e)
         return None
-
 
 def coord2deg(coord_str):
     """
