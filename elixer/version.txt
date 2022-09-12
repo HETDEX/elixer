@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.18.0a2 [2022-09-12]
+* limit blue end to 3900AA for gmag estimate to better coincide with SDSS g
+
 1.18.0a1 [2022-09-09]
 * fixed(?) issue where continuum from the emission line fit (from HETDEX and from elixer fit) was being reported as flux
   in the fit bins (so, normally in x2AA bins) rather than a flux density, or, in other words, as the fitted 'y' value.
