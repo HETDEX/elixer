@@ -943,7 +943,8 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                             bid_target.bid_mag_err_faint = filter_mag_faint
                             bid_target.bid_flux_est_cgs_unc = filter_fl_cgs_unc
 
-                            bid_target.phot_z, bid_target.phot_z_pdf_pz, bid_target.phot_z_pdf_z = \
+                            if G.CHECK_ALL_CATALOG_BID_Z: #only load if we are going to use it
+                                bid_target.phot_z, bid_target.phot_z_pdf_pz, bid_target.phot_z_pdf_z = \
                                     self.get_zPDF(tract_ids=df['tract'].values[0], src_id=df['src_id'].values[0])
                                 #notice for the 'tract' we want it as the array
 
