@@ -10844,7 +10844,7 @@ class HETDEX:
                                     f"not provided. Will default back to dispatch_id naming.")
 
                 if e.id is None or e.survey_shotid is None:
-                    e.id = utils.id_from_coord(e.ra,e.dec)
+                    e.id = utils.id_from_coord(e.ra,e.dec,e.survey_shotid)
                     if e.id is None: #if that failed try this
                         if self.dispatch_id is not None:
                             e.id = np.int64(99e8 + self.dispatch_id * 1e4 + G.UNIQUE_DET_ID_NUM)
