@@ -790,6 +790,9 @@ HETDEX_CONTINUUM_FLUX_LIMIT =  5.38e-19 #flux-density based on 25 mag limit (rea
 HETDEX_BLUE_SAFE_WAVE = 3600.0 #65; 3600 [idx 6] #use when summing over or fitting to spectrum as whole
 HETDEX_RED_SAFE_WAVE = 5400.0 #index 965
 
+SDSS_G_FILTER_BLUE = 3900.0
+SDSS_G_FILTER_RED = 5400.0
+
 CONTINUUM_FLOOR_COUNTS = 6.5 #5 sigma * 6 counts / sqrt(40 angstroms/1.9 angs per pixel)
 
 CONTINUUM_THRESHOLD_FOR_ABSORPTION_CHECK = 2.0e-17 # erg/s/cm2/AA (near gmag 21)

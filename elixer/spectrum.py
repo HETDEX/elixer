@@ -260,7 +260,9 @@ def get_sdss_gmag(flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_SIZ
                 sel = ~np.isnan(flux_err) & np.array(flux_err!=0)
 
                 #trim off the ends (only use 3600-5400)
-                sel = sel & np.array(wave > G.HETDEX_BLUE_SAFE_WAVE) & np.array(wave < G.HETDEX_RED_SAFE_WAVE)
+                #SDSS g drops shaprly below 3900 or 4000 AA, but this call should already handle it
+                #but will use our defined values for consistency
+                sel = sel & np.array(wave > G.SDSS_G_FILTER_BLUE) & np.array(wave < G.SDSS_G_FILTER_RED)
 
                 if not np.any(sel):
                     log.info("Invalid spectrum or error in get_sdds_gma.")
@@ -307,7 +309,7 @@ def get_sdss_gmag(flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_SIZ
                 no_error = True
 
         if no_error: #if we cannot compute the error, the just call once (no MC sampling)
-            sel = np.array(wave > G.HETDEX_BLUE_SAFE_WAVE) & np.array(wave < G.HETDEX_RED_SAFE_WAVE)
+            sel = np.array(wave > G.SDSS_G_FILTER_BLUE) & np.array(wave < G.SDSS_G_FILTER_RED)
             flux, wlen = sdss_filter.pad_spectrum(flux_density[sel]* (units.erg / units.s /units.cm**2/units.Angstrom),wave[sel]* units.Angstrom)
             mag = sdss_filter.get_ab_magnitudes(flux , wlen )[0][0]
             #cont = 3631.0 * 10**(-0.4*mag) * 1e-23 * iso_f / (wlen[-1] - wlen[0]).value
@@ -372,7 +374,7 @@ def get_hetdex_gmag(flux_density, wave, flux_density_err=None):
         # fluxbins = np.array(flux_density[idx_3600:idx_5400+1]) * G.FLUX_WAVEBIN_WIDTH
         # fluxerrs = np.array(flux_density_err[idx_3600:idx_5400+1]) * G.FLUX_WAVEBIN_WIDTH
 
-        sel = np.array(wave > G.HETDEX_BLUE_SAFE_WAVE) & np.array(wave < G.HETDEX_RED_SAFE_WAVE)
+        sel = np.array(wave > G.SDSS_G_FILTER_BLUE) & np.array(wave < G.SDSS_G_FILTER_RED)
         fluxbins = np.array(flux_density)[sel] * G.FLUX_WAVEBIN_WIDTH
         fluxerrs = np.array(flux_density_err)[sel] * G.FLUX_WAVEBIN_WIDTH
 
