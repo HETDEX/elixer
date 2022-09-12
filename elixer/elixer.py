@@ -3999,7 +3999,8 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
             im_ax = fig.add_subplot(111,projection=master_cutout.wcs) #plt.subplot(111,projection=master_cutout.wcs)
 
-            plt.imshow(mini_line_image.data, origin='lower', interpolation='None', #extent=[-ext, ext, -ext, ext],
+            if mini_line_image is not None:
+                plt.imshow(mini_line_image.data, origin='lower', interpolation='None', #extent=[-ext, ext, -ext, ext],
                        vmin=mini_line_image.vmin,vmax=mini_line_image.vmax,#cmap=plt.get_cmap('gray_r'),
                        transform=im_ax.get_transform(mini_line_image.wcs))
             im_ax.set_axis_off()
@@ -5304,7 +5305,7 @@ def main():
                             dex_mag =  np.array([x['dex_g_mag'] if x['dex_g_mag'] < G.HETDEX_CONTINUUM_MAG_LIMIT
                                                  else G.HETDEX_CONTINUUM_MAG_LIMIT for x in e.neighbors_sep['sep_objects']])[sel]
                             dex_mag_err =  np.array([x['dex_g_mag'] for x in e.neighbors_sep['sep_objects']])[sel]
-                            if np.count_nonzero(major > e.survey_fwhm) > 0:
+                            if np.count_nonzero(major > 2.0 * e.survey_fwhm) > 0:
                                 e.deblended_flags |= G.DETFLAG_LARGE_NEIGHBOR
 
                             #get selection for the target object
@@ -5331,9 +5332,15 @@ def main():
                             sm_dec = sm_dec[neighbor_sel]
 
                             log.info(f"Building {len(sm_ra)+1}x{len(sm_ra)+1} separation matrix from {len(dcurve)} recoreded neighbors ...")
-                            separation_matrix = SU.build_separation_matrix([e.ra] + list(sm_ra), [e.dec]+ list(sm_dec)) #only out to 2x aperture since that is as far as we set PSF weights
+                            separation_matrix, rc = SU.build_separation_matrix([e.ra] + list(sm_ra), [e.dec]+ list(sm_dec)) #only out to 2x aperture since that is as far as we set PSF weights
                             if separation_matrix is None: #this is a problem and we are done
-                                log.error("Separation Matrix failure. Cannot conduct deblending.")
+                                if rc == 0:
+                                    log.info(f"({e.entry_id}) No neighbors to trigger deblending. Will report spectrum as is.")
+                                    e.deblended_flux = e.sumspec_flux
+                                    e.deblended_fluxerr = e.sumspec_fluxerr
+                                else:
+                                    log.error(f"({e.entry_id}) Separation Matrix failure {rc}. Cannot conduct deblending. Setting all zeroes.")
+                                #get all zeroe?
                             else:
 
                                 #compute the PSF and the overlap_matrix

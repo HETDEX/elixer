@@ -24,12 +24,16 @@ def id_from_coord(ra,dec):
     """
     make an int64 id number from the ra and dec. Each provides 7 digits ([3].[4]) with leading zeros and no decimal
     and a leading 9 is prepended
+    if the dec is negative, prend a 1 infront of the dec(e.g. values -0.0001 to -90 are 1000001 to 1900000)
     :param ra: float as decimal degrees
     :param dec: float as decimal degrees
     :return: int64
     """
     try:
-        return np.int64(9e14 + int(ra * 1e4) * 1e7 + int(dec * 1e4))
+        id = np.int64(9e14 + int(ra * 1e4) * 1e7 + int(abs(dec * 1e4)))
+        if dec < 0:
+            id += int(1e6)
+        return id
     except:
         return None
 

@@ -3124,16 +3124,16 @@ def build_separation_matrix(ra,dec):
     Takes a list of RA and Dec (in the same order as the spectra matrix, etc) with the LAE candidate at index 0
     :param ra:
     :param dec:
-    :return: square separation matrix
+    :return: square separation matrix and a code
     """
     try:
         row = len(ra)
         col = row
         if (row<2):
             log.error(f"Error in build_separation_matrix. Too few objects ({row},{col})")
-            return None
+            return None, 0
 
-            #not ideal since looping, but norm_overlapping_psf is not written with matrices
+        #not ideal since looping, but norm_overlapping_psf is not written with matrices
         sep_matrix = np.zeros((row,col))
         #just need the lower triangle
         for c in np.arange(0,col):
@@ -3142,11 +3142,11 @@ def build_separation_matrix(ra,dec):
                 sep_matrix[r,c] = s
                 sep_matrix[c,r] = s #redundant, but just in case
 
-        return sep_matrix
+        return sep_matrix, 0
     except:
         log.error("Exception! Exception in spectrum_utilities.build_separation_matrix().",exc_info=True)
 
-    return None
+    return None, -1
 
 def psf_overlap(psf,separation_matrix):
     """
