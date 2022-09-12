@@ -2935,6 +2935,16 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
             try:
                 #does the file exist
                 #todo: this should be made common code, so naming is consistent
+
+                #this might be an ra,dec
+                try:
+                    # d is a list or a single value here
+                    _ = d[0]  # if d is an array, set any None's to '0'
+                    d = UTIL.id_from_coord(d[0],d[1])
+                except:
+                    # d is not an array, but need to make it one, this is probably a detectID
+                    pass #assume just a normal detectid
+
                 filename = str(d)
 
                 okay_to_skip = False
@@ -4526,14 +4536,15 @@ def main():
     master_hdf5_detectid_list = []
 
     if G.RECOVERY_RUN:
-        if args.aperture is not None:
-            #G.RECOVERY_RUN = False
-            log.info("Forced extraction does not fully support RECOVERY MODE (behavior may be unexpected).")
-            print("Forced extraction does not fully support RECOVERY MODE (behavior may be unexpected).")
-            #still want the master loop, though
-            master_loop_length = len(hdf5_detectid_list)
-            master_hdf5_detectid_list = hdf5_detectid_list
-        elif len(hdf5_detectid_list) > 0:
+        #as of 1.18.0a2, will use the ra,dec generated ID to check for completion
+        # if args.aperture is not None:
+        #     #G.RECOVERY_RUN = False
+        #     log.info("Forced extraction does not fully support RECOVERY MODE (behavior may be unexpected).")
+        #     print("Forced extraction does not fully support RECOVERY MODE (behavior may be unexpected).")
+        #     #still want the master loop, though
+        #     master_loop_length = len(hdf5_detectid_list)
+        #     master_hdf5_detectid_list = hdf5_detectid_list
+        if len(hdf5_detectid_list) > 0:
             hdf5_detectid_list = prune_detection_list(args,None,hdf5_detectid_list)
             if len(hdf5_detectid_list) == 0:
                 print("[RECOVERY MODE] All detections already processed. Exiting...")
