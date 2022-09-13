@@ -420,6 +420,119 @@ def get_hetdex_gmag(flux_density, wave, flux_density_err=None):
         log.warning("Exception! in spectrum::get_hetdex_gmag.",exc_info=True)
         return None, None, None, None
 
+
+
+def get_best_gmag(flux_density, flux_density_err, wavelengths):
+    """
+
+    :param flux_density: as erg/s/cm2/AA
+    :param flux_density_err: ditto
+    :param wavelengths: in AA
+    :return:  best_gmag, best_gmag_unc, best_gmag_cgs_cont, best_gmag_cgs_cont_unc
+    """
+    sdss_okay = 0
+    hetdex_okay = 0
+
+    # sum over entire HETDEX spectrum to estimate g-band magnitude
+    try:
+        hetdex_gmag, hetdex_gmag_cgs_cont, hetdex_gmag_unc, hetdex_gmag_cgs_cont_unc = get_hetdex_gmag(flux_density,
+                                                                                        wavelengths,
+                                                                                        flux_density_err)
+
+        log.debug(f"HETDEX spectrum gmag {hetdex_gmag} +/- {hetdex_gmag_unc}")
+        log.debug(f"HETDEX spectrum cont {hetdex_gmag_cgs_cont} +/- {hetdex_gmag_cgs_cont_unc}")
+
+        if (hetdex_gmag_cgs_cont is not None) and (hetdex_gmag_cgs_cont != 0) and not np.isnan(hetdex_gmag_cgs_cont):
+            if (hetdex_gmag_cgs_cont_unc is None) or np.isnan(hetdex_gmag_cgs_cont_unc):
+                hetdex_gmag_cgs_cont_unc = 0.0
+                hetdex_okay = 1
+            else:
+                hetdex_okay = 2
+        if (hetdex_gmag is None) or np.isnan(hetdex_gmag):
+            hetdex_okay = 0
+    except:
+        hetdex_okay = 0
+        log.error("Exception computing HETDEX spectrum gmag", exc_info=True)
+
+    # feed HETDEX spectrum through SDSS gband filter
+    try:
+        # reminder needs erg/s/cm2/AA and sumspec_flux in ergs/s/cm2 so divied by 2AA bin width
+        #                self.sdss_gmag, self.cont_cgs = elixer_spectrum.get_sdss_gmag(self.sumspec_flux/2.0*1e-17,self.sumspec_wavelength)
+        sdss_gmag, sdss_cgs_cont, sdss_gmag_unc, sdss_cgs_cont_unc = get_sdss_gmag(flux_density,
+                                                                                   wavelengths,
+                                                                                   flux_density_err)
+
+        log.debug(f"SDSS spectrum gmag {sdss_gmag} +/- {sdss_gmag_unc}")
+        log.debug(f"SDSS spectrum cont {sdss_cgs_cont} +/- {sdss_cgs_cont_unc}")
+
+        if (sdss_cgs_cont is not None) and (sdss_cgs_cont != 0) and not np.isnan(sdss_cgs_cont):
+            if (sdss_cgs_cont_unc is None) or np.isnan(sdss_cgs_cont_unc):
+                sdss_cgs_cont_unc = 0.0
+                sdss_okay = 1
+            else:
+                sdss_okay = 2
+
+        if (sdss_gmag is None) or np.isnan(sdss_gmag):
+            sdss_okay = 0
+
+    except:
+        sdss_okay = 0
+        log.error("Exception computing SDSS g-mag", exc_info=True)
+
+    # choose the best
+    # even IF okay == 0, still record the probably bogus value (when
+    # actually using the values elsewhere they are compared to a limit and the limit is used if needed
+
+    try:
+        if (hetdex_okay == sdss_okay) and (hetdex_gmag is not None) and (sdss_gmag is not None) and \
+                abs(hetdex_gmag - sdss_gmag) < 1.0:  # use both as an average? what if they are very different?
+            # make the average
+            avg_cont = 0.5 * (hetdex_gmag_cgs_cont + sdss_cgs_cont)
+            avg_cont_unc = np.sqrt(hetdex_gmag_cgs_cont_unc ** 2 + sdss_cgs_cont_unc ** 2)  # error on the mean
+
+            #best_gmag_selected = 'mean'
+            best_gmag = -2.5 * np.log10(SU.cgs2ujy(avg_cont, 4500.00) / 1e6 / 3631.)
+            mag_faint = -2.5 * np.log10(SU.cgs2ujy(avg_cont - avg_cont_unc, 4500.00) / 1e6 / 3631.)
+            mag_bright = -2.5 * np.log10(SU.cgs2ujy(avg_cont + avg_cont_unc, 4500.00) / 1e6 / 3631.)
+            best_gmag_unc = 0.5 * (mag_faint - mag_bright)
+
+            best_gmag_cgs_cont = avg_cont
+            best_gmag_cgs_cont_unc = avg_cont_unc
+
+            log.debug(f"Mean spectrum gmag {best_gmag:0.2f} +/- {best_gmag_unc:0.3f}; cont {best_gmag_cgs_cont} +/- {best_gmag_cgs_cont_unc}")
+
+        elif hetdex_okay >= sdss_okay > 0 and not np.isnan(hetdex_gmag_cgs_cont) and (hetdex_gmag_cgs_cont is not None):
+            #best_gmag_selected = 'hetdex'
+            best_gmag = hetdex_gmag
+            best_gmag_unc = hetdex_gmag_unc
+            best_gmag_cgs_cont = hetdex_gmag_cgs_cont
+            best_gmag_cgs_cont_unc = hetdex_gmag_cgs_cont_unc
+
+            log.debug("Using HETDEX full width gmag over SDSS gmag.")
+        elif sdss_okay > 0 and not np.isnan(sdss_cgs_cont) and (sdss_cgs_cont is not None):
+            #best_gmag_selected = 'sdss'
+            best_gmag = sdss_gmag
+            best_gmag_unc = sdss_gmag_unc
+            best_gmag_cgs_cont = sdss_cgs_cont
+            best_gmag_cgs_cont_unc = sdss_cgs_cont_unc
+
+            log.debug("Using SDSS gmag over HETDEX full width gmag")
+        else:  # something catastrophically bad
+            log.debug("No full width spectrum g-mag estimate is valid.")
+            #best_gmag_selected = 'limit'
+            best_gmag = -999  # G.HETDEX_CONTINUUM_MAG_LIMIT
+            best_gmag_unc = 0
+            best_gmag_cgs_cont = -999
+            best_gmag_cgs_cont_unc = 0
+    except:
+        best_gmag = -999
+        best_gmag_unc = 0
+        best_gmag_cgs_cont = -999
+        best_gmag_cgs_cont_unc = 0
+        log.error("Exception selecting best g-mag from spectrum", exc_info=True)
+
+    return best_gmag, best_gmag_unc, best_gmag_cgs_cont, best_gmag_cgs_cont_unc
+
 #moved to spectrum utilities
 # def fit_line(wavelengths,values,errors=None,trim = False, emission_lines=None, absorption_lines=None):
 #     """

@@ -19,6 +19,7 @@ try:
     from elixer import cat_base
     from elixer import spectrum_utilities as SU
     from elixer import clustering
+    from elixer import spectrum as elixer_spectrum
 except:
     import hetdex
     import match_summary
@@ -30,6 +31,7 @@ except:
     import cat_base
     import spectrum_utilities as SU
     import clustering
+    import spectrum as elixer_spectrum
 
 from hetdex_api import survey as hda_survey
 
@@ -492,6 +494,9 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--require_hetdex', help="If there is no HETDEX data, do not generate a report.",
                         required=False, action='store_true', default=False)#,default=None)#"elixer_merged_cat.h5")
 
+    parser.add_argument('--prefer_g', help="Use g-band instead of r-band for catalog mag comparision if both present.",
+                        required=False, action='store_true', default=False)#,default=None)#"elixer_merged_cat.h5")
+
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
 
@@ -564,6 +569,10 @@ def parse_commandline(auto_force=False):
 
     if args.deblend:
         G.DeblendSpectra = True
+
+    if args.prefer_g:
+        G.BANDPASS_PREFER_G = True
+    #else leave it as configured in global_config
 
     if args.mcmc:
         G.FORCE_MCMC = True
@@ -5336,10 +5345,15 @@ def main():
                             #pre-scan for large objects that would preclude the deblending???
                             #conduct anyway, but flag (maybe in the deblend table)
                             #this would be any 0 < dist_curve < 2*aperture with 'major' > seeing fwhm? or maybe a fixed 1.5" or 1.7" or 2.0" ???
-                            if e.neighbors_sep is None or len(e.neighbors_sep)==0:
+                            if e.neighbors_sep is None or len(e.neighbors_sep)==0 or \
+                                    e.neighbors_sep['sep_objects'] is None or len(e.neighbors_sep['sep_objects'])==0:
                                 log.info(f"({e.entry_id}) No neighbors to trigger deblending. Will report spectrum as is.")
                                 e.deblended_flux = e.sumspec_flux
                                 e.deblended_fluxerr = e.sumspec_fluxerr
+                                e.deblended_gmag = e.best_gmag
+                                e.deblended_gmag_unc = e.best_gmag_unc
+                                e.deblended_gmag_cont = e.best_gmag_cgs_cont
+                                e.deblended_gmag_cont_unc = e.best_gmag_cgs_cont_unc
                                 continue
 
                             try:
@@ -5385,6 +5399,12 @@ def main():
                                         log.info(f"({e.entry_id}) No neighbors to trigger deblending. Will report spectrum as is.")
                                         e.deblended_flux = e.sumspec_flux
                                         e.deblended_fluxerr = e.sumspec_fluxerr
+
+                                        e.deblended_gmag = e.best_gmag
+                                        e.deblended_gmag_unc = e.best_gmag_unc
+                                        e.deblended_gmag_cont = e.best_gmag_cgs_cont
+                                        e.deblended_gmag_cont_unc = e.best_gmag_cgs_cont_unc
+
                                     else:
                                         log.error(f"({e.entry_id}) Separation Matrix failure {rc}. Cannot conduct deblending. Setting all zeroes.")
                                     #get all zeroe?
@@ -5478,6 +5498,10 @@ def main():
                                     e.deblended_flux = np.mean(deblended_matrix, axis=0)
                                     e.deblended_fluxerr = np.std(deblended_matrix, axis=0)
 
+                                    e.deblended_gmag, e.deblended_gmag_unc, e.deblended_gmag_cont, e.deblended_gmag_cont_unc = \
+                                                    elixer_spectrum.get_best_gmag(e.deblended_flux/G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS,
+                                                                    e.deblended_fluxerr/G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS,
+                                                                    G.CALFIB_WAVEGRID)
                                     log.info("Deblending complete.")
 
                                     #SU.spectra_deblend  ... maybe ~ 1000 iterations, sampling over errors and then take biweight "Avg"?

@@ -306,10 +306,14 @@ class NeighborSpectra(tables.IsDescription):
 
 class DeblendedSpectra(tables.IsDescription):
     detectid = tables.Int64Col(pos=0)  # unique HETDEX detection ID 1e9+
-    wavelength = tables.Float32Col(shape=(1036,),pos=1)
-    flux = tables.Float32Col(shape=(1036,),pos=2 )
-    flux_err = tables.Float32Col(shape=(1036,),pos=3)
-    flags = tables.Int32Col(dflt=0,pos=4) #mark if there is a problem, like resolved neighbor, etc
+    flags = tables.Int32Col(dflt=0, pos=1)  # mark if there is a problem, like resolved neighbor, etc
+    mag_g_wide = tables.Float32Col(dflt=UNSET_FLOAT,pos=2) #mark if there is a problem, like resolved neighbor, etc
+    mag_g_wide_err = tables.Float32Col(dflt=UNSET_FLOAT,pos=3) #mark if there is a problem, like resolved neighbor, etc
+    continuum_wide = tables.Float32Col(dflt=UNSET_FLOAT,pos=4) #mark if there is a problem, like resolved neighbor, etc
+    continuum_wide_err = tables.Float32Col(dflt=UNSET_FLOAT,pos=5) #mark if there is a problem, like resolved neighbor, etc
+    flux = tables.Float32Col(shape=(1036,),pos=6)
+    flux_err = tables.Float32Col(shape=(1036,),pos=7)
+    wavelength = tables.Float32Col(shape=(1036,), pos=8)
 
 class CalibratedSpectra(tables.IsDescription):
     detectid = tables.Int64Col(pos=0)  # unique HETDEX detection ID 1e9+
@@ -1608,10 +1612,15 @@ def append_entry(fileh,det,overwrite=False):
 
             row['detectid'] = det.hdf5_detectid
             try:
+                row['flags'] = det.deblended_flags
+                row['mag_g_wide'] = det.deblended_gmag
+                row['mag_g_wide_err'] = det.deblended_gmag_unc
+                row['continuum_wide'] = det.deblended_gmag_cont
+                row['continuum_wide_err'] = det.deblended_gmag_cont_unc
                 row['wavelength'] = det.sumspec_wavelength[:]
                 row['flux'] = det.deblended_flux[:]
                 row['flux_err'] = det.deblended_fluxerr[:]
-                row['flags'] = det.deblended_flags
+
             except:
                 row['wavelength'] = np.zeros(1036)
                 row['flux'] = np.zeros(1036)

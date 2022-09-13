@@ -744,6 +744,10 @@ class DetObj:
 
         self.deblended_flux = []  #used wuith --lyc, the spectra post PSF deblended
         self.deblended_fluxerr = []
+        self.deblended_gmag = -999
+        self.deblended_gmag_unc = 0
+        self.deblended_gmag_cont = -999
+        self.deblended_gmag_cont_unc = 0
         self.deblended_flags = 0
 
         self.rvb = None #spectrum_utilities pseudo color dictionary (see red_vs_blue(...))

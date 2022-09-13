@@ -1,8 +1,10 @@
 changes to elixer by version
 
-1.18.0a2 [2022-09-12]
+1.18.0a2 [2022-09-13]
 * limit blue end to 3900AA for gmag estimate to better coincide with SDSS g
 * use ra,dec generated IDs to check for completion for re-extraction runs ... currently needs work for multiple shots
+* add mag_g_wide, continuum_wide and their uncertainties to DeblendedSpectra table
+* add --prefer_g option to select catalog match g band instead of r *** incomplete -- only implemented for HSC-SSP so far
 
 1.18.0a1 [2022-09-09]
 * fixed(?) issue where continuum from the emission line fit (from HETDEX and from elixer fit) was being reported as flux

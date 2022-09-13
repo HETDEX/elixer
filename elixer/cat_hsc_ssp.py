@@ -198,19 +198,27 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
         if name is None:
             name = cls.Name
 
+
+        if G.BANDPASS_PREFER_G:
+            first = 'G'
+            second = 'R'
+        else:
+            first = 'R'
+            second = 'G'
+
         try:
             filter_str = 'x'
             if tile is not None and '?' in tile:
-                tileX = tile.replace("-?-","-R-") #get the 'R' filter catalog
+                tileX = tile.replace("-?-",f"-{first}-") #get the 'R' filter catalog
                 if tileX not in cls.Tile_Dict.keys():
-                    tileX = tile.replace("-?-","-G-")
+                    tileX = tile.replace("-?-",f"-{second}-")
                     if tileX not in cls.Tile_Dict.keys():
                         log.info("Unable to locate suitable photometric counterpart catalog.")
                         return None
                     else:
-                        filter_str = 'g'
+                        filter_str = second.lower()
                 else:
-                    filter_str = 'r'
+                    filter_str = first.lower()
             else:
                 return None
 

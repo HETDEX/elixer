@@ -994,6 +994,7 @@ CHECK_SDSS_Z_CATALOG  = True #set to True to check the SDSS z-catalog
 CHECK_GAIA_DEX_CATALOG = False
 
 #these are for the non-web catalogs we have, so it excludes SDSS (which is controlled separately just above)
+BANDPASS_PREFER_G = True #if true use g band over r if both present, otherwise use r as the primary
 CHECK_ALL_CATALOG_BID_Z = True
 ALL_CATATLOG_SPEC_Z_BOOST = MULTILINE_FULL_SOLUTION_SCORE * 2.0 #i.e. +100.0 #addititive to the base solution score
 ALL_CATATLOG_PHOT_Z_BOOST = 5.0        #ie. +5; some are more reliable than others but this is a broad brush
