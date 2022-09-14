@@ -13270,8 +13270,8 @@ class HETDEX:
         # previously sorted in order from largest distances to smallest
         ind = list(range(len(datakeep['d'])))
 
-        #assume all the same shape
-        summed_image = np.zeros(datakeep['im'][ind[0]].shape)
+        #not all the same shape, corrupt can be 0,0 or 1,1, so take largest
+        summed_image =np.zeros(datakeep['im'][np.argmax([np.sum(x.shape) for x in datakeep['im']])].shape)
 
         #sanity check for the top few fiber cutouts as identical
         duplicate_weight = 0
