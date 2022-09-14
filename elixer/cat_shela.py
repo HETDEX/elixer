@@ -560,13 +560,21 @@ class SHELA(cat_base.Catalog):
         mag_bright = None
         mag_faint = None
         filter_str = None
+
+        if G.BANDPASS_PREFER_G:
+            first = 'g'
+            second = 'r'
+        else:
+            first = 'r'
+            second = 'g'
+
         try:
 
-            filter_str = 'r'
+            filter_str = first
             dfx = df.loc[df['FILTER'] == filter_str]
 
             if (dfx is None) or (len(dfx) == 0):
-                filter_str = 'g'
+                filter_str = second
                 dfx = df.loc[df['FILTER'] == filter_str]
 
             if (dfx is None) or (len(dfx) == 0):
@@ -651,12 +659,19 @@ class SHELA(cat_base.Catalog):
                 #relying on auto garbage collection here ...
                 #want to keep FILTER='g' or FILTER='r' if possible (r is better)
                 try:
+                    if G.BANDPASS_PREFER_G:
+                        first = 'g'
+                        second = 'r'
+                    else:
+                        first = 'r'
+                        second = 'g'
+
                     self.dataframe_of_bid_targets_unique = \
-                        self.dataframe_of_bid_targets[self.dataframe_of_bid_targets['FILTER']=='r']
+                        self.dataframe_of_bid_targets[self.dataframe_of_bid_targets['FILTER']==first]
 
                     if len(self.dataframe_of_bid_targets_unique) == 0:
                         self.dataframe_of_bid_targets_unique = \
-                            self.dataframe_of_bid_targets[self.dataframe_of_bid_targets['FILTER'] == 'g']
+                            self.dataframe_of_bid_targets[self.dataframe_of_bid_targets['FILTER'] == second]
 
                     if len(self.dataframe_of_bid_targets_unique) == 0:
                         self.dataframe_of_bid_targets_unique = \
@@ -839,13 +854,21 @@ class SHELA(cat_base.Catalog):
                 break
 
             try: #DO NOT WANT _unique (since that has wiped out the filters)
+
+                if G.BANDPASS_PREFER_G:
+                    first = 'g'
+                    second = 'r'
+                else:
+                    first = 'r'
+                    second = 'g'
+
                 df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                        (self.dataframe_of_bid_targets['DEC'] == d[0]) &
-                                                       (self.dataframe_of_bid_targets['FILTER'] == 'r')]
+                                                       (self.dataframe_of_bid_targets['FILTER'] == first)]
                 if (df is None) or (len(df) == 0):
                     df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                            (self.dataframe_of_bid_targets['DEC'] == d[0]) &
-                                                           (self.dataframe_of_bid_targets['FILTER'] == 'g')]
+                                                           (self.dataframe_of_bid_targets['FILTER'] == second)]
                 if (df is None) or (len(df) == 0):
                     df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                            (self.dataframe_of_bid_targets['DEC'] == d[0])]
@@ -1483,13 +1506,20 @@ class SHELA(cat_base.Catalog):
                 break
             col_idx += 1
             try: #DO NOT WANT _unique (since that has wiped out the filters)
+                if G.BANDPASS_PREFER_G:
+                    first = 'g'
+                    second = 'r'
+                else:
+                    first = 'r'
+                    second = 'g'
+
                 df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                        (self.dataframe_of_bid_targets['DEC'] == d[0]) &
-                                                       (self.dataframe_of_bid_targets['FILTER'] == 'r')]
+                                                       (self.dataframe_of_bid_targets['FILTER'] == first)]
                 if (df is None) or (len(df) == 0):
                     df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                        (self.dataframe_of_bid_targets['DEC'] == d[0]) &
-                                                       (self.dataframe_of_bid_targets['FILTER'] == 'g')]
+                                                       (self.dataframe_of_bid_targets['FILTER'] == second)]
                 if (df is None) or (len(df) == 0):
                     df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                         (self.dataframe_of_bid_targets['DEC'] == d[0])]

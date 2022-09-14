@@ -831,13 +831,20 @@ class SDSS(cat_base.Catalog):#SDSS
                 break
             col_idx += 1
             try: #DO NOT WANT _unique as that has wiped out the filters
+                if G.BANDPASS_PREFER_G:
+                    first = 'g'
+                    second = 'r'
+                else:
+                    first = 'r'
+                    second = 'g'
+
                 df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                        (self.dataframe_of_bid_targets['DEC'] == d[0]) &
-                                                       (self.dataframe_of_bid_targets['FILTER'] == 'g')]
+                                                       (self.dataframe_of_bid_targets['FILTER'] == first)]
                 if (df is None) or (len(df) == 0):
                     df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                        (self.dataframe_of_bid_targets['DEC'] == d[0]) &
-                                                       (self.dataframe_of_bid_targets['FILTER'] == 'r')]
+                                                       (self.dataframe_of_bid_targets['FILTER'] == second)]
                 if (df is None) or (len(df) == 0):
                     df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                         (self.dataframe_of_bid_targets['DEC'] == d[0])]
@@ -997,10 +1004,10 @@ class SDSS(cat_base.Catalog):#SDSS
                             except:
                                 pass
 
-                            try:
-                                bid_target.add_filter('HSC','R',filter_fl_cgs,filter_fl_err)
-                            except:
-                                log.debug('Unable to build filter entry for bid_target.',exc_info=True)
+                            # try:
+                            #     bid_target.add_filter('HSC','R',filter_fl_cgs,filter_fl_err)
+                            # except:
+                            #     log.debug('Unable to build filter entry for bid_target.',exc_info=True)
 
                             cat_match.add_bid_target(bid_target)
                             try:  # no downstream edits so they can both point to same bid_target

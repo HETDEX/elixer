@@ -385,11 +385,19 @@ class CFHTLS(cat_base.Catalog):
 
         name = cls.Name
         #fully qualified track (as a partial path)
-        filter = 'r'
+
+        if G.BANDPASS_PREFER_G:
+            first = 'g'
+            second = 'r'
+        else:
+            first = 'r'
+            second = 'g'
+
+        filter = first
         fqtile = op.join(CFHTLS_BASE_PATH,tile.replace('?',filter,1).rstrip("fits") + "cat")
         if not op.exists(fqtile):
             #try g band
-            filter = 'g'
+            filter = second
             fqtile = op.join(CFHTLS_BASE_PATH,tile.replace('?',filter,1).rstrip("fits") + "cat")
             if not op.exists(fqtile):
                 #there is something wrong, don't bother checking the other filters

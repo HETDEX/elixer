@@ -1,5 +1,12 @@
 changes to elixer by version
 
+
+1.18.0a3 [2022-09-14]
+* complete --prefer_g option
+* turn stack_cosmos back on by default (contains Laigle+2015 catalog). Note SHELA still off with HSC-SSP preferred.
+
+
+
 1.18.0a2 [2022-09-13]
 * limit blue end to 3900AA for gmag estimate to better coincide with SDSS g
 * use ra,dec generated IDs to check for completion for re-extraction runs ... currently needs work for multiple shots

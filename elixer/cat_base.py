@@ -1169,8 +1169,20 @@ class Catalog:
                             if (abs(selected_sep['mag'] - cp.bid_mag) < 0.5) or \
                                 ( (selected_sep['mag'] < 22) and (cp.bid_mag < 22) ) or \
                                 ( (cp.bid_mag > selected_sep['mag']) and (d['fail_mag_limit'])):
-                                    selected_idx = idx
-                                    break #this is the one .. the selected SEP matches the catalog object, but they might not match HETDEX g
+                                    if selected_idx is None:
+                                        selected_idx = idx
+                                    else:
+                                        #check the distances to the SEP object
+                                        d_new = utilities.angular_distance(selected_sep['ra'], selected_sep['dec'],
+                                                                           cp.bid_ra, cp.bid_dec)
+
+                                        d_old = utilities.angular_distance(selected_sep['ra'],selected_sep['dec'],
+                                                                           list_of_counterparts[selected_idx].bid_ra,
+                                                                           list_of_counterparts[selected_idx].bid_dec)
+                                        if d_new < d_old:
+                                            selected_idx = idx
+
+                                    #break #this is the one .. the selected SEP matches the catalog object, but they might not match HETDEX g
                             # elif  (abs(detobj.best_gmag - cp.bid_mag) < 0.5) or \
                             #     ( (detobj.best_gmag < 22) and (cp.bid_mag < 22) ) or \
                             #     ( (cp.bid_mag > detobj.best_gmag) and (detobj.best_gmag > detobj.hetdex_gmag_limit)):
@@ -1207,8 +1219,22 @@ class Catalog:
 
             if selected_idx is not None:
                 if selected_idx != 0:
-                    list_of_counterparts.insert(0,list_of_counterparts.pop(selected_idx))
-                    selected_idx = 0 #since we moved it to the front of the list
+
+                    #alternate could still be better
+                    if alternate_idx is not None and alternate_idx != selected_idx and selected_sep:
+                        d_alt = utilities.angular_distance(selected_sep['ra'], selected_sep['dec'],
+                                                           list_of_counterparts[alternate_idx].bid_ra,
+                                                           list_of_counterparts[alternate_idx].bid_dec)
+
+                        d_idx = utilities.angular_distance(selected_sep['ra'], selected_sep['dec'],
+                                                           list_of_counterparts[selected_idx].bid_ra,
+                                                           list_of_counterparts[selected_idx].bid_dec)
+                        if (d_alt + 0.5) < d_idx: #must be better than 0.5" in distance
+                            selected_idx = alternate_idx
+
+                    if selected_idx != 0:
+                        list_of_counterparts.insert(0,list_of_counterparts.pop(selected_idx))
+                        selected_idx = 0 #since we moved it to the front of the list
 
                 if detobj is not None:
                     detobj.best_counterpart = list_of_counterparts[0]
@@ -1223,6 +1249,13 @@ class Catalog:
                     detobj.best_counterpart = list_of_counterparts[0]
 
                 list_of_counterparts[0].selected = True #make the top of the list THE selected catalog match
+
+            #minor extra check ... allow 2nd and 3rd to switch if they are similar in distance but 3rd has a higher score
+            if len(list_of_counterparts) > 2 and abs(list_of_counterparts[1].distance - list_of_counterparts[2].distance) < 0.5:
+                if list_of_counterparts[2].prob_match > list_of_counterparts[1].prob_match:
+                    #flip 1 and 2
+                    list_of_counterparts.insert(1, list_of_counterparts.pop(2))
+
 
 
             #old method of just selecting the list of counterparts from the single deepest catalog

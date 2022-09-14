@@ -377,49 +377,58 @@ class STACK_COSMOS(cat_base.Catalog):
         mag_bright = None
         mag_faint = None
         filter_str = None
+        dfx = df
+        #start with the Laigle Catalog
         try:
 
-            filter_str = 'g'
-            dfx = df
-            filter_fl = dfx['FLUX_AUTO'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
-            filter_fl_err = dfx['FLUXERR_AUTO'].values[0]
+            if G.BANDPASS_PREFER_G:
+                first = 'B' #almost g (slightly narrower)
+                second = 'V' #almost g (slightly wider and a little redder)
+                third = 'r'
+            else:
+                first = 'r'
+                second = 'B' #almost g
+                third = 'V'
 
-            mag = dfx['MAG_AUTO'].values[0]
-            mag_faint = dfx['MAGERR_AUTO'].values[0]
-            mag_bright = -1 * mag_faint
-
-            #something is way wrong with the MAG_AUTO
-            mag, mag_bright, mag_faint= self.micro_jansky_to_mag(filter_fl,filter_fl_err)
-
-        except: #not the EGS df, try the CFHTLS
-            #could be Laigle
             try:
+                mag = dfx[f'{first}_MAG_AUTO'].values[0]
+                mag_faint = dfx[f'{first}_MAGERR_AUTO'].values[0]
+                filter_fl = dfx[f'{first}_FLUX_APER3'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+                filter_fl_err = dfx[f'{first}_FLUXERR_APER3'].values[0]
+                filter_str = 'g' if first in "BV" else 'r' #first.lower()
+            except:
                 try:
-                    mag = dfx['r_MAG_AUTO'].values[0]
-                    mag_faint = dfx['r_MAGERR_AUTO'].values[0]
-                    filter_fl = dfx['r_FLUX_APER3'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
-                    filter_fl_err = dfx['r_FLUXERR_APER3'].values[0]
-                    filter_str = 'r'
+                    mag = dfx[f'{second}_MAG_AUTO'].values[0]
+                    mag_faint = dfx[f'{second}_MAGERR_AUTO'].values[0]
+                    filter_fl = dfx[f'{second}_FLUX_APER3'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+                    filter_fl_err = dfx[f'{second}_FLUXERR_APER3'].values[0]
+                    filter_str = 'g' if first in "BV" else 'r'
                 except:
                     try:
-                        mag = dfx['V_MAG_AUTO'].values[0]
-                        mag_faint = dfx['V_MAGERR_AUTO'].values[0]
-                        filter_fl = dfx['V_FLUX_APER3'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
-                        filter_fl_err = dfx['V_FLUXERR_APER3'].values[0]
-                        filter_str = 'v'
+                        mag = dfx[f'{third}_MAG_AUTO'].values[0]
+                        mag_faint = dfx[f'{third}_MAGERR_AUTO'].values[0]
+                        filter_fl = dfx[f'{third}_FLUX_APER3'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+                        filter_fl_err = dfx[f'{third}_FLUXERR_APER3'].values[0]
+                        filter_str = 'g' if first in "BV" else 'r'
                     except:
-                        try:
-                            mag = dfx['B_MAG_AUTO'].values[0]
-                            mag_faint = dfx['B_MAGERR_AUTO'].values[0]
-                            filter_fl = dfx['B_FLUX_APER3'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
-                            filter_fl_err = dfx['B_FLUXERR_APER3'].values[0]
-                            filter_str = 'b'
-                        except:
+                        try: #exhauasted the laigle catalog, check the old cosmos catalog
+                            filter_str = 'g'
+                            filter_fl = dfx['FLUX_AUTO'].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+                            filter_fl_err = dfx['FLUXERR_AUTO'].values[0]
+
+                            mag = dfx['MAG_AUTO'].values[0]
+                            mag_faint = dfx['MAGERR_AUTO'].values[0]
+                            mag_bright = -1 * mag_faint
+
+                            # something is way wrong with the MAG_AUTO
+                            mag, mag_bright, mag_faint = self.micro_jansky_to_mag(filter_fl, filter_fl_err)
+
+                        except:  # not the EGS df,
                             pass
 
-                mag_bright = -1 * mag_faint
-            except:
-                pass
+            mag_bright = -1 * mag_faint
+        except:
+            pass
 
         return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
 

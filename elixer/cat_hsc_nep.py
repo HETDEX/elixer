@@ -827,12 +827,18 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
         mag_err_list = []
 
         filter_str=None
+        if G.BANDPASS_PREFER_G:
+            first_name = 'FLUX_hsc_g'
+            second_name = 'FLUX_hsc_r'
+        else:
+            first_name = 'FLUX_hsc_r'
+            second_name = 'FLUX_hsc_g'
 
         try:
-            if df['FLUX_hsc_r'].values[0]:
-                filter_str = 'r'
-            elif df['FLUX_hsc_gr'].values[0]:
-                filter_str = 'g'
+            if df[first_name].values[0]:
+                filter_str = first_name[-1]
+            elif df[second_name].values[0]:
+                filter_str = second_name[-1]
             else:
                 log.info("Unable to use r or g filter flux.")
 

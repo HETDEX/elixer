@@ -337,21 +337,39 @@ class GOODS_N(cat_base.Catalog):
         mag = None
         mag_plus = None
         mag_minus = None
-        filter_str = 'ACS_F606W_FLUX'
-        filter_name = 'f606w'
+
+
+        if G.BANDPASS_PREFER_G:
+            first_str = 'ACS_F435W_FLUX'
+            first_err = 'ACS_F435W_FLUXERR'
+            first_name = 'f435w'
+            second_str = 'ACS_F606W_FLUX'
+            second_err = 'ACS_F606W_FLUXERR'
+            second_name = 'f606w'
+        else:
+            second_str = 'ACS_F435W_FLUX'
+            second_err = 'ACS_F435W_FLUXERR'
+            second_name = 'f435w'
+            first_str = 'ACS_F606W_FLUX'
+            first_err = 'ACS_F606W_FLUXERR'
+            first_name = 'f606w'
+
+        #filter_str = 'ACS_F606W_FLUX'
+
         try:
-            filter_fl = df[filter_str].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
-            filter_fl_err = df['ACS_F606W_FLUXERR'].values[0]
+            filter_name = first_name
+            filter_fl = df[first_str].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+            filter_fl_err = df[first_err].values[0]
             mag, mag_plus, mag_minus = self.micro_jansky_to_mag(filter_fl, filter_fl_err)
         except:  # not the EGS df, try the CFHTLS
             try: # try f435 (~ g-band)
-                filter_str = 'ACS_F435W_FLUX' #used to lookup
-                filter_name= 'f435w'
-                filter_fl = df[filter_str].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
-                filter_fl_err = df['ACS_F435W_FLUXERR'].values[0]
+                #filter_str = 'ACS_F435W_FLUX' #used to lookup
+                filter_name= second_name
+                filter_fl = df[second_str].values[0]  # in micro-jansky or 1e-29  erg s^-1 cm^-2 Hz^-2
+                filter_fl_err = df[second_err].values[0]
                 mag, mag_plus, mag_minus = self.micro_jansky_to_mag(filter_fl,filter_fl_err)
             except:
-                filter_str = None
+                #filter_str = None
                 filter_name = None
 
         if filter_fl is None:

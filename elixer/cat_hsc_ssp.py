@@ -365,6 +365,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
             # don't bother to load if ra, dec not in range
             try:
                 #only check the 'r' fitler
+                #NOTE this is just finding the tile, there is not a need for g vs r preference here
                 if self.Tile_Dict[k]['filter'].lower() != 'r':
                     continue
 
@@ -491,7 +492,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
         mag = None
         mag_bright = None
         mag_faint = None
-        filter_str = 'r' # has grizy, but we will use r (preferred) then g
+        #filter_str = 'r' # has grizy, but we will use r (preferred) then g
 
         flux_list = []
         flux_err_list = []
@@ -499,6 +500,13 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
         mag_err_list = []
 
         filter_str=None
+
+        if G.BANDPASS_PREFER_G:
+            first = 'g'
+            second = 'r'
+        else:
+            first = 'r'
+            second = 'g'
 
         try:
             filter_str = df['filter_str'].values[0]
@@ -1730,13 +1738,20 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                 break
             col_idx += 1
             try: #DO NOT WANT _unique as that has wiped out the filters
+                if G.BANDPASS_PREFER_G:
+                    first = 'g'
+                    second = 'r'
+                else:
+                    first = 'r'
+                    second = 'g'
+
                 df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                        (self.dataframe_of_bid_targets['DEC'] == d[0]) &
-                                                       (self.dataframe_of_bid_targets['FILTER'] == 'r')]
+                                                       (self.dataframe_of_bid_targets['FILTER'] == first)]
                 if (df is None) or (len(df) == 0):
                     df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                        (self.dataframe_of_bid_targets['DEC'] == d[0]) &
-                                                       (self.dataframe_of_bid_targets['FILTER'] == 'g')]
+                                                       (self.dataframe_of_bid_targets['FILTER'] == second)]
                 if (df is None) or (len(df) == 0):
                     df = self.dataframe_of_bid_targets.loc[(self.dataframe_of_bid_targets['RA'] == r[0]) &
                                                         (self.dataframe_of_bid_targets['DEC'] == d[0])]
