@@ -13547,27 +13547,30 @@ class HETDEX:
                 imgplot.axis('off')
 
                 if i < num_fibers:
-                    xi = datakeep['xi'][ind[i]]
-                    yi = datakeep['yi'][ind[i]]
-                    xl = int(np.round(xi - ext[0] - res[0] / 2.))
-                    xh = int(np.round(xi - ext[0] + res[0] / 2.))
-                    yl = int(np.round(yi - ext[2] - res[0] / 2.))
-                    yh = int(np.round(yi - ext[2] + res[0] / 2.))
+                    try:
+                        xi = datakeep['xi'][ind[i]]
+                        yi = datakeep['yi'][ind[i]]
+                        xl = int(np.round(xi - ext[0] - res[0] / 2.))
+                        xh = int(np.round(xi - ext[0] + res[0] / 2.))
+                        yl = int(np.round(yi - ext[2] - res[0] / 2.))
+                        yh = int(np.round(yi - ext[2] + res[0] / 2.))
 
-                    sn = datakeep['fiber_sn'][ind[i]]
+                        sn = datakeep['fiber_sn'][ind[i]]
 
-                    if sn is None:
-                        if self.panacea:
-                            sn = -99 #so will fail the check and not print
+                        if sn is None:
+                            if self.panacea:
+                                sn = -99 #so will fail the check and not print
 
-                        else: #this only works (relatively well) for Cure
-                            S = np.where(datakeep['err'][ind[i]][yl:yh, xl:xh] < 0, 0., datakeep['im'][ind[i]][yl:yh, xl:xh]).sum()
-                            N = np.sqrt(np.where(datakeep['err'][ind[i]][yl:yh, xl:xh] < 0, 0.,
-                                                 datakeep['err'][ind[i]][yl:yh, xl:xh] ** 2).sum())
-                            if N != 0:
-                                sn = S / N
-                            else:
-                                sn = 0.0
+                            else: #this only works (relatively well) for Cure
+                                S = np.where(datakeep['err'][ind[i]][yl:yh, xl:xh] < 0, 0., datakeep['im'][ind[i]][yl:yh, xl:xh]).sum()
+                                N = np.sqrt(np.where(datakeep['err'][ind[i]][yl:yh, xl:xh] < 0, 0.,
+                                                     datakeep['err'][ind[i]][yl:yh, xl:xh] ** 2).sum())
+                                if N != 0:
+                                    sn = S / N
+                                else:
+                                    sn = 0.0
+                    except:
+                        sn = 0.0 #can't compute actual SN
 
 
                     borplot.text(-0.265, .2, plot_label,
