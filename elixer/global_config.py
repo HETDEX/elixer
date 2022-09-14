@@ -1150,6 +1150,8 @@ DETFLAG_NO_DUST_CORRECTION          = 0x02000000    #dust correction was request
 DETFLAG_BAD_PIXELS                  = 0x04000000    #hot column, maybe bad sky subtraction, etc ... possible false detection
 DETFLAG_BAD_EMISSION_LINE           = 0x08000000    #emission line is questionable, could be continuum between absorbers
 
+
+DETFLAG_CORRUPT_DATA                = 0x80000000    #some nontrivial portion of the data may be corrupt, though it may not be significant
 #todo: low SNR, weighted position is between fibers (i.e. distances from blue fiber center > 0.74 or 0.75 and SNR < 5.2 or so)
 
 

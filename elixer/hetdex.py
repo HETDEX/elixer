@@ -13084,6 +13084,10 @@ class HETDEX:
                     #all nans ... something very corrupt
                     log.warning(f"Probable corrupt data in {fits.filename}, {fits.multiframe}, idx {loc}")
                     wave = np.linspace(G.CALFIB_WAVEGRID[0],G.CALFIB_WAVEGRID[-1],len(wave))
+                    try:
+                        e.flags |= G.DETFLAG_CORRUPT_DATA
+                    except:
+                        pass
 
                 # this sometimes produces arrays of different lengths (+/- 1) [due to rounding?]
                 # which causes problems later on, so just get the nearst point to the target wavelenght
