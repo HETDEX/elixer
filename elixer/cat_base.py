@@ -1251,6 +1251,7 @@ class Catalog:
                 list_of_counterparts[0].selected = True #make the top of the list THE selected catalog match
 
             #minor extra check ... allow 2nd and 3rd to switch if they are similar in distance but 3rd has a higher score
+            #don't bother with any larger indicies .. we are at point of greatly deceasing likelihood of a match
             if len(list_of_counterparts) > 2 and abs(list_of_counterparts[1].distance - list_of_counterparts[2].distance) < 0.5:
                 if list_of_counterparts[2].prob_match > list_of_counterparts[1].prob_match:
                     #flip 1 and 2

@@ -12076,7 +12076,10 @@ class HETDEX:
                         pages.append(fig) #append the second part to its own page to be merged later
                         plt.close()
                     except:
-                        log.warning("Failed to build full width 1D spec/cutout image.", exc_info=True)
+                        if buf is None:
+                            log.warning("Failed to build full width 1D spec/cutout image.", exc_info=False)
+                        else:
+                            log.warning("Failed to build full width 1D spec/cutout image.", exc_info=True)
 
                     if G.PLOT_FULLWIDTH_2D_SPEC:
                         try:
@@ -12155,7 +12158,8 @@ class HETDEX:
             vmax = vmax/scale
             log.debug("HETDEX (zscale) vrange = (%f, %f) raw range = (%f, %f)" %(vmin,vmax,np.min(vals),np.max(vals)))
         except:
-            log.info("Exception in hetdex::get_vrange:",exc_info =True)
+            if vals is not None and len(vals) > 2:
+                log.info("Exception in hetdex::get_vrange:",exc_info =True)
 
         return vmin, vmax
 
@@ -12988,29 +12992,32 @@ class HETDEX:
                 datakeep['fw_im'].append(fits.data[yl:yh, 0:FRAME_WIDTH_X - 1])
 
                 z1, z2 = self.get_vrange(fits.data[yl:yh, xl:xh],scale=contrast1)
-                log.debug("2D cutout zscale1 (smoothed) = %f, %f  for D,S,F = %d, %s, %d"
-                          %(z1,z2,dither+1,fits.side,fiber.number_in_ccd))
-
-                # z1,z2 = self.get_vrange(sci.data[yl:yh,xl:xh])
+                log.debug(f"2D cutout zscale1 (smoothed) = {z1}, {z2} for D,S,F = {dither+1} {fits.side} {fiber.number_in_ccd}")
                 datakeep['vmin1'].append(z1)
                 datakeep['vmax1'].append(z2)
 
-                z1, z2 = self.get_vrange(fits.data[yl:yh, xl:xh],scale=contrast2)
-                log.debug("2D cutout zscale2 (image) = %f, %f  for D,S,F = %d, %s, %d"
-                          %(z1,z2,dither+1,fits.side,fiber.number_in_ccd))
-
-                datakeep['vmin2'].append(z1)
-                datakeep['vmax2'].append(z2)
-
-                try:
-                    z1, z2 = self.get_vrange(fits.data_sky[yl:yh, xl:xh], scale=contrast3)
-                    log.debug("2D cutout zscale3 (image) = %f, %f  for D,S,F = %d, %s, %d"
-                              % (z1, z2, dither + 1, fits.side, fiber.number_in_ccd))
-
+                if z1 is None: #all the rest will fail too
+                    datakeep['vmin2'].append(z1)
+                    datakeep['vmax2'].append(z2)
                     datakeep['vmin3'].append(z1)
                     datakeep['vmax3'].append(z2)
-                except:
-                    log.error("Could net get contrast stretch for sky NOT subtracted 2D spectra")
+                else:
+                    z1, z2 = self.get_vrange(fits.data[yl:yh, xl:xh],scale=contrast2)
+                    log.debug(
+                        f"2D cutout zscale2 (image) = {z1}, {z2} for D,S,F = {dither + 1} {fits.side} {fiber.number_in_ccd}")
+
+                    datakeep['vmin2'].append(z1)
+                    datakeep['vmax2'].append(z2)
+
+                    try:
+                        z1, z2 = self.get_vrange(fits.data_sky[yl:yh, xl:xh], scale=contrast3)
+                        log.debug(
+                            f"2D cutout zscale3 (image) = {z1}, {z2} for D,S,F = {dither + 1} {fits.side} {fiber.number_in_ccd}")
+
+                        datakeep['vmin3'].append(z1)
+                        datakeep['vmax3'].append(z2)
+                    except:
+                        log.error("Could net get contrast stretch for sky NOT subtracted 2D spectra")
 
                 blank[(yl-blank_yl):(yl-blank_yl)+(yh-yl)+1,(xl-blank_xl):(xl-blank_xl)+(xh-xl)+1] = \
                     fits.err_data[yl:yh + 1,xl:xh + 1]
@@ -13072,6 +13079,12 @@ class HETDEX:
 
                 #1D spectrum (spec is counts, specwave is the corresponding wavelength)
                 wave = fits.wave_data[loc,:]
+
+                if np.count_nonzero(np.isnan(wave)) > 0.5 * len(wave):
+                    #all nans ... something very corrupt
+                    log.warning(f"Probable corrupt data in {fits.filename}, {fits.multiframe}, idx {loc}")
+                    wave = np.linspace(G.CALFIB_WAVEGRID[0],G.CALFIB_WAVEGRID[-1],len(wave))
+
                 # this sometimes produces arrays of different lengths (+/- 1) [due to rounding?]
                 # which causes problems later on, so just get the nearst point to the target wavelenght
                 # and a fixed number of surrounding pixels
@@ -13318,7 +13331,12 @@ class HETDEX:
                     total_central_9 += 9  * datakeep['fiber_weight'][ind[i]]
                     #total_central_49 += 49
 
-                    summed_image += a * datakeep['fiber_weight'][ind[i]]
+                    #summed_image += a * datakeep['fiber_weight'][ind[i]]
+                    if summed_image.shape == a.shape:
+                        summed_image += a * datakeep['fiber_weight'][ind[i]]
+                    else:
+                        log.warning(f"Warning! shape mismiatch: summed_image {summed_image.shape} != a {a.shape} in "
+                                 f"build_2d_image(). Will not add fiber idx {ind[i]} to image.")
 
                     # GF = gaussian_filter(datakeep['im'][ind[i]], (2, 1))
                     GF = gaussian_filter(a, (2, 1))
@@ -13427,8 +13445,12 @@ class HETDEX:
                     a = datakeep['im'][ind[i]]
                     a = np.ma.masked_where(datakeep['err'][ind[i]] == -1, a)
                     a = np.ma.filled(a, 0.0)
-
-                    summed_image += a * datakeep['fiber_weight'][ind[i]]
+                    if summed_image.shape == a.shape:
+                        summed_image += a * datakeep['fiber_weight'][ind[i]]
+                    else:
+                        log.info(f"Warning (minor). shape mismiatch: summed_image {summed_image.shape} != a {a.shape} in "
+                                 f"build_2d_image(). Will not add fiber idx {ind[i]} to image.")
+                    #summed_image += a * datakeep['fiber_weight'][ind[i]]
 
             else: #this is the top image (the sum)
                 is_a_fiber = False
@@ -13755,7 +13777,12 @@ class HETDEX:
                     a = np.ma.masked_where(datakeep['err'][ind[i]] == -1, a)
                     a = np.ma.filled(a, 0.0)
 
-                    summed_image += a * datakeep['fiber_weight'][ind[i]]
+                    #summed_image += a * datakeep['fiber_weight'][ind[i]]
+                    if summed_image.shape == a.shape:
+                        summed_image += a * datakeep['fiber_weight'][ind[i]]
+                    else:
+                        log.info(f"Warning (minor). shape mismiatch: summed_image {summed_image.shape} != a {a.shape} in "
+                                 f"build_2d_image_1st_column_only(). Will not add fiber idx {ind[i]} to image.")
 
                     image = datakeep['im'][ind[i]]
                           # im can be the cosmic removed version, depends on G.PreferCosmicCleaned
@@ -14413,8 +14440,14 @@ class HETDEX:
 
         #they should all be the same length
         #yes, want round and int ... so we get nearest pixel inside the range)
-        left = round(min(datakeep['fw_specwave'][0]))
-        right = int(max(datakeep['fw_specwave'][0]))
+        try:
+            left = round(np.nanmin(datakeep['fw_specwave'][0]))
+            right = int(np.nanmax(datakeep['fw_specwave'][0]))
+        except:
+            log.warning(f"Unable to produce bigwave left:right in build_full_width_spectrum()")
+            #left = 0
+            #right = 0
+            return None
 
         bigwave = np.arange(left, right)
 

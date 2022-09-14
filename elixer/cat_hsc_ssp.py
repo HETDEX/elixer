@@ -501,12 +501,12 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
         filter_str=None
 
-        if G.BANDPASS_PREFER_G:
-            first = 'g'
-            second = 'r'
-        else:
-            first = 'r'
-            second = 'g'
+        # if G.BANDPASS_PREFER_G:
+        #     first = 'g'
+        #     second = 'r'
+        # else:
+        #     first = 'r'
+        #     second = 'g'
 
         try:
             filter_str = df['filter_str'].values[0]
