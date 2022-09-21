@@ -48,8 +48,6 @@ log.setlevel(G.LOG_LEVEL)
 
 pd.options.mode.chained_assignment = None  #turn off warning about setting the distance field
 
-
-
 def hsc_count_to_mag(count,cutout=None,headers=None):
     """
     SSP is using the same zero point as the HETDEX HSC, so this is still valid
@@ -250,10 +248,34 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
                 try:
                     table = astropy.table.Table.read(cat_loc,hdu=1)#,format='fits'# )
+
+                    cls.flags_table = astropy.table.Table([table['src_id'],table['flags']]) #of limited use, need to grow when adding more tiles
+
                     table.keep_columns(['src_id','src_coord_ra','src_coord_dec','distance',
                                         'src_base_CircularApertureFlux_3_0_instFlux','src_base_CircularApertureFlux_3_0_instFluxErr',
                                         'src_ext_photometryKron_KronFlux_instFlux','src_ext_photometryKron_KronFlux_instFluxErr',
                                         'src_ext_photometryKron_KronFlux_radius','src_ext_photometryKron_KronFlux_psf_radius'])
+
+                    #flags is an array of 246 booleans, numbering starts with 1
+                    #as is we cannot keep the flags and translate to a pandas dataframe as it does not support multi-dimensional columns
+                    #want to check 'src_detect_isPrimary' (216 or index 215),'src_base_PixellFags_flag' ()
+
+                    #from HSC documentatin
+                    #You should first select primary objects (i.e., objects in the inner patch and inner tract with no
+                    # children) by applying isprimary=True.   It will be a good practice to then apply pixel flags to
+                    # make sure that objects do not suffer from problematic pixels; {filter}_pixelflags_saturated_{any, center},
+                    # {filter}_pixelflags_interpolated_{any,center}, etc, except for the UD region (see the Known Problems
+                    # page for details).  There are two separate pixel flags depending on which part of objects is concerned.
+                    # Those with "any" are set True when any pixel of the object's footprint are affected.  Those with
+                    # "center" are  set True when any of the central 3×3 pixels are affected.  For most cases, the latter
+                    # should be fine as problematic pixels are interpolated reasonably well in the outer part.  Finally,
+                    # one may want to make sure that the object centroiding is OK with {filter}_sdsscentroid_flags
+                    # (if the centroiding is bad, photometry is likely bad), but faint objects tend to have these flags on.
+                    # One should check if scientific results are sensitive to this flag.  It is also important to make
+                    # sure that the photometry is OK using the flags associated with the measurement such as {filter}_psfflux_flags.
+
+                    #since the faint objects are of most concern to us and the documentation warns that they tend to have
+                    # the centroiding flag set, we will have to ignore that flag. But we may want to pay attention to "center"
 
                     #the RA and Dec are in RADIANS
                     table['src_coord_ra'] *= 180.0/np.pi
@@ -520,6 +542,13 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
             mag_bright = hsc_count_to_mag(filter_fl+filter_fl_err)
             mag_faint = hsc_count_to_mag(filter_fl-filter_fl_err)
 
+            try:
+                sel = np.array(self.flags_table['src_id'] == df['src_id'].values[0])
+                log.debug(f"*** reported flags: {np.array(np.where(self.flags_table['flags'][sel])[1])+1}")
+                #+1 since the TFLAGSn are 1 based, [1] is just to deal with the array shape
+            except:
+                pass
+
         except:
             log.error("Exception in cat_hsc_nep.get_filter_flux", exc_info=True)
             return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
@@ -545,14 +574,14 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
         try:
 
-            if G.LOCAL_DEVBOX:
+            if  G.LOCAL_DEVBOX:
                 log.info("***** Skipping HSC-SSP zPDFs due to large size and removet connection from local dev box. *****")
                 print("***** Skipping HSC-SSP zPDFs due to large size and removet connection from local dev box. *****")
                 return None,[],[]
 
 
             #scan for matching files
-            log.debug(f"Searching for zPDFs for src_id {src_id} in tracts {tract_ids}: {self.HSC_PHOTZ_PATH}")
+            log.info(f"Searching for zPDFs for src_id {src_id} in tracts {tract_ids}: {self.HSC_PHOTZ_PATH}")
             files = []
             if op.isdir(self.HSC_PHOTZ_PATH):
                 for tid in tract_ids.split(";"):
@@ -563,32 +592,74 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                     files = files + [f for f in glob.iglob(fn,recursive=True)]
 
             if len(files) == 0:
-                log.debug(f"No matching zPDF files found for tract(s) {tract_ids}.")
+                log.info(f"No matching zPDF files found for tract(s) {tract_ids}.")
                 return None, [], []
 
             #read each one in turn
             z_bins_list = []
             z_pdf_list = []
             #min_bins = np.inf
-            log.debug(f"Found {len(files)} zPDF files: {files}")
+            log.info(f"Found {len(files)} zPDF files: {files}")
             for f in files:
                 try: #is there any way to speed this up? and HDF5
-                    hdulist = astropyFITS.open(f, memmap=True, lazy_load_hdus=True, ignore_missing_simple=True)
-                    idx = np.where(np.array([x[0] for x in np.array(hdulist[1].data)]) == src_id)[0][0]
+                    #turn off lazy loading ... unfortunately, to search, we need it all
+                    log.info(f"*** {f}")
+                    hdulist = astropyFITS.open(f, mode="readonly",memmap=True, lazy_load_hdus=True, ignore_missing_simple=True)
+                    log.info("*** hdulist open complete")
+                    idx = np.where(np.array([x[0] for x in np.array(hdulist[1].data)]) == src_id)
+                    log.info("*** hdulist search complete")
+                    if len(idx[0]) == 0:
+                        hdulist.close()
+                        continue
+
+                    idx = idx[0][0]
                     z_bins = [x[0] for x in np.array(hdulist[2].data)]
                     z_pdf = hdulist[1].data[idx][1:][0]
                     z_bins_list.append(np.array(z_bins))
                     z_pdf_list.append(np.array(z_pdf))
                     #min_bins = min(min_bins,len(z_bins))
                     hdulist.close()
-                    log.debug(f"Found matching src_id in {f}")
-                    break #just use the first one for now
+                    log.info(f"Found matching src_id in {f}")
+                    #break #just use the first one for now
                 except: #this is due to idx being empty (can't index [0][0] on an empty array ... no matching idx were found)
+                    log.info("***** Exception!",exc_info=True)
                     try:
                         hdulist.close()
                     except:
                         pass
 
+                #alternate with Tables direct read
+                # try: #is there any way to speed this up? and HDF5
+                #     #turn off lazy loading ... unfortunately, to search, we need it all
+                #     log.info(f"*** {f}")
+                #
+                #     t1 = astropy.table.Table.read(f,format="fits",hdu=1)
+                #     log.info("*** table 1 load complete")
+                #     idx = np.where(t1['ID']==src_id)
+                #     if len(idx[0]) == 0:
+                #         del t1
+                #         continue
+                #     idx = idx[0][0]
+                #     log.info("*** search complete")
+                #     z_pdf = t1['PDF'][idx] #hdulist[1].data[idx][1:][0]
+                #
+                #     t2 = astropy.table.Table.read(f,format="fits",hdu=2)
+                #     z_bins = np.array(t2['BINS'])
+                #
+                #     z_bins_list.append(np.array(z_bins))
+                #     z_pdf_list.append(np.array(z_pdf))
+                #     #min_bins = min(min_bins,len(z_bins))
+                #     del t1
+                #     del t2
+                #     log.info(f"Found matching src_id in {f}")
+                #     #break #just use the first one for now
+                # except: #this is due to idx being empty (can't index [0][0] on an empty array ... no matching idx were found)
+                #     log.info("***** Exception!",exc_info=True)
+                #     try:
+                #         del t1
+                #         del t2 #might not exist
+                #     except:
+                #         pass
 
             #average together
             #for HSC SSP the z bin scales are all the same (0.01 steps in z), but some go to z = 6 and some to z = 7
@@ -738,8 +809,14 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
             #self.num_targets = self.dataframe_of_bid_targets.iloc[:, 0].count()
             self.sort_bid_targets_by_likelihood(ra, dec)
 
-            log.info(self.Name + " searching for objects in [%f - %f, %f - %f] " % (ra_min, ra_max, dec_min, dec_max) +
-                     ". Found = %d" % (self.num_targets))
+            #log.info(self.Name + " searching for objects in [%f - %f, %f - %f] " % (ra_min, ra_max, dec_min, dec_max) +
+            #         ". Found = %d" % (self.num_targets))
+            if self.num_targets > 0:
+                log.info(f"{self.Name} searching for objects in [{ra_min} - {ra_max}, {dec_min} - {dec_max}]. "
+                         f"Found = {self.num_targets}. srcID = {list(self.dataframe_of_bid_targets_unique['src_id'].values)}")
+            else:
+                log.info(f"{self.Name} searching for objects in [{ra_min} - {ra_max}, {dec_min} - {dec_max}]. "
+                         f"Found = {self.num_targets}.")
 
         return self.num_targets, self.dataframe_of_bid_targets_unique, None
 

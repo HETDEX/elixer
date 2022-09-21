@@ -2193,6 +2193,27 @@ def merge_unique(newfile,file1,file2):
         num_chunks = int(len(detectids)/chunk_size)+1
         detect_chunks = np.array_split(detectids,num_chunks)
 
+
+        #check if either old h5s have the extra tables:
+        if not G.DeblendSpectra:
+            try:
+                _ = file1_handle.root.DeblendedSpectra
+                G.DeblendSpectra = True
+            except:
+                try:
+                    _ = file2_handle.root.DeblendedSpectra
+                    G.DeblendSpectra = True
+                except:
+                    try:
+                        _ = file1_handle.root.NeighborSpectra
+                        G.DeblendSpectra = True
+                    except:
+                        try:
+                            _ = file2_handle.root.NeighborSpectra
+                            G.DeblendSpectra = True
+                        except:
+                            pass
+
         log.info("Merging %d detections ..." %len(detectids))
 
         for chunk in detect_chunks:

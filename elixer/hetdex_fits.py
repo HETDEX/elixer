@@ -466,14 +466,14 @@ class HetdexFits:
 
 
                         self.fe_data = get_field('sky_subtracted',(112,1032),self.multiframe) # np.zeros()
-                        self.wave_data = np.array(hda_fibers_table['wavelength']) #np.zeros((112, 1032))
-                        self.trace_data = np.array(hda_fibers_table['trace']) #np.zeros((112, 1032))
-                        self.fiber_to_fiber = np.array(hda_fibers_table['fiber_to_fiber']) #np.zeros((112, 1032))
-                        self.calfib = np.array(hda_fibers_table['calfib']) #np.zeros((112, len(G.CALFIB_WAVEGRID)))
-                        self.calfibe = np.array(hda_fibers_table['calfibe']) #np.zeros((112, len(G.CALFIB_WAVEGRID)))
-                        self.ffsky_calfib = np.array(hda_fibers_table['calfib_ffsky']) #np.zeros((112, len(G.CALFIB_WAVEGRID)))
-                        self.fiber_chi2 = np.array(hda_fibers_table['chi2']) #np.zeros((112, 1032))
-                        self.fiber_rms = np.array(hda_fibers_table['rms']) #np.zeros((112, 1032))
+                        self.wave_data = get_field('wavelength',(112,1032),self.multiframe)#np.array(hda_fibers_table['wavelength']) #np.zeros((112, 1032))
+                        self.trace_data = get_field('trace',(112,1032),self.multiframe)#np.array(hda_fibers_table['trace']) #np.zeros((112, 1032))
+                        self.fiber_to_fiber = get_field('fiber_to_fiber',(112,1032),self.multiframe) #np.array(hda_fibers_table['fiber_to_fiber']) #np.zeros((112, 1032))
+                        self.calfib = get_field('calfib',(112,len(G.CALFIB_WAVEGRID)),self.multiframe)#np.array(hda_fibers_table['calfib']) #np.zeros((112, len(G.CALFIB_WAVEGRID)))
+                        self.calfibe = get_field('calfibe',(112,len(G.CALFIB_WAVEGRID)),self.multiframe)#np.array(hda_fibers_table['calfibe']) #np.zeros((112, len(G.CALFIB_WAVEGRID)))
+                        self.ffsky_calfib = get_field('calfib_ffsky',(112,len(G.CALFIB_WAVEGRID)),self.multiframe)#np.array(hda_fibers_table['calfib_ffsky']) #np.zeros((112, len(G.CALFIB_WAVEGRID)))
+                        self.fiber_chi2 = get_field('chi2',(112,1032),self.multiframe)#np.array(hda_fibers_table['chi2']) #np.zeros((112, 1032))
+                        self.fiber_rms = get_field('rms',(112,1032),self.multiframe)#np.array(hda_fibers_table['rms']) #np.zeros((112, 1032))
 
                         #change from flux density back into flux over x2AA for consistency
                         self.calfib *= G.FLUX_WAVEBIN_WIDTH

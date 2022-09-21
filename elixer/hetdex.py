@@ -1501,7 +1501,7 @@ class DetObj:
                                 #don't break ... can be undone if 'g' matches 'g'
                             elif d['filter_name'].lower() in ['g']:
                                 if self.flags & G.DETFLAG_DEX_GMAG_INCONSISTENT:
-                                    self.flags |= G.DETFLAG_DEX_GMAG_INCONSISTENT
+                                    self.flags ^= G.DETFLAG_DEX_GMAG_INCONSISTENT
                                     log.info(f"Detection Flag un-set for {self.entry_id}: g bands match")
                                 break #now we DO want to break
 

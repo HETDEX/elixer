@@ -1968,6 +1968,8 @@ def quick_fit(waves, flux, flux_err, w, delta_w=4.0, width=50, min_sigma=1.7, ma
                 log.debug("Could not fit gaussian (1a) near %f" % w, exc_info=False)
             elif ex.args[0].find("is infeasible") > -1:
                 log.debug("Could not fit gaussian (2a) near %f" % w, exc_info=False)
+            elif ex.args[0].find("Each lower bound must be strictly less than each upper bound") > -1:
+                log.debug("Could not fit gaussian (2.1a) near %f" % w, exc_info=False)
             else:
                 log.error("Could not fit gaussian (3a) near %f" % w, exc_info=True)
         except:
