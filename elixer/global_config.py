@@ -21,7 +21,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.18.0a3'
+__version__ = '1.18.0a4'
 #Logging
 GLOBAL_LOGGING = True
 
@@ -792,6 +792,7 @@ HETDEX_RED_SAFE_WAVE = 5400.0 #index 965
 
 SDSS_G_FILTER_BLUE = 3900.0
 SDSS_G_FILTER_RED = 5400.0
+DEX_G_EFF_LAM = 4640.0 #g-band iso or effective wavelength ... useing SDSS-g
 
 CONTINUUM_FLOOR_COUNTS = 6.5 #5 sigma * 6 counts / sqrt(40 angstroms/1.9 angs per pixel)
 

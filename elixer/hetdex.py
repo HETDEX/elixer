@@ -6285,10 +6285,10 @@ class DetObj:
             log.debug(f"{self.entry_id} Combine ALL Continuum: Final estimate: continuum_hat({continuum_hat}) continuum_sd_hat({continuum_sd_hat}) "
                       f"size in psf ({size_in_psf})")
 
-            log.debug(f"{self.entry_id} Combine ALL Continuum: Final estimate (mag @ 4500AA):"
-                      f" {-2.5*np.log10(SU.cgs2ujy(continuum_hat,4500.0)/(3631.0*1e6)):0.2f} "
-                      f"({-2.5*np.log10(SU.cgs2ujy(continuum_hat+continuum_sd_hat,4500.0)/(3631.0*1e6)):0.2f},"
-                      f"{-2.5*np.log10(SU.cgs2ujy(continuum_hat-continuum_sd_hat,4500.0)/(3631.0*1e6)):0.2f})")
+            log.debug(f"{self.entry_id} Combine ALL Continuum: Final estimate (mag @ {G.DEX_G_EFF_LAM}AA):"
+                      f" {-2.5*np.log10(SU.cgs2ujy(continuum_hat,G.DEX_G_EFF_LAM)/(3631.0*1e6)):0.2f} "
+                      f"({-2.5*np.log10(SU.cgs2ujy(continuum_hat+continuum_sd_hat,G.DEX_G_EFF_LAM)/(3631.0*1e6)):0.2f},"
+                      f"{-2.5*np.log10(SU.cgs2ujy(continuum_hat-continuum_sd_hat,G.DEX_G_EFF_LAM)/(3631.0*1e6)):0.2f})")
 
 
             self.classification_dict['continuum_hat'] = continuum_hat
@@ -7616,11 +7616,11 @@ class DetObj:
         try:
             #cgs is always populated, but gmag might not be
             all_cgs = [f["cgs_cont"] if f["cgs_cont"] is not None else 0 for f in fiber_dict_array]
-            bright_mag = -2.5 * np.log10(SU.cgs2ujy(max(all_cgs),4500)/(3631*1e6))
+            bright_mag = -2.5 * np.log10(SU.cgs2ujy(max(all_cgs),G.DEX_G_EFF_LAM)/(3631*1e6))
 
             # for f in fiber_dict_array:
             #     if f['expid'] == 2 and f['cgs_cont'] > 0:
-            #         print(f['f448'],-2.5 * np.log10(SU.cgs2ujy(f['cgs_cont'],4500)/(3631*1e6)) )
+            #         print(f['f448'],-2.5 * np.log10(SU.cgs2ujy(f['cgs_cont'],G.DEX_G_EFF_LAM)/(3631*1e6)) )
 
 
         except:
@@ -7923,13 +7923,14 @@ class DetObj:
                     abs(self.hetdex_gmag - self.sdss_gmag) < 1.0:  # use both as an average? what if they are very different?
                 # make the average
                 avg_cont = 0.5 * (self.hetdex_gmag_cgs_cont + self.sdss_cgs_cont)
-                avg_cont_unc = np.sqrt(
-                    self.hetdex_gmag_cgs_cont_unc ** 2 + self.sdss_cgs_cont_unc ** 2)  # error on the mean
+                avg_cont_unc = np.sqrt((0.5 * self.hetdex_gmag_cgs_cont_unc)**2 + (0.5 * self.sdss_cgs_cont_unc) ** 2)
 
                 self.best_gmag_selected = 'mean'
-                self.best_gmag = -2.5 * np.log10(SU.cgs2ujy(avg_cont, 4500.00) / 1e6 / 3631.)
-                mag_faint = -2.5 * np.log10(SU.cgs2ujy(avg_cont - avg_cont_unc, 4500.00) / 1e6 / 3631.)
-                mag_bright = -2.5 * np.log10(SU.cgs2ujy(avg_cont + avg_cont_unc, 4500.00) / 1e6 / 3631.)
+                self.best_gmag = -2.5 * np.log10(SU.cgs2ujy(avg_cont, G.DEX_G_EFF_LAM) / 1e6 / 3631.)
+                mag_faint = -2.5 * np.log10(SU.cgs2ujy(avg_cont - avg_cont_unc, G.DEX_G_EFF_LAM) / 1e6 / 3631.)
+                if np.isnan(mag_faint):
+                    msg_faint = self.best_gmag + 0.75 #about 50% error to the faint
+                mag_bright = -2.5 * np.log10(SU.cgs2ujy(avg_cont + avg_cont_unc, G.DEX_G_EFF_LAM) / 1e6 / 3631.)
                 self.best_gmag_unc = 0.5 * (mag_faint - mag_bright)
 
                 self.best_gmag_cgs_cont = avg_cont
@@ -8901,12 +8902,14 @@ class DetObj:
                 abs(self.hetdex_gmag - self.sdss_gmag) < 1.0: #use both as an average? what if they are very different?
                 #make the average
                 avg_cont = 0.5 * (self.hetdex_gmag_cgs_cont + self.sdss_cgs_cont)
-                avg_cont_unc =  np.sqrt(self.hetdex_gmag_cgs_cont_unc**2 + self.sdss_cgs_cont_unc**2) #error on the mean
+                avg_cont_unc = np.sqrt((0.5 * self.hetdex_gmag_cgs_cont_unc) ** 2 + (0.5 * self.sdss_cgs_cont_unc) ** 2)
 
                 self.best_gmag_selected = 'mean'
-                self.best_gmag = -2.5*np.log10(SU.cgs2ujy(avg_cont,4500.00) / 1e6 / 3631.)
-                mag_faint = -2.5*np.log10(SU.cgs2ujy(avg_cont-avg_cont_unc,4500.00) / 1e6 / 3631.)
-                mag_bright = -2.5*np.log10(SU.cgs2ujy(avg_cont+avg_cont_unc,4500.00) / 1e6 / 3631.)
+                self.best_gmag = -2.5*np.log10(SU.cgs2ujy(avg_cont,G.DEX_G_EFF_LAM) / 1e6 / 3631.)
+                mag_faint = -2.5*np.log10(SU.cgs2ujy(avg_cont-avg_cont_unc,G.DEX_G_EFF_LAM) / 1e6 / 3631.)
+                if np.isnan(mag_faint):
+                    msg_faint = self.best_gmag + 0.75 #about 50% error to the faint
+                mag_bright = -2.5*np.log10(SU.cgs2ujy(avg_cont+avg_cont_unc,G.DEX_G_EFF_LAM) / 1e6 / 3631.)
                 self.best_gmag_unc = 0.5 * (mag_faint-mag_bright)
 
                 self.best_gmag_cgs_cont = avg_cont

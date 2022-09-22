@@ -251,7 +251,9 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
                     cls.flags_table = astropy.table.Table([table['src_id'],table['flags']]) #of limited use, need to grow when adding more tiles
 
-                    table.keep_columns(['src_id','src_coord_ra','src_coord_dec','distance',
+                    #warning! don't keep the HSC "distance" ... we overwrite later with our own value and theirs has
+                    #a different meaning
+                    table.keep_columns(['src_id','src_coord_ra','src_coord_dec',   #'distance',
                                         'src_base_CircularApertureFlux_3_0_instFlux','src_base_CircularApertureFlux_3_0_instFluxErr',
                                         'src_ext_photometryKron_KronFlux_instFlux','src_ext_photometryKron_KronFlux_instFluxErr',
                                         'src_ext_photometryKron_KronFlux_radius','src_ext_photometryKron_KronFlux_psf_radius'])
@@ -574,15 +576,10 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
         try:
 
-            if  G.LOCAL_DEVBOX:
-                log.info("***** Skipping HSC-SSP zPDFs due to large size and removet connection from local dev box. *****")
-                print("***** Skipping HSC-SSP zPDFs due to large size and removet connection from local dev box. *****")
-                return None,[],[]
-
-
             #scan for matching files
             log.info(f"Searching for zPDFs for src_id {src_id} in tracts {tract_ids}: {self.HSC_PHOTZ_PATH}")
             files = []
+
             if op.isdir(self.HSC_PHOTZ_PATH):
                 for tid in tract_ids.split(";"):
                     fn = op.join(self.HSC_PHOTZ_PATH,f"**/*{tid}*fits")
@@ -602,17 +599,50 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
             log.info(f"Found {len(files)} zPDF files: {files}")
             for f in files:
                 try: #is there any way to speed this up? and HDF5
+                    idx = None
+                    #first see if there is an .sid version ... faster to check
+                    sid = f[:-5]+".sid"
+                    if op.exists(sid):
+                        log.debug(f"Checking {sid}")
+                        src_ids = np.fromfile(sid, dtype=np.int64)
+                        idx = np.where(src_ids==src_id)[0]
+                        if len(idx)==0:
+                            log.debug(f"{src_id} not found.")
+                            continue
+                        elif len(idx) > 1: #safety check
+                            log.warning(f"{src_id} found {len(idx)} times in {sid}")
+                            idx = None
+                    elif G.LOCAL_DEVBOX:
+                        log.info("***** Skipping HSC-SSP zPDFs due to large size and removet connection from local dev box. *****")
+                        print("***** Skipping HSC-SSP zPDFs due to large size and removet connection from local dev box. *****")
+                        return None,[],[]
+
+
+                    #either no .sid file or we found the src_id
                     #turn off lazy loading ... unfortunately, to search, we need it all
                     log.info(f"*** {f}")
-                    hdulist = astropyFITS.open(f, mode="readonly",memmap=True, lazy_load_hdus=True, ignore_missing_simple=True)
+                    hdulist = astropyFITS.open(f, mode="readonly",memmap=True, lazy_load_hdus=True,
+                                               ignore_missing_simple=True)
                     log.info("*** hdulist open complete")
-                    idx = np.where(np.array([x[0] for x in np.array(hdulist[1].data)]) == src_id)
-                    log.info("*** hdulist search complete")
-                    if len(idx[0]) == 0:
+                    if idx is not None and len(idx)==1: #idx is still an array here, with one element
+                        # confirm the src_id
+                        if src_id != hdulist[1].data[idx[0]][0]:
+                            log.info(f"*.sid file index mismatch, will check *.fits file")
+                            idx = None
+
+                    if idx is None:
+                        idx = np.where(np.array([x[0] for x in np.array(hdulist[1].data)]) == src_id)[0]
+                        log.info("*** hdulist search complete")
+
+                    if idx is None or len(idx) == 0:
+                        hdulist.close()
+                        continue
+                    elif len(idx) > 1:  # safety check
+                        log.warning(f"{src_id} found {len(idx)} times in {f}. Will not use.")
                         hdulist.close()
                         continue
 
-                    idx = idx[0][0]
+                    idx = idx[0]
                     z_bins = [x[0] for x in np.array(hdulist[2].data)]
                     z_pdf = hdulist[1].data[idx][1:][0]
                     z_bins_list.append(np.array(z_bins))
@@ -692,20 +722,20 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                     log.debug("Failure in hsc_ssp get_zPDF(). No zPDFs in interpolation.")
 
                 #testing only'
-                if True:
-                    try:
-                        plt.close('all')
-                        plt.figure(figsize=(8,3))
-                        for pdf,bins in zip(z_pdf_list,z_bins_list):
-                            plt.plot(bins,pdf,alpha=0.5)
-
-                        plt.plot(z_bins,z_pdf_avg,label="avg")
-                        plt.legend()
-                        plt.tight_layout()
-                        plt.savefig("hsc_ssp_zpdf.png")
-
-                    except:
-                        log.debug("+++++ Exception",exc_info=True)
+                # if True:
+                #     try:
+                #         plt.close('all')
+                #         plt.figure(figsize=(8,3))
+                #         for pdf,bins in zip(z_pdf_list,z_bins_list):
+                #             plt.plot(bins,pdf,alpha=0.5)
+                #
+                #         plt.plot(z_bins,z_pdf_avg,label="avg")
+                #         plt.legend()
+                #         plt.tight_layout()
+                #         plt.savefig("hsc_ssp_zpdf.png")
+                #
+                #     except:
+                #         log.debug("+++++ Exception",exc_info=True)
 
             elif len(z_pdf_list) == 1 :
                 z_pdf_avg = z_pdf_list[0]

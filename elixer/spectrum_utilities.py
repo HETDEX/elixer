@@ -2427,12 +2427,12 @@ def check_overlapping_psf(source_mag,neighbor_mag,psf,dist_baryctr,dist_ellipse=
 
     # place it in the middle of the hetdex spectrum even though the mag source may well be in an r-band
     # 2.0 * ... so it is in same flux units as HETDEX (and REMEMBER, we are treating this as a flat spectum)
-    #nei_flx = 2.0 * ujy2cgs(nei_ujy,4500.0)
-    #src_flx = 2.0 * ujy2cgs(src_ujy,4500.0)
+    #nei_flx = 2.0 * ujy2cgs(nei_ujy,G.DEX_G_EFF_LAM)
+    #src_flx = 2.0 * ujy2cgs(src_ujy,G.DEX_G_EFF_LAM)
 
     overlap = np.sum(apmask*psf[0]*nei_ujy)
     fraction_overlap = overlap / src_ujy
-    flat_flux = 2.0 * ujy2cgs(overlap,4500.0)
+    flat_flux = 2.0 * ujy2cgs(overlap,G.DEX_G_EFF_LAM)
 
     return fraction_overlap, overlap, flat_flux
 

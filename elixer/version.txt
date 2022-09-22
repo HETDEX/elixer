@@ -1,10 +1,13 @@
 changes to elixer by version
 
+1.18.0a4 [2022-09-22]
+* fix old error overestimating the error on the DEX-g magnitude when averaginging direct spectrum mean and SDSS MC
+* moved DEX-g effective wavelength to global_config and changed to SDSS-g (4640AA) from 4500AA
+* for HSC-SSP zPDF fits, attempt to use HETDEX created .sid to locate HSC src_id instead of loading full fits
 
 1.18.0a3 [2022-09-14]
 * complete --prefer_g option
 * turn stack_cosmos back on by default (contains Laigle+2015 catalog). Note SHELA still off with HSC-SSP preferred.
-
 
 
 1.18.0a2 [2022-09-13]

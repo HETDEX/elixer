@@ -488,12 +488,14 @@ def get_best_gmag(flux_density, flux_density_err, wavelengths):
                 abs(hetdex_gmag - sdss_gmag) < 1.0:  # use both as an average? what if they are very different?
             # make the average
             avg_cont = 0.5 * (hetdex_gmag_cgs_cont + sdss_cgs_cont)
-            avg_cont_unc = np.sqrt(hetdex_gmag_cgs_cont_unc ** 2 + sdss_cgs_cont_unc ** 2)  # error on the mean
+            avg_cont_unc = np.sqrt((0.5 * hetdex_gmag_cgs_cont_unc)**2 + (0.5 * sdss_cgs_cont_unc) ** 2)
 
             #best_gmag_selected = 'mean'
-            best_gmag = -2.5 * np.log10(SU.cgs2ujy(avg_cont, 4500.00) / 1e6 / 3631.)
-            mag_faint = -2.5 * np.log10(SU.cgs2ujy(avg_cont - avg_cont_unc, 4500.00) / 1e6 / 3631.)
-            mag_bright = -2.5 * np.log10(SU.cgs2ujy(avg_cont + avg_cont_unc, 4500.00) / 1e6 / 3631.)
+            best_gmag = -2.5 * np.log10(SU.cgs2ujy(avg_cont, G.DEX_G_EFF_LAM) / 1e6 / 3631.)
+            mag_faint = -2.5 * np.log10(SU.cgs2ujy(avg_cont - avg_cont_unc, G.DEX_G_EFF_LAM) / 1e6 / 3631.)
+            if np.isnan(mag_faint):
+                msg_faint = best_gmag + 0.75  # about 50% error to the faint
+            mag_bright = -2.5 * np.log10(SU.cgs2ujy(avg_cont + avg_cont_unc, G.DEX_G_EFF_LAM) / 1e6 / 3631.)
             best_gmag_unc = 0.5 * (mag_faint - mag_bright)
 
             best_gmag_cgs_cont = avg_cont
