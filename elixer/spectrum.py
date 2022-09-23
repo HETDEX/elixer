@@ -3794,7 +3794,7 @@ def filter_emission_line_as_continuum(emission_list,absorption_list,central=None
     return emission_list, removed_central
 
 
-def sn_peakdet_no_fit(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,absorber=False,spec_obj=None):
+def sn_peakdet_no_fit(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,absorber=False,spec_obj=None,return_status=False):
     """
 
     :param wave: x-values (wavelength)
@@ -3810,7 +3810,10 @@ def sn_peakdet_no_fit(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,absorber=Fals
     try:
         if not (len(wave) == len(spec) == len(spec_err)):
             log.debug("Bad call to sn_peakdet(). Lengths of arrays do not match")
-            return []
+            if return_status:
+                return [], -1
+            else:
+                return []
 
         x = np.array(wave)
         v = np.array(copy.copy(spec))
@@ -3822,7 +3825,10 @@ def sn_peakdet_no_fit(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,absorber=Fals
 
         if len(hvi) < 1:
             log.debug(f"sn_peak - no bins above minimum snr {dv}")
-            return []
+            if return_status:
+                return [], 0
+            else:
+                return []
 
         pos = [] #positions to search (indicies into original wave array)
         run = [hvi[0],]
@@ -3868,9 +3874,12 @@ def sn_peakdet_no_fit(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,absorber=Fals
                 rise_trigger = False
     except:
         log.error("Exception in sn_peakdet",exc_info=True)
-        return []
+        if return_status:
+            return [], -1
+        else:
+            return []
 
-    return pos
+    return pos, len(pos)
 
 
 def sn_peakdet(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,values_units=0,
