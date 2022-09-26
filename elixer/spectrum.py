@@ -3879,7 +3879,10 @@ def sn_peakdet_no_fit(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,absorber=Fals
         else:
             return []
 
-    return pos, len(pos)
+    if return_status:
+        return pos, len(pos)
+    else:
+        return pos
 
 
 def sn_peakdet(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,values_units=0,

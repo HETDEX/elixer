@@ -3024,7 +3024,11 @@ class DetObj:
                     except:
                         log.info("Exception in DetObj::check_for_meteor()",exc_info=True)
 
-            all_exp_pos = np.unique(sorted(np.concatenate(exp_linefinder))).astype(int)
+            try:
+                all_exp_pos = np.unique(sorted(np.concatenate(exp_linefinder))).astype(int)
+            except:
+                all_exp_pos = []
+
             if len(all_exp_pos) == 0: #no lines are found ... we do REQUIRE lines for meteor, so skip out now
                 log.debug(f"Meteor check ({self.entry_id}). No emission lines found in per-exposure check. Cannot qualify "
                           f"as a meteor under current definition.")
