@@ -653,11 +653,14 @@ class Global_Logger:
             except: #could be a permissions issue if the file exists and was created by someoneelse
                 try:
                     uname = os.getlogin()
+                    logname = uname+"_"+LOG_FILENAME
                     if self.__class__.FIRST_LOG:
-                        logging.basicConfig(filename=uname+"_"+LOG_FILENAME, filemode='w+')
+                        logging.basicConfig(filename=logname, filemode='w+')
                         self.__class__.FIRST_LOG = False
                     else:
-                        logging.basicConfig(filename=uname+"_"+LOG_FILENAME, filemode='a+')
+                        logging.basicConfig(filename=logname, filemode='a+')
+
+                    print(f"Using {logname} for ELiXer logging ...")
                 except:
                     pass
 
