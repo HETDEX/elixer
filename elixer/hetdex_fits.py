@@ -481,7 +481,8 @@ class HetdexFits:
                         self.ffsky_calfib *= G.FLUX_WAVEBIN_WIDTH
 
                         use_hdf5 = False
-                    except:
+                    except:# Exception as e:
+                        #print(e)
                         log.warning("Exception loading fiber data from hetdex_api fiber table. "
                                     "Will attemp to use hdf5 directly.",exc_info=True)
                     try:

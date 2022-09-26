@@ -644,11 +644,23 @@ class Global_Logger:
             #   #don't set the global log level, else imported packages might start logging
             # well that does not quite work ...
 
-            if self.__class__.FIRST_LOG:
-                logging.basicConfig(filename=LOG_FILENAME, filemode='w+')
-                self.__class__.FIRST_LOG = False
-            else:
-                logging.basicConfig(filename=LOG_FILENAME, filemode='a+')
+            try:
+                if self.__class__.FIRST_LOG:
+                    logging.basicConfig(filename=LOG_FILENAME, filemode='w+')
+                    self.__class__.FIRST_LOG = False
+                else:
+                    logging.basicConfig(filename=LOG_FILENAME, filemode='a+')
+            except: #could be a permissions issue if the file exists and was created by someoneelse
+                try:
+                    uname = os.getlogin()
+                    if self.__class__.FIRST_LOG:
+                        logging.basicConfig(filename=uname+"_"+LOG_FILENAME, filemode='w+')
+                        self.__class__.FIRST_LOG = False
+                    else:
+                        logging.basicConfig(filename=uname+"_"+LOG_FILENAME, filemode='a+')
+                except:
+                    pass
+
         except:
             Global_Logger = False
             self.__class__.DO_LOG = False
