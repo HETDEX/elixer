@@ -1,5 +1,6 @@
 from __future__ import print_function
 import logging
+import os
 import os.path as op
 from os import getenv
 from datetime import datetime
@@ -624,29 +625,40 @@ class Global_Logger:
     DO_LOG = True
 
     def __init__(self,id): #id is a string identifier
-        if not GLOBAL_LOGGING:
+        try:
+            if not GLOBAL_LOGGING:
+                self.__class__.DO_LOG = False
+                return
+
+            self.logger = logging.getLogger(id)
+            self.logger.setLevel(LOG_LEVEL)
+
+            # self.fh = logging.FileHandler(LOG_FILENAME,"w")
+            # self.fh.setLevel(LOG_LEVEL)
+            # self.logger.addHandler(self.fh)
+
+            # self.ch = logging.StreamHandler(sys.stdout)
+            # self.ch.setLevel(LOG_LEVEL)
+            # self.logger.addHandler(self.ch)
+            #logging.basicConfig(filename=LOG_FILENAME, level=LOG_LEVEL, filemode='w')
+            #   #don't set the global log level, else imported packages might start logging
+            # well that does not quite work ...
+
+            if self.__class__.FIRST_LOG:
+                logging.basicConfig(filename=LOG_FILENAME, filemode='w+')
+                self.__class__.FIRST_LOG = False
+            else:
+                logging.basicConfig(filename=LOG_FILENAME, filemode='a+')
+        except:
+            Global_Logger = False
             self.__class__.DO_LOG = False
-            return
-
-        self.logger = logging.getLogger(id)
-        self.logger.setLevel(LOG_LEVEL)
-
-        # self.fh = logging.FileHandler(LOG_FILENAME,"w")
-        # self.fh.setLevel(LOG_LEVEL)
-        # self.logger.addHandler(self.fh)
-
-        # self.ch = logging.StreamHandler(sys.stdout)
-        # self.ch.setLevel(LOG_LEVEL)
-        # self.logger.addHandler(self.ch)
-        #logging.basicConfig(filename=LOG_FILENAME, level=LOG_LEVEL, filemode='w')
-        #   #don't set the global log level, else imported packages might start logging
-        # well that does not quite work ...
-
-        if self.__class__.FIRST_LOG:
-            logging.basicConfig(filename=LOG_FILENAME, filemode='w+')
-            self.__class__.FIRST_LOG = False
-        else:
-            logging.basicConfig(filename=LOG_FILENAME, filemode='a')
+            try:
+                if 'jovyan' in os.getcwd():
+                    print("ELiXer global logging disabled. Possible permissions issue. Not critical.")
+                else:
+                    print("Warning! ELiXer global logging failure.")
+            except:
+                pass
 
 
     def add_time(self,msg):
