@@ -26,6 +26,7 @@ __version__ = '1.18.0a4'
 #Logging
 GLOBAL_LOGGING = True
 
+
 #python version
 import sys
 PYTHON_MAJOR_VERSION = sys.version_info[0]
@@ -628,6 +629,8 @@ class Global_Logger:
         try:
             if not GLOBAL_LOGGING:
                 self.__class__.DO_LOG = False
+                self.logger = logging.getLogger(None)
+                self.logger.level = 999
                 return
 
             self.logger = logging.getLogger(id)
