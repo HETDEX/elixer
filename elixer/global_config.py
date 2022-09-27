@@ -25,7 +25,9 @@ hostname = socket.gethostname()
 __version__ = '1.18.0a4'
 #Logging
 GLOBAL_LOGGING = True
-
+LOG_TO_STDOUT = True #only kicks in if GLOBAL_LOGGING is False
+if not GLOBAL_LOGGING and LOG_TO_STDOUT:
+    import traceback
 
 #python version
 import sys
@@ -631,6 +633,7 @@ class Global_Logger:
                 self.__class__.DO_LOG = False
                 self.logger = logging.getLogger(None) #make a dummy logger
                 self.logger.level = 999
+                import traceback
                 return
 
             self.logger = logging.getLogger(id)
@@ -705,6 +708,11 @@ class Global_Logger:
             if self.__class__.DO_LOG:
                 msg = self.add_time(msg)
                 self.logger.debug(msg,exc_info=exc_info)
+            elif LOG_TO_STDOUT:
+                msg = self.add_time(msg)
+                print(msg)
+                if exc_info:
+                    print(traceback.format_exc())
         except:
             print("Exception in logger (debug) ...")
 
@@ -713,6 +721,11 @@ class Global_Logger:
             if self.__class__.DO_LOG:
                 msg = self.add_time(msg)
                 self.logger.info(msg,exc_info=exc_info)
+            elif LOG_TO_STDOUT:
+                msg = self.add_time(msg)
+                print(msg)
+                if exc_info:
+                    print(traceback.format_exc())
         except:
             print("Exception in logger (info) ...")
 
@@ -721,6 +734,11 @@ class Global_Logger:
             if self.__class__.DO_LOG:
                 msg = self.add_time(msg)
                 self.logger.warning(msg,exc_info=exc_info)
+            elif LOG_TO_STDOUT:
+                msg = self.add_time(msg)
+                print(msg)
+                if exc_info:
+                    print(traceback.format_exc())
         except:
             print("Exception in logger (warning) ...")
 
@@ -729,6 +747,11 @@ class Global_Logger:
             if self.__class__.DO_LOG:
                 msg = self.add_time(msg)
                 self.logger.error(msg,exc_info=exc_info)
+            elif LOG_TO_STDOUT:
+                msg = self.add_time(msg)
+                print(msg)
+                if exc_info:
+                    print(traceback.format_exc())
         except:
             print("Exception in logger (error) ...")
 
@@ -737,6 +760,11 @@ class Global_Logger:
             if self.__class__.DO_LOG:
                 msg = self.add_time(msg)
                 self.logger.critical(msg, exc_info=exc_info)
+            elif LOG_TO_STDOUT:
+                msg = self.add_time(msg)
+                print(msg)
+                if exc_info:
+                    print(traceback.format_exc())
         except:
             print("Exception in logger (critical) ....")
 
