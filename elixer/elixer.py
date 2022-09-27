@@ -1,5 +1,12 @@
 from __future__ import print_function
 
+try:
+    from elixer import global_config as G
+    G.GLOBAL_LOGGING = True
+except:
+    import global_config as G
+    G.GLOBAL_LOGGING = True
+
 import astropy.extern.ply.yacc
 import matplotlib
 matplotlib.use('agg')
@@ -11,7 +18,6 @@ plt.style.use('default')
 try:
     from elixer import hetdex
     from elixer import match_summary
-    from elixer import global_config as G
     from elixer import catalogs
     from elixer import utilities as UTIL
     from elixer import science_image
@@ -21,6 +27,7 @@ try:
     from elixer import clustering
     from elixer import spectrum as elixer_spectrum
 except:
+
     import hetdex
     import match_summary
     import global_config as G

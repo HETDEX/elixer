@@ -1,9 +1,14 @@
 changes to elixer by version
 
-1.18.0a4 [2022-09-22]
+1.18.0a4 [2022-09-27]
 * fix old error overestimating the error on the DEX-g magnitude when averaginging direct spectrum mean and SDSS MC
 * moved DEX-g effective wavelength to global_config and changed to SDSS-g (4640AA) from 4500AA
 * for HSC-SSP zPDF fits, attempt to use HETDEX created .sid to locate HSC src_id instead of loading full fits
+* default GLOBAL_LOGGING to False and set to True only on imports in elixer.py (users can still turn on by importing
+  global_config.py first and then set to GLOBAL_LOGGING to True).
+* add option (LOG_TO_STDOUT) in global_config.py to send log statments to stdout rather than the log IF GLOBAL_LOGGING
+  is False and LOG_TO_STDOUT is True
+
 
 1.18.0a3 [2022-09-14]
 * complete --prefer_g option
