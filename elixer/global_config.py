@@ -629,7 +629,7 @@ class Global_Logger:
         try:
             if not GLOBAL_LOGGING:
                 self.__class__.DO_LOG = False
-                self.logger = logging.getLogger(None)
+                self.logger = logging.getLogger(None) #make a dummy logger
                 self.logger.level = 999
                 return
 
@@ -668,7 +668,6 @@ class Global_Logger:
                     pass
 
         except:
-            Global_Logger = False
             self.__class__.DO_LOG = False
             try:
                 if 'jovyan' in os.getcwd():
