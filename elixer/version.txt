@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.18.0 [2022-09-27]
+* drop alpha designation for jupyter-hub image update
+
 1.18.0a4 [2022-09-27]
 * fix old error overestimating the error on the DEX-g magnitude when averaginging direct spectrum mean and SDSS MC
 * moved DEX-g effective wavelength to global_config and changed to SDSS-g (4640AA) from 4500AA
@@ -9,11 +12,9 @@ changes to elixer by version
 * add option (LOG_TO_STDOUT) in global_config.py to send log statments to stdout rather than the log IF GLOBAL_LOGGING
   is False and LOG_TO_STDOUT is True
 
-
 1.18.0a3 [2022-09-14]
 * complete --prefer_g option
 * turn stack_cosmos back on by default (contains Laigle+2015 catalog). Note SHELA still off with HSC-SSP preferred.
-
 
 1.18.0a2 [2022-09-13]
 * limit blue end to 3900AA for gmag estimate to better coincide with SDSS g
