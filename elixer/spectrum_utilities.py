@@ -641,6 +641,41 @@ def mag2fnu(mag):
     except:
         return 0
 
+
+def fnu2mag(fnu): #erg/s/cm2/Hz to mag
+    try:#fnu to Jansky then / reference
+        return -2.5 * np.log10(fnu * 1e23 / 3631.)
+    except:
+        log.info("Exception! in fnu2mag.",exc_info=True)
+        return None
+
+def flam2fnu(flam,waves):
+    """
+
+    :param flam: erg/s/sm2/AA
+    :param waves: AA
+    :return:
+    """
+    try:
+        c = (astropy.constants.c * (1e10 * U.AA / U.m)).value
+        return flam * waves * waves / c
+    except:
+        return None
+
+
+def fnu2flam(fnu, waves):
+    """
+
+    :param fnu: erg/s/cm2/Hz
+    :param waves: AA
+    :return:
+    """
+    try:
+        c = (astropy.constants.c * (1e10 * U.AA / U.m)).value
+        return c * fnu / (waves * waves )
+    except:
+        return None
+
 def ujy2cgs(ujy,lam): #micro-jansky to erg/s/cm2/AA
     conv = None
     try:
