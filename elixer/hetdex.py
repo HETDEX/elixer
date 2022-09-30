@@ -7950,7 +7950,7 @@ class DetObj:
                     f"Mean spectrum gmag {self.best_gmag:0.2f} +/- {self.best_gmag_unc:0.3f}; cont {self.best_gmag_cgs_cont} +/- {self.best_gmag_cgs_cont_unc}")
 
 
-            elif hetdex_okay >= sdss_okay > 0 and not np.isnan(self.hetdex_gmag_cgs_cont) and (
+            elif (hetdex_okay >= sdss_okay) and (hetdex_okay > 0) and not np.isnan(self.hetdex_gmag_cgs_cont) and (
                     self.hetdex_gmag_cgs_cont is not None):
                 self.best_gmag_selected = 'hetdex'
                 self.best_gmag = self.hetdex_gmag
@@ -8927,7 +8927,7 @@ class DetObj:
                 log.debug("Using mean of HETDEX full width gmag and SDSS gmag.")
                 log.info(f"Mean spectrum gmag {self.best_gmag:0.2f} +/- {self.best_gmag_unc:0.3f}; cont {self.best_gmag_cgs_cont} +/- {self.best_gmag_cgs_cont_unc}" )
 
-            elif hetdex_okay >= sdss_okay > 0 and not np.isnan(self.hetdex_gmag_cgs_cont) and (self.hetdex_gmag_cgs_cont is not None):
+            elif (hetdex_okay >= sdss_okay) and (hetdex_okay > 0) and not np.isnan(self.hetdex_gmag_cgs_cont) and (self.hetdex_gmag_cgs_cont is not None):
                 self.best_gmag_selected = 'hetdex'
                 self.best_gmag = self.hetdex_gmag
                 self.best_gmag_unc = self.hetdex_gmag_unc

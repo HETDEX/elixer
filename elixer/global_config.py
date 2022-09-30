@@ -852,7 +852,7 @@ SDSS_G_FILTER_RED = 5400.0
 DEX_G_EFF_LAM = 4640.0 #g-band iso or effective wavelength ... useing SDSS-g
 #if both below are TRUE and both good, the mean is used; if only one that that one is used
 USE_HETDEX_SPEC_GMAG = True #allow calculation of gmag from the HETDEX spectrum directly (spectrum::get_hetdex_gmag())
-USE_SDSS_SPEC_GMAG = True #allow calcuation of gmag via SDSS filter (spectrum::get_sdss_gmag()
+USE_SDSS_SPEC_GMAG = False #allow calcuation of gmag via SDSS filter (spectrum::get_sdss_gmag()
 
 CONTINUUM_FLOOR_COUNTS = 6.5 #5 sigma * 6 counts / sqrt(40 angstroms/1.9 angs per pixel)
 
