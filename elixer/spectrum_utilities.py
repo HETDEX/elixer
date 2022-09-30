@@ -237,6 +237,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640
     """
 
     debug_printing = False #turn on extra debug print
+
     try:
         limit = G.HETDEX_CONTINUUM_MAG_LIMIT
         min_num_final_fibers = max(100, int(len(calfib)/4) )  # 1/4 of the standard, but at least 100
@@ -378,13 +379,33 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640
 
         #BUT can we argue that for point sources, we capture (approximately) all the flux in aperture regardless
         #of the PSF (to a point, but with a 3.5" radius aperuture and PSF below 3", typically ~1.7")
-        inner = np.sum(gaussian(np.arange(0,0.75,0.01),0, fwhm/2.355, a=1.0, y=0.0))
-        whole = np.sum(gaussian(np.arange(0,aper,0.01),0, fwhm/2.355, a=1.0, y=0.0))
-        psf_corr = whole/inner  #or 1 / (inner/whole)
+        step = 0.01
+        sigma = fwhm/2.355
+        inner = np.sum(gaussian(np.arange(0,0.75+step,step),0, sigma, a=1.0, y=0.0))
+        outer_bins = np.arange(0, aper + step, step)
+        whole_w = gaussian(outer_bins, 0, sigma, a=1.0, y=0.0)
+        whole = np.sum(whole_w)
 
-        limit = cgs2mag(psf_corr * 5. * std_of_fiber_means * 1e-17, wavelength) #5 for 5 sigma limit
-        #this one (std_of_fiber_errors) does not make sense as the way to go, but was just a test
-        #limit = cgs2mag(psf_corr * 5. * std_of_fiber_errors * 1e-17, wavelength) #5 for 5 sigma limit
+        #if True: #use the FWHM to set effective radius
+        effective_radius = min(5*sigma, aper)  #out to 5 sigma; caps out at 3.5" by FWHM ~ 1.7
+        # else: #use where the weight gets close to zero
+        #     rad_idx = np.where(whole_w < 1e-6)[0] # caps at 3.5" by FWHM ~ 1.6
+        #     if len(rad_idx) == 0:
+        #         effective_radius = aper
+        #     else:
+        #         effective_radius = outer_bins[rad_idx[0]]
+
+        gaps_correction = 0.9487  # assume xx% coverage (roughly  1 - (root(3)-pi/2))/pi) #the area outside of fiber radius
+                                  # not covered by fiber
+        radius_rat = effective_radius / 0.75 #single fiber radius
+        area_rat = whole / inner
+
+        psf_corr = area_rat * radius_rat * gaps_correction
+
+        #this is sort of a best case ... if the object is faint and not near the center of a fiber, it can be more
+        #difficult to detect
+        limit = cgs2mag(psf_corr * std_of_fiber_means * 1e-17, wavelength)
+
         if limit is None or np.isnan(limit):
             limit = G.HETDEX_CONTINUUM_MAG_LIMIT
         else: #round up to 0.1f

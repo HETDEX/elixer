@@ -7838,8 +7838,8 @@ class DetObj:
 
 
             #get the per shot sky residual (if configured to do so)
-            if G.SUBTRACT_HETDEX_SKY_RESIDUAL:
-                residual_spec, residual_spec_err = shot_sky.get_shot_sky_residual(self.survey_shotid) #this is as a single averaged fiber
+            # if G.SUBTRACT_HETDEX_SKY_RESIDUAL:
+            #     residual_spec, residual_spec_err = shot_sky.get_shot_sky_residual(self.survey_shotid) #this is as a single averaged fiber
 
 
             ######################

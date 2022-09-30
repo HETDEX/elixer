@@ -207,7 +207,7 @@ def conf_interval(num_samples,sd,conf=0.95):
     return t * sd / np.sqrt(num_samples)
 
 
-def get_sdss_gmag(flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_SIZE, confidence=G.MC_PLAE_CONF_INTVL):
+def get_sdss_gmag(flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_SIZE, confidence=G.MC_PLAE_CONF_INTVL, ignore_global=False):
     """
 
     :param flux_density: erg/s/cm2/AA  (*** reminder, HETDEX sumspec usually a flux erg/s/cm2 NOT flux denisty)
@@ -220,6 +220,13 @@ def get_sdss_gmag(flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_SIZ
     """
 
     #log.debug("++++  #todo: in caller or here, enfore a limit based on the 1-sigma flux limits at the CCD position and the seeing FWHM")
+
+    if not ignore_global:
+        if not G.USE_SDSS_SPEC_GMAG:
+            if flux_err is not None:
+                return None, None, None, None
+            else:
+                return None, None
 
     try:
         mag = None
@@ -326,7 +333,7 @@ def get_sdss_gmag(flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_SIZ
 
 
 
-def get_hetdex_gmag(flux_density, wave, flux_density_err=None):
+def get_hetdex_gmag(flux_density, wave, flux_density_err=None, ignore_global=False):
     """
     Similar to get_sdss_gmag, but this uses ONLY the HETDEX spectrum and its errors
 
@@ -341,6 +348,13 @@ def get_hetdex_gmag(flux_density, wave, flux_density_err=None):
 
     #in caller or here, enfore a limit based on the 1-sigma flux limits at the CCD position and the seeing FWHM
     #log.debug("++++  #todo: in caller or here, enfore a limit based on the 1-sigma flux limits at the CCD position and the seeing FWHM")
+
+    if not ignore_global:
+        if not G.USE_HETDEX_SPEC_GMAG:
+            if flux_density_err is not None:
+                return None, None, None, None
+            else:
+                return None, None
 
     try:
         #use the SDSS-g wavelength if can as would be used by the get_sdss_gmag() above
@@ -409,16 +423,25 @@ def get_hetdex_gmag(flux_density, wave, flux_density_err=None):
                 mag_err = 0.5 * (mag_faint-mag_bright) #not symmetric, but this is roughly close enough
         else:
             log.info(f"HETDEX full width gmag, continuum estimate ({band_flux_density:0.3g}) below flux limit. Setting mag to None.")
-            return None, band_flux_density, None, band_flux_density_err
+            if flux_density_err is not None:
+                return None, band_flux_density, None, band_flux_density_err
+            else:
+                return None, band_flux_density
 
 
         #todo: technically, should remove the emission lines to better fit actual contiuum, rather than just use band_flux_density
         # but I think this is okay and appropriate and matches the other uses as the "band-pass" continuum
-        return mag, band_flux_density, mag_err, band_flux_density_err
+        if flux_density_err is not None:
+            return mag, band_flux_density, mag_err, band_flux_density_err
+        else:
+            return mag, band_flux_density
 
     except:
         log.warning("Exception! in spectrum::get_hetdex_gmag.",exc_info=True)
-        return None, None, None, None
+        if flux_density_err is not None:
+            return None, None, None, None
+        else:
+            return None, None
 
 
 
