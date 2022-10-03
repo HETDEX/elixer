@@ -509,7 +509,7 @@ def get_hetdex_gmag(flux_density, wave, flux_density_err=None, ignore_global=Fal
         if log_iso_detid is not None:
             log.info(
                 f"{log_iso_detid} COMPUTED ISO WAVELENGTH: {np.sqrt(band_avg_fnu / band_flux_density * 2.99792458e+18)} "
-                f"Defined ISO wavelength: {f_lam_iso} mag flam: {mag_flam} +/- {mag_flam_err} mag fnu: {mag_fnu} +/-{mag_fnu_err}")
+                f"Defined ISO wavelength: {f_lam_iso} mag flam: {mag_flam} +/- {mag_flam_err} mag fnu: {mag_fnu} +/- {mag_fnu_err}")
 
         #todo: technically, should remove the emission lines to better fit actual contiuum, rather than just use band_flux_density
         # but I think this is okay and appropriate and matches the other uses as the "band-pass" continuum
