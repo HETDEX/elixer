@@ -4,12 +4,16 @@ try:
     from elixer import mcmc_gauss
     from elixer import mcmc_double_gauss
     from elixer import spectrum_utilities as SU
+    from elixer import utilities as utils
+    from elixer import weighted_biweight as weighted_biweight
 except:
     import global_config as G
     import line_prob
     import mcmc_gauss
     import mcmc_double_gauss
     import spectrum_utilities as SU
+    import utilities as utils
+    import weighted_biweight as weighted_biweight
 
 import matplotlib
 #matplotlib.use('agg')
@@ -362,6 +366,8 @@ def get_hetdex_gmag(flux_density, wave, flux_density_err=None, ignore_global=Fal
             else:
                 return None, None
 
+
+    method = 2 #1 = mean, 2 = weighted mean, 3 = weighted biweight
     try:
         #use the SDSS-g wavelength if can as would be used by the get_sdss_gmag() above
         filter_name = 'sdss2010-g'
@@ -409,40 +415,101 @@ def get_hetdex_gmag(flux_density, wave, flux_density_err=None, ignore_global=Fal
             else:
                 return mag, cont
 
-        fnu = SU.flam2fnu(flux_density[sel],wave[sel])
-        fnu_errs = SU.flam2fnu(flux_density_err[sel],wave[sel])
+        fnu = SU.flam2fnu(flux_density[sel],wave[sel])*1e30
+        fnu_errs = SU.flam2fnu(flux_density_err[sel],wave[sel])*1e30
 
-        band_avg_fnu = np.nanmean(fnu)
-        band_avg_err = np.sqrt(np.sum(fnu_errs*fnu_errs))/np.count_nonzero(sel)
+        if method == 1:
+            band_avg_fnu = np.nanmean(fnu)
+            band_avg_err = np.sqrt(np.sum(fnu_errs*fnu_errs))/np.count_nonzero(sel)
+        elif method == 2: #makes a small improvement in matching to HSC-g faint mags
+            band_avg_fnu = utils.weighted_mean(fnu,1.0/(fnu_errs**2))
+            band_avg_err = np.sqrt(np.sum(fnu_errs*fnu_errs))/np.count_nonzero(sel)
+        elif method == 3: #makes no real difference, some small scatter
+            band_avg_fnu = weighted_biweight.biweight_location_errors(fnu,errors=fnu_errs)
+            band_avg_err = biweight.biweight_scale(fnu)/np.sqrt(np.count_nonzero(sel))
+
+        band_avg_fnu  /= 1e30
+        band_avg_err /= 1e30
 
         #the old way, but also for the continuum as flux density erg/s/cm2/AA ... un-weighted
         fluxbins = np.array(flux_density)[sel] #* G.FLUX_WAVEBIN_WIDTH
         fluxerrs = np.array(flux_density_err)[sel] #* G.FLUX_WAVEBIN_WIDTH
-        integrated_flux = np.sum(fluxbins)
-        integrated_errs = np.sqrt(np.sum(fluxerrs*fluxerrs))
-        band_flux_density = integrated_flux/(np.count_nonzero(sel)) #*G.FLUX_WAVEBIN_WIDTH)
-        band_flux_density_err = integrated_errs/(np.count_nonzero(sel)) #*G.FLUX_WAVEBIN_WIDTH)
 
-        #what is the HETDEX iso wavelength ???
-        if log_iso_detid is not None:
-            log.info(f"{log_iso_detid} HETDEX ISO WAVELENGTH: {np.sqrt(band_avg_fnu/band_flux_density*2.99792458e+18)}")
+        if method == 1:
+            band_flux_density = np.nanmean(fluxbins)
+            banband_flux_density_errd_avg_err = np.sqrt(np.sum(fluxerrs*fluxerrs))/np.count_nonzero(sel)
+        elif method == 2: #makes a small improvement in matching to HSC-g faint mags
+            band_flux_density = utils.weighted_mean(fluxbins,1.0/(fluxerrs**2))
+            band_flux_density_err = np.sqrt(np.sum(fluxerrs*fluxerrs))/np.count_nonzero(sel)
+        elif method == 3: #makes no real difference, some small scatter
+            band_flux_density = weighted_biweight.biweight_location_errors(fluxbins,errors=fluxerrs)
+            band_flux_density_err = biweight.biweight_scale(fnu)/np.sqrt(np.count_nonzero(sel))
+
+        #integrated_flux = np.sum(fluxbins)
+        #integrated_errs = np.sqrt(np.sum(fluxerrs*fluxerrs))
+        #band_flux_density = integrated_flux/(np.count_nonzero(sel)) #*G.FLUX_WAVEBIN_WIDTH)
+        #band_flux_density_err = integrated_errs/(np.count_nonzero(sel)) #*G.FLUX_WAVEBIN_WIDTH)
+
+        if band_flux_density > 0:
+            mag_flam = SU.cgs2mag(band_flux_density, f_lam_iso)
+            mag_flam_bright = SU.cgs2ujy(band_flux_density + band_flux_density_err, f_lam_iso)
+            mag_flam_faint = SU.cgs2ujy(band_flux_density - band_flux_density_err, f_lam_iso)
+            if np.isnan(mag_flam_faint):
+                log.debug("Warning. HETDEX full spectrum mag estimate is invalid on the faint end.")
+                mag_flam_err = mag_flam - mag_flam_bright
+            else:
+                mag_flam_err = 0.5 * (mag_flam_faint - mag_flam_bright)  # not symmetric, but this is roughly close enough
+        else:
+            mag_flam = None
+            mag_flam_err = None
+
+            # log.info(
+            #     f"HETDEX full width gmag, continuum estimate ({band_flux_density:0.3g}) below flux limit. Setting mag to None.")
+            # if flux_density_err is not None:
+            #     return None, band_flux_density, None, band_flux_density_err
+            # else:
+            #     return None, band_flux_density
 
         if band_avg_fnu > 0:
-            mag = SU.fnu2mag(band_avg_fnu)
-            mag_bright = SU.fnu2mag((band_avg_fnu+band_avg_err))
-            mag_faint = SU.fnu2mag((band_avg_fnu-band_avg_err))
-            if np.isnan(mag_faint):
+            mag_fnu = SU.fnu2mag(band_avg_fnu)
+            mag_fnu_bright = SU.fnu2mag((band_avg_fnu+band_avg_err))
+            mag_fnu_faint = SU.fnu2mag((band_avg_fnu-band_avg_err))
+            if np.isnan(mag_fnu_faint):
                 log.debug("Warning. HETDEX full spectrum mag estimate is invalid on the faint end.")
-                mag_err = mag - mag_bright
+                mag_fnu_err = mag_fnu - mag_fnu_bright
             else:
-                mag_err = 0.5 * (mag_faint-mag_bright) #not symmetric, but this is roughly close enough
+                mag_fnu_err = 0.5 * (mag_fnu_faint-mag_fnu_bright) #not symmetric, but this is roughly close enough
         else:
-            log.info(f"HETDEX full width gmag, continuum estimate ({band_flux_density:0.3g}) below flux limit. Setting mag to None.")
-            if flux_density_err is not None:
-                return None, band_flux_density, None, band_flux_density_err
-            else:
-                return None, band_flux_density
+            mag_fnu = None
+            mag_fnu_err = None
 
+            # log.info(f"HETDEX full width gmag, continuum estimate ({band_flux_density:0.3g}) below flux limit. Setting mag to None.")
+            # if flux_density_err is not None:
+            #     return None, band_flux_density, None, band_flux_density_err
+            # else:
+            #     return None, band_flux_density
+
+
+        if True: #prefer mag_flam over mag_fnu
+            if mag_flam is not None:
+                mag = mag_flam
+                mag_err = mag_flam_err
+            else:
+                mag = mag_fnu
+                mag_err = mag_fnu_err
+        else:
+            if mag_fnu is not None:
+                mag = mag_fnu
+                mag_err = mag_fnu_err
+            else:
+                mag = mag_flam
+                mag_err = mag_flam_err
+
+        # what is the HETDEX iso wavelength ???
+        if log_iso_detid is not None:
+            log.info(
+                f"{log_iso_detid} COMPUTED ISO WAVELENGTH: {np.sqrt(band_avg_fnu / band_flux_density * 2.99792458e+18)}, "
+                f"Defined ISO wavelength: {f_lam_iso}, mag flam: {mag_flam} +/- {mag_flam_err}, mag fnu: {mag_fnu} +/-{mag_fnu_err}")
 
         #todo: technically, should remove the emission lines to better fit actual contiuum, rather than just use band_flux_density
         # but I think this is okay and appropriate and matches the other uses as the "band-pass" continuum

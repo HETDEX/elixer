@@ -107,6 +107,20 @@ def angular_distance(ra1,dec1,ra2,dec2):
 
     return dist #in arcsec
 
+def weighted_mean(vals,weights):
+    """
+    weighted mean using the weights
+    :param vals:
+    :param errs:
+    :return:
+    """
+
+    try: #might not be same length? could have nans in vals that are not in weights
+        sel = np.logical_not( np.isnan(vals) | np.isnan(weights))
+        return np.sum(vals[sel] * weights[sel])/np.nansum(weights[sel])
+    except:
+        return None
+
 def get_vrange(vals,contrast=0.25):
     vmin = None
     vmax = None
