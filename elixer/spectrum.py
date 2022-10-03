@@ -452,8 +452,8 @@ def get_hetdex_gmag(flux_density, wave, flux_density_err=None, ignore_global=Fal
 
         if band_flux_density > 0:
             mag_flam = SU.cgs2mag(band_flux_density, f_lam_iso)
-            mag_flam_bright = SU.cgs2ujy(band_flux_density + band_flux_density_err, f_lam_iso)
-            mag_flam_faint = SU.cgs2ujy(band_flux_density - band_flux_density_err, f_lam_iso)
+            mag_flam_bright = SU.cgs2mag(band_flux_density + band_flux_density_err, f_lam_iso)
+            mag_flam_faint = SU.cgs2mag(band_flux_density - band_flux_density_err, f_lam_iso)
             if np.isnan(mag_flam_faint):
                 log.debug("Warning. HETDEX full spectrum mag estimate is invalid on the faint end.")
                 mag_flam_err = mag_flam - mag_flam_bright
@@ -611,8 +611,8 @@ def get_hetdex_gmag_old(flux_density, wave, flux_density_err=None, ignore_global
 
         if band_flux_density > 0:
             mag = SU.cgs2mag(band_flux_density,f_lam_iso)
-            mag_bright = SU.cgs2ujy(band_flux_density+band_flux_density_err, f_lam_iso)
-            mag_faint = SU.cgs2ujy(band_flux_density-band_flux_density_err, f_lam_iso)
+            mag_bright = SU.cgs2mag(band_flux_density+band_flux_density_err, f_lam_iso)
+            mag_faint = SU.cgs2mag(band_flux_density-band_flux_density_err, f_lam_iso)
             if np.isnan(mag_faint):
                 log.debug("Warning. HETDEX full spectrum mag estimate is invalid on the faint end.")
                 mag_err = mag - mag_bright
