@@ -42,7 +42,10 @@ from astropy import units as ap_units
 from photutils import CircularAperture #pixel coords
 from photutils import SkyCircularAperture, SkyCircularAnnulus,SkyEllipticalAperture #sky coords
 from photutils import aperture_photometry
-from photutils import centroid_2dg
+try:
+    from photutils.centroids import centroid_2dg
+except:
+    from photutils import centroid_2dg
 from astropy.stats import sigma_clipped_stats, sigma_clip
 import astropy.stats.biweight as biweight
 import astropy.wcs #need constants
