@@ -7853,7 +7853,8 @@ class DetObj:
                 self.hetdex_gmag, self.hetdex_gmag_cgs_cont, self.hetdex_gmag_unc, self.hetdex_gmag_cgs_cont_unc = \
                     elixer_spectrum.get_hetdex_gmag(self.sumspec_flux / 2.0 * G.HETDEX_FLUX_BASE_CGS,
                                                     self.sumspec_wavelength,
-                                                    self.sumspec_fluxerr / 2.0 * G.HETDEX_FLUX_BASE_CGS)
+                                                    self.sumspec_fluxerr / 2.0 * G.HETDEX_FLUX_BASE_CGS,
+                                                    log_iso_detid=self.entry_id)
 
                 log.debug(f"HETDEX spectrum gmag {self.hetdex_gmag} +/- {self.hetdex_gmag_unc}")
                 log.debug(f"HETDEX spectrum cont {self.hetdex_gmag_cgs_cont} +/- {self.hetdex_gmag_cgs_cont_unc}")
@@ -8835,7 +8836,8 @@ class DetObj:
                 self.hetdex_gmag, self.hetdex_gmag_cgs_cont, self.hetdex_gmag_unc,self.hetdex_gmag_cgs_cont_unc = \
                     elixer_spectrum.get_hetdex_gmag(self.sumspec_flux / 2.0 * G.HETDEX_FLUX_BASE_CGS,
                                                     self.sumspec_wavelength,
-                                                    self.sumspec_fluxerr / 2.0 * G.HETDEX_FLUX_BASE_CGS)
+                                                    self.sumspec_fluxerr / 2.0 * G.HETDEX_FLUX_BASE_CGS,
+                                                    log_iso_detid=self.entry_id)
 
                 log.debug(f"HETDEX spectrum gmag {self.hetdex_gmag} +/- {self.hetdex_gmag_unc}")
                 log.debug(f"HETDEX spectrum cont {self.hetdex_gmag_cgs_cont} +/- {self.hetdex_gmag_cgs_cont_unc}")

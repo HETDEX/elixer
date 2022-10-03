@@ -336,7 +336,7 @@ def get_sdss_gmag(flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_SIZ
 
 
 
-def get_hetdex_gmag(flux_density, wave, flux_density_err=None, ignore_global=False):
+def get_hetdex_gmag(flux_density, wave, flux_density_err=None, ignore_global=False, log_iso_detid=None):
     """
     Similar to get_sdss_gmag, but this uses ONLY the HETDEX spectrum and its errors
 
@@ -424,7 +424,8 @@ def get_hetdex_gmag(flux_density, wave, flux_density_err=None, ignore_global=Fal
         band_flux_density_err = integrated_errs/(np.count_nonzero(sel)) #*G.FLUX_WAVEBIN_WIDTH)
 
         #what is the HETDEX iso wavelength ???
-        log.info(f"HETDEX ISO WAVELENGTH: {np.sqrt(band_avg_fnu/band_flux_density*2.99792458e+18)}")
+        if log_iso_detid is not None:
+            log.info(f"{log_iso_detid} HETDEX ISO WAVELENGTH: {np.sqrt(band_avg_fnu/band_flux_density*2.99792458e+18)}")
 
         if band_avg_fnu > 0:
             mag = SU.fnu2mag(band_avg_fnu)
