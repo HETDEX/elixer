@@ -5334,9 +5334,12 @@ def main():
                 try:
                     log.info("Begninning spectra PSF deblending.")
                     try:
-                        aperture = args.aperture
+                        if args.aperture is not None:
+                            aperture = args.aperture
+                        else:
+                            aperture = 3.5
                     except:
-                        aperture = 3.0
+                        aperture = 3.5
 
                     #roughly
                     # 1. select the neighbors we want to deblend (take care to select out to 2x aperture and don't double
@@ -5363,21 +5366,31 @@ def main():
                                 e.deblended_gmag_cont_unc = e.best_gmag_cgs_cont_unc
                                 continue
 
+
+#
+# HERE !!! issue with sel ... the lengths can be different later .... might not want sel applied to ap_mag, etc right
+# here as they can then become shorted than 'sep_objects' .... alternately make a copy of e.neighbors_sep['sep_objects']
+# and cut it down by [sel] and use the copy going forward and not the original
+#
                             try:
                                 dcurve = np.array([x['dist_curve'] for x in e.neighbors_sep['sep_objects']])
-                                sel = dcurve <= 2*aperture
-                                major = np.array([x['a'] for x in e.neighbors_sep['sep_objects']])[sel]
-                                ap_mag = np.array([x['mag'] for x in e.neighbors_sep['sep_objects']])[sel]
-                                ap_mag_err = np.array([x['mag_err'] for x in e.neighbors_sep['sep_objects']])[sel]
+                                dist_sel = dcurve <= 2*aperture
+                                if np.count_nonzero(dist_sel) == 0:
+                                    continue
+
+                                sep_objects = np.array(e.neighbors_sep['sep_objects'])[dist_sel]
+                                major = np.array([x['a'] for x in sep_objects])
+                                ap_mag = np.array([x['mag'] for x in sep_objects])
+                                ap_mag_err = np.array([x['mag_err'] for x in sep_objects])
                                 #ap_mag_limit = get the single maglimit from the e.neighbors_sep ... not from the h5 table
                                 dex_mag =  np.array([x['dex_g_mag'] if x['dex_g_mag'] < G.HETDEX_CONTINUUM_MAG_LIMIT
-                                                     else G.HETDEX_CONTINUUM_MAG_LIMIT for x in e.neighbors_sep['sep_objects']])[sel]
-                                dex_mag_err =  np.array([x['dex_g_mag'] for x in e.neighbors_sep['sep_objects']])[sel]
+                                                     else G.HETDEX_CONTINUUM_MAG_LIMIT for x in sep_objects])
+                                dex_mag_err =  np.array([x['dex_g_mag'] for x in sep_objects])
                                 if np.count_nonzero(major > 2.0 * e.survey_fwhm) > 0:
                                     e.deblended_flags |= G.DETFLAG_LARGE_NEIGHBOR
 
                                 #get selection for the target object
-                                target_sel = np.array([x['selected'] for x in e.neighbors_sep['sep_objects']])
+                                target_sel = np.array([x['selected'] for x in sep_objects])
 
                                 if np.count_nonzero(target_sel) != 1:
                                     target_mag = e.best_gmag
@@ -5385,16 +5398,16 @@ def main():
                                     target_mag_filter = 'g'
                                 else:
                                     idx = np.where(target_sel)[0][0]
-                                    target_mag = e.neighbors_sep['sep_objects'][idx]['mag']
-                                    target_mag_err = e.neighbors_sep['sep_objects'][idx]['mag_err']
+                                    target_mag = sep_objects[idx]['mag']
+                                    target_mag_err = sep_objects[idx]['mag_err']
                                     target_mag_filter = e.neighbors_sep['filter_name']
 
 
                                 #should be 1 or none where selected is True (so only a single -1 at most)
                                 #just apply the logic to the ra and select on it
                                 sm_ra = np.array([-1 if (x['selected'] or x['dist_baryctr'] > 2*aperture) else x['ra']
-                                                                                        for x in e.neighbors_sep['sep_objects']])
-                                sm_dec = np.array([x['dec'] for x in e.neighbors_sep['sep_objects']])
+                                                                                        for x in sep_objects])
+                                sm_dec = np.array([x['dec'] for x in sep_objects])
                                 neighbor_sel = sm_ra != -1
                                 sm_ra = sm_ra[neighbor_sel]
                                 sm_dec = sm_dec[neighbor_sel]
@@ -5432,10 +5445,10 @@ def main():
                                     #as a separate step
 
                                     #make the lists of spectra (fluxex) and errors
-                                    measured_fluxes = np.array([x['flux'] for x in np.array(e.neighbors_sep['sep_objects'])[neighbor_sel]])
-                                    measured_flux_errs = np.array([x['flux_err'] for x in np.array(e.neighbors_sep['sep_objects'])[neighbor_sel]])
-                                    measured_mags = np.array([x['mag'] for x in np.array(e.neighbors_sep['sep_objects'])[neighbor_sel]])
-                                    measured_mag_errs = np.array([x['mag_err'] for x in np.array(e.neighbors_sep['sep_objects'])[neighbor_sel]])
+                                    measured_fluxes = np.array([x['flux'] for x in np.array(sep_objects)[neighbor_sel]])
+                                    measured_flux_errs = np.array([x['flux_err'] for x in np.array(sep_objects)[neighbor_sel]])
+                                    measured_mags = np.array([x['mag'] for x in np.array(sep_objects)[neighbor_sel]])
+                                    measured_mag_errs = np.array([x['mag_err'] for x in np.array(sep_objects)[neighbor_sel]])
                                     #measured_mag_filters = np.full(len(measured_fluxes),e.neighbors_sep['filter_name'])
                                     #measured_mag_filters[0] = 'g' #for the HETDEX gmag of the target
 
