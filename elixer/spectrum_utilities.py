@@ -200,13 +200,15 @@ def get_fluxlimits(ra,dec,wave,datevobs,sncut=4.8,flim_model=None,ffsky=False,ra
         log.info(f"Retreiving flux limits and apcor using flim_mode {flim_model} ...")
 
         try: #if wave is an array of wavelenghts, then ra, dec need to be arrays of equal length
-            if np.shape(ra) != np.shape(wave):
-                if np.shape(ra) == ():
-                    ra = np.full(len(wave),ra)
-                    dec = np.full(len(wave), dec)
-                else: #they have shapes but don't match
-                    log.error("spectrum_utilitiess::get_fluxlimits() bad input. RA, Dec shape does not match wave shape.")
-                    return None, None
+            if wave is None:
+                wave = G.CALFIB_WAVEGRID
+                if np.shape(ra) != np.shape(wave):
+                    if np.shape(ra) == ():
+                        ra = np.full(len(wave),ra)
+                        dec = np.full(len(wave), dec)
+                    else: #they have shapes but don't match
+                        log.error("spectrum_utilitiess::get_fluxlimits() bad input. RA, Dec shape does not match wave shape.")
+                        return None, None
         except:
             log.error("spectrum_utilitiess::get_fluxlimits() bad input. RA, Dec shape does not match wave shape.")
             return None, None
@@ -215,7 +217,7 @@ def get_fluxlimits(ra,dec,wave,datevobs,sncut=4.8,flim_model=None,ffsky=False,ra
         #ffsky=False, wavenpix=3, d25scale=3.0, verbose=False,
         #sclean_bad = True, log_level="WARNING")
         shot_sens = ShotSensitivity(datevobs, release=f"hdr{G.HDR_Version}", flim_model=flim_model, rad=rad, ffsky=ffsky,
-                                     verbose=False, log_level="WARNING") #wavenpix=3, d25scale=3.0,sclean_bad=True,
+                                     verbose=False, log_level="CRITICAL") #wavenpix=3, d25scale=3.0,sclean_bad=True,
 
         # sncut : float
         #     cut in detection significance
