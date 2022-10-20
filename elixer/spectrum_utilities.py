@@ -213,6 +213,13 @@ def get_fluxlimits(ra,dec,wave,datevobs,sncut=4.8,flim_model=None,ffsky=False,ra
             log.error("spectrum_utilitiess::get_fluxlimits() bad input. RA, Dec shape does not match wave shape.")
             return None, None
 
+        try:
+            _ = datevobs / 1 #simple
+            #probably a shotid
+            datevobs = str(datevobs)[:-3] + 'v' + str(datevobs)[-3:]
+        except:
+            #it is already a string
+            pass
         #(self, datevshot, release=None, flim_model=None, rad=3.5,
         #ffsky=False, wavenpix=3, d25scale=3.0, verbose=False,
         #sclean_bad = True, log_level="WARNING")
