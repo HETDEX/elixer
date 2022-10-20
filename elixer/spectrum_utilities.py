@@ -202,13 +202,14 @@ def get_fluxlimits(ra,dec,wave,datevobs,sncut=4.8,flim_model=None,ffsky=False,ra
         try: #if wave is an array of wavelenghts, then ra, dec need to be arrays of equal length
             if wave is None:
                 wave = G.CALFIB_WAVEGRID
-                if np.shape(ra) != np.shape(wave):
-                    if np.shape(ra) == ():
-                        ra = np.full(len(wave),ra)
-                        dec = np.full(len(wave), dec)
-                    else: #they have shapes but don't match
-                        log.error("spectrum_utilitiess::get_fluxlimits() bad input. RA, Dec shape does not match wave shape.")
-                        return None, None
+
+            if np.shape(ra) != np.shape(wave):
+                if np.shape(ra) == ():
+                    ra = np.full(len(wave),ra)
+                    dec = np.full(len(wave), dec)
+                else: #they have shapes but don't match
+                    log.error("spectrum_utilitiess::get_fluxlimits() bad input. RA, Dec shape does not match wave shape.")
+                    return None, None
         except:
             log.error("spectrum_utilitiess::get_fluxlimits() bad input. RA, Dec shape does not match wave shape.")
             return None, None
