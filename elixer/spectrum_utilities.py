@@ -5,6 +5,28 @@ Keep this simple ... no complex stucture, not a lot of error control
 
 from __future__ import print_function
 
+
+try:
+    from hetdex_tools.get_spec import get_spectra as hda_get_spectra
+except Exception as e:
+    print("WARNING!!!! CANNOT IMPORT hetdex_api tools get_spectra: ",e)
+
+try:
+    from hetdex_api import survey as hda_survey
+except Exception as e:
+    print("WARNING!!!! CANNOT IMPORT hetdex_api survey: ",e)
+
+try:
+    from hetdex_api.flux_limits.shot_sensitivity import ShotSensitivity
+except Exception as e:
+    print("WARNING!!!! CANNOT IMPORT hetdex_api.flux_limits.shot_sensitivity ShotSensitivity: ",e)
+
+try:
+    from hetdex_api.extract import Extract
+    # from hetdex_api.shot import get_fibers_table as hda_get_fibers_table
+except Exception as e:
+    print("WARNING!!!! CANNOT IMPORT hetdex_api extract: ", e)
+
 try:
     from elixer import global_config as G
     from elixer import weighted_biweight as weighted_biweight
@@ -27,27 +49,7 @@ from photutils import aperture_photometry
 
 from scipy.optimize import curve_fit
 from scipy.signal import medfilt
-
-try:
-    from hetdex_tools.get_spec import get_spectra as hda_get_spectra
-except Exception as e:
-    print("WARNING!!!! CANNOT IMPORT hetdex_api tools get_spectra: ",e)
-
-try:
-    from hetdex_api import survey as hda_survey
-except Exception as e:
-    print("WARNING!!!! CANNOT IMPORT hetdex_api survey: ",e)
-
-try:
-    from hetdex_api.flux_limits.shot_sensitivity import ShotSensitivity
-except Exception as e:
-    print("WARNING!!!! CANNOT IMPORT hetdex_api.flux_limits.shot_sensitivity ShotSensitivity: ",e)
-
-try:
-    from hetdex_api.extract import Extract
-    # from hetdex_api.shot import get_fibers_table as hda_get_fibers_table
-except Exception as e:
-    print("WARNING!!!! CANNOT IMPORT hetdex_api extract: ", e)
+from scipy.special import factorial
 
 import copy
 from mpl_toolkits.mplot3d import Axes3D
@@ -178,37 +180,58 @@ def is_edge_fiber(absolute_fiber_num, ifux=None, ifuy=None):
             return True
 
 
-def get_fluxlimit_apcor(ra,dec,wave,datevobs,sncut=4.8,flim_model="v4"):
+def get_fluxlimits(ra,dec,wave,datevobs,sncut=4.8,flim_model=None,ffsky=False,rad=3.5):
     """
     wrapper to call into HETDEX API
 
     This would be the 50% flux limit (i.e. we detect 50% of emission lines as this location (ra,dec,wave,shot) at that
-    flux level (with an assummed linewidth) (?? linewidth is sigma? fhwm?
+    flux level (with an assummed linewidth)
 
     :param datevobs:  string
-    :param flim_model: string (current is "v4"?)
+    :param flim_model: string (current is "v4"?) None gives most current
     :param snrcut:
     :param ra:
     :param dec:
     :param wave:
-    :return:
+    :return: array of flux limits (integrated line fluxes, by default over 7 wavebins) and apcor
     """
+
     try:
         log.info(f"Retreiving flux limits and apcor using flim_mode {flim_model} ...")
 
         try: #if wave is an array of wavelenghts, then ra, dec need to be arrays of equal length
-            ra = np.full(len(wave),ra)
-            dec = np.full(len(wave), dec)
+            if np.shape(ra) != np.shape(wave):
+                if np.shape(ra) == ():
+                    ra = np.full(len(wave),ra)
+                    dec = np.full(len(wave), dec)
+                else: #they have shapes but don't match
+                    log.error("spectrum_utilitiess::get_fluxlimits() bad input. RA, Dec shape does not match wave shape.")
+                    return None, None
         except:
-            #waves has no length, single value
-            pass
+            log.error("spectrum_utilitiess::get_fluxlimits() bad input. RA, Dec shape does not match wave shape.")
+            return None, None
 
-        shot_sens = ShotSensitivity(datevobs, flim_model=flim_model,log_level="CRITICAL")
+        #(self, datevshot, release=None, flim_model=None, rad=3.5,
+        #ffsky=False, wavenpix=3, d25scale=3.0, verbose=False,
+        #sclean_bad = True, log_level="WARNING")
+        shot_sens = ShotSensitivity(datevobs, release=f"hdr{G.HDR_Version}", flim_model=flim_model, rad=rad, ffsky=ffsky,
+                                     verbose=False, log_level="WARNING") #wavenpix=3, d25scale=3.0,sclean_bad=True,
 
-        # def get_f50(self, ra, dec, wave, sncut, direct_sigmas=False,
-        #             nmax=5000, return_amp=False, linewidth=None):
-
-        f50, apcor = shot_sens.get_f50(ra, dec, wave, sncut, direct_sigmas =True, linewidth = 2.0)
+        # sncut : float
+        #     cut in detection significance
+        #     that defines this catalogue
+        # direct_sigmas : bool
+        #     return the noise values directly
+        #     without passing them through
+        #     the noise to 50% completeness
+        #     flux
+        # linewidth : array
+        #     optionally pass the linewidth of
+        #     the source (in AA) to activate the linewidth
+        #     dependent part of the completeness
+        #     model (default = None).
+        #f50, apcor = shot_sens.get_f50(ra, dec, wave, sncut, direct_sigmas =True, linewidth = 2.0)
+        f50, apcor = shot_sens.get_f50(ra, dec, wave, sncut)
 
         return f50, apcor
     except Exception as e:
@@ -3722,3 +3745,116 @@ def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="weighted_biweight
         #end loop
 
     return stack_flux,stack_flux_err,grid,contrib_count
+
+
+#
+# taken with slight modification from CIGALE
+# https://github.com/JohannesBuchner/cigale
+
+def igm_transmission(wavelength, redshift):
+    """Intergalactic transmission (Meiksin, 2006)
+
+    Compute the intergalactic transmission as described in Meiksin, 2006.
+
+    Parameters
+    ----------
+    wavelength: array like of floats
+        The wavelength(s) in AA. OBSERVED FRAME
+    redshift: float
+        The redshift. Must be strictly positive.
+
+    Returns
+    -------
+    igm_transmission: numpy array of floats
+        The intergalactic transmission at each input wavelength.
+
+    """
+    wavelength = copy.copy(wavelength) / 10.0 #convert to nm
+
+    n_transitions_low = 10
+    n_transitions_max = 31
+    gamma = 0.2788  # Gamma(0.5,1) i.e., Gamma(2-beta,1) with beta = 1.5
+    n0 = 0.25
+    lambda_limit = 91.2  # Lyman limit in nm
+
+    lambda_n = np.empty(n_transitions_max)
+    z_n = np.empty((n_transitions_max, len(wavelength)))
+    for n in range(2, n_transitions_max):
+        lambda_n[n] = lambda_limit / (1. - 1. / float(n*n))
+        z_n[n, :] = (wavelength / lambda_n[n]) - 1.
+
+    # From Table 1 in Meiksin (2006), only n >= 3 are relevant.
+    # fact has a length equal to n_transitions_low.
+    fact = np.array([1., 1., 1., 0.348, 0.179, 0.109, 0.0722, 0.0508, 0.0373,
+                     0.0283])
+
+    # First, tau_alpha is the mean Lyman alpha transmitted flux,
+    # Here n = 2 => tau_2 = tau_alpha
+    tau_n = np.zeros((n_transitions_max, len(wavelength)))
+    if redshift <= 4:
+        tau_a = 0.00211 * np.power(1. + redshift,  3.7)
+        tau_n[2, :] = 0.00211 * np.power(1. + z_n[2, :], 3.7)
+    elif redshift > 4:
+        tau_a = 0.00058 * np.power(1. + redshift,  4.5)
+        tau_n[2, :] = 0.00058 * np.power(1. + z_n[2, :], 4.5)
+
+    # Then, tau_n is the mean optical depth value for transitions
+    # n = 3 - 9 -> 1
+    for n in range(3, n_transitions_max):
+        if n <= 5:
+            w = np.where(z_n[n, :] < 3)
+            tau_n[n, w] = (tau_a * fact[n] *
+                           np.power(0.25 * (1. + z_n[n, w]), (1. / 3.)))
+            w = np.where(z_n[n, :] >= 3)
+            tau_n[n, w] = (tau_a * fact[n] *
+                           np.power(0.25 * (1. + z_n[n, w]), (1. / 6.)))
+        elif 5 < n <= 9:
+            tau_n[n, :] = (tau_a * fact[n] *
+                           np.power(0.25 * (1. + z_n[n, :]), (1. / 3.)))
+        else:
+            tau_n[n, :] = (tau_n[9, :] * 720. /
+                           (float(n) * (float(n*n - 1.))))
+
+    for n in range(2, n_transitions_max):
+        w = np.where(z_n[n, :] >= redshift)
+        tau_n[n, w] = 0.
+
+    z_l = wavelength / lambda_limit - 1.
+    w = np.where(z_l < redshift)
+
+    tau_l_igm = np.zeros_like(wavelength)
+    tau_l_igm[w] = (0.805 * np.power(1. + z_l[w], 3) *
+                    (1. / (1. + z_l[w]) - 1. / (1. + redshift)))
+
+    term1 = gamma - np.exp(-1.)
+
+    n = np.arange(n_transitions_low - 1)
+    term2 = np.sum(np.power(-1., n) / (factorial(n) * (2*n - 1)))
+
+    term3 = ((1.+redshift) * np.power(wavelength[w]/lambda_limit, 1.5) -
+             np.power(wavelength[w]/lambda_limit, 2.5))
+
+    term4 = np.sum(np.array(
+        [((2.*np.power(-1., n) / (factorial(n) * ((6*n - 5)*(2*n - 1)))) *
+          ((1.+redshift) ** (2.5-(3 * n)) *
+           (wavelength[w]/lambda_limit) ** (3*n) -
+           (wavelength[w]/lambda_limit) ** 2.5))
+         for n in np.arange(1, n_transitions_low)]), axis=0)
+
+    tau_l_lls = np.zeros_like(wavelength)
+    tau_l_lls[w] = n0 * ((term1 - term2) * term3 - term4)
+
+    tau_taun = np.sum(tau_n[2:n_transitions_max, :], axis=0)
+
+    lambda_min_igm = (1+redshift)*70.
+    w = np.where(wavelength < lambda_min_igm)
+
+    weight = np.ones_like(wavelength)
+    weight[w] = np.power(wavelength[w]/lambda_min_igm, 2.)
+    # Another weight using erf function can be used.
+    # However, you would need to add: from scipy.special import erf
+    # weight[w] = 0.5*(1.+erf(0.05*(wavelength[w]-lambda_min_igm)))
+
+    igm_transmission = np.exp(-tau_taun-tau_l_igm-tau_l_lls) * weight
+
+    return igm_transmission
