@@ -70,6 +70,7 @@ log.setlevel(G.LOG_LEVEL)
 #     log.error("Exception importing hetdex_tools phot_tools",exc_info=True)
 
 phot_tools = None
+hetdex_tools = None
 
 def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, subcont=True, convolve_image=False,
                    pixscale=0.25, imsize=9.0, wave_range=None, sigma=None,return_coords=False):
@@ -84,15 +85,17 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
     :return: a cutout like the science cutouts (mostly an astropy HDU)
     """
 
-    global phot_tools
+    global phot_tools, hetdex_tools
 
     #if "phot_tools" not in sys.modules:
-    if phot_tools is None:
+    if phot_tools is None or hetdex_tools is None:
         try:
             from hetdex_tools import phot_tools
+            import hetdex_tools
             plt.style.use('default') #restore plot style
         except:
-            log.error("Cannot import hetdex_tools phot_tools.", exc_info=True)
+            log.error("Cannot import hetdex_tools and/or phot_tools.", exc_info=True)
+            #log.error("Cannot import hetdex_tools.", exc_info=True)
             plt.style.use('default') #restore plot style
             return None
 
@@ -109,77 +112,47 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
         else:
             dw /= 3.0 #assumes wave_range is -3*sigma to +3*sigma and dw made half that range just above
 
-        # if False: #
-        # #if imsize >= 20:
-        #     #currently hetdex_api forces the get_flux_for_source to go to 20"
-        #     #if want smaller, have to make separate calls
-        #
-        #     flux, flux_err, bkg_stddev, apcor, hdu  = phot_tools.get_flux_for_source(detectid=None,
-        #                                                                              coords=coords,
-        #                                                                              shotid=shotid,
-        #                                                                              survey=f"hdr{G.HDR_Version}",
-        #                                                                              radius=1.0*ap_units.arcsec, #aperture to get flux (not the size)
-        #                                                                              wave=w,
-        #                                                                              linewidth=dw,
-        #                                                                              annulus=[5.0, 7.0] * ap_units.arcsec, #for "sky"
-        #                                                                              convolve_image=convolve_image,return_hdu=True)
-        #
-        #     cutout = cp.deepcopy(hdu[0])
-        #     cutout.wcs = WCS(cutout.header)
-        #     cutout.flux = flux
-        #     cutout.flux_err = flux_err
-        #     cutout.bkg_stddev = bkg_stddev
-        #     cutout.apcor = apcor
-        #     cutout.wave = w
-        #     cutout.d_wave = dw
-        #
-        #     #cutout.vmax = np.max(hdu[0].data)
-        #     #cutout.vmin = np.min(hdu[0].data)
-        #
-        #     #subtract off the avg
-        #     hdu[0].data -= np.median(hdu[0].data)
-        #
-        #
-        #     std = np.std(hdu[0].data)
-        #     cutout.vmax = 4 * std
-        #     cutout.vmin = max( np.min(hdu[0].data),  -1 * std) #None
-        # else:
-
         adjusted_imsize = max(imsize,30.0) #select a minimum size for better statistics, can trim down after the call
         if adjusted_imsize != imsize:
-            log.debug("Extra call to phot_tools.get_line_image for larger cutout and better statistics...")
-            hdu_big = phot_tools.get_line_image(#friendid=friendid,
+            #log.debug("Extra call to phot_tools.get_line_image for larger cutout and better statistics...")
+            log.debug("Extra call to hetdex_tools.interlolate.make_narrowband_image for larger cutout and better statistics...")
+
+            hdu_big = hetdex_tools.interpolate.make_narrowband_image(
                 detectid=detectid,
                 survey=f"hdr{G.HDR_Version}",
                 coords=coords,
                 shotid=shotid,
                 subcont=subcont,
                 convolve_image=convolve_image,
-                pixscale=pixscale,
-                imsize=adjusted_imsize,
+                pixscale=pixscale * ap_units.arcsec,
+                imsize=adjusted_imsize* ap_units.arcsec,
                 wave_range=wave_range,
-                return_coords=return_coords)
+                include_error=True,
+                ffsky=False,
+                dcont=50.)
 
             hdu_median = np.nanmedian(np.where(hdu_big[0].data == 0, np.nan,hdu_big[0].data))#np.median(hdu[0].data)
             hud_std = np.std(hdu_big[0].data)
+
         else:
             hdu_median = None
             hud_std = None
             hdu_big = None
 
-        hdu = phot_tools.get_line_image(#friendid=friendid,
-                                        detectid=detectid,
-                                        survey=f"hdr{G.HDR_Version}",
-                                        coords=coords,
-                                        shotid=shotid,
-                                        subcont=subcont,
-                                        convolve_image=convolve_image,
-                                        pixscale=pixscale,
-                                        imsize=imsize,
-                                        wave_range=wave_range,
-                                        return_coords=return_coords)
+        hdu = hetdex_tools.interpolate.make_narrowband_image(
+            detectid=detectid,
+            survey=f"hdr{G.HDR_Version}",
+            coords=coords,
+            shotid=shotid,
+            subcont=subcont,
+            convolve_image=convolve_image,
+            pixscale=pixscale * ap_units.arcsec,
+            imsize=adjusted_imsize * ap_units.arcsec,
+            wave_range=wave_range,
+            include_error=True,
+            ffsky=False,
+            dcont=50.)
 
-        #there are 4 extensions in the HDU ... the 0th is the image we want
         cutout = cp.deepcopy(hdu[0])
 
         #if north is down, flip everything
@@ -208,23 +181,9 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
 
         cutout.vmax = 4 * hud_std
         cutout.vmin = max( np.min(hdu[0].data), -1 * hud_std) #None
+        #cutout.vmin = max( np.min(hdu.data), -1 * hud_std) #None
         cutout.wave = w
         cutout.d_wave = dw
-
-        # if imsize != adjusted_imsize:
-        #     trim = int(0.5 * (adjusted_imsize - imsize) * pixscale)
-        #     hdu[0].data = hdu[0].data[trim:-trim,trim:-trim]
-
-        # cutout.flux, cutout.flux_err, cutout.bkg_stddev, cutout.apcor  = phot_tools.get_flux_for_source(detectid=None,
-        #                                                                                                 coords=coords,
-        #                                                                                                 shotid=shotid,
-        #                                                                                                 survey=f"hdr{G.HDR_Version}",
-        #                                                                                                 radius=1.5*ap_units.arcsec, #aperture to get flux (not the size)
-        #                                                                                                 wave=w,
-        #                                                                                                 linewidth=dw,
-        #                                                                                                 annulus=[5.0, 7.0] * ap_units.arcsec, #for "sky"
-        #                                                                                                 convolve_image=convolve_image,
-        #                                                                                                 return_hdu=False)
 
         cutout.flux, cutout.flux_err, cutout.bkg_stddev, cutout.apcor, sky_sigma = phot_tools.fit_circular_aperture(
                                                                                     hdu if hdu_big is None else hdu_big,
@@ -233,11 +192,11 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
                                                                                     annulus=[5.0, 7.0]*ap_units.arcsec,
                                                                                     plot=False,return_sky_sigma=True)
 
+
         #not expecting units later, so remove them
         cutout.flux = cutout.flux.value
         cutout.flux_err = cutout.flux_err.value
         cutout.bkg_stddev = cutout.bkg_stddev.value
-        #cutout.apcor = cutout.apcor
 
     except:
         if log.logger.level > 10: #i.e. if INFO or greater, don't log the exception details
