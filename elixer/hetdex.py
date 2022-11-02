@@ -12159,6 +12159,11 @@ class HETDEX:
         vmax = None
         if scale == 0:
             scale = 1.0
+        try:
+            if len(vals) < 2:
+                return None,None
+        except:
+            return None,None
 
         try:
             zscale = ZScaleInterval(contrast=1.0,krej=2.5) #nsamples=len(vals)
@@ -12167,7 +12172,7 @@ class HETDEX:
             vmax = vmax/scale
             log.debug("HETDEX (zscale) vrange = (%f, %f) raw range = (%f, %f)" %(vmin,vmax,np.min(vals),np.max(vals)))
         except:
-            if vals is not None and len(vals) > 2:
+            if vals is not None:# and len(vals) > 2:
                 log.info("Exception in hetdex::get_vrange:",exc_info =True)
 
         return vmin, vmax

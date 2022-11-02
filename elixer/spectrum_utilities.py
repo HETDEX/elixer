@@ -1209,7 +1209,7 @@ def luminosity_distance(z,cosmology=None):
 
     return cosmology.luminosity_distance(z)
 
-
+#def r2Muv(r,z,correction=1,cosmology=None)
 def absolute_mag(mag,z,correction=1,cosmology=None):
     """
     Just the distance modulus with K-correction
