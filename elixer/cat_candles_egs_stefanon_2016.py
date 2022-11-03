@@ -487,6 +487,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             try:
                 filter_fl = self.obs_mag_to_micro_Jy(df['G'].values[0])
                 filter_fl_err = abs(filter_fl - self.obs_mag_to_micro_Jy(df['G'].values[0] - df['eG'].values[0]))
+                filter_name = 'g'
                 mag, mag_plus, mag_minus = self.micro_jansky_to_mag(filter_fl, filter_fl_err)
             except:
                 pass

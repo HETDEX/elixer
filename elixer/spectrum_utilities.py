@@ -3378,9 +3378,11 @@ def shift_to_rest_luminosity(z,flux_density,wave,eflux=None):
     :return:
     """
 
-    if z < 0.0:
+    if z < -0.001:
         log.error(f"What? invalid z: {z}")
         return None, None, None
+    elif z < 0: #close enough to zero that we will call it zero
+        z = 0
 
     if ( (flux_density is None) or (wave is None)) or (len(flux_density) != len(wave)) or (len(flux_density) == 0):
         log.error("Invalid flux_density and wavelengths")
@@ -3389,6 +3391,13 @@ def shift_to_rest_luminosity(z,flux_density,wave,eflux=None):
     try:
         wave = wave / (1.0 + z)
         ld = luminosity_distance(z).to(U.cm) #this is in Mpc
+
+        try:
+            _ = flux_density.value
+        except:
+            #flux density does not have a units, so strip units from ld
+            ld = ld.value
+
         conv = 4.0 * np.pi * ld * ld * (1.0 + z)
         lum = flux_density * conv
         if (eflux is not None) and (len(eflux) == len(wave)):
