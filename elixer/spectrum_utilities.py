@@ -3778,7 +3778,7 @@ def igm_transmission(wavelength, redshift):
     Parameters
     ----------
     wavelength: array like of floats
-        The wavelength(s) in AA. OBSERVED FRAME
+        The wavelength(s) in AA. **** OBSERVED FRAME ****
     redshift: float
         The redshift. Must be strictly positive.
 
@@ -3788,7 +3788,7 @@ def igm_transmission(wavelength, redshift):
         The intergalactic transmission at each input wavelength.
 
     """
-    wavelength = copy.copy(wavelength) / 10.0 #convert to nm
+    wavelength = np.array(copy.copy(wavelength)) / 10.0 #convert to nm
 
     n_transitions_low = 10
     n_transitions_max = 31
@@ -3874,6 +3874,4 @@ def igm_transmission(wavelength, redshift):
     # However, you would need to add: from scipy.special import erf
     # weight[w] = 0.5*(1.+erf(0.05*(wavelength[w]-lambda_min_igm)))
 
-    igm_transmission = np.exp(-tau_taun-tau_l_igm-tau_l_lls) * weight
-
-    return igm_transmission
+    return np.exp(-tau_taun-tau_l_igm-tau_l_lls) * weight
