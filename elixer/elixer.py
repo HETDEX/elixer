@@ -3592,7 +3592,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                     for i in sel:
                         try:
                             try:
-                                if _cutouts[i]['filter'].lower() in ['g','r','f606w']:
+                                if _cutouts[i]['filter'].lower() in ['g','r','f606w']: #WHY am I not checking the unique_fration?
                                     check_unique_fraction = False
                                 else:
                                     check_unique_fraction = True

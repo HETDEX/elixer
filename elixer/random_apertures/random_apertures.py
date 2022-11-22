@@ -1,0 +1,219 @@
+"""
+simple file to pull a code specified number of random apertures, validating each against acceptance critieria,
+and save to an astropy table on a per shot basis
+
+intended for use with SLURM
+
+caller specifies only the shotid
+
+this code is modified to specify aperture size, number of apertures wanted, maximum number of apertures to attempt,
+and any selection criteria, etc
+
+based on hetdex_all_shots_random_empty_apertures notebooks on /work/03261/polonius/notebooks
+
+"""
+import sys
+import os.path as op
+import numpy as np
+from astropy.coordinates import SkyCoord
+from astropy.table import Table,join,vstack
+import astropy.units as u
+import copy
+import glob
+
+from hetdex_api.config import HDRconfig
+from hetdex_api.shot import get_fibers_table
+from hetdex_api.survey import Survey,FiberIndex
+from hetdex_tools.get_spec import get_spectra
+from hetdex_api.extinction import *  #includes deredden_spectra
+
+from elixer import spectrum as elixer_spectrum
+from elixer import spectrum_utilities as SU
+from elixer import global_config as G
+
+#get the shot from the command line
+
+args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
+
+#form is integer dateobs (no 'v')
+if "--shot" in args:
+    i = args.index("--shot")
+    try:
+        shotid = int(sys.argv[i + 1])
+    except:
+        print("bad shotid specified")
+        exit(-1)
+else:
+    print("no shotid specified")
+    exit(-1)
+shot = shotid
+
+
+#maybe this one was already done?
+if op.exists(table_outname + f"_{shot}.fits"):
+    exit(0)
+
+survey_name = "hdr3"
+hetdex_api_config = HDRconfig(survey_name)
+survey = Survey(survey_name)
+survey_table=survey.return_astropy_table()
+FibIndex = FiberIndex(survey_name)
+ampflag_table = Table.read(hetdex_api_config.badamp)
+
+########################
+# Main Loop
+########################
+
+outfile = open("random_apertures_"+str(shotid)+".coord", "a+")  # 3500-3800 avg +/- 0.04
+table_outname = "random_apertures_"+str(shotid)
+
+
+random_fibers_per_shot = 250  # number of anchor fibers to select per shot (also then the maximum number of aperture attempts)
+empty_apertures_per_shot = 100  # stop once we hit this number of "successful" apertures in a shot
+ra_nudge = 0.75  # random nudge between 0 and this value in fiber center RA
+dec_nudge = 0.75  # ditto for Dec
+aper = 3.5  # 3.5" aperture
+ffsky = False
+min_gmag = 25.5  # 24.5 #if brighter than this, reject and move on
+min_fibers = 15  # min number of fibers in an extraction
+negative_flux_limit = -0.4e-17  # erg/s/cm2/AA ... more negative than this, assume something is wrong
+
+
+wave_continuum_chunks_idx = [np.arange(15, 166, 1),  # 3500-3800
+                             ]
+# array of tuples that set the minimum and maximum average flux density value (e-17) that are okay.
+# aligns with wave_continuum_chunks_idx
+acceptable_fluxd = [(-0.08, 0.08),
+                    ]
+
+
+
+##
+## grab all the fibers for this shot and randomly select random_fibers_per_shot
+## go ahead and read the badamps for this shot so can more quickly compare
+##
+sel = (ampflag_table['shotid'] == shotid) & (ampflag_table['flag'] == 0)  # here, 0 is bad , 1 is good
+bad_amp_list = ampflag_table['multiframe'][sel]
+
+idx = FibIndex.hdfile.root.FiberIndex.get_where_list("shotid==shot")
+rand_idx = np.random.choice(idx, size=random_fibers_per_shot, replace=False)
+fibers_table = Table(FibIndex.hdfile.root.FiberIndex.read_coordinates(rand_idx))
+mask_table = Table(FibIndex.fibermaskh5.root.Flags.read_coordinates(rand_idx))
+super_tab = join(fibers_table, mask_table, "fiber_id")
+
+##
+## iterate over the random fibers, verify is NOT on a bad amp, nudge the coordinate and extract
+##
+aper_ct = 0
+write_every = 100
+
+T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
+                 ('seeing',float),('response',float),('apcor',float),
+                 ('f50_3800',float),('f50_5000',float),
+                 ('fluxd', (float, len(G.CALFIB_WAVEGRID))),
+                 ('fluxd_err', (float, len(G.CALFIB_WAVEGRID)))])
+
+sel = np.array(survey_table['shotid'] == shotid)
+seeing = float(survey_table['fwhm_virus'][sel])
+response = float(survey_table['response_4540'][sel])
+
+del survey_table
+
+for f in super_tab:
+
+    if aper_ct > empty_apertures_per_shot:
+        # we have enough, move on to the next shot
+        break
+
+    if not (f['amp_flag'] and f['meteor_flag'] and f['gal_flag']):
+        # if any of the three are false, skip this fiber and move on
+        pass
+
+    ra = np.random.uniform(-ra_nudge, ra_nudge) / 3600. + f['ra']
+    dec = np.random.uniform(-dec_nudge, dec_nudge) / 3600. + f['dec']
+
+    coord = SkyCoord(ra, dec, unit="deg")
+    try:
+        apt = get_spectra(coord, survey=survey_name, shotid=shot,
+                          ffsky=ffsky, multiprocess=True, rad=aper,
+                          tpmin=0.0, fiberweights=True, loglevel="NOTSET")  # don't need the fiber weights
+        try:
+            if apt['fiber_weights'][0].shape[0] < min_fibers:
+                continue  # too few fibers, probably on the edge or has dead fibers
+        except Exception as e:
+            continue
+
+        # fluxd = np.nan_to_num(apt['spec'][0]) * 1e-17
+        # fluxd_err = np.nan_to_num(apt['spec_err'][0]) * 1e-17
+        # lets leave the nans in place
+        fluxd = np.array(apt['spec'][0]) * 1e-17
+        fluxd_err = np.array(apt['spec_err'][0]) * 1e-17
+        wavelength = np.array(apt['wavelength'][0])
+
+        dust_corr = deredden_spectra(wavelength, coord)
+        fluxd *= dust_corr
+        fluxd_err *= dust_corr
+
+        ##
+        ## check the extracted spectrum for evidence of continuum or emission lines
+        ##
+
+        g, c, ge, ce = elixer_spectrum.get_hetdex_gmag(fluxd, wavelength, fluxd_err)
+        # g,ge,_,_ = elixer_spectrum.get_best_gmag(fluxd,fluxd_err,wavelength) #weird astropy issue, just use hetdex_gmag
+        # if g is None:
+        #    print(f"bad g {ra},{dec}")
+        #    continue #point source mag is too bright, likely has something in it
+        # g == None for negative continuum or below limit, so None itself is okay, need to check continuum
+        if g is not None and g < min_gmag:
+            continue  # point source mag is too bright, likely has something in it
+        elif c < negative_flux_limit:
+            continue  # point source mag is too bright, likely has something in it
+
+        ##
+        ## check for excess in chunks of wavelength range, particularly in the blue, say 3500-3800
+        ##
+        fail = False
+        for chunk, ok_fluxd in zip(wave_continuum_chunks_idx, acceptable_fluxd):
+            # can't use the normal get_hetdex_gmag as it has safeties on the width of the spectrum and the covered wavelengths
+            if ok_fluxd[0] < np.nanmedian(fluxd[chunk]) < ok_fluxd[1]:
+                # acceptable
+                pass
+            else:
+                fail = True
+                break
+
+        if fail:
+            continue
+
+        # check for any emission lines ... simple scan? or should we user elixer's method?
+        pos, status = elixer_spectrum.sn_peakdet_no_fit(wavelength, fluxd, fluxd_err, dx=3, dv=3, dvmx=4.0,
+                                                        absorber=False,
+                                                        spec_obj=None, return_status=True)
+        if status != 0:
+            continue  # some failure or 1 or more possible lines
+
+        # elif len(pos) > 1:
+        #    continue #possible emission lines
+
+        f50, apcor = SU.get_fluxlimits(ra, dec, [3800.0, 5000.0], shot)
+
+        # FUTURE/OPTIONAL: Should we check the imaging?? run a cutout and SEP check and only accept if nothing found?
+
+        #
+        # will run elixer on all these positions as well to make sure there are not other issues
+        #
+        # this is acceptable coords, so save:
+        outfile.write(f"{ra}  {dec}  {shot}\n")
+        outfile.flush()
+
+        T.add_row([ra, dec, shotid, seeing, response, apcor[1], f50[0], f50[1], fluxd, fluxd_err])
+
+        aper_ct += 1
+
+    except Exception as e:
+        print("Exception (2) !", e)
+        continue
+
+T.write(table_outname + f"_{shot}.fits", format='fits', overwrite=True)
+
+
