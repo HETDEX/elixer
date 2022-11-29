@@ -48,9 +48,12 @@ else:
     exit(-1)
 shot = shotid
 
+outfile = open("random_apertures_"+str(shotid)+".coord", "w+")  # 3500-3800 avg +/- 0.04
+table_outname = "random_apertures_"+str(shotid) + ".fits"
+
 
 #maybe this one was already done?
-if op.exists(table_outname + f"_{shot}.fits"):
+if op.exists(table_outname ):
     exit(0)
 
 survey_name = "hdr3"
@@ -64,17 +67,15 @@ ampflag_table = Table.read(hetdex_api_config.badamp)
 # Main Loop
 ########################
 
-outfile = open("random_apertures_"+str(shotid)+".coord", "a+")  # 3500-3800 avg +/- 0.04
-table_outname = "random_apertures_"+str(shotid)
 
 
-random_fibers_per_shot = 250  # number of anchor fibers to select per shot (also then the maximum number of aperture attempts)
-empty_apertures_per_shot = 100  # stop once we hit this number of "successful" apertures in a shot
+random_fibers_per_shot = 500  # number of anchor fibers to select per shot (also then the maximum number of aperture attempts)
+empty_apertures_per_shot = 200  # stop once we hit this number of "successful" apertures in a shot
 ra_nudge = 0.75  # random nudge between 0 and this value in fiber center RA
 dec_nudge = 0.75  # ditto for Dec
 aper = 3.5  # 3.5" aperture
 ffsky = False
-min_gmag = 25.5  # 24.5 #if brighter than this, reject and move on
+min_gmag = 24.0  # 24.5 #if brighter than this, reject and move on
 min_fibers = 15  # min number of fibers in an extraction
 negative_flux_limit = -0.4e-17  # erg/s/cm2/AA ... more negative than this, assume something is wrong
 
@@ -83,7 +84,7 @@ wave_continuum_chunks_idx = [np.arange(15, 166, 1),  # 3500-3800
                              ]
 # array of tuples that set the minimum and maximum average flux density value (e-17) that are okay.
 # aligns with wave_continuum_chunks_idx
-acceptable_fluxd = [(-0.08, 0.08),
+acceptable_fluxd = [(-0.04, 0.04),
                     ]
 
 
@@ -93,11 +94,11 @@ acceptable_fluxd = [(-0.08, 0.08),
 ## go ahead and read the badamps for this shot so can more quickly compare
 ##
 sel = (ampflag_table['shotid'] == shotid) & (ampflag_table['flag'] == 0)  # here, 0 is bad , 1 is good
-bad_amp_list = ampflag_table['multiframe'][sel]
+#bad_amp_list = ampflag_table['multiframe'][sel] #using the fiber index values which includes the bad amp flag
 
 idx = FibIndex.hdfile.root.FiberIndex.get_where_list("shotid==shot")
 rand_idx = np.random.choice(idx, size=random_fibers_per_shot, replace=False)
-fibers_table = Table(FibIndex.hdfile.root.FiberIndex.read_coordinates(rand_idx))
+fibers_table = Table(FibIndex.hdfile.root.FiberIndex.read_coordinates(rand_idx)) #randomize the fiber ordering
 mask_table = Table(FibIndex.fibermaskh5.root.Flags.read_coordinates(rand_idx))
 super_tab = join(fibers_table, mask_table, "fiber_id")
 
@@ -110,6 +111,8 @@ write_every = 100
 T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
                  ('seeing',float),('response',float),('apcor',float),
                  ('f50_3800',float),('f50_5000',float),
+                 ('dex_g',float),('dex_g_err',float),('dex_cont',float),('dex_cont_err',float),
+                 ('fluxd_sum',float),('fluxd_sum_wide',float),('fluxd_median',float),('fluxd_median_wide',float),
                  ('fluxd', (float, len(G.CALFIB_WAVEGRID))),
                  ('fluxd_err', (float, len(G.CALFIB_WAVEGRID)))])
 
@@ -119,7 +122,11 @@ response = float(survey_table['response_4540'][sel])
 
 del survey_table
 
-for f in super_tab:
+for f in super_tab: #these fibers are in a random order so just iterating over them is random
+                    #though it is possible to get two apertures at the same location (adjacent fibers and random
+                    #ra, dec shifts could line them up ... would be exceptionally unlikely, so we will ignore)
+                    #It is more likely to pick up one or a few that have overlapping apertures, but since this is
+                    #PSF weighted, the effect of the overlap is limited and quickly falls off over 1-2"
 
     if aper_ct > empty_apertures_per_shot:
         # we have enough, move on to the next shot
@@ -166,9 +173,18 @@ for f in super_tab:
         # g == None for negative continuum or below limit, so None itself is okay, need to check continuum
         if g is not None and g < min_gmag:
             continue  # point source mag is too bright, likely has something in it
-        elif c < negative_flux_limit:
+        elif c < negative_flux_limit: #g might be None, if continuum is negative, then we don't get a magnitude
             continue  # point source mag is too bright, likely has something in it
 
+        dex_cont = c
+        dex_cont_err = ce
+
+        if g is None or np.isnan(g):
+            dex_g = 99.0
+            deg_g_err = 0
+        else:
+            dex_g = g
+            dex_g_err = ge
         ##
         ## check for excess in chunks of wavelength range, particularly in the blue, say 3500-3800
         ##
@@ -203,10 +219,19 @@ for f in super_tab:
         # will run elixer on all these positions as well to make sure there are not other issues
         #
         # this is acceptable coords, so save:
+
+        fluxd_sum = np.nansum(fluxd[215:966])
+        fluxd_sum_wide = np.nansum(fluxd[65:966])
+        fluxd_median = np.nanmedian(fluxd[215:966])
+        fluxd_median_wide = np.nanmedian(fluxd[65:966])
+
         outfile.write(f"{ra}  {dec}  {shot}\n")
         outfile.flush()
 
-        T.add_row([ra, dec, shotid, seeing, response, apcor[1], f50[0], f50[1], fluxd, fluxd_err])
+        T.add_row([ra, dec, shotid, seeing, response, apcor[1], f50[0], f50[1],
+                   dex_g, dex_g_err, dex_cont, dex_cont_err,
+                   fluxd_sum,fluxd_sum_wide,fluxd_median,fluxd_median_wide,
+                   fluxd, fluxd_err])
 
         aper_ct += 1
 
@@ -214,6 +239,6 @@ for f in super_tab:
         print("Exception (2) !", e)
         continue
 
-T.write(table_outname + f"_{shot}.fits", format='fits', overwrite=True)
+T.write(table_outname, format='fits', overwrite=True)
 
 

@@ -6,7 +6,8 @@ table_outname = "random_apertures_"
 
 files = glob.glob(table_outname +"*.fits")
 T = Table.read(files[0],format="fits")
-for f in tqdm(files[1:]):
+for i,f in enumerate(files[1:]):
+    print(i+1,f)
     t = Table.read(f,format="fits")
     T = vstack([T,t])
 
