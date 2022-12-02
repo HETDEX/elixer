@@ -4759,10 +4759,10 @@ class DetObj:
                         if (ew is not None):
                             if (ew-ew_err) > 80:
                                 likelihood.append(1.0)
-                                weight.append(1.0) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                weight.append(1.00) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
                             elif (ew-ew_err) > 30:
                                 likelihood.append(1.0)
-                                weight.append(0.50) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                weight.append(0.40) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
                             elif (ew+ew_err) < 15:
                                 likelihood.append(0.0)
                                 weight.append(0.10) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
@@ -4807,7 +4807,7 @@ class DetObj:
                             elif (ew+ew_err) < 15:
                                 #could be LyA
                                 likelihood.append(0.0)
-                                weight.append(0.30) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                weight.append(0.40) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
                                 var.append(1)
                                 prior.append(base_assumption)
                                 vote_info['dex_gmag_vote'] = likelihood[-1]
@@ -4853,7 +4853,7 @@ class DetObj:
                             elif (ew+ew_err) < 15:
                                 #could be LyA
                                 likelihood.append(0.0)
-                                weight.append(0.2) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                weight.append(0.25) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
                                 var.append(1)
                                 prior.append(base_assumption)
                                 vote_info['dex_gmag_vote'] = likelihood[-1]
@@ -4900,7 +4900,7 @@ class DetObj:
                             elif (ew+ew_err) < 15:
                                 #could be LyA
                                 likelihood.append(0.0)
-                                weight.append(0.25) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                weight.append(0.3) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
                                 var.append(1)
                                 prior.append(base_assumption)
                                 vote_info['dex_gmag_vote'] = likelihood[-1]
