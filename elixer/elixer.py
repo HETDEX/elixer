@@ -504,6 +504,10 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--prefer_g', help="Use g-band instead of r-band for catalog mag comparision if both present.",
                         required=False, action='store_true', default=False)#,default=None)#"elixer_merged_cat.h5")
 
+
+    parser.add_argument('--voters', help="Toggle use of individual P(LyA) votes. Bitmask. See global_config.py",
+                        required=False, type=int)#default=15) leave the default = None
+
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
 
@@ -559,6 +563,11 @@ def parse_commandline(auto_force=False):
     except Exception as e:
         print("Invalid --check_z provided.",e)
         exit(0)
+
+
+    if args.voters is not None:
+        G.VOTER_ACTIVE = args.voters #do nothing ... use the gloabl config value for G.VOTER_ACTIVE
+
 
 
     if G.LAUNCH_PDF_VIEWER is None:

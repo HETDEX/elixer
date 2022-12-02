@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.18.1 [2022-12-02]
+* add command line option to toggle P(LyA) votes on/off
+
 1.18.0 [2022-09-27]
 * drop alpha designation for jupyter-hub image update
 

@@ -22,7 +22,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.18.0'
+__version__ = '1.18.1'
 #Logging
 GLOBAL_LOGGING = False #set to True in top elixer calls so we do not normally log from package imports
 LOG_TO_STDOUT = False #only kicks in if GLOBAL_LOGGING is False
@@ -1237,3 +1237,23 @@ DETFLAG_CORRUPT_DATA                = 0x80000000    #some nontrivial portion of 
 #     """
 #     out = None
 #
+
+
+##################################
+#Voter Flags (32 bit)
+# Turn ON each voter
+##################################
+
+VOTER_ACTIVE = 0xFFFFFFFF
+
+#each toggles a single P(LyA) voter
+VOTER_ANGULAR_SIZE              = 0x00000001
+VOTER_BRIGHT_CONTINUUM          = 0x00000002
+VOTE_MULTILINE                  = 0x00000004
+VOTE_UNMATCHED_LINES            = 0x00000008
+VOTE_PLAE_POII                  = 0x00000010
+VOTE_ASYMMETRIC_LINEFLUX        = 0x00000020
+VOTE_STRAIGHT_LINE_SIGMA        = 0x00000040
+VOTE_STRAIGHT_EW                = 0x00000080
+VOTE_PHOTZ                      = 0x00000100
+VOTE_DEX_GMAG                   = 0x00000200
