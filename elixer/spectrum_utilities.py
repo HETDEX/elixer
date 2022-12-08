@@ -1274,8 +1274,12 @@ def physical_diameter(z,a,cosmology=None):
     else:
         return None
 
-def shift_to_restframe(z, flux, wave, ez=0.0, eflux=None, ewave=None):
+def shift_to_restframe(z, flux, wave, ez=0.0, eflux=None, ewave=None, apply_air_to_vac=False):
     """
+
+    !!! This is a STUPID shift ... just compresses the wavelengths and (1+z)**3 on the flux !!!
+    !!! depending on your purpose, you should use shift_to_rest_luminosity() defined later !!!
+
     We are assuming no (or insignificant) error in wavelength and z ...
 
     All three numpy arrays must be of the same length and same indexing
@@ -1286,16 +1290,19 @@ def shift_to_restframe(z, flux, wave, ez=0.0, eflux=None, ewave=None):
     :param eflux:  numpy array of flux errors ... again, units don't matter, but same as the flux
                    (note: the is NOT the wavelengths of the flux error)
     :param ewave: numpy array of wavelenth errors ... units don't matter
+    :param apply_air_to_vac: if true, first apply observed (air) to vacuum correction to the (observed) spectrum
     :return:
     """
 
     #todo: how are the wavelength bins defined? edges? center of bin?
     #that is; 4500.0 AA bin ... is that 4490.0 - 4451.0  or 4500.00 - 4502.0 .....
+    if apply_air_to_vac:
+        wave = air_to_vac(wave)
 
     #rescale the wavelengths
     wave /= (1.+z) #shift to lower z and squeeze bins
 
-    flux *= (1.+z) #shift up flux (shorter wavelength = higher energy)
+    flux *= (1.+z)**3 #shift up flux (shorter wavelength = higher energy)
 
 
     #todo: deal with wavelength bin compression (change in counting error?)
@@ -3366,7 +3373,7 @@ def spectra_deblend(measured_flux_matrix, overlap_matrix):
 ##################################
 
 
-def shift_to_rest_luminosity(z,flux_density,wave,eflux=None):
+def shift_to_rest_luminosity(z,flux_density,wave,eflux=None,apply_air_to_vac=False):
     """
 
     Assume z, wavelengths, and luminosity distances are without error
@@ -3375,6 +3382,7 @@ def shift_to_rest_luminosity(z,flux_density,wave,eflux=None):
     :param flux_density:
     :param wave:
     :param eflux:
+    :param apply_air_to_vac: if true, apply the air to vacuum correction on the observed spectrum before redshifting
     :return:
     """
 
@@ -3389,6 +3397,10 @@ def shift_to_rest_luminosity(z,flux_density,wave,eflux=None):
         return None, None, None
 
     try:
+
+        if apply_air_to_vac:
+            wave = air_to_vac(wave)
+
         wave = wave / (1.0 + z)
         ld = luminosity_distance(z).to(U.cm) #this is in Mpc
 
@@ -3469,8 +3481,10 @@ def rest_line_luminosity(z,line_flux,line_flux_err=None):
 
 
 
-def shift_to_rest_flam(z, flux_density, wave, eflux=None, block_skylines=True):
+def shift_to_rest_flam(z, flux_density, wave, eflux=None, block_skylines=True, apply_air_to_vac=False):
     ### WARNING !!! REMINDER !!! np.arrays are mutable so what are passed in here get modified (flux_density, etc)
+
+    # !!! This is semi-stupid ... only applies (1+z)**3 to flux!!! You may want to use shift_to_rest_luminosity
 
     """
     Really, the "observed" flux density in the reference frame of the rest-frame
@@ -3483,6 +3497,7 @@ def shift_to_rest_flam(z, flux_density, wave, eflux=None, block_skylines=True):
     :param wave: numpy array of wavelenths ... units don't matter
     :param eflux:  numpy array of flux densities errors ... again, units don't matter, but same as the flux
                    (note: the is NOT the wavelengths of the flux error)
+    :param apply_air_to_vac: if true, apply the air to vacuum correction on the observed spectrum before redshifting
     :return:
     """
 
@@ -3498,10 +3513,12 @@ def shift_to_rest_flam(z, flux_density, wave, eflux=None, block_skylines=True):
     #     flux_density[np.where((3535 < wave)&(wave < 3555))] = float("nan")
 
     try:
+        if apply_air_to_vac:
+            wave = air_to_vac(wave)
         #rescale the wavelengths
         wave /= (1.+z) #shift to lower z and squeeze bins
 
-        flux_density *= ((1.+z) * (1.+z)) #shift up flux (shorter wavelength = higher energy)
+        flux_density *= ((1.+z) * (1.+z) * (1.+z)) #shift up flux (shorter wavelength = higher energy)
         #sanity check .... "density" goes up by (1+z) because of smaller wavebin, energy goes up by (1+z) because of shorter wavelength
     except:
         pass
