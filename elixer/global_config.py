@@ -926,6 +926,7 @@ WAVEGRID_BLUE_LIMIT = 3470.
 WAVEGRID_RED_LIMIT = 5540.
 WAVEGRID_NUM_BINS = 1036
 CALFIB_WAVEGRID = np.linspace(WAVEGRID_BLUE_LIMIT,WAVEGRID_RED_LIMIT,WAVEGRID_NUM_BINS) #np.arange(3470.,5542.,2.0) #3470 - 5540
+CALFIB_WAVEGRID.flags.writeable = False
 CALFIB_WAVEGRID_VAC = None #this will be populated when spectrum_utilities is imported
 
 #Detection Quality Score Values

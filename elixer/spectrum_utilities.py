@@ -62,11 +62,7 @@ SU_H0 = 70. * U.km / U.s / U.Mpc
 SU_Omega_m0 = 0.3
 SU_T_CMB = 2.73
 
-try:
-    if G.CALFIB_WAVEGRID_VAC is None:
-        G.CALFIB_WAVEGRID_VAC = air_to_vac(G.CALFIB_WAVEGRID)
-except:
-    pass
+
 
 #
 # #these are for the older peak finder (based on direction change)
@@ -3903,3 +3899,11 @@ def igm_transmission(wavelength, redshift):
     # weight[w] = 0.5*(1.+erf(0.05*(wavelength[w]-lambda_min_igm)))
 
     return np.exp(-tau_taun-tau_l_igm-tau_l_lls) * weight
+
+
+
+try:
+    if G.CALFIB_WAVEGRID_VAC is None:
+        G.CALFIB_WAVEGRID_VAC = air_to_vac(G.CALFIB_WAVEGRID)
+except:
+    log.error("Unable to set G.CALFIB_WAVEGRID_VAC")
