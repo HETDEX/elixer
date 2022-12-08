@@ -62,6 +62,12 @@ SU_H0 = 70. * U.km / U.s / U.Mpc
 SU_Omega_m0 = 0.3
 SU_T_CMB = 2.73
 
+try:
+    if G.CALFIB_WAVEGRID_VAC is None:
+        G.CALFIB_WAVEGRID_VAC = air_to_vac(G.CALFIB_WAVEGRID)
+except:
+    pass
+
 #
 # #these are for the older peak finder (based on direction change)
 # MIN_FWHM = 2.0 #AA (must xlat to pixels) (really too small to be realistic, but is a floor)
@@ -505,6 +511,9 @@ def air_to_vac(wavelength):
     """
     Implements the air to vacuum wavelength conversion described in eqn 65 of
     Griesen 2006
+
+    !!! warning ... does not check for 2000AA normal cutoff ....
+
     """
 
     try:
@@ -529,6 +538,8 @@ def vac_to_air(wavelength):
     """
     Griesen 2006 reports that the error in naively inverting Eqn 65 is less
     than 10^-9 and therefore acceptable.  This is therefore eqn 67
+
+     !!! warning ... does not check for 2000AA normal cutoff ....
     """
     try:
         if not hasattr(wavelength,"value"):
