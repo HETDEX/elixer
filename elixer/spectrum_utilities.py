@@ -63,7 +63,6 @@ SU_Omega_m0 = 0.3
 SU_T_CMB = 2.73
 
 
-
 #
 # #these are for the older peak finder (based on direction change)
 # MIN_FWHM = 2.0 #AA (must xlat to pixels) (really too small to be realistic, but is a floor)
@@ -486,17 +485,24 @@ def get_bary_corr(shotid, units='km/s'):
         radial velocity correction in units
     """
 
-    S = hda_survey.Survey(G.HETDEX_API_CONFIG.LATEST_HDR_NAME) #make G.survey
+    #global the_Survey
+    try:
+        if G.the_Survey is None:
+            G.the_Survey = hda_survey.Survey(G.HETDEX_API_CONFIG.LATEST_HDR_NAME) #make G.survey
 
-    sel_shot = S.shotid == shotid
-    coords = S.coords[sel_shot]
-    mjds = S.mjd[sel_shot]
-    t = time.Time(np.average(mjds), format='mjd')
+        sel_shot = np.array(G.the_Survey.shotid == shotid)
+        if np.count_nonzero(sel_shot) > 0:
+            coords = G.the_Survey.coords[sel_shot]
+            mjds = G.the_Survey.mjd[sel_shot]
+            t = time.Time(np.average(mjds), format='mjd')
 
-    vcor = coords.radial_velocity_correction(kind='barycentric', obstime=t, location=McDonald_Coord).to(units)
+            vcor = coords.radial_velocity_correction(kind='barycentric', obstime=t, location=McDonald_Coord).to(units)
 
-    return vcor.value
-
+            return vcor.value
+        else:
+            return None
+    except:
+        log.info("Exception! Exception in spectrum_utilities::get_bary_corr()")
 
 # def vac_to_air(w_vac):
 #     #http: // www.sdss3.org / dr9 / spectro / spectro_basics.php
@@ -3066,16 +3072,19 @@ def get_shotids(ra,dec,hdr_version=G.HDR_Version):
     :return: list of integer shotids that overlap the provided ra and dec
     """
 
+
     try:
-        survey = hda_survey.Survey(survey=f"hdr{hdr_version}")
-        if not survey:
+        if G.the_Survey is None:
+            G.the_Survey = hda_survey.Survey(survey=f"hdr{hdr_version}")
+
+        if not G.the_Survey:
             log.info(f"Cannot build hetdex_api survey object to determine shotid")
             return []
 
         # this is only looking at the pointing, not checking individual fibers, so
         # need to give it a big radius to search that covers the focal plane
         # if centered (and it should be) no ifu edge is more than 12 acrmin away
-        shotlist = survey.get_shotlist(SkyCoord(ra, dec, unit='deg', frame='icrs'),
+        shotlist = G.the_Survey.get_shotlist(SkyCoord(ra, dec, unit='deg', frame='icrs'),
                                            radius=G.FOV_RADIUS_DEGREE * U.deg)
 
         log.debug(f"{len(shotlist)} shots near ({ra},{dec})")

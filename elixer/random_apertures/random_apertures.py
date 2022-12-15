@@ -15,6 +15,7 @@ based on hetdex_all_shots_random_empty_apertures notebooks on /work/03261/poloni
 import sys
 import os.path as op
 import numpy as np
+import tables
 from astropy.coordinates import SkyCoord
 from astropy.table import Table,join,vstack
 import astropy.units as u
@@ -56,7 +57,7 @@ table_outname = "random_apertures_"+str(shotid) + ".fits"
 if op.exists(table_outname ):
     exit(0)
 
-survey_name = "hdr3"
+survey_name = "hdr3" #"hdr2.1"
 hetdex_api_config = HDRconfig(survey_name)
 survey = Survey(survey_name)
 survey_table=survey.return_astropy_table()
@@ -78,7 +79,7 @@ ffsky = False
 min_gmag = 24.0  # 24.5 #if brighter than this, reject and move on
 min_fibers = 15  # min number of fibers in an extraction
 negative_flux_limit = -0.4e-17  # erg/s/cm2/AA ... more negative than this, assume something is wrong
-
+hetdex_nearest_detection = 2.0 #in arcsec
 
 wave_continuum_chunks_idx = [np.arange(15, 166, 1),  # 3500-3800
                              ]
@@ -97,6 +98,10 @@ sel = (ampflag_table['shotid'] == shotid) & (ampflag_table['flag'] == 0)  # here
 #bad_amp_list = ampflag_table['multiframe'][sel] #using the fiber index values which includes the bad amp flag
 
 idx = FibIndex.hdfile.root.FiberIndex.get_where_list("shotid==shot")
+if idx is None or len(idx) < 20000:
+    fi_shotids = FibIndex.hdfile.root.FiberIndex.read(field="shotid")
+    idx = np.where(fi_shotids==shotid)[0]
+
 rand_idx = np.random.choice(idx, size=random_fibers_per_shot, replace=False)
 fibers_table = Table(FibIndex.hdfile.root.FiberIndex.read_coordinates(rand_idx)) #randomize the fiber ordering
 mask_table = Table(FibIndex.fibermaskh5.root.Flags.read_coordinates(rand_idx))
@@ -121,6 +126,12 @@ seeing = float(survey_table['fwhm_virus'][sel])
 response = float(survey_table['response_4540'][sel])
 
 del survey_table
+
+elix_h5  = tables.open_file("/scratch/03946/hetdex/hdr3/detect/elixer.h5")
+dex_ra = elix_h5.root.Detections.read(field='ra')
+dex_dec = elix_h5.root.Detections.read(field='dec')
+elix_h5.close()
+
 
 for f in super_tab: #these fibers are in a random order so just iterating over them is random
                     #though it is possible to get two apertures at the same location (adjacent fibers and random
@@ -202,14 +213,29 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
             continue
 
         # check for any emission lines ... simple scan? or should we user elixer's method?
-        pos, status = elixer_spectrum.sn_peakdet_no_fit(wavelength, fluxd, fluxd_err, dx=3, dv=3, dvmx=4.0,
+        #2022-12-09 should re-run and use this with fluxd*2.0 since that is how it is calibrated
+        pos, status = elixer_spectrum.sn_peakdet_no_fit(wavelength, fluxd*2.0, fluxd_err*2.0, dx=3, dv=3, dvmx=4.0,
                                                         absorber=False,
                                                         spec_obj=None, return_status=True)
         if status != 0:
             continue  # some failure or 1 or more possible lines
 
+
+        #todo: check for HETDEX detections? could check imaging, but would want to limit to anything brigher than 25.0 or 25.5
+        fail = False
+        sel_coord = np.array(abs(dex_ra - ra) < 5.0/3600) & np.array(abs(dex_dec-dec) < 5.0/3600)
+        if np.count_nonzero(sel_coord) > 0:
+            c1 = SkyCoord(ra=ra * u.deg, dec=dec * u.deg)
+            carray = SkyCoord(ra=dex_ra[sel_coord] * u.deg, dec=dex_dec[sel_coord] * u.deg)
+            dist = c1.separation(carray).value * 3600.
+            if np.any(dist <= hetdex_nearest_detection):
+                fail = True
+
         # elif len(pos) > 1:
         #    continue #possible emission lines
+
+        if fail:
+            continue
 
         f50, apcor = SU.get_fluxlimits(ra, dec, [3800.0, 5000.0], shot)
 

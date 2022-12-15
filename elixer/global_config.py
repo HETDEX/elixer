@@ -123,6 +123,7 @@ SDSS_CAT_PATH = None
 
 HETDEX_API_CONFIG = None
 
+the_Survey = None #HETDEX API Survey object ... common to be used in elixer
 
 LOCAL_DEV_HOSTNAMES = ["z50","dg5"]
 

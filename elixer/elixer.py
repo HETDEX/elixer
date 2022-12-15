@@ -4688,7 +4688,7 @@ def main():
                         hd_list.append(hd)
             elif len(hdf5_detectid_list) > 0: #HDF5 (DataRelease style)
                 if explicit_extraction:      #only one detection per hetdex object
-                    survey = None
+                    #survey = None
                     for d in hdf5_detectid_list:
                         plt.close('all')
 
@@ -4778,16 +4778,16 @@ def main():
                             if not args.shotid: #must fill this in, so look for all shots and add a hetdex obj for each
                                 #todo: fill in shots here
                                 #print("Todo: fill in unspecified shotids")
-                                if not survey:
-                                    survey = hda_survey.Survey(survey=f"hdr{G.HDR_Version}")
-                                    if not survey:
+                                if G.the_Survey is None:
+                                    G.the_Survey = hda_survey.Survey(survey=f"hdr{G.HDR_Version}")
+                                    if not G.the_Survey:
                                         log.error(f"Cannot build hetdex_api survey object to determine shotid for {d}")
                                         continue
 
                                 #this is only looking at the pointing, not checking individual fibers, so
                                 #need to give it a big radius to search that covers the focal plane
                                 #if centered (and it should be) no ifu edge is more than 12 acrmin away
-                                shotlist = survey.get_shotlist(SkyCoord(args.ra, args.dec, unit='deg',frame='icrs'),
+                                shotlist = G.the_Survey.get_shotlist(SkyCoord(args.ra, args.dec, unit='deg',frame='icrs'),
                                                                radius=G.FOV_RADIUS_DEGREE*U.deg)
                                 try:
                                     base_name = args.manual_name #need to save it off, since we are going to modify args.manual_name
@@ -4843,8 +4843,9 @@ def main():
                     if hd.status == 0:
                         hd_list.append(hd)
                 else:
-                    survey = hda_survey.Survey(survey=f"hdr{G.HDR_Version}")
-                    if not survey:
+                    if G.the_Survey is None:
+                        G.the_Survey = hda_survey.Survey(survey=f"hdr{G.HDR_Version}")
+                    if not G.the_Survey:
                         log.error(f"Cannot build hetdex_api survey object to determine shotid for {d}")
                         print(f"Cannot build hetdex_api survey object to determine shotid for {d}")
                         exit(-1)
@@ -4852,7 +4853,7 @@ def main():
                     # this is only looking at the pointing, not checking individual fibers, so
                     # need to give it a big radius to search that covers the focal plane
                     # if centered (and it should be) no ifu edge is more than 12 acrmin away
-                    shotlist = survey.get_shotlist(SkyCoord(args.ra, args.dec, unit='deg', frame='icrs'),
+                    shotlist = G.the_Survey.get_shotlist(SkyCoord(args.ra, args.dec, unit='deg', frame='icrs'),
                                                    radius=G.FOV_RADIUS_DEGREE * U.deg)
                     for s in shotlist:
                         args.shotid = s

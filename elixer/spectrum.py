@@ -7413,7 +7413,7 @@ class Spectrum:
                             unmatched_wave_list = np.delete(unmatched_wave_list,i)
                             unmatched_score_list = np.delete(unmatched_score_list,i)
 
-                else: #no central eli
+                elif self.fwhm is not None: #no central eli (might not have a fitted fwhm)
                     for i in range(len(unmatched_wave_list)-1,-1,-1):
                         if abs(self.central- unmatched_wave_list[i]) < (3.0*self.fwhm/2.355):
                             unmatched_wave_list = np.delete(unmatched_wave_list,i)
