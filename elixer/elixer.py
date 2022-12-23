@@ -564,11 +564,8 @@ def parse_commandline(auto_force=False):
         print("Invalid --check_z provided.",e)
         exit(0)
 
-
     if args.voters is not None:
         G.VOTER_ACTIVE = args.voters #do nothing ... use the gloabl config value for G.VOTER_ACTIVE
-
-
 
     if G.LAUNCH_PDF_VIEWER is None:
         args.viewer = False

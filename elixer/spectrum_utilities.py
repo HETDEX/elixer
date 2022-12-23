@@ -3391,6 +3391,7 @@ def spectra_deblend(measured_flux_matrix, overlap_matrix):
 
 def shift_to_rest_luminosity(z,flux_density,wave,eflux=None,apply_air_to_vac=False):
     """
+    !!! this is REALLY a luminosity "density" analogous to flux density, so Lum/AA not Lum/volume !!!
 
     Assume z, wavelengths, and luminosity distances are without error
 
@@ -3399,7 +3400,7 @@ def shift_to_rest_luminosity(z,flux_density,wave,eflux=None,apply_air_to_vac=Fal
     :param wave:
     :param eflux:
     :param apply_air_to_vac: if true, apply the air to vacuum correction on the observed spectrum before redshifting
-    :return:
+    :return: luminosity/AA , rest wavelengths , luminosity_error/AA
     """
 
     if z < -0.001:
@@ -3426,7 +3427,7 @@ def shift_to_rest_luminosity(z,flux_density,wave,eflux=None,apply_air_to_vac=Fal
             #flux density does not have a units, so strip units from ld
             ld = ld.value
 
-        conv = 4.0 * np.pi * ld * ld * (1.0 + z)
+        conv = 4.0 * np.pi * ld * ld * (1.0 + z) # extra (1+z) is to deal with the input being a flux density
         lum = flux_density * conv
         if (eflux is not None) and (len(eflux) == len(wave)):
             lum_err = eflux * conv
@@ -3910,6 +3911,373 @@ def igm_transmission(wavelength, redshift):
     return np.exp(-tau_taun-tau_l_igm-tau_l_lls) * weight
 
 
+###############################################
+# cloned from original LyCon paper / project
+###############################################
+
+
+
+def standardize_data_type(mdata):
+    """
+
+    :param mdata:
+    :return: a quantity if possible, or Quantity array (rather than list or array of quantities)
+    """
+
+    if mdata is None:
+        return None
+
+    data_len = None
+    data_unit = None
+    data_type = type(mdata)
+
+    if data_type == u.quantity.Quantity: #already a quantity (so not a list), could be a Quantity array
+        return mdata
+    #else could be a simple type, or a list or array (multi-dimensional) of quantities, etc
+
+    try:
+        shape = dshape(mdata)
+    except:
+        shape = None
+
+    if (shape is not None) and (len(shape) > 1):
+        data_list = []
+        #take 1st (remaning) dimension and iterate over it
+        for i in range(shape[0]):
+            data_list.append(standardize_data_type(mdata[i]))
+        mdata = np.array(data_list)
+    else:
+
+        try:
+            data_len = len(mdata) #then this is a list or an array of some kind
+            data_unit = mdata[0].unit #this could also fail, if, say a list of floats, since float has no .unit
+        except:
+            if data_len is None: #if this was a non array type
+                try:
+                    data_unit = mdata.unit #again, could fail if non quantity type
+                except:
+                    pass
+
+        if data_unit is None:
+            if data_len is None:
+                return mdata #we're done, nothing to do
+            else:
+                return np.array(mdata) #return as an array
+        else:
+            if data_len is None: #single quantity, so, we're done
+                return mdata
+            else: #list or array of individual quantities
+                if data_type == u.quantity.Quantity: #already a Quantity array
+                    return mdata
+                else:
+                    mdata = np.array([d.value for d in mdata])
+                    mdata *= data_unit
+                    return mdata
+
+    return mdata
+
+
+def dvalue(data):
+    """
+    Strip any units (if present) and return the value
+    :param data:
+    :return:
+    """
+    data = standardize_data_type(data)
+
+    if type(data) == u.quantity.Quantity:
+        return data.value
+    else:
+        return data
+
+
+def bin_fixed_width(flux,wave,wave_widths,num_wavebins,err=None,median_filter=False,gaussian=0,match_idx=0): #assumes a regular input wavegrid
+    """
+    Implicit assumption that the bins are all the same width (i.e. all 2AA or all 0.44 AA, etc)
+
+    Takes FLUXES but returns FLUX DENSITIES
+
+    :param flux: ***flux*** of single 1D spectra
+    :param wave: wavelengths associated with flux
+    :param wave_widths: width of each wavebin in AA
+    :param num_wavebins: width in number of wavebins overwhich to bin :param first_width: the first bin can have a different width (to aid in aligning with another spectrum)
+    :return: binned_flux, binned_waves (center of bin), binned_widths (in wavelengths)
+    """
+
+    #width = how many adjacent wavebins to combine
+
+    if median_filter:
+        if (num_wavebins > 1) and (num_wavebins % 2):
+            binned_flux = medfilt(flux,num_wavebins)*flux[0].unit
+            binned_wave = wave #no change, since this is a median filter
+            binned_widths = np.full(len(flux),num_wavebins)
+            if err:
+                binned_err = medfilt(err,num_wavebins) *err[0].unit
+            else:
+                binned_err = np.zeros(len(flux))*flux[0].unit
+
+            return standardize_data_type(binned_flux), standardize_data_type(binned_wave), standardize_data_type(binned_widths),\
+               standardize_data_type(binned_err)
+
+    gaussian_binned_flux = None
+    if gaussian:
+        if (num_wavebins > 1) and (num_wavebins % 2):
+            gaussian_binned_flux = gaussian_filter1d(flux,gaussian)*flux[0].unit
+            binned_wave = wave #no change, since this is a median filter
+            binned_widths = np.full(len(flux),num_wavebins)
+            if err:
+                binned_err = gaussian_filter1d(err,gaussian) / (gaussian) * err[0].unit # np.sqrt(2.355*gaussian)  *err[0].unit
+            else:
+                binned_err = np.zeros(len(flux))*flux[0].unit
+
+            return standardize_data_type(gaussian_binned_flux), \
+                   standardize_data_type(binned_wave), \
+                   standardize_data_type(binned_widths),\
+                   standardize_data_type(binned_err)
+
+    #print(f"***** bin_fixed_witdh() units: flux {flux.unit}  wave {wave.unit}")
+
+    binned_flux = []
+    binned_wave = []  #in AA
+    binned_widths = [] #in delta_AA
+    binned_err = []
+
+    #certainly a more pythonic way to do this, but I'm tired and there are not that many to loop over
+    #base = (match_idx+1) % num_wavebins
+    base = (match_idx+num_wavebins//2+1) % num_wavebins
+    while (base + num_wavebins) < len(wave):
+        binned_widths.append(wave[base + num_wavebins] - wave[base])  # technically should take all differences and sum, but okay for fixed
+        #print(f"***** binned_widths[-1].units {binned_widths[-1].unit}")
+        binned_flux.append(np.sum(flux[base:base+num_wavebins]) / binned_widths[-1])
+        #print(f"***** binned_flux[-1].units {binned_flux[-1].unit}")
+        if err is not None: #remember errors of sum, sum in quadrature
+            binned_err.append(np.sqrt(np.sum(err[base:base + num_wavebins]**2)) / binned_widths[-1])
+        binned_wave.append(0.5*(wave[base]+wave[base+num_wavebins-1])) #assign the middle wavelength as the wavelength value
+
+
+        base += num_wavebins
+
+    #add the last one (may be short)
+    if base < len(wave):
+        binned_widths.append((len(wave[base:]))*(wave[1]-wave[0])) #can't grab the next wavebin off the end,
+        #so need to add 1 and multiply by the fixed wavegrid passed in
+
+        binned_flux.append(np.sum(flux[base:])/binned_widths[-1])
+        if err is not None:  #remember errors of sum, sum in quadrature
+            binned_err.append(np.sqrt(np.sum(err[base:]**2))/binned_widths[-1])
+        binned_wave.append(0.5 * (wave[base] + wave[-1]))
+
+    #print(f"***** binned_flux unit {binned_flux[0].unit}")
+    if gaussian_binned_flux is not None:
+        unit = binned_flux[0].unit
+        return gaussian_binned_flux*unit, \
+               standardize_data_type(binned_wave), \
+               standardize_data_type(binned_widths),\
+               standardize_data_type(binned_err)
+    else:
+
+        return standardize_data_type(binned_flux), \
+               standardize_data_type(binned_wave), \
+               standardize_data_type(binned_widths),\
+               standardize_data_type(binned_err)
+
+
+def bin_num_bins(flux,wave,num_bins): #assumes a regular input wavegrid
+    """
+
+    :param flux: flux (NOT flux density) of single 1D spectra
+    :param wave: wavelengths associated with flux
+    :param num_bins: how many bins (of equal width)
+    :return: binned_flux, binned_waves (center of bin), binned_widths (in wavelengths)
+    """
+    #send in flux NOT a flux density
+    #width = how many adjacent wavebins to combine
+
+
+    binned_flux = []
+    binned_wave = []
+    binned_widths = []
+
+
+    #certainly a more pythonic way to do this, but I'm tired and there are not that many to loop over
+    binned_flux, wave_edges, bin_idx = scpbin(wave,flux,statistic='sum',bins=num_bins)
+    binned_wave, wave_edges, bin_idx = scpbin(wave,wave,statistic='mean',bins=num_bins)
+
+    #binned_wave = [0.5 * (wave_edges[i] + wave_edges[i+1]) for i in range(len(binned_flux))]
+    binned_widths = [(wave_edges[i+1] - wave_edges[i]) for i in range(len(binned_flux))]
+
+    return np.array(binned_flux), np.array(binned_wave), np.array(binned_widths)
+
+
+#from __future__ import print_function, division, absolute_import
+
+####################################################################################
+# taken frome SpectRes
+# https://github.com/ACCarnall/SpectRes/blob/master/spectres/spectral_resampling.py
+# Adam Carnall
+# BUT this is effectively no different than what I am already doing with interpolation
+#
+###################################################################################
+
+def make_bins(wavs):
+    """ Given a series of wavelength points, find the edges and widths
+    of corresponding wavelength bins. """
+
+    try:
+        edges = np.zeros(wavs.shape[0]+1)
+        widths = np.zeros(wavs.shape[0])
+        edges[0] = wavs[0] - (wavs[1] - wavs[0])/2
+        widths[-1] = (wavs[-1] - wavs[-2])
+        edges[-1] = wavs[-1] + (wavs[-1] - wavs[-2])/2
+        edges[1:-1] = (wavs[1:] + wavs[:-1])/2
+        widths[:-1] = edges[1:-1] - edges[:-2]
+
+        return edges, widths
+    except:
+        log.warning("Exception! Exception in [spectres] spectrum_utilities::make_bins()",exc_info=True)
+        return [],[]
+
+
+def spect_rebin(new_wavs, spec_wavs, spec_fluxes, spec_errs=None, fill=None,
+             verbose=False):
+
+    """
+    Function for resampling spectra (and optionally associated
+    uncertainties) onto a new wavelength basis.
+    Parameters
+    ----------
+    new_wavs : numpy.ndarray
+        Array containing the new wavelength sampling desired for the
+        spectrum or spectra.
+    spec_wavs : numpy.ndarray
+        1D array containing the current wavelength sampling of the
+        spectrum or spectra.
+    spec_fluxes : numpy.ndarray
+        Array containing spectral fluxes at the wavelengths specified in
+        spec_wavs, last dimension must correspond to the shape of
+        spec_wavs. Extra dimensions before this may be used to include
+        multiple spectra.
+    spec_errs : numpy.ndarray (optional)
+        Array of the same shape as spec_fluxes containing uncertainties
+        associated with each spectral flux value.
+    fill : float (optional)
+        Where new_wavs extends outside the wavelength range in spec_wavs
+        this value will be used as a filler in new_fluxes and new_errs.
+    verbose : bool (optional)
+        Setting verbose to False will suppress the default warning about
+        new_wavs extending outside spec_wavs and "fill" being used.
+    Returns
+    -------
+    new_fluxes : numpy.ndarray
+        Array of resampled flux values, first dimension is the same
+        length as new_wavs, other dimensions are the same as
+        spec_fluxes.
+    new_errs : numpy.ndarray
+        Array of uncertainties associated with fluxes in new_fluxes.
+        Only returned if spec_errs was specified.
+    """
+
+    # Rename the input variables for clarity within the function.
+
+    try:
+        old_wavs = spec_wavs
+        old_fluxes = spec_fluxes
+        old_errs = spec_errs
+
+        # Make arrays of edge positions and widths for the old and new bins
+
+        old_edges, old_widths = make_bins(old_wavs)
+        new_edges, new_widths = make_bins(new_wavs)
+
+        # Generate output arrays to be populated
+        new_fluxes = np.zeros(old_fluxes[..., 0].shape + new_wavs.shape)
+
+        if old_errs is not None:
+            if old_errs.shape != old_fluxes.shape:
+                raise ValueError("If specified, spec_errs must be the same shape "
+                                 "as spec_fluxes.")
+            else:
+                new_errs = np.copy(new_fluxes)
+
+        start = 0
+        stop = 0
+        warned = False
+
+        # Calculate new flux and uncertainty values, looping over new bins
+        for j in range(new_wavs.shape[0]):
+
+            # Add filler values if new_wavs extends outside of spec_wavs
+            if (new_edges[j] < old_edges[0]) or (new_edges[j+1] > old_edges[-1]):
+                new_fluxes[..., j] = fill
+
+                if spec_errs is not None:
+                    new_errs[..., j] = fill
+
+                if (j == 0 or j == new_wavs.shape[0]-1) and verbose and not warned:
+                    warned = True
+                    print("\nSpectres: new_wavs contains values outside the range "
+                          "in spec_wavs, new_fluxes and new_errs will be filled "
+                          "with the value set in the 'fill' keyword argument. \n")
+                continue
+
+            # Find first old bin which is partially covered by the new bin
+            while old_edges[start+1] <= new_edges[j]:
+                start += 1
+
+            # Find last old bin which is partially covered by the new bin
+            while old_edges[stop+1] < new_edges[j+1]:
+                stop += 1
+
+            # If new bin is fully inside an old bin start and stop are equal
+            if stop == start:
+                new_fluxes[..., j] = old_fluxes[..., start]
+                if old_errs is not None:
+                    new_errs[..., j] = old_errs[..., start]
+
+            # Otherwise multiply the first and last old bin widths by P_ij
+            else:
+                start_factor = ((old_edges[start+1] - new_edges[j])
+                                / (old_edges[start+1] - old_edges[start]))
+
+                end_factor = ((new_edges[j+1] - old_edges[stop])
+                              / (old_edges[stop+1] - old_edges[stop]))
+
+                old_widths[start] *= start_factor
+                old_widths[stop] *= end_factor
+
+                # Populate new_fluxes spectrum and uncertainty arrays
+                f_widths = old_widths[start:stop+1]*old_fluxes[..., start:stop+1]
+                new_fluxes[..., j] = np.sum(f_widths, axis=-1)
+                new_fluxes[..., j] /= np.sum(old_widths[start:stop+1])
+
+                if old_errs is not None:
+                    e_wid = old_widths[start:stop+1]*old_errs[..., start:stop+1]
+
+                    new_errs[..., j] = np.sqrt(np.sum(e_wid**2, axis=-1))
+                    new_errs[..., j] /= np.sum(old_widths[start:stop+1])
+
+                # Put back the old bin widths to their initial values
+                old_widths[start] /= start_factor
+                old_widths[stop] /= end_factor
+
+        # If errors were supplied return both new_fluxes and new_errs.
+        if old_errs is not None:
+            return new_fluxes, new_errs
+
+        # Otherwise just return the new_fluxes spectrum array
+        else:
+            return new_fluxes
+    except:
+        log.warning("Exception! Exception in [spectres] spectrum_utilities::make_bins()",exc_info=True)
+        if spec_errs is not None:
+            return [],[]
+        else:
+            return []
+
+
+#############################################
+# end spectres
+#############################################
 
 try:
     if G.CALFIB_WAVEGRID_VAC is None:

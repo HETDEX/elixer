@@ -2730,7 +2730,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     if do_mcmc or (G.FORCE_MCMC and accept_fit and (eli is not None) and (eli.snr > G.FORCE_MCMC_MIN_SNR)):
         # print("*****TESTING DOUBLE GAUSS******")
         # print("***** check_for_doublet *****")
-        #eli2 = check_for_doublet(eli,wavelengths,values,errors,central,values_units)
+        # eli2 = check_for_doublet(eli,wavelengths,values,errors,central,values_units)
 
         mcmc = mcmc_gauss.MCMC_Gauss()
 
@@ -3326,8 +3326,8 @@ def check_for_doublet(eli,wavelengths,values,errors,central,values_units,values_
         #say 40.0AA for now for an upper limit ... too far to be called a doublet
         #assuming about 8AA rest for the doublet, shifted to z = 3.5 -> 36AA
 
-        print("*****turn off double_guass_fit.png *****")
-        mcmc.show_fit(filename="double_gauss_fit.png")
+       # print("*****turn off double_guass_fit.png *****")
+      #  mcmc.show_fit(filename="double_gauss_fit.png")
       #  mcmc.visualize(filename="double_gauss_vis.png")
 
         #these are all triples (mean value, + error, -error)
@@ -3351,19 +3351,29 @@ def check_for_doublet(eli,wavelengths,values,errors,central,values_units,values_
                 blue_mu = mcmc.mcmc_mu[0]
                 blue_sigma = mcmc.mcmc_sigma[0]
                 blue_A = mcmc.mcmc_A[0]
+                blue_y = mcmc.mcmc_y[0]
                 red_mu = mcmc.mcmc_mu_2[0]
                 red_sigma = mcmc.mcmc_sigma_2[0]
                 red_A = mcmc.mcmc_A_2[0]
+                red_y = mcmc.mcmc_y[0] #there is only 1 y fit
+                red_fit_peak = np.max(SU.gaussian(mcmc.data_x,red_mu,red_sigma,red_A,red_y))
+                blue_fit_peak = np.max(SU.gaussian(mcmc.data_x,blue_mu,blue_sigma,blue_A,blue_y))
             else:
                 red_mu = mcmc.mcmc_mu[0]
                 red_sigma = mcmc.mcmc_sigma[0]
                 red_A = mcmc.mcmc_A[0]
+                red_y = mcmc.mcmc_y[0]
                 blue_mu = mcmc.mcmc_mu_2[0]
                 blue_sigma = mcmc.mcmc_sigma_2[0]
                 blue_A = mcmc.mcmc_A_2[0]
+                blue_y = mcmc.mcmc_y[0] #there is only 1 y fit
+
+                red_fit_peak = np.max(SU.gaussian(mcmc.data_x,red_mu,red_sigma,red_A,red_y))
+                blue_fit_peak = np.max(SU.gaussian(mcmc.data_x,blue_mu,blue_sigma,blue_A,blue_y))
 
             ratio_A = blue_A/red_A
-            obs_miss = 4.0 #allowd to miss by 4.0 AA observed
+            ratio_peak = blue_fit_peak/red_fit_peak
+            obs_miss = 6.0 #allowd to miss by 4.0 AA observed
 
             #NV (dont'really expect to ever see this one by itself)
             zp1 = central/G.NV_1241
@@ -3390,7 +3400,7 @@ def check_for_doublet(eli,wavelengths,values,errors,central,values_units,values_
             if  (abs(blue_mu/zp1 - p1) < miss) and \
                 (abs(red_mu/zp1 - p2) < miss) and \
                 (abs((red_mu-blue_mu)/zp1 - (p2-p1)) < miss) and\
-                (ratio_A > 1.0):
+                (ratio_peak > 1.0):
                 #MgII blue peak supposedly larger than red
                 list_doublets.append(G.MgII_2799)
                 log.info("Possible fit to MgII as doublet.")
@@ -3404,9 +3414,8 @@ def check_for_doublet(eli,wavelengths,values,errors,central,values_units,values_
 
             if  (abs(blue_mu/zp1 - p1) < miss) and \
                 (abs(red_mu/zp1 - p2) < miss) and \
-                (abs((red_mu-blue_mu)/zp1 - (p2-p1)) < miss) and \
-                (ratio_A > 1.0):
-                #MgII blue peak supposedly larger than red
+                (abs((red_mu-blue_mu)/zp1 - (p2-p1)) < miss): # and \
+                #(ratio_A > 1.0):
                 list_doublets.append(G.CIV_1549)
                 log.info("Possible fit to CIV as doublet.")
 
@@ -3557,7 +3566,7 @@ def fit_for_h_and_k(k_eli,h_eli,wavelengths,values,errors,values_units,values_dx
                 log.info(f"No indication of H&K. Fit failed or basic checks failed. mu {mcmc.mcmc_mu },{mcmc.mcmc_mu_2}")
                 return False,mcmc
         except:
-            log.warning("Exception in spectrum.py check_for_doublet()", exc_info=True)
+            log.warning("Exception in spectrum.py fit_for_h_and_k()", exc_info=True)
             return None,mcmc
     except:
         return None, None
