@@ -3389,9 +3389,9 @@ def spectra_deblend(measured_flux_matrix, overlap_matrix):
 ##################################
 
 
-def shift_to_rest_luminosity(z,flux_density,wave,eflux=None,apply_air_to_vac=False):
+def shift_flam_to_rest_luminosity_per_aa(z,flux_density,wave,eflux=None,apply_air_to_vac=False):
     """
-    !!! this is REALLY a luminosity "density" analogous to flux density, so Lum/AA not Lum/volume !!!
+    !!! ??? this is REALLY a luminosity "density" analogous to flux density, so Lum/AA not Lum/volume ??? !!!
 
     Assume z, wavelengths, and luminosity distances are without error
 
@@ -3400,6 +3400,7 @@ def shift_to_rest_luminosity(z,flux_density,wave,eflux=None,apply_air_to_vac=Fal
     :param wave:
     :param eflux:
     :param apply_air_to_vac: if true, apply the air to vacuum correction on the observed spectrum before redshifting
+    :param per_aa: if true (default)
     :return: luminosity/AA , rest wavelengths , luminosity_error/AA
     """
 
@@ -3428,6 +3429,14 @@ def shift_to_rest_luminosity(z,flux_density,wave,eflux=None,apply_air_to_vac=Fal
             ld = ld.value
 
         conv = 4.0 * np.pi * ld * ld * (1.0 + z) # extra (1+z) is to deal with the input being a flux density
+        #e.g. for a flux density erg/s/cm2/AA need 3 factors of (1+z). for erg,s, and AA.
+        #The ld*ld takes care of the cm2
+        #The ld is co-moving * (1+z) so there are 2 or the 3 factors and we need that one more.
+        #What you get back, then is erg/s/AA or a kind of luminosity density !!!*** (but usually that term
+        #   means luminosity per volume, like Lum/Mpc3).
+        #Passing in erg/s/cm2/AA in 2AA bins for z = 3 gives back erg/s/AA restframe in 0.5AA bins
+        #So the Luminosity in a bin then is that Lum/AA * 0.5AA
+        #BUT when fitting a Gaussin, we are integrating over the Lum/AA s|t it is essentially Lum/AA * width (in AA) = integrated Lum
         lum = flux_density * conv
         if (eflux is not None) and (len(eflux) == len(wave)):
             lum_err = eflux * conv
@@ -3441,6 +3450,57 @@ def shift_to_rest_luminosity(z,flux_density,wave,eflux=None,apply_air_to_vac=Fal
 
     return None, None, None
 
+
+def shift_flux_to_rest_luminosity(z,flux,wave,eflux=None,apply_air_to_vac=False):
+    """
+    Assume z, wavelengths, and luminosity distances are without error
+
+    :param z:
+    :param flux: FLUX in the bin NOT flux density
+    :param wave:
+    :param eflux:
+    :param apply_air_to_vac: if true, apply the air to vacuum correction on the observed spectrum before redshifting
+    :param per_aa: if true (default)
+    :return: luminosity/AA , rest wavelengths , luminosity_error/AA
+    """
+
+    if z < -0.001:
+        log.error(f"What? invalid z: {z}")
+        return None, None, None
+    elif z < 0: #close enough to zero that we will call it zero
+        z = 0
+
+    if ( (flux is None) or (wave is None)) or (len(flux) != len(wave)) or (len(flux) == 0):
+        log.error("Invalid flux and wavelengths")
+        return None, None, None
+
+    try:
+
+        if apply_air_to_vac:
+            wave = air_to_vac(wave)
+
+        wave = wave / (1.0 + z)
+        ld = luminosity_distance(z).to(U.cm) #this is in Mpc
+
+        try:
+            _ = flux.value
+        except:
+            #flux does not have a units, so strip units from ld
+            ld = ld.value
+
+        conv = 4.0 * np.pi * ld * ld #* (1.0 + z) # NO extra (1+z) here since this is a FLUX not a flux density
+        lum = flux * conv
+        if (eflux is not None) and (len(eflux) == len(wave)):
+            lum_err = eflux * conv
+        else:
+            lum_err =None
+
+        return lum, wave , lum_err
+
+    except Exception as e:
+        print(e)
+
+    return None, None, None
 
 
 def rest_line_luminosity(z,line_flux,line_flux_err=None):
@@ -3991,7 +4051,7 @@ def dvalue(data):
         return data
 
 
-def bin_fixed_width(flux,wave,wave_widths,num_wavebins,err=None,median_filter=False,gaussian=0,match_idx=0): #assumes a regular input wavegrid
+def bin_fixed_width(flux,wave,num_wavebins,err=None,median_filter=False,gaussian=0,match_idx=0): #assumes a regular input wavegrid
     """
     Implicit assumption that the bins are all the same width (i.e. all 2AA or all 0.44 AA, etc)
 
@@ -3999,8 +4059,8 @@ def bin_fixed_width(flux,wave,wave_widths,num_wavebins,err=None,median_filter=Fa
 
     :param flux: ***flux*** of single 1D spectra
     :param wave: wavelengths associated with flux
-    :param wave_widths: width of each wavebin in AA
-    :param num_wavebins: width in number of wavebins overwhich to bin :param first_width: the first bin can have a different width (to aid in aligning with another spectrum)
+    :param num_wavebins: width in number (integer only!!!) of wavebins overwhich to bin
+
     :return: binned_flux, binned_waves (center of bin), binned_widths (in wavelengths)
     """
 

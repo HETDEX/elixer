@@ -1,12 +1,15 @@
 changes to elixer by version
 
-1.18.1 [2022-12-02]
+1.18.1 [2022-12-26]
 * add command line option to toggle P(LyA) votes on/off
 * add optional apply_air_to_vac on spectrum_utilities shift_to_restframe_xxx()
 * update spectrum_utilites shift_to_restfframe() and shift_to_restframe_flam() to use (1+z)**3 as more correct than
   (1+z)** 1 or 2
 * define global_config CALFIB_WAVEGRID_VAC to be the vacuum shifted version of CALFIB_WAVEGRID and is populated once
   spectrum_utilities is imported
+* split shift_to_rest_luminosity() into two funcs (1) shift_flam_to_rest_luminosity_per_aa() and (2) shift_flux_to rest_luminosity()
+  to handle the differences between flux density to lum/AA and flux to lum.
+
 
 1.18.0 [2022-09-27]
 * drop alpha designation for jupyter-hub image update
