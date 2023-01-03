@@ -43,7 +43,7 @@ log.setlevel(G.LOG_LEVEL)
 
 
 def check_version():
-    print("1")
+    print("3")
 
 def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
     """
@@ -267,8 +267,11 @@ class MCMC_Double_Gauss:
         # assume that the (distribution of) errors in y are known and indepentent
         sigma2 = (self.err_y ** 2)
 
+        inv_sigma2 = 1.0 / (self.err_y ** 2 + model ** 2 * np.exp(2 * ln_f))
+
         #this is wrong ????
-        return -0.5 * (np.sum((diff ** 2) / sigma2 + np.log(sigma2)))
+        #return -0.5 * (np.sum((diff ** 2) / sigma2 - np.log(sigma2)))
+        return -0.5 * (np.sum((diff ** 2) * inv_sigma2 - np.log(inv_sigma2)))
 
     # if any are zero, the whole prior is zero
     # all priors here are uniformitive ... i.e they are all flat ... either zero or one
@@ -281,34 +284,14 @@ class MCMC_Double_Gauss:
 
     def lnprior(self, theta):  # theta is a n-tuple (_,_,_ ... )
         mu, sigma, A, mu2, sigma2, A2, ln_f = theta
-        # note: could take some other dynamic maximum for y (like compute the peak ... y can't be greater than that
-        #let  A_2 be able to be zero so this becomes a single gaussian
         if ( abs(mu - self.initial_mu) < self.range_mu) and \
                 (0.0 < sigma <= self.max_sigma) and \
                 (0.0 > A >= self.max_A_mult * self.initial_A) and \
             (abs(mu2 - self.initial_mu_2) < self.range_mu) and \
                 (0.0 < sigma2 <= self.max_sigma) and \
-                (0.0 < A2 <= self.max_A_mult * self.initial_A_2) and \
-                (A2 > abs(A)):
+                (abs(A) < A2 <= self.max_A_mult * self.initial_A_2):
             return 0.0  # remember this is ln(prior) so a return of 0.0 == 1  (since ln(1) == 0.0)
 
-        # if self.initial_A < 0 : #same as emission, but "A" is negative (flip sign) and y is between a max and zero
-        #
-        #     if ( abs(mu - self.initial_mu) < self.range_mu) and \
-        #             (0.1 < sigma < self.max_sigma) and \
-        #             (self.max_A_mult * self.initial_A <= A < 0.0) and \
-        #             (abs(mu2 - self.initial_mu_2) < self.range_mu) and \
-        #             (0.1 <= sigma2 < self.max_sigma) and \
-        #             (self.max_A_mult * self.initial_A_2 <= A2 < 0.0):
-        #         return 0.0  # remember this is ln(prior) so a return of 0.0 == 1  (since ln(1) == 0.0)
-        # else:
-        #     if ( abs(mu - self.initial_mu) < self.range_mu) and \
-        #             (0.1 < sigma < self.max_sigma) and \
-        #             (0.0 < A < self.max_A_mult * self.initial_A) and \
-        #             (abs(mu2 - self.initial_mu_2) < self.range_mu) and \
-        #             (0.1 <= sigma2 < self.max_sigma) and \
-        #             (0.0 <= A2 < self.max_A_mult * self.initial_A_2):
-        #         return 0.0  # remember this is ln(prior) so a return of 0.0 == 1  (since ln(1) == 0.0)
         return -np.inf  # -999999999 #-np.inf #roughly ln(0) == -inf
 
 
