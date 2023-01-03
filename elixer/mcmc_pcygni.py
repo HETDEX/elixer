@@ -43,7 +43,7 @@ log.setlevel(G.LOG_LEVEL)
 
 
 def check_version():
-    print("4")
+    print("5")
 
 def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
     """
@@ -269,6 +269,8 @@ class MCMC_Double_Gauss:
         sigma2 = (self.err_y ** 2)
 
         inv_sigma2 = 1.0 / (self.err_y ** 2 + model ** 2 * np.exp(2 * ln_f))
+        if inv_sigma2 < 0:
+            return -np.inf
 
         #this is wrong ????
         #return -0.5 * (np.sum((diff ** 2) / sigma2 - np.log(sigma2)))
