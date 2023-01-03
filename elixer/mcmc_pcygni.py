@@ -169,7 +169,7 @@ class MCMC_Double_Gauss:
         self.mcmc_mu = None  #3-tuples [0] = fit, [1] = fit +16%,  [2] = fit - 16%
         self.mcmc_sigma = None
         self.mcmc_A = None
-        self.mcmc_y = None
+        #self.mcmc_y = None
         self.mcmc_snr = None #snr as flux_area/1-sigma uncertainty
         self.mcmc_chi2 = 0
 
@@ -459,7 +459,7 @@ class MCMC_Double_Gauss:
                 #note: if choose to sum over model fit, remember that this is usually over 2AA wide bins, so to
                 #compare to the error data, need to multiply the model_sum by the bin width (2AA)
                 #(or noting that the Area == integrated flux x binwidth)
-                model_fit = self.compute_model(self.data_x[left:right],self.mcmc_mu[0],self.mcmc_sigma[0],self.mcmc_A[0],self.mcmc_y[0],
+                model_fit = self.compute_model(self.data_x[left:right],self.mcmc_mu[0],self.mcmc_sigma[0],self.mcmc_A[0],
                                                self.mcmc_mu_2[0],self.mcmc_sigma_2[0],self.mcmc_A_2[0])
                 #apcor = np.ones(len(model_fit))
                 #subtract off the y continuum since we want flux in the model
@@ -469,7 +469,8 @@ class MCMC_Double_Gauss:
                 #self.mcmc_snr = (np.sum(rms_model)-len(rms_model)*self.mcmc_y[0])/(np.sqrt(len(self.data_x))*err)
 
 
-                self.mcmc_snr = abs(np.sum(model_fit-self.mcmc_y[0])) / np.sqrt(np.nansum(data_err**2))
+                #self.mcmc_snr = abs(np.sum(model_fit-self.mcmc_y[0])) / np.sqrt(np.nansum(data_err**2))
+                self.mcmc_snr = abs(np.sum(model_fit - 0)) / np.sqrt(np.nansum(data_err ** 2)) #there is no mcmc_y
                 self.mcmc_snr_err = abs(  ((0.5*(self.mcmc_A[1]+self.mcmc_A[2])/self.mcmc_A[0]) +
                                            (0.5*(self.mcmc_A_2[1]+self.mcmc_A_2[2])/self.mcmc_A_2[0])) *
                                            self.mcmc_snr)
@@ -563,13 +564,13 @@ class MCMC_Double_Gauss:
            plt.errorbar(self.data_x,self.data_y,yerr=self.err_y,xerr=self.err_x,fmt=".")
            x = np.linspace(self.data_x[0],self.data_x[-1],100)
            y = dbl_gaussian(x,self.mcmc_mu[0],self.mcmc_sigma[0],self.mcmc_A[0],
-                            self.mcmc_mu_2[0],self.mcmc_sigma_2[0],self.mcmc_A_2[0],self.mcmc_y[0])
+                            self.mcmc_mu_2[0],self.mcmc_sigma_2[0],self.mcmc_A_2[0],0)
            plt.plot(x,y,color='g')
 
-           y = gaussian(x,self.mcmc_mu[0],self.mcmc_sigma[0],self.mcmc_A[0],self.mcmc_y[0])
+           y = gaussian(x,self.mcmc_mu[0],self.mcmc_sigma[0],self.mcmc_A[0],0)
            plt.plot(x,y,color='b')
 
-           y = gaussian(x,self.mcmc_mu_2[0],self.mcmc_sigma_2[0],self.mcmc_A_2[0],self.mcmc_y[0])
+           y = gaussian(x,self.mcmc_mu_2[0],self.mcmc_sigma_2[0],self.mcmc_A_2[0],0)
            plt.plot(x,y,color='r')
 
            if filename:
