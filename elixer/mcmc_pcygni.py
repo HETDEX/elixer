@@ -134,6 +134,7 @@ class MCMC_Double_Gauss:
         self.initial_mu = None
         self.initial_sigma = None
         self.initial_A = None
+        self.max_A = 0.0
         #self.initial_y = None
         #self.initial_peak = None
 
@@ -141,6 +142,7 @@ class MCMC_Double_Gauss:
         self.initial_mu_2 = None
         self.initial_sigma_2 = None
         self.initial_A_2 = None
+        self.min_A_2 = 0.0
         #NOTICE: we are keeping the y value the same
         #self.initial_peak_2 = None
 
@@ -285,10 +287,10 @@ class MCMC_Double_Gauss:
         mu, sigma, A, mu2, sigma2, A2, ln_f = theta
         if ( abs(mu - self.initial_mu) < self.range_mu) and \
                 (0.0 < sigma <= self.max_sigma) and \
-                (0.0 > A >= self.max_A_mult * self.initial_A) and \
+                (self.max_A > A >= self.max_A_mult * self.initial_A) and \
             (abs(mu2 - self.initial_mu_2) < self.range_mu) and \
                 (0.0 < sigma2 <= self.max_sigma) and \
-                (abs(A) < A2 <= self.max_A_mult * self.initial_A_2):
+                (self.min_A_2 < A2 <= self.max_A_mult * self.initial_A_2):
             return 0.0  # remember this is ln(prior) so a return of 0.0 == 1  (since ln(1) == 0.0)
 
         return -np.inf  # -999999999 #-np.inf #roughly ln(0) == -inf
