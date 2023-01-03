@@ -43,7 +43,7 @@ log.setlevel(G.LOG_LEVEL)
 
 
 def check_version():
-    print("3")
+    print("4")
 
 def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
     """
@@ -218,7 +218,6 @@ class MCMC_Double_Gauss:
         #some distribution
         #or can this also be solved (fitted)?
         return 0.0
-
 
     def compute_model(self,x,mu,sigma,A,mu2,sigma2,A2):
         try:
@@ -502,8 +501,11 @@ class MCMC_Double_Gauss:
 
             log.info("MCMC f: initial[%0.5g] mcmc(%0.5g, +%0.5g, -%0.5g)" %
                      (0.0, mcmc_f[0], mcmc_f[1], mcmc_f[2]))
-        except:
-            log.error("Exception in mcmc_gauss::run_mcmc",exc_info=True)
+        except Exception as e:
+            if G.LOG_TO_STDOUT:
+                log.error(e)
+            else:
+                log.error("Exception in mcmc_gauss::run_mcmc",exc_info=True)
             result = False
 
         return result
