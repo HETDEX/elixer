@@ -42,6 +42,9 @@ log = G.Global_Logger('mcmc_logger')
 log.setlevel(G.LOG_LEVEL)
 
 
+def check_version():
+    print("1")
+
 def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
     """
 
