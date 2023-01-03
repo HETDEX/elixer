@@ -219,8 +219,8 @@ class MCMC_Double_Gauss:
 
     def compute_model(self,x,mu,sigma,A,mu2,sigma2,A2):
         try:
-            return A * (np.exp(-np.power((x - mu) / sigma, 2.) / 2.) / np.sqrt(2 * np.pi * sigma ** 2)) + \
-                A2 * (np.exp(-np.power((x - mu2) / sigma2, 2.) / 2.) / np.sqrt(2 * np.pi * sigma2 ** 2))
+            return A * (np.exp(-np.power((x - mu)  / sigma, 2.) /  2.) / np.sqrt(2 * np.pi * sigma ** 2)) + \
+                  A2 * (np.exp(-np.power((x - mu2) / sigma2, 2.) / 2.) / np.sqrt(2 * np.pi * sigma2 ** 2))
         except:
             return np.nan
 
@@ -285,7 +285,8 @@ class MCMC_Double_Gauss:
                 (0.0 > A >= self.max_A_mult * self.initial_A) and \
             (abs(mu2 - self.initial_mu_2) < self.range_mu) and \
                 (0.0 < sigma2 <= self.max_sigma) and \
-                (0.0 < A2 <= self.max_A_mult * self.initial_A_2):
+                (0.0 < A2 <= self.max_A_mult * self.initial_A_2) and \
+                (A2 > abs(A)):
             return 0.0  # remember this is ln(prior) so a return of 0.0 == 1  (since ln(1) == 0.0)
 
         # if self.initial_A < 0 : #same as emission, but "A" is negative (flip sign) and y is between a max and zero
