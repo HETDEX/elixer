@@ -1,4 +1,9 @@
 """
+
+
+!!!!! CURRENTLY ASSUMES y offset has been factored out ... that is continuum subtracted s|t the y (continuum) value is 0
+
+
 cloned from mcmc_double_gauss
 uses a double Gaussian with a negative area followed by a positive area to fit a P-Cygni line profile
 
@@ -34,6 +39,7 @@ import copy
 import warnings
 
 log = G.Global_Logger('mcmc_logger')
+G.GLOBAL_LOGGING = True
 log.setlevel(G.LOG_LEVEL)
 
 
@@ -139,7 +145,7 @@ class MCMC_Double_Gauss:
         self.max_sigma = 30.0
         self.range_mu = None
         self.max_A_mult = 2.0
-        self.max_y_mult = 2.0
+        #self.max_y_mult = 2.0
         #self.min_y = #-10.0 #-100.0 #should this be zero? or some above zero but low limit
         #self.delta_y = 0#for the double Gaussian, we assume the y-value is pretty good, so don't let it vary much
 
@@ -276,9 +282,6 @@ class MCMC_Double_Gauss:
                 (0.0 <= A2 < self.max_A_mult * self.initial_A_2):
             return 0.0  # remember this is ln(prior) so a return of 0.0 == 1  (since ln(1) == 0.0)
 
-
-
-
         if self.initial_A < 0 : #same as emission, but "A" is negative (flip sign) and y is between a max and zero
 
             if ( abs(mu - self.initial_mu) < self.range_mu) and \
@@ -298,10 +301,6 @@ class MCMC_Double_Gauss:
                 return 0.0  # remember this is ln(prior) so a return of 0.0 == 1  (since ln(1) == 0.0)
         return -np.inf  # -999999999 #-np.inf #roughly ln(0) == -inf
 
-
-
-
-        return -np.inf  # -999999999 #-np.inf #roughly ln(0) == -inf
 
     def lnprob(self, theta, x, y, yerr):
         """
@@ -375,17 +374,17 @@ class MCMC_Double_Gauss:
 
         #mostly for the A (area)
         if self.initial_A < 0: #absorber
-            max_pos = [np.inf, np.inf,     0.0, max(self.data_y),  np.inf, np.inf,     0.0,   np.inf]
-            min_pos = [   0.0,   0.01, -np.inf,          -np.inf,     0.0,   0.01, -np.inf,  -np.inf]
+            max_pos = [np.inf, np.inf,     0.0,  np.inf, np.inf,     0.0,   np.inf]
+            min_pos = [   0.0,   0.01, -np.inf,  0.0,   0.01, -np.inf,  -np.inf]
         else:
             #here, because of the max check, none mu, sigma, or A will be negative
-            max_pos = [np.inf, np.inf,np.inf,max(self.data_y), np.inf, np.inf, np.inf,   np.inf] #must be less than this
-            min_pos = [   0.0,  0.01,   0.01,         -np.inf,    0.0,   0.01,   0.01,  -np.inf] #must be greater than this
+            max_pos = [np.inf, np.inf,np.inf, np.inf, np.inf, np.inf,   np.inf] #must be less than this
+            min_pos = [   0.0,  0.01,   0.01,         -np.inf,    0.01,   0.01,  -np.inf] #must be greater than this
 
 
         #reminder, there is no y2 so that position is absent from the second line
         ndim = len(initial_pos)
-        scale = np.array([1.,1.,1.,0.2,   1.,1.,1.,  -100.5]) #don't nudge ln_f ...note ln_f = -4.5 --> f ~ 0.01
+        scale = np.array([1.,1.,1.,1.,1.,1.,  -100.5]) #don't nudge ln_f ...note ln_f = -4.5 --> f ~ 0.01
         #nudge the initial positions around a bit
 
         try:
@@ -411,7 +410,7 @@ class MCMC_Double_Gauss:
             log.debug("MCMC mean acceptance fraction: %0.3f" %(np.mean(self.sampler.acceptance_fraction)))
 
             ##HERE
-            self.mcmc_mu, self.mcmc_sigma, self.mcmc_A, self.mcmc_y, self.mcmc_mu_2, self.mcmc_sigma_2, self.mcmc_A_2, mcmc_f = \
+            self.mcmc_mu, self.mcmc_sigma, self.mcmc_A, self.mcmc_mu_2, self.mcmc_sigma_2, self.mcmc_A_2, mcmc_f = \
                 map(lambda v: (v[1], v[2] - v[1], v[1] - v[0]),zip(*np.percentile(self.samples, self.UncertaintyRange,axis=0)))
 
             try:
