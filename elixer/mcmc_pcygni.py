@@ -43,7 +43,7 @@ log.setlevel(G.LOG_LEVEL)
 
 
 def check_version():
-    print("5")
+    print("6")
 
 def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
     """
@@ -269,12 +269,15 @@ class MCMC_Double_Gauss:
         sigma2 = (self.err_y ** 2)
 
         inv_sigma2 = 1.0 / (self.err_y ** 2 + model ** 2 * np.exp(2 * ln_f))
-        if inv_sigma2 < 0:
-            return -np.inf
 
         #this is wrong ????
         #return -0.5 * (np.sum((diff ** 2) / sigma2 - np.log(sigma2)))
-        return -0.5 * (np.sum((diff ** 2) * inv_sigma2 - np.log(inv_sigma2)))
+        try:
+            lk =  -0.5 * (np.sum((diff ** 2) * inv_sigma2 - np.log(inv_sigma2)))
+        except:
+            lk = -np.inf
+
+        return lk
 
     # if any are zero, the whole prior is zero
     # all priors here are uniformitive ... i.e they are all flat ... either zero or one
@@ -316,6 +319,7 @@ class MCMC_Double_Gauss:
 
     def sanity_check_init(self):
         try:
+
             #if the error on y is None or if it is all zeros, set to all ones
             if self.err_y is None:
                 self.err_y = np.ones(np.shape(self.data_y))
