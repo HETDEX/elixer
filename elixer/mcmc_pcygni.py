@@ -39,7 +39,6 @@ import copy
 import warnings
 
 log = G.Global_Logger('mcmc_logger')
-G.GLOBAL_LOGGING = True
 log.setlevel(G.LOG_LEVEL)
 
 
@@ -270,35 +269,42 @@ class MCMC_Double_Gauss:
 
     # if any are zero, the whole prior is zero
     # all priors here are uniformitive ... i.e they are all flat ... either zero or one
+
+
+
+    #
+    # since this is a pcygni explicitly, A must be negative and non-zero
+    # A2 must be positive and non-zero
+
     def lnprior(self, theta):  # theta is a n-tuple (_,_,_ ... )
         mu, sigma, A, mu2, sigma2, A2, ln_f = theta
         # note: could take some other dynamic maximum for y (like compute the peak ... y can't be greater than that
         #let  A_2 be able to be zero so this becomes a single gaussian
         if ( abs(mu - self.initial_mu) < self.range_mu) and \
-                (0.1 < sigma < self.max_sigma) and \
-                (0.0 < A < self.max_A_mult * self.initial_A) and \
+                (0.0 < sigma <= self.max_sigma) and \
+                (0.0 > A >= self.max_A_mult * self.initial_A) and \
             (abs(mu2 - self.initial_mu_2) < self.range_mu) and \
-                (0.1 <= sigma2 < self.max_sigma) and \
-                (0.0 <= A2 < self.max_A_mult * self.initial_A_2):
+                (0.0 < sigma2 <= self.max_sigma) and \
+                (0.0 < A2 <= self.max_A_mult * self.initial_A_2):
             return 0.0  # remember this is ln(prior) so a return of 0.0 == 1  (since ln(1) == 0.0)
 
-        if self.initial_A < 0 : #same as emission, but "A" is negative (flip sign) and y is between a max and zero
-
-            if ( abs(mu - self.initial_mu) < self.range_mu) and \
-                    (0.1 < sigma < self.max_sigma) and \
-                    (self.max_A_mult * self.initial_A <= A < 0.0) and \
-                    (abs(mu2 - self.initial_mu_2) < self.range_mu) and \
-                    (0.1 <= sigma2 < self.max_sigma) and \
-                    (self.max_A_mult * self.initial_A_2 <= A2 < 0.0):
-                return 0.0  # remember this is ln(prior) so a return of 0.0 == 1  (since ln(1) == 0.0)
-        else:
-            if ( abs(mu - self.initial_mu) < self.range_mu) and \
-                    (0.1 < sigma < self.max_sigma) and \
-                    (0.0 < A < self.max_A_mult * self.initial_A) and \
-                    (abs(mu2 - self.initial_mu_2) < self.range_mu) and \
-                    (0.1 <= sigma2 < self.max_sigma) and \
-                    (0.0 <= A2 < self.max_A_mult * self.initial_A_2):
-                return 0.0  # remember this is ln(prior) so a return of 0.0 == 1  (since ln(1) == 0.0)
+        # if self.initial_A < 0 : #same as emission, but "A" is negative (flip sign) and y is between a max and zero
+        #
+        #     if ( abs(mu - self.initial_mu) < self.range_mu) and \
+        #             (0.1 < sigma < self.max_sigma) and \
+        #             (self.max_A_mult * self.initial_A <= A < 0.0) and \
+        #             (abs(mu2 - self.initial_mu_2) < self.range_mu) and \
+        #             (0.1 <= sigma2 < self.max_sigma) and \
+        #             (self.max_A_mult * self.initial_A_2 <= A2 < 0.0):
+        #         return 0.0  # remember this is ln(prior) so a return of 0.0 == 1  (since ln(1) == 0.0)
+        # else:
+        #     if ( abs(mu - self.initial_mu) < self.range_mu) and \
+        #             (0.1 < sigma < self.max_sigma) and \
+        #             (0.0 < A < self.max_A_mult * self.initial_A) and \
+        #             (abs(mu2 - self.initial_mu_2) < self.range_mu) and \
+        #             (0.1 <= sigma2 < self.max_sigma) and \
+        #             (0.0 <= A2 < self.max_A_mult * self.initial_A_2):
+        #         return 0.0  # remember this is ln(prior) so a return of 0.0 == 1  (since ln(1) == 0.0)
         return -np.inf  # -999999999 #-np.inf #roughly ln(0) == -inf
 
 
@@ -325,9 +331,13 @@ class MCMC_Double_Gauss:
                 self.err_y = np.ones(np.shape(self.data_y))
             elif not np.any(self.err_y):
                 self.err_y = np.ones(np.shape(self.data_y))
+            else:
+                self.err_y = np.array(self.err_y)
 
             if self.err_x is None:
                 self.err_x = np.ones(np.shape(self.data_x))
+            else:
+                self.err_x = np.array(self.err_x)
 
             if (self.data_x is None) or (self.data_y is None) or (self.err_y is None):
                 return False
