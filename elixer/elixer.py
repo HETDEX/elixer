@@ -4748,10 +4748,14 @@ def main():
                                 args.ra = float(d[0])
                                 args.dec = float(d[1])
                                 args.shotid = xlat_shotid(d[2])
-                                if (args.shotid is not None) and (3400. < args.shotid < 5700.):  # assume this is really a wavelength and shotid is flipped with wavelength
+                                if args.shotid is None:
+                                    #could be a zero
+                                    args.wavelength = None
+                                    args.shotid = xlat_shotid(d[3])
+                                elif (3400. < args.shotid < 5700.):  # assume this is really a wavelength and shotid is flipped with wavelength
                                     args.wavelength = args.shotid
                                     args.shotid = xlat_shotid(d[3])
-                                else:
+                                else: #shotid has a value, assume the next is the wavelength
                                     args.wavelength = float(d[3])
                                 if args.wavelength == 0:
                                     args.wavelength = None
@@ -4759,10 +4763,14 @@ def main():
                                 args.ra = float(d[0])
                                 args.dec = float(d[1])
                                 args.shotid = xlat_shotid(d[2])
-                                if (args.shotid is not None) and (3400. < args.shotid < 5700.):  # assume this is really a wavelength and shotid is flipped with wavelength
+                                if args.shotid is None:
+                                    #could be a zero
+                                    args.wavelength = None
+                                    args.shotid = xlat_shotid(d[3])
+                                elif (3400. < args.shotid < 5700.):  # assume this is really a wavelength and shotid is flipped with wavelength
                                     args.wavelength = args.shotid
                                     args.shotid = xlat_shotid(d[3])
-                                else:
+                                else: #shotid has a value assume the next is the wavelength
                                     args.wavelength = float(d[3])
                                 if args.wavelength == 0:
                                     args.wavelength = None

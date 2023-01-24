@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.18.2a1 [2023-01-24]
+* fix --coords shotid vs wavelegnth logic issue
+
 1.18.1 [2022-12-26]
 * add command line option to toggle P(LyA) votes on/off
 * add optional apply_air_to_vac on spectrum_utilities shift_to_restframe_xxx()
