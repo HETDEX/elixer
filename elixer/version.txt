@@ -1,5 +1,11 @@
 changes to elixer by version
 
+
+1.18.2a2 [2023-01-24]
+* fix bug in spectrum::solution_consistent_with_low_z(); was using wrong index and could mark lines as missing when they
+  are found
+
+
 1.18.2a1 [2023-01-24]
 * fix --coords shotid vs wavelegnth logic issue
 

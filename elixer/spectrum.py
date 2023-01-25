@@ -5713,8 +5713,9 @@ class Spectrum:
                 if np.sum(match_matrix[rest_idx[i]]) > 1:
                     #at least one other line must be found (IF the obs_wave is in the HETDEX range)
                     sel = np.intersect1d(in_range,np.where(match_matrix[rest_idx[i]])[0])
-                    missing = np.union1d(missing,np.setdiff1d(sel,rest_idx)).astype(int)
-                    missing_weight += np.sum(match_matrix[rest_idx[i]][sel]) -1 #the -1 is so we don't count the line we assume we are
+                    missing_idx = np.setdiff1d(sel,rest_idx) #for THIS row
+                    missing = np.union1d(missing,missing_idx).astype(int)
+                    missing_weight += np.sum(match_matrix[rest_idx[i]][missing_idx]) # -1 #the -1 is so we don't count the line we assume we are
 
             score = -1 * max(missing_weight,len(missing))
 

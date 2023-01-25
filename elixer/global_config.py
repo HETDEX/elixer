@@ -22,7 +22,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.18.2a1'
+__version__ = '1.18.2a2'
 #Logging
 GLOBAL_LOGGING = False #set to True in top elixer calls so we do not normally log from package imports
 LOG_TO_STDOUT = False #only kicks in if GLOBAL_LOGGING is False
