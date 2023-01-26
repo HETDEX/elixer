@@ -5684,6 +5684,7 @@ class Spectrum:
             sel = np.where(np.array([l.absorber for l in solution.lines]) == False)[0]
             sol_lines = np.array(solution.lines)[sel]
             line_waves = [solution.central_rest] + [l.w_rest for l in sol_lines]
+            line_snr = [self.central_eli.snr] + [l.snr for l in sol_lines]
             #line_ew = [self.eqw_obs / (1 + solution.z)] + [l.eqw_rest for l in sol_lines]
             #line_flux is maybe more reliable ... the continuum estimates for line_ew can go wrong and give horrible results
             line_flux = [self.estflux] + [l.flux for l in sol_lines]
@@ -5715,9 +5716,31 @@ class Spectrum:
                     sel = np.intersect1d(in_range,np.where(match_matrix[rest_idx[i]])[0])
                     missing_idx = np.setdiff1d(sel,rest_idx) #for THIS row
                     missing = np.union1d(missing,missing_idx).astype(int)
+                    #current
                     missing_weight += np.sum(match_matrix[rest_idx[i]][missing_idx]) # -1 #the -1 is so we don't count the line we assume we are
+                    #OLD way
+                    #missing_weight += np.sum(match_matrix[rest_idx[i]][sel])  -1 #the -1 is so we don't count the line we assume we are
 
             score = -1 * max(missing_weight,len(missing))
+
+            #add special case: if OIII-5007 and BRIGHT then MUST find OIII-4959
+            try:
+                idx_5007 = np.where(np.array(rest_idx)==8)[0][0]
+                if line_flux[line_idx[idx_5007]] > 1.e-16 and line_snr[line_idx[idx_5007]] > 8.0:
+                    try:
+                        idx_4959 = np.where(np.array(rest_idx)==7)[0][0]
+                        #we did find it
+                        if 5.0 < line_flux[line_idx[idx_5007]]/line_flux[line_idx[idx_4959]] < 1.5: #out of bounds even with reasonable error
+                            log.info(f"OIII-5007 is bright but ratio to OIII-4959 is out of bounds "
+                                     f"{line_flux[line_idx[idx_5007]]/line_flux[line_idx[idx_4959]]:0.4g}. Penalizing score.")
+                            score -= 2.0
+                    except:
+                        #did not find 4959 and MUST find it in this case
+                        log.info("OIII-5007 is bright but OIII-4959 not found. Penalizing score.")
+                        score -= 2.0
+            except:
+                pass
+
 
             if score < 0:
                 log.info(f"LzG consistency failure. Initial Score = {score}. "
