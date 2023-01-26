@@ -4771,12 +4771,12 @@ class DetObj:
         # DO NOT consider EW ... there are some extreme EW OII and thiss might catch them also
         ###################################
         try:
-            if True: #if G.VOTER_ACTIVE & G.VOTE_FLAM_SLOPE:
+            if G.VOTER_ACTIVE & G.VOTE_FLAM_SLOPE:
 
                 g = SU.cgs2mag(self.classification_dict['continuum_hat'], SU.filter_iso_dict['g'])
                 ew = self.classification_dict['combined_eqw_rest_lya']
 
-                if (g < 23.5) and (self.w > 3950) and ((self.fwhm/self.w * 3e5) < 1200.0) \
+                if (g < 23.5) and (3950 < self.w < 5400 ) and ((self.fwhm/self.w * 3e5) < 1200.0) \
                         and  (self.spec_obj.spectrum_slope < -4.0e-22):
                     likelihood.append(0.0)
                     weight.append(0.5)
@@ -4791,6 +4791,9 @@ class DetObj:
                     log.info(
                         f"{self.entry_id} Aggregate Classification: Flam slope no vote. Did not meet minimum requirements."
                         f"g: {g}, w: {self.w}, fwhm: {self.fwhm/self.w * 3e5}, slope: {self.spec_obj.spectrum_slope}")
+            else:
+                log.info(
+                    f"{self.entry_id} Aggregate Classification: Flam slope no vote. Turned Off.")
         except:
             pass
 

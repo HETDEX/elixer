@@ -1260,3 +1260,4 @@ VOTE_STRAIGHT_LINE_SIGMA        = 0x00000040
 VOTE_STRAIGHT_EW                = 0x00000080
 VOTE_PHOTZ                      = 0x00000100
 VOTE_DEX_GMAG                   = 0x00000200
+VOTE_FLAM_SLOPE                 = 0x00000400
