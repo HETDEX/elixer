@@ -4761,6 +4761,40 @@ class DetObj:
 
 
 
+        ###################################
+        # Testing ... slope vote
+        # if the object is brigher than g < 24 ?
+        # and if the obs wave is > 3900 or 4000 AA? (to avoid the blue noise)
+        # and if there is a negative slope (flux/AA) more negative than: xxx
+        # and if the FWHM is not huge (skip over AGN)
+        # give a vote for NOT LyA ... expectation is that the blue side of LyA should be lower than the red
+        # DO NOT consider EW ... there are some extreme EW OII and thiss might catch them also
+        ###################################
+        try:
+            if True: #if G.VOTER_ACTIVE & G.VOTE_FLAM_SLOPE:
+
+                g = SU.cgs2mag(self.classification_dict['continuum_hat'], SU.filter_iso_dict['g'])
+                ew = self.classification_dict['combined_eqw_rest_lya']
+
+                if (g < 23.5) and (self.w > 3950) and ((self.fwhm/self.w * 3e5) < 1200.0) \
+                        and  (self.spec_obj.spectrum_slope < -4.0e-22):
+                    likelihood.append(0.0)
+                    weight.append(0.5)
+                    var.append(1)
+                    prior.append(base_assumption)
+                    vote_info['dex_flam_slope_vote'] = likelihood[-1]
+                    vote_info['dex_flam_slope_weight'] = weight[-1]
+                    log.info(
+                        f"{self.entry_id} Aggregate Classification: Flam slope ({self.spec_obj.spectrum_slope:0.4g}) vote: lk({likelihood[-1]}) "
+                        f"weight({weight[-1]})")
+                else:
+                    log.info(
+                        f"{self.entry_id} Aggregate Classification: Flam slope no vote. Did not meet minimum requirements."
+                        f"g: {g}, w: {self.w}, fwhm: {self.fwhm/self.w * 3e5}, slope: {self.spec_obj.spectrum_slope}")
+        except:
+            pass
+
+
 
         ###################################
         # general magnitude + EW vote

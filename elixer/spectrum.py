@@ -5644,8 +5644,8 @@ class Spectrum:
             match_matrix =[[1,0,0,0,0,0,0,0,0],  #0 [OII]
                            [1,1,1,1,2,3,5,0,0],  #1 H_eta
                            [1,0,1,1,2,3,5,0,0],  #2 H_zeta
-                           [1,0,0,1,2,3,5,0,0],  #3 H_epsilon
-                           [1,0,0,0,1,3,5,0,0],  #4 H_delta
+                           [1,0,0,1,1,2,5,0,0],  #3 H_epsilon
+                           [1,0,0,0,1,1,5,0,0],  #4 H_delta
                            [0,0,0,0,0,1,5,0,0],  #5 H_gamma
                            [0,0,0,0,0,0,1,0,0],  #6 H_beta
                            [1,0,0,0,0,0,0,1,2],  #7 OIII 4959
@@ -5744,7 +5744,7 @@ class Spectrum:
 
             if score < 0:
                 log.info(f"LzG consistency failure. Initial Score = {score}. "
-                         f"Missing expected lines {[z for z in zip(rest_waves[missing],obs_waves[missing])]}. ")
+                         f"Missing expected lines [(rest,obs)] {[z for z in zip(rest_waves[missing],obs_waves[missing])]}. ")
             # compare all pairs of lines
 
             if len(overlap) < 2:  # done (0 or 1) if only 1 line, can't go any farther with comparison

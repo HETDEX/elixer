@@ -4,6 +4,10 @@ changes to elixer by version
 1.18.2a2 [2023-01-24]
 * fix bug in spectrum::solution_consistent_with_low_z(); was using wrong index and could mark lines as missing when they
   are found
+* add special handling for test against bright OIII-5007
+* slight tuning of required line weights for Balmer series
+* testing Flam slope vote .. for g < 23.5, fwhm < 1200 km/s, with negative slope < -4e-22 flux/AA and wave > 3950
+ (needs more testing and tuning)
 
 
 1.18.2a1 [2023-01-24]
