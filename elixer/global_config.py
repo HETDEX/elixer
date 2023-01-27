@@ -1147,7 +1147,7 @@ SEP_FIXED_APERTURE_RADIUS = 1.5 #RADIUS in arcsec ... used at the barycenter pos
 FWHM_TYPE1_AGN_VELOCITY_THRESHOLD = 1500.0 #km/s #FWHM velocity in emission line above this value might be a type 1 AGN
 
 
-PLYA_VOTE_THRESH = 0.4 # >= vote for LyA, below for not LyA
+PLYA_VOTE_THRESH = 0.3 # >= vote for LyA, below for not LyA
 PLYA_VOTE_LO = PLYA_VOTE_THRESH - PLYA_VOTE_THRESH * 0.2 # lower bound for a somewhat "uncertain" region
 PLYA_VOTE_HI = PLYA_VOTE_THRESH + (1 - PLYA_VOTE_THRESH) * 0.2 # upper bound for a somewhat "uncertain" region
 

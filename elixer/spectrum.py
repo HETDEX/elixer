@@ -2732,6 +2732,18 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         # print("***** check_for_doublet *****")
         # eli2 = check_for_doublet(eli,wavelengths,values,errors,central,values_units)
 
+        # if spec_obj is not None and do_mcmc and targetted_fit: #only want this on the MAIN line?
+        #     #print("*****TESTING DOUBLE GAUSS******")
+        #     print("***** check_for_lya_blue *****")
+        #     spec_obj.lya_mcmc_dict = check_for_lya_blue(eli, wavelengths, values, errors, central, values_units)
+        #     if spec_obj.lya_mcmc_dict is not None:
+        #         print(f"Possible LyA blue peak observed: {spec_obj.lya_mcmc_dict['blue_mu']:0.2f},{spec_obj.lya_mcmc_dict['red_mu']:0.2f}, "
+        #                  f"{spec_obj.lya_mcmc_dict['kms_sep']:0.1f} km/s, S/N = {spec_obj.lya_mcmc_dict['mcmc'].mcmc_snr},"
+        #                  f"blue chi2 = {spec_obj.lya_mcmc_dict['blue_chi2']:0.2f}")
+        #     else:
+        #         print("No blue peak identified.")
+
+
         mcmc = mcmc_gauss.MCMC_Gauss()
 
         if bad_curve_fit and (eli.snr is None or eli.fit_chi2 is None or eli.snr < 5.0 or eli.fit_chi2 > 3.0):
@@ -3451,6 +3463,191 @@ def check_for_doublet(eli,wavelengths,values,errors,central,values_units,values_
         return eli
 
     return eli
+
+
+
+
+
+
+
+def check_for_lya_blue(eli,wavelengths,values,errors,central,values_units,values_dx=G.FLUX_WAVEBIN_WIDTH,
+                      wave_fit_side_aa=GAUSS_FIT_AA_RANGE):
+    """
+    like run_mcmc but allow a double Gaussian
+
+    Modified from check_for_doublet, but allows a greater range and is intended to identify possible blue LyA peak
+
+    :param eli:
+    :param wavelengths:
+    :param values:
+    :param errors:
+    :param central:
+    :param values_units:
+    :param values_dx:
+    # :param rest_dw = wavelength separation in the peaks in the rest frame (i.e if NV, 1238.8 and 1242.8 --> == 4.0)
+    # :param rest_w = rest wavelength (as if a single line), for NV == 1240.
+    :return:
+    """
+
+    #values_dx is the bin width for the values if multiplied out (s|t) values are flux and not flux/dx
+    #   by default, Karl's data is on a 2.0 AA bin width
+
+    err_units = values_units  # assumed to be in the same units
+    values, values_units = norm_values(values, values_units)
+    if errors is not None and (len(errors) == len(values)):
+        errors, err_units = norm_values(errors, err_units)
+
+    pix_size = abs(wavelengths[1] - wavelengths[0])  # aa per pix
+    wave_side_pix = int(round(wave_fit_side_aa / pix_size))  # pixels
+    fit_range_AA = max(GAUSS_FIT_PIX_ERROR * pix_size, GAUSS_FIT_AA_ERROR)
+
+    len_array = len(wavelengths)
+    idx = getnearpos(wavelengths, central)
+    min_idx = max(0, idx - wave_side_pix)
+    max_idx = min(len_array, idx + wave_side_pix)
+    wave_x = wavelengths[min_idx:max_idx + 1]
+    wave_counts = values[min_idx:max_idx + 1]
+    if (errors is not None) and (len(errors) == len(wavelengths)):
+        wave_errors = errors[min_idx:max_idx + 1]
+        # replace any 0 with 1
+        wave_errors[np.where(wave_errors == 0)] = 1
+    else:
+        wave_errors = None
+
+    narrow_wave_x = wave_x
+    narrow_wave_counts = wave_counts
+    narrow_wave_errors = wave_errors
+
+    fit_range_AA = max(GAUSS_FIT_PIX_ERROR * pix_size, GAUSS_FIT_AA_ERROR)
+    peak_pos = getnearpos(wavelengths, central)
+    #dw = 15.0 #separation between the two peaks (observed) as a starting point
+
+    mcmc = mcmc_double_gauss.MCMC_Double_Gauss()
+    #blue peak
+    mcmc.initial_A = eli.fit_a/2.0
+    mcmc.initial_y = eli.fit_y
+    mcmc.initial_sigma = eli.fit_sigma/2.0
+    mcmc.initial_mu = eli.fit_x0 - 1500.0/3e5*eli.fit_x0 #up to 1500 km/s to the blue
+    #mcmc.initial_peak = raw_peak1
+    #red peak ... assumes we got a single Gaussian that is a good fit to just the red
+    mcmc.initial_A_2 = eli.fit_a
+    mcmc.initial_mu_2 = eli.fit_x0
+    mcmc.initial_sigma_2 = eli.fit_sigma
+    #mcmc.initial_peak_2 = raw_peak2
+    mcmc.data_x = narrow_wave_x
+    mcmc.data_y = narrow_wave_counts
+    mcmc.err_y = narrow_wave_errors#np.zeros(len(mcmc.data_y)) #narrow_wave_errors
+    mcmc.err_x = np.zeros(len(mcmc.err_y))
+
+    # if using the scipy::curve_fit, 50-100 burn-in and ~1000 main run is plenty
+    # if other input (like Karl's) ... the method is different and we are farther off ... takes longer to converge
+    #   but still converges close to the scipy::curve_fit
+    mcmc.burn_in = 500
+    mcmc.main_run = 2000
+
+    try:
+        mcmc.run_mcmc()
+    except:
+        log.warning("Exception in spectrum.py check_for_doublet() calling mcmc.run_mcmc()", exc_info=True)
+        return None
+
+    try:
+        #HETDEX spectral res is really about 5.5AA, but will say 4.0AA here to allow for some error
+        #say 40.0AA for now for an upper limit ... too far to be called a doublet
+        #assuming about 8AA rest for the doublet, shifted to z = 3.5 -> 36AA
+
+        print("*****turn off double_guass_fit.png *****")
+        mcmc.show_fit(filename="double_gauss_fit.png")
+        mcmc.visualize(filename="double_gauss_vis.png")
+
+        #these are all triples (mean value, + error, -error)
+        #could this be a fit?
+        #notes: mcmc_A_2 is allowed to go to zero in the fit (mcmc_A is not), so if A_2 is zero this is a single Gaussian fit
+        #just for sanity, check both A and A_2
+        if (mcmc.mcmc_snr > eli.snr*0.5) and (mcmc.mcmc_snr > 5.0) and \
+           (150.0/3e5*mcmc.mcmc_mu_2[0] < abs(mcmc.mcmc_mu[0] - mcmc.mcmc_mu_2[0]) < 2000.0/3e5*mcmc.mcmc_mu_2[0]) and \
+           (mcmc.mcmc_A_2[0] > 0) and (mcmc.mcmc_A[0] > 0):
+
+            lya_dict = {}
+            #should not happen, but could flip red and blue peaks
+            if mcmc.mcmc_mu[0] < mcmc.mcmc_mu_2[0]:
+                lya_dict['blue_mu'] = mcmc.mcmc_mu[0]
+                lya_dict['blue_sigma'] = mcmc.mcmc_sigma[0]
+                lya_dict['blue_A'] = mcmc.mcmc_A[0]
+                lya_dict['blue_y'] = mcmc.mcmc_y[0]
+                lya_dict['red_mu'] = mcmc.mcmc_mu_2[0]
+                lya_dict['red_sigma'] = mcmc.mcmc_sigma_2[0]
+                lya_dict['red_A'] = mcmc.mcmc_A_2[0]
+                lya_dict['red_y'] = mcmc.mcmc_y[0] #there is only 1 y fit
+                lya_dict['red_fit_peak'] = np.max(SU.gaussian(mcmc.data_x,lya_dict['red_mu'],lya_dict['red_sigma'] ,
+                                                              lya_dict['red_A'] ,lya_dict['red_y']))
+                lya_dict['blue_fit_peak'] = np.max(SU.gaussian(mcmc.data_x,lya_dict['blue_mu'],lya_dict['blue_sigma'],
+                                                               lya_dict['blue_A'] ,lya_dict['blue_y']))
+            else:
+                lya_dict['red_mu'] = mcmc.mcmc_mu[0]
+                lya_dict['red_sigma'] = mcmc.mcmc_sigma[0]
+                lya_dict['red_A'] = mcmc.mcmc_A[0]
+                lya_dict['red_y'] = mcmc.mcmc_y[0]
+                lya_dict['blue_mu'] = mcmc.mcmc_mu_2[0]
+                lya_dict['blue_sigma'] = mcmc.mcmc_sigma_2[0]
+                lya_dict['blue_A'] = mcmc.mcmc_A_2[0]
+                lya_dict['blue_y'] = mcmc.mcmc_y[0] #there is only 1 y fit
+
+                lya_dict['red_fit_peak'] = np.max(SU.gaussian(mcmc.data_x,lya_dict['red_mu'],lya_dict['red_sigma'],
+                                                              lya_dict['red_A'] ,lya_dict['red_y']))
+                lya_dict['blue_fit_peak'] = np.max(SU.gaussian(mcmc.data_x,lya_dict['blue_mu'],lya_dict['blue_sigma'],
+                                                               lya_dict['blue_A'] ,lya_dict['blue_y']))
+
+
+            lya_dict['kms_sep'] = (lya_dict['red_mu']-lya_dict['blue_mu'])/lya_dict['red_mu']*3e5
+            lya_dict['snr'] = mcmc.mcmc_snr
+            lya_dict['mcmc'] =  mcmc
+
+            #peaks must be distinct and not overlapping (by at least 1 sigma on each peak)
+            if (lya_dict['blue_mu'] + lya_dict['blue_sigma']) < (lya_dict['red_mu'] - lya_dict['red_sigma']):
+
+                #should check the blue side SNR and Chi2 (just the blue side region, but as the sum of the Gaussians)
+                left, *_ = SU.getnearpos(mcmc.data_x, lya_dict['blue_mu']-2.0*lya_dict['blue_sigma'])
+                right,*_ = SU.getnearpos(mcmc.data_x, lya_dict['blue_mu']+2.0*lya_dict['blue_sigma'])
+                data_x = mcmc.data_x[left:right+1]
+                data_y = mcmc.data_y[left:right+1]
+                err_y = mcmc.err_y[left:right+1]
+                model_y = SU.dbl_gaussian(data_x, lya_dict['blue_mu'], lya_dict['blue_sigma'], lya_dict['blue_A'],
+                                          lya_dict['red_mu'] , lya_dict['red_sigma'] , lya_dict['red_A'] , lya_dict['red_y'])
+                blue_chi2,*_ = SU.chi_sqr(data_y, model_y ,err_y,c=1.0,dof=2)
+
+                #blue side SNR (too few points to be really meaningful ... Area might be better)
+                #blue_snr = abs(np.sum(model_y - err_y)) / np.sqrt(np.nansum(err_y ** 2))
+
+                #if blue_snr > 5.0 and blue_chi2 < 1.5:
+                if blue_chi2 < 1.5 and lya_dict['blue_A']/lya_dict['red_A'] > 0.1:
+                    lya_dict['blue_chi2'] = blue_chi2
+                    #lya_dict['blue_snr'] = blue_snr
+
+                    log.info(f"Possible LyA blue peak observed: {lya_dict['blue_mu']:0.2f},{lya_dict['red_mu']:0.2f}, "
+                             f"{lya_dict['kms_sep']:0.1f} km/s, S/N = {mcmc.mcmc_snr}, "
+                             f"blue chi2 = {lya_dict['blue_chi2']:0.2f}")
+                else:
+                    del lya_dict
+                    lya_dict = None
+            else:
+                del lya_dict
+                lya_dict = None
+            # ratio_A = blue_A/red_A
+            # ratio_peak = blue_fit_peak/red_fit_peak
+
+            #is there any circumstance where blue peak would be larger than red? Maybe in an AGN, but that has its
+            #own probelms.
+
+            return lya_dict
+        else:
+            log.info(f"No indication of LyA blue peak. Double Gaussian fit is poor: mu {mcmc.mcmc_mu },{mcmc.mcmc_mu_2}")
+            return None
+    except:
+        log.warning("Exception in spectrum.py check_for_doublet()", exc_info=True)
+        return None
+
+    return None
 
 
 def fit_for_h_and_k(k_eli,h_eli,wavelengths,values,errors,values_units,values_dx=G.FLUX_WAVEBIN_WIDTH,
@@ -4899,6 +5096,7 @@ class Spectrum:
         #try to keep the name in 4 characters
         w = 4
         self.max_rank = 5 #largest rank in line ranking below
+        self.lya_mcmc_dict = None #used if check for Blue peak and one is possibly found
 
         #2021-06-14 ... now emission AND absorption lines
         # *** for a line that can be either, needs two entries ...

@@ -1866,6 +1866,9 @@ def gaussian(x, x0, sigma, a=1.0, y=0.0):
     return a * (np.exp(-np.power((x - x0) / sigma, 2.) / 2.) / np.sqrt(2 * np.pi * sigma ** 2)) + y
 
 
+def dbl_gaussian(x, u1, s1, A1, u2, s2, A2, y):
+    return A1 * (np.exp(-np.power((x - u1) / s1, 2.) / 2.) / np.sqrt(2 * np.pi * s1 ** 2)) + \
+           A2 * (np.exp(-np.power((x - u2) / s2, 2.) / 2.) / np.sqrt(2 * np.pi * s2 ** 2)) + y
 
 def simple_fit_line (wavelengths, values, errors=None,trim=True,lines=None):
     """
