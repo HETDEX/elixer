@@ -2735,6 +2735,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         # if spec_obj is not None and do_mcmc and targetted_fit: #only want this on the MAIN line?
         #     #print("*****TESTING DOUBLE GAUSS******")
         #     print("***** check_for_lya_blue *****")
+        #     #note that a lot of OII can also appear to have a blue peak (and it is a doublet) so be careful
         #     spec_obj.lya_mcmc_dict = check_for_lya_blue(eli, wavelengths, values, errors, central, values_units)
         #     if spec_obj.lya_mcmc_dict is not None:
         #         print(f"Possible LyA blue peak observed: {spec_obj.lya_mcmc_dict['blue_mu']:0.2f},{spec_obj.lya_mcmc_dict['red_mu']:0.2f}, "
@@ -3476,6 +3477,8 @@ def check_for_lya_blue(eli,wavelengths,values,errors,central,values_units,values
     like run_mcmc but allow a double Gaussian
 
     Modified from check_for_doublet, but allows a greater range and is intended to identify possible blue LyA peak
+
+    !!! warning !!! OII can ALSO look like this, and it is a doublet (though not really resolveable at HETDEX R
 
     :param eli:
     :param wavelengths:

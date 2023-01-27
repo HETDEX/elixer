@@ -4772,7 +4772,6 @@ class DetObj:
         ###################################
         try:
             if G.VOTER_ACTIVE & G.VOTE_FLAM_SLOPE:
-
                 g = SU.cgs2mag(self.classification_dict['continuum_hat'], SU.filter_iso_dict['g'])
                 ew = self.classification_dict['combined_eqw_rest_lya']
 
@@ -4798,6 +4797,55 @@ class DetObj:
             pass
 
 
+
+        ##########################################
+        # Sanity check against EW and PLAE/POII
+        # if straight EW is > 20AA AND PLAE/POII > 1, regardless of wavelength
+        #  (EW - error and PLAE/POII low? or PLAE/POII median?
+        # cast a small corrective vote for LyA
+        #######################################
+
+        try:
+            if G.VOTER_ACTIVE & G.VOTE_EW_PLAE_POII_CORRECTION:
+                if ('combined_eqw_rest_lya' in self.classification_dict) and \
+                        self.classification_dict['combined_eqw_rest_lya'] is not None:
+                    ew = self.classification_dict['combined_eqw_rest_lya']
+                else:
+                    ew = None
+
+                if ('combined_eqw_rest_lya_err' in self.classification_dict) and \
+                        self.classification_dict['combined_eqw_rest_lya_err'] is not None:
+                    ew_err = self.classification_dict['combined_eqw_rest_lya_err']
+                else:
+                    ew_err = 0
+                #PLAE/POII
+                # vote_info['plae_poii_combined'] = self.classification_dict['plae_hat']
+                # vote_info['plae_poii_combined_hi'] = self.classification_dict['plae_hat_hi']
+                # vote_info['plae_poii_combined_lo'] = self.classification_dict['plae_hat_lo']
+
+                #check is on the minimum values
+                if ew-ew_err > 20 and self.classification_dict['plae_hat_lo'] > 1.0:
+
+                    #but weight is on the medians
+                   # w = min( ((ew-ew_err)-20.0)/40.0, 0.25) + min( (self.classification_dict['plae_hat_lo'] - 1.0)/10.0 ,0.25)
+                    w = min((ew - 20.0) / 40.0, 0.25) + min((self.classification_dict['plae_hat'] - 1.0) / 10.0, 0.25)
+
+                    likelihood.append(1.0)
+                    weight.append(w)
+                    var.append(1)
+                    prior.append(base_assumption)
+
+                    vote_info['dex_ew_plae_correction_vote'] = likelihood[-1]
+                    vote_info['dex_ew_plae_correction_vote'] = weight[-1]
+                    log.info(
+                        f"{self.entry_id} Aggregate Classification: EW + PLAE/POII correction vote: lk({likelihood[-1]}) "
+                        f"weight({weight[-1]}); ew-ew_err: { ew-ew_err:0.2f}, PLAE(lo): {self.classification_dict['plae_hat_lo']}")
+                else:
+                    log.info(
+                        f"{self.entry_id} Aggregate Classification: W + PLAE/POII correction vote no vote. Did not meet minimum requirements."
+                        f" ew-ew_err: { ew-ew_err:0.2f}, PLAE(lo): {self.classification_dict['plae_hat_lo']}")
+        except:
+            pass
 
         ###################################
         # general magnitude + EW vote
