@@ -6553,7 +6553,10 @@ class Spectrum:
                 if central_eli is None:
                     score = max(0.0,score)
                 elif lya_idx > 0: #basically, this LyA non-central line has to be SNR > 6.0 or at least 90% of the other line
-                    if snr < 6.0 and ((snr / central_eli.snr) < 0.9 ):
+                    #unless it is at the very extreme blue
+                    if ( (line_obs_waves[lya_idx] <= 3650) and (snr < 3.5)) or \
+                        ((line_obs_waves[lya_idx] > 3650) and (snr < 6.0 and ((snr / central_eli.snr) < 0.9 ))):
+                    #if snr < 6.0 and ((snr / central_eli.snr) < 0.9 ):
                         # if snr < 5.0:
                         #     score = -2.0
                         # elif snr < 5.5:

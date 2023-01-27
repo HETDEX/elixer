@@ -2030,7 +2030,9 @@ class DetObj:
 
                         troublesome_lines = [G.CIV_1549,G.CIII_1909,G.MgII_2799]#CIV, CIII, MgII
 
-                        if multiline_top_score > G.MULTILINE_MIN_SOLUTION_SCORE and multiline_top_rest in troublesome_lines:
+                       # if multiline_top_score > G.MULTILINE_MIN_SOLUTION_SCORE and multiline_top_rest in troublesome_lines:
+                        if multiline_top_score > G.MULTILINE_MIN_SOLUTION_SCORE or \
+                            (multiline_top_rest in troublesome_lines and multiline_top_score > 0.5 * G.MULTILINE_MIN_SOLUTION_SCORE):
                             z = multiline_top_z
                             log.info(f"Q(z): Multiline solution is weak and inconsistent, but nothing better."
                                      f"P(LyA) favors OII {scaled_plae_classification}. Set to multiline z:{z} with Q(z): {p}")
@@ -2082,8 +2084,9 @@ class DetObj:
 
                 use_multi = False
                 try:
-
-                    if multiline_top_score > G.MULTILINE_MIN_SOLUTION_SCORE and multiline_top_rest in troublesome_lines:
+#                    if multiline_top_score > G.MULTILINE_MIN_SOLUTION_SCORE and multiline_top_rest in troublesome_lines:
+                    if multiline_top_score > G.MULTILINE_MIN_SOLUTION_SCORE or \
+                       (multiline_top_rest in troublesome_lines and multiline_top_score > 0.5 * G.MULTILINE_MIN_SOLUTION_SCORE):
                         z = multiline_top_z
                         p = min(p,0.2)
                         use_multi = True
@@ -2137,7 +2140,8 @@ class DetObj:
                         if self.flags & G.DETFLAG_LARGE_NEIGHBOR:
                             p = min(p,0.4)
 
-                        if multiline_top_score > G.MULTILINE_MIN_SOLUTION_SCORE and multiline_top_rest in troublesome_lines:
+                        if multiline_top_score > G.MULTILINE_MIN_SOLUTION_SCORE or \
+                            (multiline_top_rest in troublesome_lines and multiline_top_score > 0.5 * G.MULTILINE_MIN_SOLUTION_SCORE):
                             z = multiline_top_z
                             log.info(f"Q(z): Multiline solution is weak and inconsistent, but nothing better."
                                      f"P(LyA) favors OII {scaled_plae_classification}. Set to multiline z:{z} with Q(z): {p}")
