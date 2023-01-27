@@ -5205,8 +5205,8 @@ class DetObj:
             try:
                 if len(weight) > 0 and np.sum(weight) < 1.0:
                     tot_weight = np.sum(weight)
-                    log.info(f"Low voting weight ({tot_weight}). Adding in 0.5 vote at {1.0-tot_weight} weight.")
-                    likelihood.append(0.5)
+                    log.info(f"Low voting weight ({tot_weight}). Adding in {G.PLYA_VOTE_THRESH} vote at {1.0-tot_weight} weight.")
+                    likelihood.append(G.PLYA_VOTE_THRESH)
                     weight.append(1.0 -tot_weight)
                     var.append(1.0)
                     prior.append(0.5)

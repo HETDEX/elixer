@@ -8,6 +8,11 @@ changes to elixer by version
 * slight tuning of required line weights for Balmer series
 * testing Flam slope vote .. for g < 23.5, fwhm < 1200 km/s, with negative slope < -4e-22 flux/AA and wave > 3950
  (needs more testing and tuning)
+* testing EW + PLAE correction vote
+* fixed missing threshold conversion on P(LyA)
+* low voting weight extra vote set to the configurable threshold rather than fixed as 0.5
+* allow troublesome lines (CIV,CIII,MgII) a lower threshold to trigger a classification on a weak multi-line fit with
+  low P(LyA)
 
 
 1.18.2a1 [2023-01-24]
