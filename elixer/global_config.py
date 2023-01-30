@@ -22,7 +22,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.18.2a2'
+__version__ = '1.19.0a1'
 #Logging
 GLOBAL_LOGGING = False #set to True in top elixer calls so we do not normally log from package imports
 LOG_TO_STDOUT = False #only kicks in if GLOBAL_LOGGING is False
@@ -1148,8 +1148,17 @@ FWHM_TYPE1_AGN_VELOCITY_THRESHOLD = 1500.0 #km/s #FWHM velocity in emission line
 
 
 PLYA_VOTE_THRESH = 0.5 # >= vote for LyA, below for not LyA
-PLYA_VOTE_LO = PLYA_VOTE_THRESH - PLYA_VOTE_THRESH * 0.2 # lower bound for a somewhat "uncertain" region
-PLYA_VOTE_HI = PLYA_VOTE_THRESH + (1 - PLYA_VOTE_THRESH) * 0.2 # upper bound for a somewhat "uncertain" region
+PLYA_VOTE_THRESH_1 = PLYA_VOTE_THRESH #just for naming consistency
+PLYA_VOTE_THRESH_2 = 0.6 #limit to just two additional thresholds to check
+PLYA_VOTE_THRESH_3 = 0.4
+#np.unique returns the list sorted and we want to maintain the order
+_, idx = np.unique([PLYA_VOTE_THRESH_1,PLYA_VOTE_THRESH_2,PLYA_VOTE_THRESH_3],return_index=True)
+idx = sorted(idx)
+PLYA_VOTE_THRESH_LIST = np.array([PLYA_VOTE_THRESH_1,PLYA_VOTE_THRESH_2,PLYA_VOTE_THRESH_3])[idx]
+#PLYA_VOTE_LO = PLYA_VOTE_THRESH - PLYA_VOTE_THRESH * 0.2 # lower bound for a somewhat "uncertain" region
+#PLYA_VOTE_HI = PLYA_VOTE_THRESH + (1 - PLYA_VOTE_THRESH) * 0.2 # upper bound for a somewhat "uncertain" region
+PLYA_VOTE_LO = lambda thresh : thresh - thresh * 0.2 # lower bound for a somewhat "uncertain" region
+PLYA_VOTE_HI =  lambda thresh : thresh + (1 - thresh) * 0.2 # upper bound for a somewhat "uncertain" region
 
 ##################################
 #Detection Flags (DF) (32 bit)

@@ -508,6 +508,9 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--voters', help="Toggle use of individual P(LyA) votes. Bitmask. See global_config.py",
                         required=False, type=int)#default=15) leave the default = None
 
+    parser.add_argument('--plya_thresh', help='Specify 1, 2, or 3 (as primary then  1 or 2 secondary) P(LyA) voting thresholds, comma separated floats. Must be stictly 0.0 to 1.0, non-inclusive.',
+                        required=False)
+
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
 
@@ -918,6 +921,61 @@ def parse_commandline(auto_force=False):
             # args.gridsearch = (3.0,0.2,500.0,15.0,False)
             print(f"Fatal. Invalid gridsearch parameters: {args.gridsearch}")
             log.error(f"Fatal. Invalid gridsearch parameters: {args.gridsearch}")
+            exit(-1)
+
+
+    if args.plya_thresh:
+
+        #first get rid of parenthesis that are not supposed to be there, but are commonly typed in
+        try:
+            args.plya_thresh = args.plya_thresh.replace(')','')
+            args.plya_thresh = args.plya_thresh.replace('(','')
+        except:
+            pass
+
+        try:
+            args.plya_thresh = tuple(map(float, args.plya_thresh.split(',')))
+            if len(args.plya_thresh) == 1:
+                #one is okay
+                t1 = float(args.plya_thresh[0])
+                t2 = t1
+                t3 = t1
+            elif len(args.plya_thresh) == 2:
+                #one is okay
+                t1 = float(args.plya_thresh[0])
+                t2 = float(args.plya_thresh[1])
+                t3 = t2
+            elif len(args.plya_thresh) == 3:
+                #one is okay
+                t1 = float(args.plya_thresh[0])
+                t2 = float(args.plya_thresh[1])
+                t3 = float(args.plya_thresh[2])
+            else:
+                print(f"Fatal. Invalid plya_thresh parameters: {args.plya_thresh}")
+                log.error(f"Fatal. Invalid plya_thresh parameters: {args.plya_thresh}")
+                exit(-1)
+
+            #sanity check
+            if ((0.0 < t1 < 1.0) and (0.0 < t2 < 1.0) and (0.0 < t2 < 1.0)):
+                #all good
+                #put in sort order with the base one in the middle ? or assume 1st is primary
+                G.PLYA_VOTE_THRESH = t1
+                G.PLYA_VOTE_THRESH_1 = t1
+                G.PLYA_VOTE_THRESH_2 = t2
+                G.PLYA_VOTE_THRESH_3 = t3
+                #could be only 1 or two that are unique ... no need to repeat duplicate calls later
+                # np.unique returns the list sorted and we want to maintain the order
+                _, idx = np.unique([G.PLYA_VOTE_THRESH_1,G.PLYA_VOTE_THRESH_2,G.PLYA_VOTE_THRESH_3], return_index=True)
+                idx = sorted(idx)
+                G.PLYA_VOTE_THRESH_LIST  = np.array([G.PLYA_VOTE_THRESH_1,G.PLYA_VOTE_THRESH_2,G.PLYA_VOTE_THRESH_3])[idx]
+            else:
+                print(f"Fatal. Invalid plya_thresh parameters: {args.plya_thresh}")
+                log.error(f"Fatal. Invalid plya_thresh parameters: {args.plya_thresh}")
+                exit(-1)
+
+        except:
+            print(f"Fatal. Invalid plya_thresh parameters: {args.plya_thresh}")
+            log.error(f"Fatal. Invalid plya_thresh parameters: {args.plya_thresh}")
             exit(-1)
 
     if args.wavelength:
@@ -5162,14 +5220,24 @@ def main():
                     for e in h.emis_list:
                         if e.status >= 0:
                             plae, plae_sd, size_in_psf, diam_in_arcsec = e.combine_all_plae(use_continuum=True)
+
+                            #scale_plae_list = []
+                            #reason_list = []
                             if G.AGGREGATE_PLAE_CLASSIFICATION:
+                                    #keep the first
+                                #for plya_thresh in G.PLYA_VOTE_THRESH_LIST:  # unique list
+                                #no ... just call once .... the threshold does not truly matter here
+                                # and the unsure extra weight SHOULD ALWAYS be 0.5, regardless
                                 scale_plae, reason = e.aggregate_classification()
 
                                 if (scale_plae is None) or np.isnan(scale_plae):
                                     scale_plae = -99.0
+                                    # scale_plae_list.append(scale_plae)
+                                    # reason_list.append(reason) #really only using the 1st one
 
                             if G.ZEROTH_ROW_HEADER:
                                 header_text = ""
+                                #if len(scale_plae_list) >= 1: #(scale_plae is not None) and (not np.isnan(scale_plae)):
                                 if (scale_plae is not None) and (not np.isnan(scale_plae)):
                                     try:
 
@@ -5183,10 +5251,11 @@ def main():
                                         except:
                                             plae_low = -1
 
+                                        #if scale_plae_list[0] < 0:
                                         if scale_plae < 0:
-                                            header_text = r"Combined P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  P(Ly$\alpha$): %d %s" \
-                                                          % (round(plae, 3), round(plae_high, 3), round(plae_low, 3),
-                                                             int(scale_plae), reason)
+                                                header_text = r"Combined P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  P(Ly$\alpha$): %d %s" \
+                                                              % (round(plae, 3), round(plae_high, 3), round(plae_low, 3),
+                                                                 int(scale_plae), reason)
                                         else:
                                             try: #will want to check some flags in best_redshift() to impact p_of_z
                                                 if not e.full_flag_check_performed:
@@ -5196,7 +5265,13 @@ def main():
                                             except:
                                                 pass
 
-                                            best_z, p_of_z = e.best_redshift()
+                                            best_z_list = []
+                                            p_of_z_list = []
+                                            #for scale_plae in scale_plae_list:
+                                            for plya_thresh in G.PLYA_VOTE_THRESH_LIST:
+                                                best_z, p_of_z = e.best_redshift(plya_thresh)
+                                                best_z_list.append(best_z)
+                                                p_of_z_list.append(p_of_z)
 
                                             if e.flags & G.DETFLAG_UNCERTAIN_CLASSIFICATION:
                                                 e.flags |= G.DETFLAG_FOLLOWUP_NEEDED
@@ -5212,8 +5287,11 @@ def main():
                                                 combined_ew = 0
                                                 combined_ew_err = 0
 
-                                            if p_of_z > 0:
-                                                if e.cluster_z == best_z:
+                                            if len(p_of_z_list) > 0 and p_of_z_list[0] > 0:
+                                                if e.cluster_z == best_z_list[0]:
+                                                    #scale_plae = scale_plae_list[0]
+                                                    p_of_z = p_of_z_list[0]
+                                                    best_z = best_z_list[0]
                                                     e.flags |= G.DETFLAG_Z_FROM_NEIGHBOR
                                                     header_text = r"EW: %0.1f$\pm$%0.1f$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  " \
                                                                   r"P(Ly$\alpha$): %0.3f  Q(z): %0.2f  z: %0.4f*" \
@@ -5224,37 +5302,65 @@ def main():
                                                     try:
                                                         if G.CONTINUUM_RULES and e.spec_obj.solutions is not None and \
                                                             len(e.spec_obj.solutions) > 0 and e.spec_obj.solutions[0].emission_line.absorber:
+                                                            p_of_z = p_of_z_list[0]
+                                                            best_z = best_z_list[0]
                                                             if e.spec_obj.central_eli.absorber:
-                                                                line_label = e.spec_obj.match_line(e.w,best_z,aa_error=6.0,
+                                                                line_label = e.spec_obj.match_line(e.w,best_z_list[0],aa_error=6.0,
                                                                                                    allow_absorption=True,
                                                                                                    allow_emission=True).name
                                                                 #need to allow emission since most lines are kept that way
                                                                 #but can be both (like hydrogen series in a WD)
                                                             else:
-                                                                line_label = e.spec_obj.match_line(e.w, best_z,
+                                                                line_label = e.spec_obj.match_line(e.w, best_z_list[0],
                                                                                                    aa_error=6.0,
                                                                                                    allow_absorption=False,
                                                                                                    allow_emission=True).name
                                                         else:
-                                                            line_label = e.spec_obj.match_line(e.w,best_z,aa_error=6.0).name
+                                                            line_label = e.spec_obj.match_line(e.w,best_z_list[0],aa_error=6.0).name
                                                     except:
                                                         line_label = ""
 
-                                                    header_text = r"EW: %0.1f$\pm$%0.1f$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  " \
-                                                              r"P(Ly$\alpha$): %0.3f  Q(z): %0.2f  z: %0.4f %s" \
-                                                          % (max(-9999,min(combined_ew,9999)),max(-9999,min(combined_ew_err,9999)),round(plae, 3),round(plae_high, 3),round(plae_low, 3),
-                                                             scale_plae,p_of_z,best_z,line_label)
+
+                                                    if len(best_z_list) == 1:
+                                                        header_text = r"EW: %0.1f$\pm$%0.1f$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  " \
+                                                                  r"P(Ly$\alpha$): %0.3f  Q(z): %0.2f  z: %0.4f %s" \
+                                                              % (max(-9999,min(combined_ew,9999)),max(-9999,min(combined_ew_err,9999)),round(plae, 3),round(plae_high, 3),round(plae_low, 3),
+                                                                 scale_plae,p_of_z_list[0],best_z_list[0],line_label)
+                                                    elif len(best_z_list) == 2:
+                                                        header_text = r"EW: %0.1f$\pm$%0.1f$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  " \
+                                                                  r"P(Ly$\alpha$): %0.3f  Q(z): $%0.2f\ ^{%0.2f}$  z: $%0.4f\ ^{%0.4f}$ %s" \
+                                                              % (max(-9999,min(combined_ew,9999)),max(-9999,min(combined_ew_err,9999)),round(plae, 3),round(plae_high, 3),round(plae_low, 3),
+                                                                 scale_plae,
+                                                                 p_of_z_list[0],p_of_z_list[1],
+                                                                 best_z_list[0],best_z_list[1],line_label)
+                                                    elif len(best_z_list) == 3:
+                                                        header_text = r"EW: %0.1f$\pm$%0.1f$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  " \
+                                                                      r"P(Ly$\alpha$): %0.3f  Q(z): $%0.2f\ ^{%0.2f}_{%0.2f}$  z: $%0.4f\ ^{%0.4f}_{%0.4f}$ %s" \
+                                                                      % (max(-9999, min(combined_ew, 9999)),
+                                                                         max(-9999, min(combined_ew_err, 9999)),
+                                                                         round(plae, 3), round(plae_high, 3),
+                                                                         round(plae_low, 3),
+                                                                         scale_plae,
+                                                                         p_of_z_list[0], p_of_z_list[1], p_of_z_list[2],
+                                                                         best_z_list[0], best_z_list[1],best_z_list[2],line_label)
+                                                    else:
+                                                        header_text = r"EW: %0.1f$\pm$%0.1f$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  " \
+                                                                  r"P(Ly$\alpha$): %0.3f  Q(z): %0.2f  z: %0.4f %s" \
+                                                              % (max(-9999,min(combined_ew,9999)),max(-9999,min(combined_ew_err,9999)),round(plae, 3),round(plae_high, 3),round(plae_low, 3),
+                                                                 scale_plae,p_of_z_list[0],best_z_list[0],line_label)
+                                                        log.error(f"ERROR! Unexpected lenght of best_z_list: {len(best_z_list)}")
                                             else:
                                                 header_text = r"EW: %0.1f$\pm$%0.1f$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  P(Ly$\alpha$): %0.3f" \
-                                                  % (max(-9999,min(combined_ew,9999)),max(-9999,min(combined_ew_err,9999)),round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae)
+                                                  % (max(-9999,min(combined_ew,9999)),max(-9999,min(combined_ew_err,9999)),round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae_list[0])
 
                                         try:
                                             if len(e.spec_obj.classification_label) > 0:
                                                 header_text += "  " + e.spec_obj.classification_label.rstrip(",")
                                         except:
                                             pass
-                                    except:
+                                    except:# Exception as Ex:
                                         pass
+                                        print(Ex)
 
 
                                 try:

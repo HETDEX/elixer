@@ -5,7 +5,7 @@ merge existing ELiXer catalogs
 """
 
 
-__version__ = '0.7.0' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
+__version__ = '0.8.0' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -75,10 +75,20 @@ class Detections(tables.IsDescription):
 
     z_best = tables.Float32Col(dflt=-1.0,pos=8)
     z_best_pz = tables.Float32Col(dflt=0.0,pos=9)
+    #!!!!   idx = 9 can't do this ... the parsing logic for pytables takes this as a column definition
+#    idx +=1
+    z_best_plya_thresh = tables.Float32Col(dflt=-1.0, pos=10)
+    z_best_2 = tables.Float32Col(dflt=-1.0, pos=11)
+    z_best_pz_2 = tables.Float32Col(dflt=0.0, pos=12)
+    z_best_plya_thresh_2 = tables.Float32Col(dflt=-1.0, pos=13)
+    z_best_3 = tables.Float32Col(dflt=-1.0, pos=14)
+    z_best_pz_3 = tables.Float32Col(dflt=0.0, pos=15)
+    z_best_plya_thresh_3 = tables.Float32Col(dflt=-1.0, pos=16)
 
-    flags = tables.Int32Col(dflt=0,pos=10)
-    review = tables.Int8Col(dflt=0,pos=11)
-    cluster_parent = tables.Int64Col(dflt=0,pos=12)
+    flags = tables.Int32Col(dflt=0,pos=17)
+    review = tables.Int8Col(dflt=0,pos=18)
+    cluster_parent = tables.Int64Col(dflt=0,pos=19)
+
 
     flux_line = tables.Float32Col(dflt=UNSET_FLOAT) #actual flux not flux density
     flux_line_err = tables.Float32Col(dflt=UNSET_FLOAT)
@@ -1123,12 +1133,37 @@ def append_entry(fileh,det,overwrite=False):
             row['classification_labels'] = det.spec_obj.classification_label.rstrip(",")
         except:
             pass
+        #
+        # try:
+        #     if det.best_z is not None:
+        #         row['z_best'] = det.best_z
+        #     if det.best_p_of_z:
+        #         row['z_best_pz'] = det.best_p_of_z
+        # except:
+        #     pass
+
 
         try:
-            if det.best_z is not None:
-                row['z_best'] = det.best_z
-            if det.best_p_of_z:
-                row['z_best_pz'] = det.best_p_of_z
+            if det.best_z_list is not None and len(det.best_z_list) >= 1:
+                row['z_best'] = det.best_z_list[0]
+            if det.best_p_of_z_list is not None  and len(det.best_p_of_z_list) >= 1:
+                row['z_best_pz'] = det.best_p_of_z_list[0]
+            if det.plya_thresh_list is not None  and len(det.plya_thresh_list) >= 1:
+                row['z_best_plya_thresh'] = det.plya_thresh_list[0]
+
+            if det.best_z_list is not None and len(det.best_z_list) >= 2:
+                row['z_best_2'] = det.best_z_list[1]
+            if det.best_p_of_z_list is not None and len(det.best_p_of_z_list) >= 2:
+                row['z_best_pz_2'] = det.best_p_of_z_list[1]
+            if det.plya_thresh_list is not None and len(det.plya_thresh_list) >= 2:
+                row['z_best_plya_thresh_2'] = det.plya_thresh_list[1]
+
+            if det.best_z_list is not None and len(det.best_z_list) >= 3:
+                row['z_best_3'] = det.best_z_list[2]
+            if det.best_p_of_z_list is not None and len(det.best_p_of_z_list) >= 3:
+                row['z_best_pz_3'] = det.best_p_of_z_list[2]
+            if det.plya_thresh_list is not None and len(det.plya_thresh_list) >= 3:
+                row['z_best_plya_thresh_3'] = det.plya_thresh_list[2]
         except:
             pass
 

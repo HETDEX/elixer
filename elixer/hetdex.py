@@ -835,6 +835,10 @@ class DetObj:
         self.best_z = None
         self.best_p_of_z = None
 
+        self.best_z_list = []
+        self.best_p_of_z_list = []
+        self.plya_thresh_list = []
+
         #colors in AB mag (from the photometric imaging and HETDEX-g, if no g imaging available)
         #ideally should be from the same survey (but will use different surveys to populate if a single survey does not
         #cover the requisite bands)
@@ -1741,12 +1745,14 @@ class DetObj:
 
             #even if this solution is not shown due to not being unique, it is still the top scoring
             #solution !!! warning ... in normal run, this is called BEFORE best_z is set, so this will never be TRUE
+            #!! regardles of the number of PLYA_THRESHOLDS, only use the primary
             if self.spec_obj.solutions is not None and len(self.spec_obj.solutions)> 0:
                 #want to be really clear condition here, so both have to be > MULTILINE_FULL_SOLUTION_SCORE
                 #not just > MAX_OK_UNMATCHED_LINES_SCORE
                 questionable_solutions = [G.CIV_1549,G.CIII_1909,G.MgII_2799,G.OII_rest,G.OIII_5007]
-                if (0.5 < self.spec_obj.solutions[0].scale_score < 0.9) and (self.best_z != None) and \
-                   (self.spec_obj.solutions[0].z != self.best_z) and (self.spec_obj.solutions[0].central_rest in questionable_solutions):
+                #self.best_z_list might not have been populated yet
+                if (0.5 < self.spec_obj.solutions[0].scale_score < 0.9) and (len(self.best_z_list) > 0) and \
+                   (self.spec_obj.solutions[0].z != self.best_z_list[0]) and (self.spec_obj.solutions[0].central_rest in questionable_solutions):
 
                     self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
                     log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_UNCERTAIN_CLASSIFICATION")
@@ -1805,17 +1811,34 @@ class DetObj:
         except:
             log.error("Exception! Exception in DetObj.flag_check()",exc_info=True)
 
-    def best_redshift(self):
+    def best_redshift(self, plya_vote_thresh = G.PLYA_VOTE_THRESH):
         """
         Sort of a P(z), but primitive
 
         :return: z and P(z) for that z
         """
+        try:
+            if plya_vote_thresh is None:
+                plya_vote_thresh  = G.PLYA_VOTE_THRESH
+
+            plya_vote_hi = G.PLYA_VOTE_HI(plya_vote_thresh)
+            plya_vote_lo = G.PLYA_VOTE_LO(plya_vote_thresh)
+            log.debug(f"Using (LyA) thresholds: {plya_vote_thresh}, ({plya_vote_hi}, {plya_vote_lo})")
+        except:
+            plya_vote_thresh = 0.5
+            plya_vote_hi = 0.6
+            plya_vote_lo = 0.4
+            log.warning(f"WARNING! Using fixed P(LyA) thresholds: {plya_vote_thresh}, ({plya_vote_hi}, {plya_vote_lo})")
+
+        #for lines like MgII, CIII, CIV ... regardless of the P(LyA) threhold, use these as fixed values for the uncertain range
+        plya_fixed_hi = 0.6
+        plya_fixed_lo = 0.4
 
         try:
             #aka P(LyA)
+
             scaled_plae_classification = self.classification_dict['scaled_plae']
-            p = max(1.0,abs(G.PLYA_VOTE_THRESH - scaled_plae_classification)/G.PLYA_VOTE_THRESH)#so, peaks near 0 and 1 and is zero at 0.5 (this is a confidence in classification)
+            p = max(1.0,abs(plya_vote_thresh - scaled_plae_classification)/plya_vote_thresh)#so, peaks near 0 and 1 and is zero at 0.5 (this is a confidence in classification)
             base_p = p #i.e. from plya only
             plya_for_oii = 0.7 #with no other evidence other than P(LyA) that favors OII, since it can be other lines
                                #not just OII, rescale by this factor when assuming OII
@@ -1884,12 +1907,12 @@ class DetObj:
                     #large P(LyA) points to Lya and a spectific z
                     #but near 0 P(LyA) just points to not LyA
 
-                    if G.PLYA_VOTE_LO  < scaled_plae_classification < G.PLYA_VOTE_HI : #never going to get an answer from P(LyA)
+                    if plya_vote_lo  < scaled_plae_classification < plya_vote_hi : #never going to get an answer from P(LyA)
                         agree = True
                         unsure = True
                         break
-                    elif ((scaled_plae_classification <G.PLYA_VOTE_LO) and (rest == G.LyA_rest)) or \
-                         ((scaled_plae_classification > G.PLYA_VOTE_HI) and (rest != G.LyA_rest)):
+                    elif ((scaled_plae_classification < plya_vote_lo) and (rest == G.LyA_rest)) or \
+                         ((scaled_plae_classification > plya_vote_hi) and (rest != G.LyA_rest)):
                         #voting vs line solution mis-match
 
                         #this could be an AGN on LyA though and if score is high, just accept that it can disagree
@@ -1950,7 +1973,7 @@ class DetObj:
                         #basic agreement P(LyA) favors NOT LyA and multiline is not a LyA solution (less supportive)
                         #or P(LyA) favors LyA and so does multiline (more supportitve)
                         p = SU.map_multiline_score_to_confidence(scale_score)
-                        if scaled_plae_classification > G.PLYA_VOTE_THRESH: #more supportive case
+                        if scaled_plae_classification > plya_vote_thresh: #more supportive case
                             p = 0.5 * (p + scaled_plae_classification) #half from the P(LyA) and half from the scale_score
 
                         multiline_sol_diag = 1 #good and agree
@@ -1976,7 +1999,7 @@ class DetObj:
                     #P(LyA) and the multi-line score disagree
                     #the P(LyA) and scale_score are roughly on the same 0-1 scaling so we will choose the LyA favoring
                     # solution as THE solution and subtract away the dissent
-                    if (scaled_plae_classification < G.PLYA_VOTE_LO) and (rest == G.LyA_rest):
+                    if (scaled_plae_classification < plya_vote_lo) and (rest == G.LyA_rest):
                         #Not LyA vs LyA
                         #if the LyA Solution is strong, subtract off the p/2 weight
 
@@ -2003,7 +2026,7 @@ class DetObj:
                             log.info(f"Q(z): Multiline solution favors LyA {pscore}. "
                                  f"P(LyA) does not {scaled_plae_classification}. Set to OII z:{z} with Q(z): {p}")
 
-                    elif (scaled_plae_classification > G.PLYA_VOTE_HI) and (rest != G.LyA_rest):
+                    elif (scaled_plae_classification > plya_vote_hi) and (rest != G.LyA_rest):
                         #LyA vs Not
                         #voting vs line solution mis-match
                         #so 0.4 to 0.6 is no-man's land, but the prob or confidence will be very low anyway
@@ -2034,10 +2057,10 @@ class DetObj:
                         if multiline_top_score > G.MULTILINE_MIN_SOLUTION_SCORE or \
                             (multiline_top_rest in troublesome_lines and multiline_top_score > 0.5 * G.MULTILINE_MIN_SOLUTION_SCORE):
                             z = multiline_top_z
-                            log.info(f"Q(z): Multiline solution is weak and inconsistent, but nothing better."
+                            log.info(f"Q(z): Multiline solution is weak and inconsistent (loc 1), but nothing better. "
                                      f"P(LyA) favors OII {scaled_plae_classification}. Set to multiline z:{z} with Q(z): {p}")
 
-                        elif scaled_plae_classification < G.PLYA_VOTE_THRESH:
+                        elif scaled_plae_classification < plya_vote_thresh:
                             z = self.w / G.OII_rest - 1.0
 
                             if possible_agn: #not likely OII given the velocity width, though could still be broadend
@@ -2058,7 +2081,7 @@ class DetObj:
                     else: #odd place ... this should not happen
                         #we will use the P(Lya)
                         self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
-                        if scaled_plae_classification < G.PLYA_VOTE_THRESH:
+                        if scaled_plae_classification < plya_vote_thresh:
                             z = self.w / G.OII_rest - 1.0
                         else:
                             z= self.w / G.LyA_rest - 1.0
@@ -2073,8 +2096,8 @@ class DetObj:
                 except:
                     pass
 
-            #else there are no multi-line classification solutions
-            elif scaled_plae_classification < G.PLYA_VOTE_LO: #not LyA ... could still be high-z
+            #else there are no strong multi-line classification solutions
+            elif scaled_plae_classification < plya_fixed_lo: #plya_vote_lo: #not LyA ... could still be high-z
 
                 #usually OII execpt if REALLY broad, then more likely MgII or CIV. but have to mark as OII, just lower the Q(z)
                 try:
@@ -2090,7 +2113,7 @@ class DetObj:
                         z = multiline_top_z
                         p = min(p,0.2)
                         use_multi = True
-                        log.info(f"Q(z): Multiline solution is weak and inconsistent, but nothing better."
+                        log.info(f"Q(z): Multiline solution is weak and inconsistent (loc 2), but nothing better. "
                                  f"P(LyA) favors OII {scaled_plae_classification}. Set to multiline z:{z} with Q(z): {p}")
                     elif multiline_top_scale_score > 0.5 and multiline_top_frac_score > 0.6 and self.fwhm > 12:
                         #this is not terrible and may be better than an OII guess
@@ -2143,11 +2166,11 @@ class DetObj:
                         if multiline_top_score > G.MULTILINE_MIN_SOLUTION_SCORE or \
                             (multiline_top_rest in troublesome_lines and multiline_top_score > 0.5 * G.MULTILINE_MIN_SOLUTION_SCORE):
                             z = multiline_top_z
-                            log.info(f"Q(z): Multiline solution is weak and inconsistent, but nothing better."
+                            log.info(f"Q(z): Multiline solution is weak and inconsistent (loc 3), but nothing better. "
                                      f"P(LyA) favors OII {scaled_plae_classification}. Set to multiline z:{z} with Q(z): {p}")
                         else:
                             log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
-            elif scaled_plae_classification > G.PLYA_VOTE_HI:
+            elif scaled_plae_classification > plya_fixed_hi: #plya_vote_hi:
                 z= self.w / G.LyA_rest - 1.0
                 rest = G.LyA_rest
 
@@ -2180,7 +2203,7 @@ class DetObj:
 
 
             else: #we are in no-man's land
-                if scaled_plae_classification < G.PLYA_VOTE_THRESH:
+                if scaled_plae_classification < plya_vote_thresh:
                     z = self.w / G.OII_rest - 1.0
                 else:
                     z = self.w / G.LyA_rest - 1.0
@@ -2216,10 +2239,10 @@ class DetObj:
             #sanity check --- override negative z
             if z < -0.0005: #unless this is a star, kick it out
                 z = self.w / G.LyA_rest - 1.0
-                if scaled_plae_classification > G.PLYA_VOTE_THRESH:
+                if scaled_plae_classification > plya_vote_thresh:
                     p = scaled_plae_classification
                 else:
-                    p = max(0.01,G.PLYA_VOTE_THRESH - scaled_plae_classification) #todo: need to figure a better value (not much else it can be than LyA)
+                    p = max(0.01,plya_vote_thresh - scaled_plae_classification) #todo: need to figure a better value (not much else it can be than LyA)
 
             #check that if the z > 1.9 (probably means LAE) but the g or r mag is in the questionabale range
             #and the eqivalent widht is also questionable (with error between 15-25)
@@ -2388,6 +2411,9 @@ class DetObj:
             #correction for air vs vac and orbital velocitym etc
             z = SU.z_correction(z,self.w,shotid=self.survey_shotid)
             self.best_z = z
+            self.best_z_list.append(self.best_z)
+            self.best_p_of_z_list.append(self.best_p_of_z)
+            self.plya_thresh_list.append(plya_vote_thresh)
             log.info(f"{self.entry_id} Applied redshift corection. Old z = {self.best_z_uncorrected}. New z = {self.best_z}.")
 
             return z,p
@@ -3483,7 +3509,7 @@ class DetObj:
         return 0
 
 
-    def aggregate_classification(self):
+    def aggregate_classification(self):#,plya_vote_thresh = G.PLYA_VOTE_THRESH):
         """
         Use all info available, weighted, to make a classification as to LAE or not LAE
         ?map to 0.0 (not LAE) to 1.0 (LAE)
@@ -3494,6 +3520,9 @@ class DetObj:
 
         #using some Bayesian language, but not really Bayesian, yet
         #assume roughly half of all detections are LAEs (is that reasonable?)
+
+        # if plya_vote_thresh is None:
+        #     plya_vote_thresh = G.PLYA_VOTE_THRESH
 
         vote_info = {} #dictionary of vote, weights, and info for a debugging HDF5 ClassificationExtraFeatures table
 
@@ -5205,8 +5234,11 @@ class DetObj:
             try:
                 if len(weight) > 0 and np.sum(weight) < 1.0:
                     tot_weight = np.sum(weight)
-                    log.info(f"Low voting weight ({tot_weight}). Adding in {G.PLYA_VOTE_THRESH} vote at {1.0-tot_weight} weight.")
-                    likelihood.append(G.PLYA_VOTE_THRESH)
+                    #log.info(f"Low voting weight ({tot_weight}). Adding in {plya_vote_thresh} vote at {1.0-tot_weight} weight.")
+                    #likelihood.append(plya_vote_thresh)
+                    #here I DO want 0.5 not the tuned threshold
+                    log.info(f"Low voting weight ({tot_weight}). Adding in 0.5 vote at {1.0-tot_weight} weight.")
+                    likelihood.append(0.5)
                     weight.append(1.0 -tot_weight)
                     var.append(1.0)
                     prior.append(0.5)
@@ -5249,7 +5281,7 @@ class DetObj:
                         scaled_prob_lae = 0.999
 
                     self.classification_dict['scaled_plae'] = scaled_prob_lae
-                    log.info(f"{self.entry_id} Scaled P(LyA) {scaled_prob_lae:0.4f}")
+                    log.info(f"{self.entry_id} Scaled P(LyA) {scaled_prob_lae:0.4f}")# with threshold {plya_vote_thresh}")
                     #print(f"{self.entry_id} Scaled Prob(LyA) {scaled_prob_lae:0.4f}")
             except:
                 log.debug("Exception in aggregate_classification final combination",exc_info=True)
