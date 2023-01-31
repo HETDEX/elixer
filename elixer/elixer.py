@@ -2111,22 +2111,15 @@ def run_convert_pdf(filename, resolution=150, jpeg=False, png=True,systemcall="p
             except:
                 log.error("System call (pdftoppm) conversion failed.", exc_info=True)
         else:
-            log.debug("++++++++++++ 1")
+            #this does not currently work on the hub
             pages = convert_from_path(filename,resolution)
             if png:
-                log.debug("++++++++++++ 2")
                 for i in range(len(pages)):
                     if i > 0:
-                        log.debug("++++++++++++ 3")
                         image_name = filename.rstrip(".pdf") + "_p%02d.png" %i
-                        log.debug("++++++++++++ 3b")
                     else:
-                        log.debug("++++++++++++ 4")
                         image_name = filename.rstrip(".pdf") + ".png"
-                        log.debug("++++++++++++ 4b")
-                    log.debug("++++++++++++ 5")
                     pages[i].save(image_name,"PNG")
-                    log.debug("++++++++++++ 6")
                     print("File written: " + image_name)
 
             if jpeg:
