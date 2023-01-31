@@ -3,6 +3,7 @@ changes to elixer by version
 1.19.0a1 [2023-01-30]
 * add new option for up to 3 different, configurable P(LyA) threholds; this is intended to allow for some flexibility
   in LyA vs OII thresholds depending on science needs (e.g. to rebalance contamination vs completeness as needed)
+  This is configured in global_config.py and/or at run time with --plya_thresh
 
 1.18.2a2 [2023-01-24]
 * fix bug in spectrum::solution_consistent_with_low_z(); was using wrong index and could mark lines as missing when they

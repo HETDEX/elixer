@@ -2111,14 +2111,22 @@ def run_convert_pdf(filename, resolution=150, jpeg=False, png=True,systemcall="p
             except:
                 log.error("System call (pdftoppm) conversion failed.", exc_info=True)
         else:
+            log.debug("++++++++++++ 1")
             pages = convert_from_path(filename,resolution)
             if png:
+                log.debug("++++++++++++ 2")
                 for i in range(len(pages)):
                     if i > 0:
+                        log.debug("++++++++++++ 3")
                         image_name = filename.rstrip(".pdf") + "_p%02d.png" %i
+                        log.debug("++++++++++++ 3b")
                     else:
+                        log.debug("++++++++++++ 4")
                         image_name = filename.rstrip(".pdf") + ".png"
+                        log.debug("++++++++++++ 4b")
+                    log.debug("++++++++++++ 5")
                     pages[i].save(image_name,"PNG")
+                    log.debug("++++++++++++ 6")
                     print("File written: " + image_name)
 
             if jpeg:
@@ -2138,7 +2146,7 @@ def run_convert_pdf(filename, resolution=150, jpeg=False, png=True,systemcall="p
         # elif type(e) is PDFInfoNotInstalledError:
         #     log.error("Error (1) converting pdf to image type: (PDFInfoNotInstalledError)" + filename, exc_info=False)
         elif ('poppler' in str(e)) or ("PDFInfoNotInstalledError" in str(type(e))):
-            log.error("Error (1) converting pdf to image type: (pdfinfo cannot find poppler)" + filename, exc_info=False)
+            log.error("Error (1) converting pdf to image type: (pdfinfo cannot find poppler)" + filename, exc_info=True)
         else:
             log.error("Error (1) converting pdf to image type: " + filename + "  Exception type: " + str(type(e)), exc_info=True)
 
