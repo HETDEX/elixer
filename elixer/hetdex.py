@@ -7675,9 +7675,14 @@ class DetObj:
             aper = self.extraction_aperture if self.extraction_aperture is not None else 3.0
 
             coord = SkyCoord(ra=(sep_obj['ra'] + ra_fix) * U.deg, dec=(sep_obj['dec'] + dec_fix) * U.deg)
+            if G.LOG_LEVEL <= 10:  # 10 = DEBUG
+                get_spectra_loglevel = "INFO"
+            else:
+                get_spectra_loglevel = "ERROR"
+
             apt = hda_get_spectra(coord, survey=f"hdr{G.HDR_Version}", shotid=self.survey_shotid,
                                   ffsky=self.extraction_ffsky, multiprocess=G.GET_SPECTRA_MULTIPROCESS, rad=aper,
-                                  tpmin=0.0,fiberweights=False) #don't need the fiber weights
+                                  tpmin=0.0,fiberweights=False,loglevel=get_spectra_loglevel) #don't need the fiber weights
         except:
             log.info("hetdex.py forced_extraction(). Exception calling HETDEX_API get_spectra",exc_info=True)
 
@@ -7748,9 +7753,14 @@ class DetObj:
 
         try:
             coord = SkyCoord(ra=self.ra * U.deg, dec=self.dec * U.deg)
+            if G.LOG_LEVEL <= 10: #10 = DEBUG
+                get_spectra_loglevel = "INFO"
+            else:
+                get_spectra_loglevel = "ERROR"
+
             apt = hda_get_spectra(coord, survey=f"hdr{G.HDR_Version}", shotid=self.survey_shotid,
                                   ffsky=self.extraction_ffsky, multiprocess=G.GET_SPECTRA_MULTIPROCESS, rad=self.extraction_aperture,
-                                  tpmin=0.0,fiberweights=True)
+                                  tpmin=0.0,fiberweights=True,loglevel=get_spectra_loglevel)
         except:
             log.info("hetdex.py forced_extraction(). Exception calling HETDEX_API get_spectra",exc_info=True)
 
