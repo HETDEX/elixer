@@ -971,7 +971,7 @@ class Catalog:
         if stacked_cutout is None:
             fig = self.build_empty_cat_summary_figure(ra,dec,error,None,None,target_w,fiber_locs)
         else:
-            if G.PROJECT_LINE_IMAGE_TO_COMMON_WCS:
+            if G.PROJECT_LINE_IMAGE_TO_COMMON_WCS and detobj is not None:
                 #before we build up the new plt, we need to get the line image and save into a buffer for use later
                 try:
                     plt.close('all')

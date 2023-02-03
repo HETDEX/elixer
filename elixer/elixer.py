@@ -5144,73 +5144,79 @@ def main():
                     print("No detections match input parameters.")
 
             elif (args.ra is not None) and (args.dec is not None):
-                num_hits = 0
-                num_cats = 0
-                catlist_str = ""
-                matched_cats = [] #there were no detection objects (just an RA, Dec) so use a generic, global matched_cats
+                if (args.require_hetdex is False):
+                    num_hits = 0
+                    num_cats = 0
+                    catlist_str = ""
+                    matched_cats = [] #there were no detection objects (just an RA, Dec) so use a generic, global matched_cats
 
-                if G.DECALS_WEB_FORCE:
-                    matched_cats.append(cat_decals_web)
-                    catlist_str += cat_decals_web.name + ", "
-                elif G.PANSTARRS_FORCE:
-                    matched_cats.append(cat_panstarrs)
-                    catlist_str += cat_panstarrs.name + ", "  # still need this for autoremoval of trailing ", " later
-                elif G.SDSS_FORCE:
-                    matched_cats.append(cat_sdss)
-                    catlist_str += cat_sdss.name + ", " #still need this for autoremoval of trailing ", " later
-                else:
-                    for c in cats:
-                        if c.position_in_cat(ra=args.ra,dec=args.dec,error=args.error):
-                            if args.error > 0:
-                                hits,_,_ = c.build_list_of_bid_targets(ra=args.ra,dec=args.dec,error=args.error)
+                    if G.DECALS_WEB_FORCE:
+                        matched_cats.append(cat_decals_web)
+                        catlist_str += cat_decals_web.name + ", "
+                    elif G.PANSTARRS_FORCE:
+                        matched_cats.append(cat_panstarrs)
+                        catlist_str += cat_panstarrs.name + ", "  # still need this for autoremoval of trailing ", " later
+                    elif G.SDSS_FORCE:
+                        matched_cats.append(cat_sdss)
+                        catlist_str += cat_sdss.name + ", " #still need this for autoremoval of trailing ", " later
+                    else:
+                        for c in cats:
+                            if c.position_in_cat(ra=args.ra,dec=args.dec,error=args.error):
+                                if args.error > 0:
+                                    hits,_,_ = c.build_list_of_bid_targets(ra=args.ra,dec=args.dec,error=args.error)
 
-                                if hits < 0:
-                                    #there was a problem ... usually we are in the footprint
-                                    #but in a gap or missing area
-                                    hits = 0
+                                    if hits < 0:
+                                        #there was a problem ... usually we are in the footprint
+                                        #but in a gap or missing area
+                                        hits = 0
+                                    else:
+                                        num_hits += hits
+                                        num_cats += 1
+                                        if c not in matched_cats:
+                                            matched_cats.append(c)
+                                            catlist_str += c.name + ", "
+
+                                    if hits > 0:
+                                        print ("%d hits in %s" %(hits,c.name))
+                                    elif args.catcheck:
+                                        print("%d hits in %s (*only checks closest tile)" %(hits,c.name))
                                 else:
-                                    num_hits += hits
                                     num_cats += 1
                                     if c not in matched_cats:
                                         matched_cats.append(c)
                                         catlist_str += c.name + ", "
 
-                                if hits > 0:
-                                    print ("%d hits in %s" %(hits,c.name))
-                                elif args.catcheck:
-                                    print("%d hits in %s (*only checks closest tile)" %(hits,c.name))
-                            else:
-                                num_cats += 1
-                                if c not in matched_cats:
-                                    matched_cats.append(c)
-                                    catlist_str += c.name + ", "
-
-                    if (len(matched_cats) == 0):
-                        if G.DECALS_WEB_ALLOW:
-                            matched_cats.append(cat_decals_web)
-                            catlist_str += cat_decals_web.name + ", "
-                        elif G.PANSTARRS_ALLOW:
-                            #todo: should peek and see if panstarrs has a hit? if not then fall to SDSS?
-                            matched_cats.append(cat_panstarrs)
-                            catlist_str += cat_panstarrs.name + ", " #still need this for autoremoval of trailing ", " later
-                        elif G.SDSS_ALLOW:
-                            matched_cats.append(cat_sdss)
-                            catlist_str += cat_sdss.name + ", " #still need this for autoremoval of trailing ", " later
+                        if (len(matched_cats) == 0):
+                            if G.DECALS_WEB_ALLOW:
+                                matched_cats.append(cat_decals_web)
+                                catlist_str += cat_decals_web.name + ", "
+                            elif G.PANSTARRS_ALLOW:
+                                #todo: should peek and see if panstarrs has a hit? if not then fall to SDSS?
+                                matched_cats.append(cat_panstarrs)
+                                catlist_str += cat_panstarrs.name + ", " #still need this for autoremoval of trailing ", " later
+                            elif G.SDSS_ALLOW:
+                                matched_cats.append(cat_sdss)
+                                catlist_str += cat_sdss.name + ", " #still need this for autoremoval of trailing ", " later
 
 
-                if args.catcheck:
-                    catlist_str = catlist_str[:-2]
-                    print("%d overlapping catalogs (%f,%f). %s" %(num_cats,args.ra, args.dec, catlist_str))
-                    exit(0)
-                    #if num_cats == 0:
-                    #    num_hits = -1 #will show -1 if no catalogs vs 0 if there are matching catalogs, just no matching targets
-                        #print("-1 hits. No overlapping imaging catalogs.")
-                else:
-                    if not confirm(num_hits,args.force):
-                        log.critical("Main exit. User cancel.")
+                    if args.catcheck:
+                        catlist_str = catlist_str[:-2]
+                        print("%d overlapping catalogs (%f,%f). %s" %(num_cats,args.ra, args.dec, catlist_str))
                         exit(0)
+                        #if num_cats == 0:
+                        #    num_hits = -1 #will show -1 if no catalogs vs 0 if there are matching catalogs, just no matching targets
+                            #print("-1 hits. No overlapping imaging catalogs.")
+                    else:
+                        if not confirm(num_hits,args.force):
+                            log.critical("Main exit. User cancel.")
+                            exit(0)
 
-                    pages,_ = build_pages(args.name,None,args.ra, args.dec, args.error, matched_cats, pages, idstring="# 1 of 1")
+                        pages,_ = build_pages(args.name,None,args.ra, args.dec, args.error, matched_cats, pages, idstring="# 1 of 1")
+                else:
+                    try:
+                        log.info(f"[{args.manual_name}], RA,Dec: ({args.ra},{args.dec}). No matching HETDEX information and --require_hetdex is specified.")
+                    except:
+                        log.info("No matching HETDEX information and --require_hetdex is specified.")
             else:
                 print("Invalid command line call. Insufficient information to execute or No detections meet minimum criteria.")
                 exit(-1)
