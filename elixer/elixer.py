@@ -258,8 +258,9 @@ def parse_commandline(auto_force=False):
                                            'or d:m:s.as (end with \'d\') '
                                            'Examples: --ra 214.963542  or --ra 14:19:51.250h or --ra 214:57:48.7512d'
                                             , required=False)
-    parser.add_argument('--dec', help='Target Dec (as decimal degrees or d:m:s.as (end with \'d\') '
-                                            'Examples: --dec 52.921167    or  --dec 52:55:16.20d', required=False)
+    parser.add_argument('--dec', help='Target Dec (as decimal degrees or d:m:s.as (end with \'d\'). '
+                                      'Negative values must be in quotes with a space before the " -" .'
+                                            'Examples: --dec 52.921167  or  --dec " -8:20:55.1" or --dec 52:55:16.20d', required=False)
 
     #parser.add_argument('--rot',help="Rotation (as decimal degrees). NOT THE PARANGLE.",required=False,type=float)
     parser.add_argument('--par', help="The Parangle in decimal degrees.", required=False, type=float)
@@ -518,6 +519,8 @@ def parse_commandline(auto_force=False):
         args = parser.parse_args()
     except:
         log.critical("Exception! Excpetion parsing command line.",exc_info=True)
+        print('Check this common problem. If using --dec with a negative value as d:m:s, the value must be quoted and '
+              'there must be a space between the leading quote and the negative sign. e.g. --dec \" -8:20:55.6\"')
         args = None
         return
 
@@ -4857,24 +4860,31 @@ def main():
                                     base_name = args.manual_name #need to save it off, since we are going to modify args.manual_name
                                 except:
                                     base_name = None
-                                for i,s in enumerate(shotlist):
-                                    args.shotid = s
-                                    if base_name is not None: #leave three spaces for extra shots, very rare to have
-                                        #more than a few, but this separates it nicely
-                                        try:
-                                            args.manual_name = base_name * 1000 + i
-                                            if args.manual_name < 9e9:
-                                                args.manual_name = args.manual_name + int(9e10) #add leading 9
-                                        except:
-                                            pass
-                                    hd = hetdex.HETDEX(args, basic_only=basic_only,cluster_list=cluster_list)
-                                    if hd.status == 0:
-                                        hd_list.append(hd)
-                                try:
-                                    if base_name is not None:
-                                        args.manual_name = base_name #put it back
-                                except:
-                                    pass
+
+                                if len(shotlist) > 0:
+                                    for i,s in enumerate(shotlist):
+                                        args.shotid = s
+                                        if base_name is not None: #leave three spaces for extra shots, very rare to have
+                                            #more than a few, but this separates it nicely
+                                            try:
+                                                args.manual_name = base_name * 1000 + i
+                                                if args.manual_name < 9e9:
+                                                    args.manual_name = args.manual_name + int(9e10) #add leading 9
+                                            except:
+                                                pass
+                                        hd = hetdex.HETDEX(args, basic_only=basic_only,cluster_list=cluster_list)
+                                        if hd.status == 0:
+                                            hd_list.append(hd)
+                                    try:
+                                        if base_name is not None:
+                                            args.manual_name = base_name #put it back
+                                    except:
+                                        pass
+                                else:
+                                    try:
+                                        log.info(f"[{base_name}] RA,Dec ({args.ra},{args.dec}): No matching shots found. --require_hetdex = {args.require_hetdex}")
+                                    except:
+                                        log.info("No matching shots found.")
                             else:
                                 hd = hetdex.HETDEX(args,basic_only=basic_only,cluster_list=cluster_list)
                                 if hd.status == 0:
@@ -5213,8 +5223,12 @@ def main():
 
                         pages,_ = build_pages(args.name,None,args.ra, args.dec, args.error, matched_cats, pages, idstring="# 1 of 1")
                 else:
+
                     try:
-                        log.info(f"[{args.manual_name}], RA,Dec: ({args.ra},{args.dec}). No matching HETDEX information and --require_hetdex is specified.")
+                        if args.coords is not None or (hdf5_detectid_list is not None and len(hdf5_detectid_list) > 1):
+                            pass #there was a whole list and it has already been logged
+                        else:
+                            log.info(f"[{args.manual_name}], RA,Dec: ({args.ra},{args.dec}). No matching HETDEX information and --require_hetdex is specified.")
                     except:
                         log.info("No matching HETDEX information and --require_hetdex is specified.")
             else:

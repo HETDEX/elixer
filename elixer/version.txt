@@ -1,5 +1,9 @@
 changes to elixer by version
 
+1.19.0a2 [2023-03-01]
+* updated spectrum::get_best_gmag(), get_hetdex_gmag(), get_sdss_gmag() to fix handling when there are no flux errors provided
+* various random_aperture updates (testing and sample building)
+
 1.19.0a1 [2023-01-30]
 * add new option for up to 3 different, configurable P(LyA) threholds; this is intended to allow for some flexibility
   in LyA vs OII thresholds depending on science needs (e.g. to rebalance contamination vs completeness as needed)

@@ -237,7 +237,8 @@ def get_sdss_gmag(flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_SIZ
         cont = None
         mag_err = None
         cont_err = None
-        if flux_err is None:
+        no_error = False
+        if flux_err is None or len(flux_err) == 0 or not np.any(flux_err):
             no_error = True
 
 
@@ -264,7 +265,7 @@ def get_sdss_gmag(flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_SIZ
             flux_density[sel] = 0.0
 
         #if flux_err is specified, assume it is Gaussian and sample, repeatedly building up spectra
-        if flux_err is not None:
+        if flux_err is not None and not no_error:
             try:
                 flux_err = np.array(flux_err)
                 flux_density = np.array(flux_density)
@@ -384,8 +385,12 @@ def get_hetdex_gmag(flux_density, wave, flux_density_err=None, ignore_global=Fal
         cont = None
         mag_err = None
         cont_err = None
+        no_errors = False
         if (flux_density_err is None) or (len(flux_density_err) == 0):
             flux_density_err = np.zeros(len(wave))
+            no_errors = True
+        elif not np.any(flux_density_err):
+            no_errors = True
 
 
         #sanity check flux_density
@@ -405,7 +410,7 @@ def get_hetdex_gmag(flux_density, wave, flux_density_err=None, ignore_global=Fal
         # fluxerrs = np.array(flux_density_err[idx_3600:idx_5400+1]) * G.FLUX_WAVEBIN_WIDTH
 
         sel = np.array(wave > G.SDSS_G_FILTER_BLUE) & np.array(wave < G.SDSS_G_FILTER_RED)
-        if flux_density_err is not None:
+        if not no_errors and flux_density_err is not None and np.any(flux_density_err):
             sel = sel & ~np.isnan(flux_density_err) & np.array(flux_density_err != 0)
 
         if np.count_nonzero(sel) < 100:
@@ -420,13 +425,24 @@ def get_hetdex_gmag(flux_density, wave, flux_density_err=None, ignore_global=Fal
 
         if method == 1:
             band_avg_fnu = np.nanmean(fnu)
-            band_avg_err = np.sqrt(np.sum(fnu_errs*fnu_errs))/np.count_nonzero(sel)
+            if no_errors:
+                band_avg_err = 0
+            else:
+                band_avg_err = np.sqrt(np.sum(fnu_errs*fnu_errs))/np.count_nonzero(sel)
         elif method == 2: #makes a small improvement in matching to HSC-g faint mags
-            band_avg_fnu = utils.weighted_mean(fnu,1.0/(fnu_errs**2))
-            band_avg_err = np.sqrt(np.sum(fnu_errs*fnu_errs))/np.count_nonzero(sel)
+            if no_errors:
+                band_avg_fnu = np.nanmean(fnu)
+                band_avg_err = 0
+            else:
+                band_avg_fnu = utils.weighted_mean(fnu,1.0/(fnu_errs**2))
+                band_avg_err = np.sqrt(np.sum(fnu_errs*fnu_errs))/np.count_nonzero(sel)
         elif method == 3: #makes no real difference, some small scatter
-            band_avg_fnu = weighted_biweight.biweight_location_errors(fnu,errors=fnu_errs)
-            band_avg_err = biweight.biweight_scale(fnu)/np.sqrt(np.count_nonzero(sel))
+            if no_errors:
+                band_avg_fnu = biweight.biweight_location(fnu)#,errors=fnu_errs)
+                band_avg_err = biweight.biweight_scale(fnu)/np.sqrt(np.count_nonzero(sel))
+            else:
+                band_avg_fnu = weighted_biweight.biweight_location_errors(fnu,errors=fnu_errs)
+                band_avg_err = biweight.biweight_scale(fnu)/np.sqrt(np.count_nonzero(sel))
 
         band_avg_fnu  /= 1e30
         band_avg_err /= 1e30
@@ -437,13 +453,24 @@ def get_hetdex_gmag(flux_density, wave, flux_density_err=None, ignore_global=Fal
 
         if method == 1:
             band_flux_density = np.nanmean(fluxbins)
-            banband_flux_density_errd_avg_err = np.sqrt(np.sum(fluxerrs*fluxerrs))/np.count_nonzero(sel)
+            if no_errors:
+                banband_flux_density_errd_avg_err = 0
+            else:
+                banband_flux_density_errd_avg_err = np.sqrt(np.sum(fluxerrs*fluxerrs))/np.count_nonzero(sel)
         elif method == 2: #makes a small improvement in matching to HSC-g faint mags
-            band_flux_density = utils.weighted_mean(fluxbins,1.0/(fluxerrs**2))
-            band_flux_density_err = np.sqrt(np.sum(fluxerrs*fluxerrs))/np.count_nonzero(sel)
+            if no_errors:
+                band_flux_density = np.nanmean(fluxbins) #/ (fluxerrs ** 2))
+                band_flux_density_err = 0
+            else:
+                band_flux_density = utils.weighted_mean(fluxbins,1.0/(fluxerrs**2))
+                band_flux_density_err = np.sqrt(np.sum(fluxerrs*fluxerrs))/np.count_nonzero(sel)
         elif method == 3: #makes no real difference, some small scatter
-            band_flux_density = weighted_biweight.biweight_location_errors(fluxbins,errors=fluxerrs)
-            band_flux_density_err = biweight.biweight_scale(fnu)/np.sqrt(np.count_nonzero(sel))
+            if no_errors:
+                band_flux_density = biweight.biweight_location(fluxbins)#, errors=fluxerrs)
+                band_flux_density_err = biweight.biweight_scale(fnu) / np.sqrt(np.count_nonzero(sel))
+            else:
+                band_flux_density = weighted_biweight.biweight_location_errors(fluxbins,errors=fluxerrs)
+                band_flux_density_err = biweight.biweight_scale(fnu)/np.sqrt(np.count_nonzero(sel))
 
         #integrated_flux = np.sum(fluxbins)
         #integrated_errs = np.sqrt(np.sum(fluxerrs*fluxerrs))

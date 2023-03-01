@@ -1,0 +1,1 @@
+ls -1 *.coord | awk '{print "mpiexec.hydra -np 1 /opt/apps/intel18/python3/3.7.0/bin/python3 ./coord_apertures.py --aper 3.5 --coord " $0}'  > coord_ap.run

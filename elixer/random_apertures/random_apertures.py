@@ -49,6 +49,40 @@ else:
     exit(-1)
 shot = shotid
 
+if "--ffsky" in args:
+    print("using ff sky subtraction")
+    ffsky = True
+else:
+    print("using local sky subtraction")
+    ffsky = False
+
+
+if "--aper" in args:
+    i = args.index("--aper")
+    try:
+        aper = float(sys.argv[i + 1])
+        print(f"using specified  {aper}\" aperture")
+    except:
+        print("bad --aper specified")
+        exit(-1)
+else:
+    print("using default 3.5\" aperture")
+    aper = 3.5  # 3.5" aperture
+
+
+if "--minmag" in args:
+    i = args.index("--minmag")
+    try:
+        min_gmag = float(sys.argv[i + 1])
+        print(f"using specified {min_gmag} bright limit mag.")
+    except:
+        print("bad --minmag specified")
+        exit(-1)
+else:
+    print("using default 24.5 bright limit on mag.")
+    min_gmag = 24.5  # 3.5" aperture
+
+
 outfile = open("random_apertures_"+str(shotid)+".coord", "w+")  # 3500-3800 avg +/- 0.04
 table_outname = "random_apertures_"+str(shotid) + ".fits"
 
@@ -74,9 +108,6 @@ random_fibers_per_shot = 500  # number of anchor fibers to select per shot (also
 empty_apertures_per_shot = 200  # stop once we hit this number of "successful" apertures in a shot
 ra_nudge = 0.75  # random nudge between 0 and this value in fiber center RA
 dec_nudge = 0.75  # ditto for Dec
-aper = 3.5  # 3.5" aperture
-ffsky = False
-min_gmag = 24.0  # 24.5 #if brighter than this, reject and move on
 min_fibers = 15  # min number of fibers in an extraction
 negative_flux_limit = -0.4e-17  # erg/s/cm2/AA ... more negative than this, assume something is wrong
 hetdex_nearest_detection = 2.0 #in arcsec
@@ -152,9 +183,10 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
 
     coord = SkyCoord(ra, dec, unit="deg")
     try:
+
         apt = get_spectra(coord, survey=survey_name, shotid=shot,
                           ffsky=ffsky, multiprocess=True, rad=aper,
-                          tpmin=0.0, fiberweights=True, loglevel="NOTSET")  # don't need the fiber weights
+                          tpmin=0.0, fiberweights=True, loglevel="ERROR")  # don't need the fiber weights
         try:
             if apt['fiber_weights'][0].shape[0] < min_fibers:
                 continue  # too few fibers, probably on the edge or has dead fibers
@@ -175,6 +207,7 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
         ##
         ## check the extracted spectrum for evidence of continuum or emission lines
         ##
+
 
         g, c, ge, ce = elixer_spectrum.get_hetdex_gmag(fluxd, wavelength, fluxd_err)
         # g,ge,_,_ = elixer_spectrum.get_best_gmag(fluxd,fluxd_err,wavelength) #weird astropy issue, just use hetdex_gmag
