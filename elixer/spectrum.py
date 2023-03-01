@@ -779,8 +779,12 @@ def get_best_gmag(flux_density, flux_density_err, wavelengths):
             #best_gmag_selected = 'limit'
             best_gmag = -999  # G.HETDEX_CONTINUUM_MAG_LIMIT
             best_gmag_unc = 0
-            best_gmag_cgs_cont = -999
-            best_gmag_cgs_cont_unc = 0
+            if hetdex_gmag_cgs_cont is not None and not np.isnan(hetdex_gmag_cgs_cont):
+                best_gmag_cgs_cont = hetdex_gmag_cgs_cont
+                best_gmag_cgs_cont_unc = hetdex_gmag_cgs_cont_unc
+            else:
+                best_gmag_cgs_cont = -999
+                hetdex_gmag_cgs_cont_unc = 0
     except:
         best_gmag = -999
         best_gmag_unc = 0
