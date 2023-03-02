@@ -2,7 +2,22 @@
 import glob
 from astropy.table import Table,vstack
 
-table_outname = "random_apertures_"
+
+#"random_apertures_"
+#"fiber_summary_"
+#"coord_apertures_"
+if "--prefix" in args:
+    i = args.index("--prefix")
+    try:
+        prefix = sys.argv[i + 1]
+    except:
+        print("bad --prefix specified")
+        exit(-1)
+else:
+    print("no prefix specified")
+    exit(-1)
+
+table_outname = prefix
 
 files = glob.glob(table_outname +"*.fits")
 T = Table.read(files[0],format="fits")
