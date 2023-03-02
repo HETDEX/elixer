@@ -115,9 +115,6 @@ bad = np.array([mf in ampflag_table['multiframe'][sel] for mf in FT['multiframe'
 keep = good_flag & ~bad
 FT = FT[keep]
 
-
-print(f"Cleaned to {len(FT)}")
-
 li = 265 #index for 4000AA
 ri = 765 #index for 5000AA (actually 5002, but the last bin is not included in the slice)
 wn = ri-li - (540-512) #number of bins (minus the chip gap) again don't need the +1 since the last bin is not included in the slice
@@ -129,6 +126,17 @@ FT['calfib_ffsky'][:,512:540] = np.nan
 #chip_gap = #4492-4548 mask out: idx 512 (4494) 540 (4540)  so would drop 4494-4548
 #here ... now FT is "clean"
 #sum over 4000-5000, sigma clip and trim  BOTH local and FFsky
+
+#scan for all (or way too many zeros in any of the three arrays
+#               all waves - chip gap - nonzeros (nan counts as a nonzero)(
+FT['ll_zeros'] = 1036 - np.count_nonzero(FT['calfib'],axis=1)
+FT['ff_zeros'] = 1036 - np.count_nonzero(FT['calfib_ffsky'],axis=1)
+FT['er_zeros'] = 1036 - np.count_nonzero(FT['calfibe'],axis=1)
+
+#most have at least 20-30 zeros at the edges
+zero_sel = np.array(FT['ll_zeros'] <= 100) & np.array(FT['ff_zeros'] <= 100)  & np.array(FT['er_zeros'] <= 100)
+FT = FT[zero_sel]
+print(f"Cleaned to {len(FT)}")
 
 #if apply dust
 if apply_dust_crrection:
