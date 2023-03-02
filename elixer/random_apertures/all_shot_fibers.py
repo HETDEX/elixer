@@ -22,6 +22,7 @@ import numpy as np
 import tables
 from astropy.coordinates import SkyCoord
 from astropy.table import Table,join,vstack
+from astropy.stats import sigma_clip
 import astropy.units as u
 import copy
 import glob
@@ -69,9 +70,10 @@ table_outname += f"{shotid}.fits"
 
 #maybe this one was already done?
 if op.exists(table_outname ):
+    print(f"{table_outname} already created. Skipping.")
     exit(0)
 
-print("Initializing ...")
+print(f"Initializing {table_outname} ...")
 
 survey_name = "hdr3" #"hdr2.1"
 hetdex_api_config = HDRconfig(survey_name)
@@ -101,21 +103,30 @@ good_flag = np.array(super_tab['flag'])
 #get the full fiber table for the shot
 FT = get_fibers_table(shot=shot)
 
-print("Cleaning ...")
+print(f"Cleaning from {len(FT)}...")
 
 #remove the bad amps
 sel = (ampflag_table['shotid'] == shotid) & (ampflag_table['flag'] == 0)  # here, 0 is bad , 1 is good
 #bad_amp_list = ampflag_table['multiframe'][sel] #using the fiber index values which includes the bad amp flag
-badamp = np.array(ampflag_table['multiframe'][sel])
-bad = np.array([mf in badamp for mf in FT['multiframe']])
+#badamp = np.array(ampflag_table['multiframe'][sel]) #this makes b'str' values, so don't jump to the np.array
+bad = np.array([mf in ampflag_table['multiframe'][sel] for mf in FT['multiframe']])
 
 #remove all the flagged fibers
 keep = good_flag & ~bad
 FT = FT[keep]
 
+
+print(f"Cleaned to {len(FT)}")
+
 li = 265 #index for 4000AA
 ri = 765 #index for 5000AA (actually 5002, but the last bin is not included in the slice)
-wn = ri-li #number of bins, again don't need the +1 since the last bin is not included in the slice
+wn = ri-li - (540-512) #number of bins (minus the chip gap) again don't need the +1 since the last bin is not included in the slice
+
+#mask the chip gap with np.nan
+FT['calfib'][:,512:540] = np.nan
+FT['calfibe'][:,512:540] = np.nan
+FT['calfib_ffsky'][:,512:540] = np.nan
+#chip_gap = #4492-4548 mask out: idx 512 (4494) 540 (4540)  so would drop 4494-4548
 #here ... now FT is "clean"
 #sum over 4000-5000, sigma clip and trim  BOTH local and FFsky
 
@@ -158,7 +169,7 @@ ff_N = np.count_nonzero(FT['ff_keep'])
 
 #then stack the remaining and figure the offset to zero for 4000-5000AA
 
-print("Stacking ...")
+print(f"Stacking  ({np.count_nonzero(FT['ll_keep'])},{np.count_nonzero(FT['ff_keep'])})...")
 
 ll_stack, ll_stacke, _, _ = SU.stack_spectra(
                                                 FT['calfib'][FT['ll_keep']],
@@ -186,15 +197,24 @@ ff_median_offset = np.nanmedian(FT['ff_sum'][FT['ff_keep']])/wn #median of the s
 ff_stderr_offset = np.nanstd(FT['ff_sum'][FT['ff_keep']]/wn)/ff_N #this is the error on that y-shift
 
 
-#to a table with the basic shot info
-#will then combine all the tables later in another SLURM
+#also want to kill the ends
 
+deg = 7
+try:
+    psel = np.full(len(G.CALFIB_WAVEGRID), False)
+    psel[30:1005] = True
+    psel = psel & ~np.isnan(ll_stack)
+    ll_poly = np.polyfit(G.CALFIB_WAVEGRID[psel],ll_stack[psel],deg=deg)
+except:
+    ll_poly = np.zeros(deg)
 
-##
-## iterate over the random fibers, verify is NOT on a bad amp, nudge the coordinate and extract
-##
-aper_ct = 0
-write_every = 100
+try:
+    psel = np.full(len(G.CALFIB_WAVEGRID), False)
+    psel[30:1005] = True
+    psel = psel & ~np.isnan(ff_stack)
+    ff_poly = np.polyfit(G.CALFIB_WAVEGRID[psel],ff_stack[psel],deg=deg)
+except:
+    ff_poly = np.zeros(deg)
 
 #basically just one row
 T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
@@ -203,13 +223,16 @@ T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
                  ('ff_median_offset',float),('ff_stderr_offset',float),
                  ('ll_stack', (float, len(G.CALFIB_WAVEGRID))),
                  ('ll_stacke', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ll_poly',(float,len(ll_poly))),
                  ('ff_stack', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ff_stacke', (float, len(G.CALFIB_WAVEGRID)))],
+                 ('ff_stacke', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ff_poly', (float, len(ff_poly))),
+                 ]
                )
 
 T.add_row([ra, dec, shotid, seeing, response,
            ll_median_offset, ll_stderr_offset, ff_median_offset, ff_stderr_offset,
-           ll_stack, ll_stacke,ff_stacke,ff_stacke])
+           ll_stack, ll_stacke,ll_poly, ff_stacke,ff_stacke,ff_poly])
 
 T.write(table_outname, format='fits', overwrite=True)
 
