@@ -111,6 +111,11 @@ sel = (ampflag_table['shotid'] == shotid) & (ampflag_table['flag'] == 0)  # here
 #badamp = np.array(ampflag_table['multiframe'][sel]) #this makes b'str' values, so don't jump to the np.array
 bad = np.array([mf in ampflag_table['multiframe'][sel] for mf in FT['multiframe']])
 
+del ampflag_table
+del fibers_table
+del mask_table
+del super_tab
+
 #remove all the flagged fibers
 keep = good_flag & ~bad
 FT = FT[keep]
@@ -136,6 +141,9 @@ FT['er_zeros'] = 1036 - np.count_nonzero(FT['calfibe'],axis=1)
 #most have at least 20-30 zeros at the edges
 zero_sel = np.array(FT['ll_zeros'] <= 100) & np.array(FT['ff_zeros'] <= 100)  & np.array(FT['er_zeros'] <= 100)
 FT = FT[zero_sel]
+
+
+
 print(f"Cleaned to {len(FT)}")
 
 #if apply dust
