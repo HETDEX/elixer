@@ -268,23 +268,23 @@ if apply_dust_crrection:
 
 #for pct in [0.05,0.10,0.15]:
 ll_stack_05, ll_stacke_05, ll_ct_05, ll_stack_ct_05, ll_stacke_ct_05, = whole_shot_by_pct(fiber_table=FT,trim_pct=0.05, ffsky=False,
-                                        avg_type = 'biweight', enforce_fluxd_range=True)
+                                        avg_type = avg_type, enforce_fluxd_range=True)
 
 ll_stack_10, ll_stacke_10, ll_ct_10, ll_stack_ct_10, ll_stacke_ct_10 = whole_shot_by_pct(fiber_table=FT,trim_pct=0.10, ffsky=False,
-                                        avg_type = 'biweight', enforce_fluxd_range=True)
+                                        avg_type = avg_type, enforce_fluxd_range=True)
 
 ll_stack_15, ll_stacke_15, ll_ct_15, ll_stack_ct_15, ll_stacke_ct_15 = whole_shot_by_pct(fiber_table=FT,trim_pct=0.15, ffsky=False,
-                                        avg_type = 'biweight', enforce_fluxd_range=True)
+                                        avg_type = avg_type, enforce_fluxd_range=True)
 
 
 ff_stack_05, ff_stacke_05, ff_ct_05, ff_stack_ct_05, ff_stacke_ct_05 = whole_shot_by_pct(fiber_table=FT,trim_pct=0.05, ffsky=True,
-                                        avg_type = 'biweight', enforce_fluxd_range=True)
+                                        avg_type = avg_type, enforce_fluxd_range=True)
 
 ff_stack_10, ff_stacke_10, ff_ct_10, ff_stack_ct_10, ff_stacke_ct_10 = whole_shot_by_pct(fiber_table=FT,trim_pct=0.10, ffsky=True,
-                                        avg_type = 'biweight', enforce_fluxd_range=True)
+                                        avg_type = avg_type, enforce_fluxd_range=True)
 
 ff_stack_15, ff_stacke_15, ff_ct_15, ff_stack_ct_15, ff_stacke_ct_15 = whole_shot_by_pct(fiber_table=FT,trim_pct=0.15, ffsky=True,
-                                        avg_type = 'biweight', enforce_fluxd_range=True)
+                                        avg_type = avg_type enforce_fluxd_range=True)
 
 #basically just one row
 T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),

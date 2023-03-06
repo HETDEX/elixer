@@ -22,7 +22,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.19.0a2'
+__version__ = '1.19.0a3'
 #Logging
 GLOBAL_LOGGING = False #set to True in top elixer calls so we do not normally log from package imports
 LOG_TO_STDOUT = False #only kicks in if GLOBAL_LOGGING is False
@@ -1271,3 +1271,11 @@ VOTE_PHOTZ                      = 0x00000100
 VOTE_DEX_GMAG                   = 0x00000200
 VOTE_FLAM_SLOPE                 = 0x00000400
 VOTE_EW_PLAE_POII_CORRECTION    = 0x00000800
+
+
+
+###################################
+# testin sky residuals
+###################################
+SKY_RESIDUAL_FITS_PATH = "/scratch/03261/polonius/random_apertures/all_fibers/2018_2022/"
+SKY_RESIDUAL_FITS_COL  = "ll_stack_05"

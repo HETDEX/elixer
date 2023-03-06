@@ -39,6 +39,7 @@ except:
 import numpy as np
 import pickle
 import os.path as op
+from astropy.table import Table
 import astropy.constants
 import astropy.units as U
 from astropy.coordinates import SkyCoord
@@ -2499,6 +2500,53 @@ def combo_fit_wave(peak_func,values,errors,wavelengths,central,wave_slop_kms=500
             log.info("Exception in spectrum_utilites::combo_fit_wave", exc_info=True)
 
     return return_dict
+
+
+
+def fetch_single_fiber_sky_subtraction_residual(path,shotid,column):
+    """
+    in this version (for testing) all the residual fits files are in one place, with each holding one row for the shot
+    only returns the residual ... not the error
+                 ('ra', float), ('dec', float), ('shotid', int),
+                 ('seeing',float),('response',float),
+                 ('fiber_total_ct',float),('fiber_cleaned_ct',float),
+                 ('ll_ct_05',float), ('ff_ct_05',float),('ll_ct_10', float),('ff_ct_10', float),('ll_ct_15', float),('ff_ct_15', float),
+
+                 ('ll_stack_05', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ll_stacke_05', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ff_stack_05', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ff_stacke_05', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ll_stack_10', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ll_stacke_10', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ff_stack_10', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ff_stacke_10', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ll_stack_15', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ll_stacke_15', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ff_stack_15', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ff_stacke_15', (float, len(G.CALFIB_WAVEGRID))),
+
+
+                 ('ll_stack_ct_05', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ll_stacke_ct_05', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ll_stack_ct_10', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ll_stacke_ct_10', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ll_stack_ct_15', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ll_stacke_ct_15', (float, len(G.CALFIB_WAVEGRID))),
+
+                example: fiber_summary_md_20190724017.fits
+
+    :param path:
+    :param shotid:
+    :param column:
+    :return: residual
+    """
+
+    try:
+        T = Table.read(op.join(path,f"fiber_summary_md_{shotid}.fits"))
+        return T[column][0]
+    except:
+        log.error(f"Exception! Exception loading sky residual for {shotid} + {column}.",exc_info=True)
+        return None
 
 
 def check_overlapping_psf(source_mag,neighbor_mag,psf,dist_baryctr,dist_ellipse=None,effective_radius=None,aperture=1.5):

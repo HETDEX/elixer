@@ -609,6 +609,8 @@ class DetObj:
         self.nei_mini_buf = None #image holder for neighborhood
         self.line_mini_buf = None
 
+        self.shot_sky_subtraction_residual = None
+
         self.phot_z_votes = []
         self.cluster_parent = 0 #detectid of anohter HETDEX source that is the cluster (specifically, redshift) for this object
         self.cluster_z = -1
@@ -7680,9 +7682,19 @@ class DetObj:
             else:
                 get_spectra_loglevel = "ERROR"
 
+            if self.shot_sky_subtraction_residual is None:
+                self.shot_sky_subtraction_residual = SU.fetch_single_fiber_sky_subtraction_residual(G.SKY_RESIDUAL_FITS_PATH,
+                                                                               self.survey_shotid,
+                                                                               G.SKY_RESIDUAL_FITS_COL)
+            if self.shot_sky_subtraction_residual is None:
+                fiber_flux_offset = None
+            else:
+                fiber_flux_offset = -1 * self.shot_sky_subtraction_residual
+
             apt = hda_get_spectra(coord, survey=f"hdr{G.HDR_Version}", shotid=self.survey_shotid,
                                   ffsky=self.extraction_ffsky, multiprocess=G.GET_SPECTRA_MULTIPROCESS, rad=aper,
-                                  tpmin=0.0,fiberweights=False,loglevel=get_spectra_loglevel) #don't need the fiber weights
+                                  tpmin=0.0,fiberweights=False,loglevel=get_spectra_loglevel,
+                                  fiber_flux_offset = fiber_flux_offset) #don't need the fiber weights
         except:
             log.info("hetdex.py forced_extraction(). Exception calling HETDEX_API get_spectra",exc_info=True)
 
@@ -7758,9 +7770,20 @@ class DetObj:
             else:
                 get_spectra_loglevel = "ERROR"
 
+            if self.shot_sky_subtraction_residual is None:
+                self.shot_sky_subtraction_residual = SU.fetch_single_fiber_sky_subtraction_residual(G.SKY_RESIDUAL_FITS_PATH,
+                                                                               self.survey_shotid,
+                                                                               G.SKY_RESIDUAL_FITS_COL)
+
+            if self.shot_sky_subtraction_residual is None:
+                fiber_flux_offset = None
+            else:
+                fiber_flux_offset = -1 * self.shot_sky_subtraction_residual
+
             apt = hda_get_spectra(coord, survey=f"hdr{G.HDR_Version}", shotid=self.survey_shotid,
                                   ffsky=self.extraction_ffsky, multiprocess=G.GET_SPECTRA_MULTIPROCESS, rad=self.extraction_aperture,
-                                  tpmin=0.0,fiberweights=True,loglevel=get_spectra_loglevel)
+                                  tpmin=0.0,fiberweights=True,loglevel=get_spectra_loglevel,
+                                  fiber_flux_offset = fiber_flux_offset)
         except:
             log.info("hetdex.py forced_extraction(). Exception calling HETDEX_API get_spectra",exc_info=True)
 
