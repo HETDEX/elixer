@@ -53,7 +53,8 @@ def whole_shot_by_pct(fiber_table,trim_pct, ffsky=False, avg_type = 'biweight', 
     calfibe_ct = FT['calfibe_counts'][sel]
     if ffsky:
         calfib = FT['calfib_ffsky'][sel]
-        calfib_ct = FT['calfib_counts_ffsky'][sel]
+        #calfib_ct = FT['calfib_counts_ffsky'][sel]
+        calfib_ct = FT['calfib_counts'][sel]
     else:
         calfib = FT['calfib'][sel]
         calfib_ct = FT['calfib_counts'][sel]
@@ -83,8 +84,8 @@ def whole_shot_by_pct(fiber_table,trim_pct, ffsky=False, avg_type = 'biweight', 
         calfib = calfib[trim_sel]
         calfibe = calfibe[trim_sel]
 
-        calfib_ct = calfib[trim_sel]
-        calfibe_ct = calfibe[trim_sel]
+        calfib_ct = calfib_ct[trim_sel]
+        calfibe_ct = calfibe_ct[trim_sel]
 
         zone1_calfib = zone1_calfib[trim_sel]
         zone2_calfib = zone2_calfib[trim_sel]
@@ -309,26 +310,26 @@ T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
                  ('ll_stacke_15', (float, len(G.CALFIB_WAVEGRID))),
 
                  ('ff_stack_15', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ff_stacke_15', (float, len(G.CALFIB_WAVEGRID)))
+                 ('ff_stacke_15', (float, len(G.CALFIB_WAVEGRID))),
 
 
                  ('ll_stack_ct_05', (float, len(G.CALFIB_WAVEGRID))),
                  ('ll_stacke_ct_05', (float, len(G.CALFIB_WAVEGRID))),
 
-                 ('ff_stack_ct_05', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ff_stacke_ct_05', (float, len(G.CALFIB_WAVEGRID))),
+                 # ('ff_stack_ct_05', (float, len(G.CALFIB_WAVEGRID))),  #ff_sky does not have counts from base table
+                 # ('ff_stacke_ct_05', (float, len(G.CALFIB_WAVEGRID))),
 
                  ('ll_stack_ct_10', (float, len(G.CALFIB_WAVEGRID))),
                  ('ll_stacke_ct_10', (float, len(G.CALFIB_WAVEGRID))),
 
-                 ('ff_stack_ct_10', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ff_stacke_ct_10', (float, len(G.CALFIB_WAVEGRID))),
+                 # ('ff_stack_ct_10', (float, len(G.CALFIB_WAVEGRID))),
+                 # ('ff_stacke_ct_10', (float, len(G.CALFIB_WAVEGRID))),
 
                  ('ll_stack_ct_15', (float, len(G.CALFIB_WAVEGRID))),
                  ('ll_stacke_ct_15', (float, len(G.CALFIB_WAVEGRID))),
 
-                 ('ff_stack_ct_15', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ff_stacke_ct_15', (float, len(G.CALFIB_WAVEGRID)))
+                 # ('ff_stack_ct_15', (float, len(G.CALFIB_WAVEGRID))),
+                 # ('ff_stacke_ct_15', (float, len(G.CALFIB_WAVEGRID)))
                  ])
 
 T.add_row([ra, dec, shotid, seeing, response,
@@ -339,9 +340,9 @@ T.add_row([ra, dec, shotid, seeing, response,
            ll_stack_10, ll_stacke_10,  ff_stack_10,ff_stacke_10,
            ll_stack_15, ll_stacke_15,  ff_stack_15,ff_stacke_15,
 
-           ll_stack_ct_05, ll_stacke_ct_05, ff_stack_ct_05, ff_stacke_ct_05,
-           ll_stack_ct_10, ll_stacke_ct_10, ff_stack_ct_10, ff_stacke_ct_10,
-           ll_stack_ct_15, ll_stacke_ct_15, ff_stack_ct_15, ff_stacke_ct_15,
+           ll_stack_ct_05, ll_stacke_ct_05,# ff_stack_ct_05, ff_stacke_ct_05,
+           ll_stack_ct_10, ll_stacke_ct_10,# ff_stack_ct_10, ff_stacke_ct_10,
+           ll_stack_ct_15, ll_stacke_ct_15,# ff_stack_ct_15, ff_stacke_ct_15,
            ])
 
 T.write(table_outname, format='fits', overwrite=True)

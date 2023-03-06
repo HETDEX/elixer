@@ -137,6 +137,7 @@ class MCMC_Double_Gauss:
         #self.initial_peak_2 = None
 
         self.max_sigma = 30.0
+        self.min_sigma = 0.1
         self.range_mu = None
         self.max_A_mult = 2.0
         self.max_y_mult = 2.0
@@ -269,10 +270,10 @@ class MCMC_Double_Gauss:
         # note: could take some other dynamic maximum for y (like compute the peak ... y can't be greater than that
         #let  A_2 be able to be zero so this becomes a single gaussian
         if ( abs(mu - self.initial_mu) < self.range_mu) and \
-                (0.1 < sigma < self.max_sigma) and \
+                (self.min_sigma < sigma < self.max_sigma) and \
                 (0.0 < A < self.max_A_mult * self.initial_A) and \
             (abs(mu2 - self.initial_mu_2) < self.range_mu) and \
-                (0.1 <= sigma2 < self.max_sigma) and \
+                (self.min_sigma <= sigma2 < self.max_sigma) and \
                 (0.0 <= A2 < self.max_A_mult * self.initial_A_2) and \
             ((y-self.delta_y) < y < (y+self.delta_y)):
             return 0.0  # remember this is ln(prior) so a return of 0.0 == 1  (since ln(1) == 0.0)
@@ -283,19 +284,19 @@ class MCMC_Double_Gauss:
         if self.initial_A < 0 : #same as emission, but "A" is negative (flip sign) and y is between a max and zero
 
             if ( abs(mu - self.initial_mu) < self.range_mu) and \
-                    (0.1 < sigma < self.max_sigma) and \
+                    (self.min_sigma < sigma < self.max_sigma) and \
                     (self.max_A_mult * self.initial_A <= A < 0.0) and \
                     (abs(mu2 - self.initial_mu_2) < self.range_mu) and \
-                    (0.1 <= sigma2 < self.max_sigma) and \
+                    (self.min_sigma <= sigma2 < self.max_sigma) and \
                     (self.max_A_mult * self.initial_A_2 <= A2 < 0.0) and \
                     ((y-self.delta_y) < y < (y+self.delta_y)):
                 return 0.0  # remember this is ln(prior) so a return of 0.0 == 1  (since ln(1) == 0.0)
         else:
             if ( abs(mu - self.initial_mu) < self.range_mu) and \
-                    (0.1 < sigma < self.max_sigma) and \
+                    (self.min_sigma < sigma < self.max_sigma) and \
                     (0.0 < A < self.max_A_mult * self.initial_A) and \
                     (abs(mu2 - self.initial_mu_2) < self.range_mu) and \
-                    (0.1 <= sigma2 < self.max_sigma) and \
+                    (self.min_sigma <= sigma2 < self.max_sigma) and \
                     (0.0 <= A2 < self.max_A_mult * self.initial_A_2) and \
                     ((y-self.delta_y) < y < (y+self.delta_y)):
                 return 0.0  # remember this is ln(prior) so a return of 0.0 == 1  (since ln(1) == 0.0)
