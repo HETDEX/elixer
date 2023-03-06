@@ -1278,4 +1278,5 @@ VOTE_EW_PLAE_POII_CORRECTION    = 0x00000800
 # testin sky residuals
 ###################################
 SKY_RESIDUAL_FITS_PATH = "/scratch/03261/polonius/random_apertures/all_fibers/2018_2022/"
+SKY_RESIDUAL_FITS_PREFIX = "fiber_summary_md_"
 SKY_RESIDUAL_FITS_COL  = "ll_stack_05"

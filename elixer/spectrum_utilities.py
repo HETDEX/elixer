@@ -2542,7 +2542,7 @@ def fetch_single_fiber_sky_subtraction_residual(path,shotid,column):
     """
 
     try:
-        T = Table.read(op.join(path,f"fiber_summary_md_{shotid}.fits"))
+        T = Table.read(op.join(path,f"{G.SKY_RESIDUAL_FITS_PREFIX}{shotid}.fits"))
         return T[column][0]
     except:
         log.error(f"Exception! Exception loading sky residual for {shotid} + {column}.",exc_info=True)
