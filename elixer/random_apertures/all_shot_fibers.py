@@ -284,7 +284,7 @@ ff_stack_10, ff_stacke_10, ff_ct_10, ff_stack_ct_10, ff_stacke_ct_10 = whole_sho
                                         avg_type = avg_type, enforce_fluxd_range=True)
 
 ff_stack_15, ff_stacke_15, ff_ct_15, ff_stack_ct_15, ff_stacke_ct_15 = whole_shot_by_pct(fiber_table=FT,trim_pct=0.15, ffsky=True,
-                                        avg_type = avg_type enforce_fluxd_range=True)
+                                        avg_type = avg_type, enforce_fluxd_range=True)
 
 #basically just one row
 T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
