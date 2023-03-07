@@ -2542,11 +2542,22 @@ def fetch_single_fiber_sky_subtraction_residual(path,shotid,column):
     """
 
     try:
-        T = Table.read(op.join(path,f"{G.SKY_RESIDUAL_FITS_PREFIX}{shotid}.fits"))
-        return T[column][0]
+        T = None
+        file = op.join(path,f"{G.SKY_RESIDUAL_FITS_PREFIX}{shotid}.fits")
+        if op.exists(file):
+            T = Table.read(file)
+        else:
+            #yes, there ends up being two underscores before default
+            file = op.join(path,f"{G.SKY_RESIDUAL_FITS_PREFIX}_default.fits")
+            if op.exists(file):
+                T = Table.read(file)
+
+        if T is not None:
+            return T[column][0]
     except:
         log.error(f"Exception! Exception loading sky residual for {shotid} + {column}.",exc_info=True)
-        return G.SKY_RESIDUAL_DEFAULT
+        return None
+    return None
 
 
 def check_overlapping_psf(source_mag,neighbor_mag,psf,dist_baryctr,dist_ellipse=None,effective_radius=None,aperture=1.5):
