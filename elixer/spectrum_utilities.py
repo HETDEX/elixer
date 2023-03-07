@@ -2546,7 +2546,7 @@ def fetch_single_fiber_sky_subtraction_residual(path,shotid,column):
         return T[column][0]
     except:
         log.error(f"Exception! Exception loading sky residual for {shotid} + {column}.",exc_info=True)
-        return None
+        return G.SKY_RESIDUAL_DEFAULT
 
 
 def check_overlapping_psf(source_mag,neighbor_mag,psf,dist_baryctr,dist_ellipse=None,effective_radius=None,aperture=1.5):
