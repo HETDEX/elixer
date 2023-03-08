@@ -4,6 +4,7 @@ changes to elixer by version
 1.19.0a3 [2023-03-06]
 * testing new HETDEX API get_spectra() with sky residuals
     + !! this version ONLY applies to get_spectra() re-extractions !!
+* fix missing --ffsky option on HETDEX_API call to get_spectrum() (normal retrieval, not the re-extraction)
 
 1.19.0a2 [2023-03-01]
 * updated spectrum::get_best_gmag(), get_hetdex_gmag(), get_sdss_gmag() to fix handling when there are no flux errors provided

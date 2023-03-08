@@ -8747,8 +8747,11 @@ class DetObj:
             if G.LOAD_SPEC_FROM_HETDEX_API and hda_detobj is not None:
                 try:
                     #DO NOT APPLY dust correction HERE!! it is done later
-                    hda_spec = hda_detobj.get_spectrum(id,rawh5=False,deredden=False,add_apcor=True,verbose=False)
+                    hda_spec = hda_detobj.get_spectrum(id,ffsky=self.extraction_ffsky,rawh5=False,deredden=False,add_apcor=True,verbose=False)
                     #!!!! if rawh5 == True, these are still in flux units, not the usual hetdex_api flux_denisties
+                    #!!!! we normally want to use rawh5=FALSE even though we get erg/s/cm2/AA instead of x2AA
+                    #!!! since we also get the HETDEX_API post h5 run corrections applied to the spectra
+                    #!!! WE DO TURN OFF deredden though, since we explicitly apply that later !!!
                     hda_spec['spec1d'] *= G.FLUX_WAVEBIN_WIDTH
                     hda_spec['spec1d_err'] *= G.FLUX_WAVEBIN_WIDTH
 
@@ -8773,7 +8776,10 @@ class DetObj:
                 self.sumspec_counts = row['counts1d']  # not really using this anymore
                 # self.sumspec_countserr #not using this
                 self.sumspec_wavelength = row['wave1d']
-                self.sumspec_flux = row['spec1d'] #DOES NOT have units attached, but is 10^17 (so *1e-17 to get to real units)
+                if self.extraction_ffsky:
+                    self.sumspec_flux = row['spec1d_ffsky']
+                else:
+                    self.sumspec_flux = row['spec1d'] #DOES NOT have units attached, but is 10^17 (so *1e-17 to get to real units)
                 self.sumspec_fluxerr = row['spec1d_err']
 
                 self.sumspec_apcor = row['apcor'] #aperture correction
