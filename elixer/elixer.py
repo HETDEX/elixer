@@ -5372,7 +5372,7 @@ def main():
                                                         log.error(f"ERROR! Unexpected lenght of best_z_list: {len(best_z_list)}")
                                             else:
                                                 header_text = r"EW: %0.1f$\pm$%0.1f$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  P(Ly$\alpha$): %0.3f" \
-                                                  % (max(-9999,min(combined_ew,9999)),max(-9999,min(combined_ew_err,9999)),round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae_list[0])
+                                                  % (max(-9999,min(combined_ew,9999)),max(-9999,min(combined_ew_err,9999)),round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae)
 
                                         try:
                                             if len(e.spec_obj.classification_label) > 0:
