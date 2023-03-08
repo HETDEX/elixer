@@ -5381,7 +5381,7 @@ def main():
                                             pass
                                     except:# Exception as Ex:
                                         pass
-                                        print(Ex)
+                                        #print(Ex)
 
 
                                 try:
