@@ -679,6 +679,10 @@ def get_best_gmag(flux_density, flux_density_err, wavelengths):
     """
     sdss_okay = 0
     hetdex_okay = 0
+    best_gmag = None
+    best_gmag_unc = None
+    best_gmag_cgs_cont = None
+    best_gmag_cgs_cont_unc = None
 
     # sum over entire HETDEX spectrum to estimate g-band magnitude
     try:
