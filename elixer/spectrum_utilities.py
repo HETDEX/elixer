@@ -2542,6 +2542,11 @@ def fetch_single_fiber_sky_subtraction_residual(path,shotid,column):
     """
 
     try:
+        if G.SKY_RESIDUAL_FITS_PREFIX is None:
+            #we are not doing this
+            log.info("***** No sky subtraction residual configured.")
+            return None
+
         T = None
         file = op.join(path,f"{G.SKY_RESIDUAL_FITS_PREFIX}{shotid}.fits")
         if op.exists(file):
@@ -2553,6 +2558,7 @@ def fetch_single_fiber_sky_subtraction_residual(path,shotid,column):
                 T = Table.read(file)
 
         if T is not None:
+            log.info(f"***** Returning sky subtraction residual: {file} [{column}].")
             return T[column][0]
     except:
         log.error(f"Exception! Exception loading sky residual for {shotid} + {column}.",exc_info=True)
