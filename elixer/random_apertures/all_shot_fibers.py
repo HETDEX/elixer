@@ -93,15 +93,15 @@ def whole_shot_by_pct(fiber_table,trim_pct, ffsky=False, avg_type = 'biweight', 
 
     # now apply pct cuts
     # zone_calfib = np.sort(zone1_calfib)
-    zone1_top_cut_value = np.sort(zone1_calfib)[int(len(zone1_calfib) * (1 - trim_pct))]
+    zone1_top_cut_value = np.sort(zone1_calfib)[int(len(zone1_calfib) * (1 - trim_pct))-1]
     # del zone_calfib
 
     # zone_calfib = np.sort(zone2_calfib)
-    zone2_top_cut_value = np.sort(zone2_calfib)[int(len(zone2_calfib) * (1 - trim_pct))]
+    zone2_top_cut_value = np.sort(zone2_calfib)[int(len(zone2_calfib) * (1 - trim_pct))-1]
     # del zone_calfib
 
     # zone_calfib = np.sort(zone3_calfib)
-    zone3_top_cut_value = np.sort(zone3_calfib)[int(len(zone3_calfib) * (1 - trim_pct))]
+    zone3_top_cut_value = np.sort(zone3_calfib)[int(len(zone3_calfib) * (1 - trim_pct))-1]
     # del zone_calfib
 
     if symmetric: #also trim the bottom same
@@ -109,16 +109,16 @@ def whole_shot_by_pct(fiber_table,trim_pct, ffsky=False, avg_type = 'biweight', 
         zone2_bot_cut_value = np.sort(zone2_calfib)[int(len(zone2_calfib) * trim_pct)]
         zone3_bot_cut_value = np.sort(zone3_calfib)[int(len(zone3_calfib) * trim_pct)]
 
-        trim_sel = np.array(zone1_calfib < zone1_top_cut_value) & \
-                   np.array(zone2_calfib < zone2_top_cut_value) & \
-                   np.array(zone3_calfib < zone3_top_cut_value) & \
+        trim_sel = np.array(zone1_calfib <= zone1_top_cut_value) & \
+                   np.array(zone2_calfib <= zone2_top_cut_value) & \
+                   np.array(zone3_calfib <= zone3_top_cut_value) & \
                    np.array(zone1_calfib > zone1_bot_cut_value) & \
                    np.array(zone2_calfib > zone2_bot_cut_value) & \
                    np.array(zone3_calfib > zone3_bot_cut_value)
     else: #just the top cut
-        trim_sel = np.array(zone1_calfib < zone1_top_cut_value) & \
-                   np.array(zone2_calfib < zone2_top_cut_value) & \
-                   np.array(zone3_calfib < zone3_top_cut_value)
+        trim_sel = np.array(zone1_calfib <= zone1_top_cut_value) & \
+                   np.array(zone2_calfib <= zone2_top_cut_value) & \
+                   np.array(zone3_calfib <= zone3_top_cut_value)
 
 
 
