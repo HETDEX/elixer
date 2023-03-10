@@ -46,7 +46,7 @@ zone2_fluxd_range = (-2.0,2.0) #4000-5000AA
 zone3_fluxd_range = (-2.0,2.0) #5000-5500
 
 
-def whole_shot_by_pct(fiber_table,trim_pct, ffsky=False, avg_type = 'biweight', enforce_fluxd_range=False):#, use_counts=False):
+def whole_shot_by_pct(fiber_table,trim_pct, ffsky=False, avg_type = 'biweight', enforce_fluxd_range=False, symmetric=False):#, use_counts=False):
     FT = fiber_table
     sel = np.full(len(FT), True)
     calfibe = FT['calfibe'][sel]
@@ -104,9 +104,22 @@ def whole_shot_by_pct(fiber_table,trim_pct, ffsky=False, avg_type = 'biweight', 
     zone3_top_cut_value = np.sort(zone3_calfib)[int(len(zone3_calfib) * (1 - trim_pct))]
     # del zone_calfib
 
-    trim_sel = np.array(zone1_calfib < zone1_top_cut_value) & \
-               np.array(zone2_calfib < zone2_top_cut_value) & \
-               np.array(zone3_calfib < zone3_top_cut_value)
+    if symmetric: #also trim the bottom same
+        zone1_bot_cut_value = np.sort(zone1_calfib)[int(len(zone1_calfib) * trim_pct)]
+        zone2_bot_cut_value = np.sort(zone2_calfib)[int(len(zone2_calfib) * trim_pct)]
+        zone3_bot_cut_value = np.sort(zone3_calfib)[int(len(zone3_calfib) * trim_pct)]
+
+        trim_sel = np.array(zone1_calfib < zone1_top_cut_value) & \
+                   np.array(zone2_calfib < zone2_top_cut_value) & \
+                   np.array(zone3_calfib < zone3_top_cut_value) & \
+                   np.array(zone1_calfib > zone1_bot_cut_value) & \
+                   np.array(zone2_calfib > zone2_bot_cut_value) & \
+                   np.array(zone3_calfib > zone3_bot_cut_value)
+    else: #just the top cut
+        trim_sel = np.array(zone1_calfib < zone1_top_cut_value) & \
+                   np.array(zone2_calfib < zone2_top_cut_value) & \
+                   np.array(zone3_calfib < zone3_top_cut_value)
+
 
 
     stack, stacke, _, _ = SU.stack_spectra(calfib[trim_sel],
@@ -167,7 +180,7 @@ apply_dust_crrection = False
 
 avg_type = "median" #"biweight",#"weighted_biweight",
 avg_xlat = {"mean":"mn","median":"md","biweight":"bw","weighted_biweight":"wbw"}
-table_outname = f"fiber_summary_{avg_xlat[avg_type]}_"
+table_outname = f"fiber_summary_sym_{avg_xlat[avg_type]}_"
 if apply_dust_crrection:
     table_outname += "dust_"
 
@@ -266,84 +279,154 @@ if apply_dust_crrection:
     FT['calfibe'] *= dust_corr
 
 
-#for pct in [0.05,0.10,0.15]:
-ll_stack_05, ll_stacke_05, ll_ct_05, ll_stack_ct_05, ll_stacke_ct_05, = whole_shot_by_pct(fiber_table=FT,trim_pct=0.05, ffsky=False,
-                                        avg_type = avg_type, enforce_fluxd_range=True)
+ll_stack_000, ll_stacke_000, ll_ct_000, ll_stack_ct_000, ll_stacke_ct_000, = whole_shot_by_pct(fiber_table=FT,trim_pct=0.0, ffsky=False,
+                                         avg_type = avg_type, enforce_fluxd_range=True,symmetric=False)
 
-ll_stack_10, ll_stacke_10, ll_ct_10, ll_stack_ct_10, ll_stacke_ct_10 = whole_shot_by_pct(fiber_table=FT,trim_pct=0.10, ffsky=False,
-                                        avg_type = avg_type, enforce_fluxd_range=True)
+ff_stack_000, ff_stacke_000, ff_ct_000, ff_stack_ct_000, ff_stacke_ct_000 = whole_shot_by_pct(fiber_table=FT,trim_pct=0.0, ffsky=True,
+                                         avg_type = avg_type, enforce_fluxd_range=True,symmetric=False)
 
-ll_stack_15, ll_stacke_15, ll_ct_15, ll_stack_ct_15, ll_stacke_ct_15 = whole_shot_by_pct(fiber_table=FT,trim_pct=0.15, ffsky=False,
-                                        avg_type = avg_type, enforce_fluxd_range=True)
+ll_stack_025, ll_stacke_025, ll_ct_025, ll_stack_ct_025, ll_stacke_ct_025, = whole_shot_by_pct(fiber_table=FT,trim_pct=0.025, ffsky=False,
+                                         avg_type = avg_type, enforce_fluxd_range=True,symmetric=True)
+
+ff_stack_025, ff_stacke_025, ff_ct_025, ff_stack_ct_025, ff_stacke_ct_025 = whole_shot_by_pct(fiber_table=FT,trim_pct=0.025, ffsky=True,
+                                         avg_type = avg_type, enforce_fluxd_range=True,symmetric=True)
 
 
-ff_stack_05, ff_stacke_05, ff_ct_05, ff_stack_ct_05, ff_stacke_ct_05 = whole_shot_by_pct(fiber_table=FT,trim_pct=0.05, ffsky=True,
-                                        avg_type = avg_type, enforce_fluxd_range=True)
+ll_stack_050, ll_stacke_050, ll_ct_050, ll_stack_ct_050, ll_stacke_ct_050, = whole_shot_by_pct(fiber_table=FT,trim_pct=0.05, ffsky=False,
+                                         avg_type = avg_type, enforce_fluxd_range=True,symmetric=True)
 
-ff_stack_10, ff_stacke_10, ff_ct_10, ff_stack_ct_10, ff_stacke_ct_10 = whole_shot_by_pct(fiber_table=FT,trim_pct=0.10, ffsky=True,
-                                        avg_type = avg_type, enforce_fluxd_range=True)
+ff_stack_005, ff_stacke_050, ff_ct_050, ff_stack_ct_050, ff_stacke_ct_050 = whole_shot_by_pct(fiber_table=FT,trim_pct=0.05, ffsky=True,
+                                         avg_type = avg_type, enforce_fluxd_range=True,symmetric=True)
 
-ff_stack_15, ff_stacke_15, ff_ct_15, ff_stack_ct_15, ff_stacke_ct_15 = whole_shot_by_pct(fiber_table=FT,trim_pct=0.15, ffsky=True,
-                                        avg_type = avg_type, enforce_fluxd_range=True)
 
-#basically just one row
 T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
                  ('seeing',float),('response',float),
                  ('fiber_total_ct',float),('fiber_cleaned_ct',float),
-                 ('ll_ct_05',float), ('ff_ct_05',float),('ll_ct_10', float),('ff_ct_10', float),('ll_ct_15', float),('ff_ct_15', float),
+                 ('ll_ct_000',float), ('ff_ct_000',float),('ll_ct_025', float),('ff_ct_025', float),('ll_ct_005', float),('ff_ct_005', float),
 
-                 ('ll_stack_05', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ll_stacke_05', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ll_stack_000', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ll_stacke_000', (float, len(G.CALFIB_WAVEGRID))),
 
-                 ('ff_stack_05', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ff_stacke_05', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ff_stack_000', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ff_stacke_000', (float, len(G.CALFIB_WAVEGRID))),
+
+                 ('ll_stack_025', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ll_stacke_025', (float, len(G.CALFIB_WAVEGRID))),
+
+                 ('ff_stack_025', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ff_stacke_025', (float, len(G.CALFIB_WAVEGRID))),
+
+                 ('ll_stack_050', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ll_stacke_050', (float, len(G.CALFIB_WAVEGRID))),
+
+                 ('ff_stack_050', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ff_stacke_050', (float, len(G.CALFIB_WAVEGRID))),
+
+                 ('ll_stack_ct_000', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ll_stacke_ct_000', (float, len(G.CALFIB_WAVEGRID))),
+
+                 ('ll_stack_ct_025', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ll_stacke_ct_025', (float, len(G.CALFIB_WAVEGRID))),
+
+                 ('ll_stack_ct_050', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ll_stacke_ct_050', (float, len(G.CALFIB_WAVEGRID))),
 
 
-                 ('ll_stack_10', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ll_stacke_10', (float, len(G.CALFIB_WAVEGRID))),
-
-                 ('ff_stack_10', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ff_stacke_10', (float, len(G.CALFIB_WAVEGRID))),
-
-
-                 ('ll_stack_15', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ll_stacke_15', (float, len(G.CALFIB_WAVEGRID))),
-
-                 ('ff_stack_15', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ff_stacke_15', (float, len(G.CALFIB_WAVEGRID))),
-
-
-                 ('ll_stack_ct_05', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ll_stacke_ct_05', (float, len(G.CALFIB_WAVEGRID))),
-
-                 # ('ff_stack_ct_05', (float, len(G.CALFIB_WAVEGRID))),  #ff_sky does not have counts from base table
-                 # ('ff_stacke_ct_05', (float, len(G.CALFIB_WAVEGRID))),
-
-                 ('ll_stack_ct_10', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ll_stacke_ct_10', (float, len(G.CALFIB_WAVEGRID))),
-
-                 # ('ff_stack_ct_10', (float, len(G.CALFIB_WAVEGRID))),
-                 # ('ff_stacke_ct_10', (float, len(G.CALFIB_WAVEGRID))),
-
-                 ('ll_stack_ct_15', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ll_stacke_ct_15', (float, len(G.CALFIB_WAVEGRID))),
-
-                 # ('ff_stack_ct_15', (float, len(G.CALFIB_WAVEGRID))),
-                 # ('ff_stacke_ct_15', (float, len(G.CALFIB_WAVEGRID)))
-                 ])
+                  ])
 
 T.add_row([ra, dec, shotid, seeing, response,
            FT_total_ct, FT_cleaned_ct,
-           ll_ct_05,ff_ct_05,ll_ct_10,ff_ct_10,ll_ct_15,ff_ct_15,
+           ll_ct_000,ff_ct_000,ll_ct_025,ff_ct_025,ll_ct_050,ff_ct_050,
 
-           ll_stack_05, ll_stacke_05,  ff_stack_05,ff_stacke_05,
-           ll_stack_10, ll_stacke_10,  ff_stack_10,ff_stacke_10,
-           ll_stack_15, ll_stacke_15,  ff_stack_15,ff_stacke_15,
+           ll_stack_000, ll_stacke_000,  ff_stack_000,ff_stacke_000,
+           ll_stack_025, ll_stacke_025,  ff_stack_025,ff_stacke_025,
+           ll_stack_050, ll_stacke_050,  ff_stack_05,ff_stacke_050,
 
-           ll_stack_ct_05, ll_stacke_ct_05,# ff_stack_ct_05, ff_stacke_ct_05,
-           ll_stack_ct_10, ll_stacke_ct_10,# ff_stack_ct_10, ff_stacke_ct_10,
-           ll_stack_ct_15, ll_stacke_ct_15,# ff_stack_ct_15, ff_stacke_ct_15,
+
+           ll_stack_ct_000, ll_stacke_ct_000,
+           ll_stack_ct_025, ll_stacke_ct_025,
+           ll_stack_ct_050, ll_stacke_ct_050,
            ])
+
+
+#for pct in [0.05,0.10,0.15]:
+# ll_stack_05, ll_stacke_05, ll_ct_05, ll_stack_ct_05, ll_stacke_ct_05, = whole_shot_by_pct(fiber_table=FT,trim_pct=0.05, ffsky=False,
+#                                         avg_type = avg_type, enforce_fluxd_range=True)
+#
+# ll_stack_10, ll_stacke_10, ll_ct_10, ll_stack_ct_10, ll_stacke_ct_10 = whole_shot_by_pct(fiber_table=FT,trim_pct=0.10, ffsky=False,
+#                                         avg_type = avg_type, enforce_fluxd_range=True)
+#
+# ll_stack_15, ll_stacke_15, ll_ct_15, ll_stack_ct_15, ll_stacke_ct_15 = whole_shot_by_pct(fiber_table=FT,trim_pct=0.15, ffsky=False,
+#                                         avg_type = avg_type, enforce_fluxd_range=True)
+#
+#
+# ff_stack_05, ff_stacke_05, ff_ct_05, ff_stack_ct_05, ff_stacke_ct_05 = whole_shot_by_pct(fiber_table=FT,trim_pct=0.05, ffsky=True,
+#                                         avg_type = avg_type, enforce_fluxd_range=True)
+#
+# ff_stack_10, ff_stacke_10, ff_ct_10, ff_stack_ct_10, ff_stacke_ct_10 = whole_shot_by_pct(fiber_table=FT,trim_pct=0.10, ffsky=True,
+#                                         avg_type = avg_type, enforce_fluxd_range=True)
+#
+# ff_stack_15, ff_stacke_15, ff_ct_15, ff_stack_ct_15, ff_stacke_ct_15 = whole_shot_by_pct(fiber_table=FT,trim_pct=0.15, ffsky=True,
+#                                         avg_type = avg_type, enforce_fluxd_range=True)
+#
+# #basically just one row
+# T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
+#                  ('seeing',float),('response',float),
+#                  ('fiber_total_ct',float),('fiber_cleaned_ct',float),
+#                  ('ll_ct_05',float), ('ff_ct_05',float),('ll_ct_10', float),('ff_ct_10', float),('ll_ct_15', float),('ff_ct_15', float),
+#
+#                  ('ll_stack_05', (float, len(G.CALFIB_WAVEGRID))),
+#                  ('ll_stacke_05', (float, len(G.CALFIB_WAVEGRID))),
+#
+#                  ('ff_stack_05', (float, len(G.CALFIB_WAVEGRID))),
+#                  ('ff_stacke_05', (float, len(G.CALFIB_WAVEGRID))),
+#
+#
+#                  ('ll_stack_10', (float, len(G.CALFIB_WAVEGRID))),
+#                  ('ll_stacke_10', (float, len(G.CALFIB_WAVEGRID))),
+#
+#                  ('ff_stack_10', (float, len(G.CALFIB_WAVEGRID))),
+#                  ('ff_stacke_10', (float, len(G.CALFIB_WAVEGRID))),
+#
+#
+#                  ('ll_stack_15', (float, len(G.CALFIB_WAVEGRID))),
+#                  ('ll_stacke_15', (float, len(G.CALFIB_WAVEGRID))),
+#
+#                  ('ff_stack_15', (float, len(G.CALFIB_WAVEGRID))),
+#                  ('ff_stacke_15', (float, len(G.CALFIB_WAVEGRID))),
+#
+#
+#                  ('ll_stack_ct_05', (float, len(G.CALFIB_WAVEGRID))),
+#                  ('ll_stacke_ct_05', (float, len(G.CALFIB_WAVEGRID))),
+#
+#                  # ('ff_stack_ct_05', (float, len(G.CALFIB_WAVEGRID))),  #ff_sky does not have counts from base table
+#                  # ('ff_stacke_ct_05', (float, len(G.CALFIB_WAVEGRID))),
+#
+#                  ('ll_stack_ct_10', (float, len(G.CALFIB_WAVEGRID))),
+#                  ('ll_stacke_ct_10', (float, len(G.CALFIB_WAVEGRID))),
+#
+#                  # ('ff_stack_ct_10', (float, len(G.CALFIB_WAVEGRID))),
+#                  # ('ff_stacke_ct_10', (float, len(G.CALFIB_WAVEGRID))),
+#
+#                  ('ll_stack_ct_15', (float, len(G.CALFIB_WAVEGRID))),
+#                  ('ll_stacke_ct_15', (float, len(G.CALFIB_WAVEGRID))),
+#
+#                  # ('ff_stack_ct_15', (float, len(G.CALFIB_WAVEGRID))),
+#                  # ('ff_stacke_ct_15', (float, len(G.CALFIB_WAVEGRID)))
+#                  ])
+#
+# T.add_row([ra, dec, shotid, seeing, response,
+#            FT_total_ct, FT_cleaned_ct,
+#            ll_ct_05,ff_ct_05,ll_ct_10,ff_ct_10,ll_ct_15,ff_ct_15,
+#
+#            ll_stack_05, ll_stacke_05,  ff_stack_05,ff_stacke_05,
+#            ll_stack_10, ll_stacke_10,  ff_stack_10,ff_stacke_10,
+#            ll_stack_15, ll_stacke_15,  ff_stack_15,ff_stacke_15,
+#
+#            ll_stack_ct_05, ll_stacke_ct_05,# ff_stack_ct_05, ff_stacke_ct_05,
+#            ll_stack_ct_10, ll_stacke_ct_10,# ff_stack_ct_10, ff_stacke_ct_10,
+#            ll_stack_ct_15, ll_stacke_ct_15,# ff_stack_ct_15, ff_stacke_ct_15,
+#            ])
 
 T.write(table_outname, format='fits', overwrite=True)
 

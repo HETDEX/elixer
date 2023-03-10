@@ -7779,11 +7779,16 @@ class DetObj:
                 fiber_flux_offset = None
             else:
                 fiber_flux_offset = -1 * self.shot_sky_subtraction_residual
+            #     if G.ELIXER_SPECIAL & 2:
+            #         fiber_flux_offset = None
+            #     else:
+            #         fiber_flux_offset = -1 * self.shot_sky_subtraction_residual
 
             apt = hda_get_spectra(coord, survey=f"hdr{G.HDR_Version}", shotid=self.survey_shotid,
                                   ffsky=self.extraction_ffsky, multiprocess=G.GET_SPECTRA_MULTIPROCESS, rad=self.extraction_aperture,
                                   tpmin=0.0,fiberweights=True,loglevel=get_spectra_loglevel,
                                   fiber_flux_offset = fiber_flux_offset)
+
         except:
             log.info("hetdex.py forced_extraction(). Exception calling HETDEX_API get_spectra",exc_info=True)
 
@@ -7793,6 +7798,16 @@ class DetObj:
                 log.info(f"No spectra for ra ({self.ra}) dec ({self.dec})")
                 self.status = -1
                 return
+            #
+            # NO ... this is NOT what I want to do
+            # if G.ELIXER_SPECIAL & 2:
+            #     #perform sky residual correction here instead with PSF Weighting
+            #     #3rd value in each is the weight
+            #     psf_sky  = np.sum([self.shot_sky_subtraction_residual * w for w in apt['fiber_weights'][0][:,2]],axis=1)
+            #     norm_psf = np.sum(apt['fiber_weights'][0][:,2])
+            #     psf_sky /= norm_psf
+            #     apt['spec'][0] = np.nan_to_num(apt['spec'][0]) - psf_sky
+            #     #leave the error as is for now
 
             # returned from get_spectra as flux density (per AA), so multiply by wavebin width to match the HDF5 reads
             self.sumspec_flux = np.nan_to_num(apt['spec'][0]) * G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)

@@ -526,6 +526,7 @@ def parse_commandline(auto_force=False):
 
     try:
         if args.special: #if not None or 0
+            G.ELIXER_SPECIAL = args.special
             print(f"***** RUNNING SPECIALIZED CODE X{args.special} *****")
             log.critical(f"***** RUNNING SPECIALIZED CODE X{args.special} *****")
             G.__version__ += f"X{args.special}"
