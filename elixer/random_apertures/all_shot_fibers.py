@@ -278,24 +278,25 @@ if apply_dust_crrection:
     FT['calfib_ffsky'] *= dust_corr
     FT['calfibe'] *= dust_corr
 
-
+print("Stacking LL 000 ...")
 ll_stack_000, ll_stacke_000, ll_ct_000, ll_stack_ct_000, ll_stacke_ct_000, = whole_shot_by_pct(fiber_table=FT,trim_pct=0.0, ffsky=False,
                                          avg_type = avg_type, enforce_fluxd_range=True,symmetric=False)
 
+print("Stacking FF 000 ...")
 ff_stack_000, ff_stacke_000, ff_ct_000, ff_stack_ct_000, ff_stacke_ct_000 = whole_shot_by_pct(fiber_table=FT,trim_pct=0.0, ffsky=True,
                                          avg_type = avg_type, enforce_fluxd_range=True,symmetric=False)
-
+print("Stacking LL 025 ...")
 ll_stack_025, ll_stacke_025, ll_ct_025, ll_stack_ct_025, ll_stacke_ct_025, = whole_shot_by_pct(fiber_table=FT,trim_pct=0.025, ffsky=False,
                                          avg_type = avg_type, enforce_fluxd_range=True,symmetric=True)
-
+print("Stacking FF 025 ...")
 ff_stack_025, ff_stacke_025, ff_ct_025, ff_stack_ct_025, ff_stacke_ct_025 = whole_shot_by_pct(fiber_table=FT,trim_pct=0.025, ffsky=True,
                                          avg_type = avg_type, enforce_fluxd_range=True,symmetric=True)
 
-
+print("Stacking LL 050 ...")
 ll_stack_050, ll_stacke_050, ll_ct_050, ll_stack_ct_050, ll_stacke_ct_050, = whole_shot_by_pct(fiber_table=FT,trim_pct=0.05, ffsky=False,
                                          avg_type = avg_type, enforce_fluxd_range=True,symmetric=True)
-
-ff_stack_005, ff_stacke_050, ff_ct_050, ff_stack_ct_050, ff_stacke_ct_050 = whole_shot_by_pct(fiber_table=FT,trim_pct=0.05, ffsky=True,
+print("Stacking FF 050 ...")
+ff_stack_050, ff_stacke_050, ff_ct_050, ff_stack_ct_050, ff_stacke_ct_050 = whole_shot_by_pct(fiber_table=FT,trim_pct=0.05, ffsky=True,
                                          avg_type = avg_type, enforce_fluxd_range=True,symmetric=True)
 
 
@@ -340,7 +341,7 @@ T.add_row([ra, dec, shotid, seeing, response,
 
            ll_stack_000, ll_stacke_000,  ff_stack_000,ff_stacke_000,
            ll_stack_025, ll_stacke_025,  ff_stack_025,ff_stacke_025,
-           ll_stack_050, ll_stacke_050,  ff_stack_05,ff_stacke_050,
+           ll_stack_050, ll_stacke_050,  ff_stack_050,ff_stacke_050,
 
 
            ll_stack_ct_000, ll_stacke_ct_000,
