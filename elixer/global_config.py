@@ -1279,5 +1279,5 @@ VOTE_EW_PLAE_POII_CORRECTION    = 0x00000800
 ###################################
 SKY_RESIDUAL_FITS_PATH = "/scratch/03261/polonius/random_apertures/all_fibers/2018_2022_sym_md/"
 SKY_RESIDUAL_FITS_PREFIX = "fiber_summary_sym_md_"
-SKY_RESIDUAL_FITS_COL  = "ll_stack_050"
+SKY_RESIDUAL_FITS_COL  = "ll_stack_025"
 
