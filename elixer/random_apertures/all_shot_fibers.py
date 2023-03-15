@@ -136,6 +136,10 @@ def whole_shot_by_pct(fiber_table,trim_pct, ffsky=False, avg_type = 'biweight', 
                                                  avg_type=avg_type,  # "weighted_biweight",
                                                  straight_error=False)
 
+    #sanity check ... there can be very weird values at the last non-nan values at each end
+    # ss = ~np.isnan(stack)
+    # if stack[ss][0]  : #left most that is not nan
+
     return stack, stacke, np.count_nonzero(trim_sel), stack_ct, stacke_ct
 
 
@@ -167,10 +171,10 @@ shot = shotid
 
 
 # if "--dust" in args:
-#     apply_dust_crrection = True
+#     apply_dust_correction = True
 # else:
-#     apply_dust_crrection = False
-apply_dust_crrection = False
+#     apply_dust_correction = False
+apply_dust_correction = False
 
 
 # if "--counts" in args:
@@ -181,7 +185,7 @@ apply_dust_crrection = False
 avg_type = "median" #"biweight",#"weighted_biweight",
 avg_xlat = {"mean":"mn","median":"md","biweight":"bw","weighted_biweight":"wbw"}
 table_outname = f"fiber_summary_sym_{avg_xlat[avg_type]}_"
-if apply_dust_crrection:
+if apply_dust_correction:
     table_outname += "dust_"
 
 # if use_counts:
@@ -269,14 +273,24 @@ FT = FT[zero_sel]
 FT_cleaned_ct = len(FT) #total number of fibers per in the shot
 print(f"Cleaned to {len(FT)}")
 
-#if apply dust #since this is applied later by HETDEX_API, etc, probably should NOT apply here
-if apply_dust_crrection:
-    print("Applying Dust Correction ...")
+#FT['calfibe'][FT['calfibe']==0] = np.nan
+nan_sel = FT['calfibe']==0
+FT['calfib'][nan_sel] = np.nan
+FT['calfibe'][nan_sel] = np.nan
+FT['calfib_ffsky'][nan_sel] = np.nan
 
-    dust_corr = deredden_spectra(G.CALFIB_WAVEGRID, SkyCoord(ra, dec, unit="deg"))
-    FT['calfib'] *= dust_corr
-    FT['calfib_ffsky'] *= dust_corr
-    FT['calfibe'] *= dust_corr
+
+#replace 0 with np.nan so they don't contribute to the stacking
+
+
+#if apply dust #since this is applied later by HETDEX_API, etc, probably should NOT apply here
+# if apply_dust_correction:
+#     print("Applying Dust Correction ...")
+#
+#     dust_corr = deredden_spectra(G.CALFIB_WAVEGRID, SkyCoord(ra, dec, unit="deg"))
+#     FT['calfib'] *= dust_corr
+#     FT['calfib_ffsky'] *= dust_corr
+#     FT['calfibe'] *= dust_corr
 
 print("Stacking LL 000 ...")
 ll_stack_000, ll_stacke_000, ll_ct_000, ll_stack_ct_000, ll_stacke_ct_000, = whole_shot_by_pct(fiber_table=FT,trim_pct=0.0, ffsky=False,

@@ -66,13 +66,24 @@ else:
     aper = 3.5  # 3.5" aperture
 
 
-table_outname = "coord_apertures_" + str(shotid) + ".fits"
+table_outname = "coord_apertures_ll000_" + str(shotid) + ".fits"
 
 
 
 #maybe this one was already done?
 if op.exists(table_outname):
     exit(0)
+
+#get the single fiber residual for THIS shot
+
+shot_sky_subtraction_residual = SU.fetch_single_fiber_sky_subtraction_residual(G.SKY_RESIDUAL_FITS_PATH,
+                                                                                    shotid,
+                                                                                    G.SKY_RESIDUAL_FITS_COL)
+
+if shot_sky_subtraction_residual is None:
+    print("FAIL!!! No single fiber shot residual retrieved.")
+
+fiber_flux_offset = -1 * shot_sky_subtraction_residual
 
 survey_name = "hdr3" #"hdr2.1"
 hetdex_api_config = HDRconfig(survey_name)
@@ -118,7 +129,8 @@ for ra,dec,shotid in zip(coord_ra,coord_dec,coord_shot):
 
         apt = get_spectra(coord, survey=survey_name, shotid=shot,
                           ffsky=ffsky, multiprocess=True, rad=aper,
-                          tpmin=0.0, fiberweights=True, loglevel="ERROR")  # don't need the fiber weights
+                          tpmin=0.0, fiberweights=True, loglevel="ERROR",
+                          fiber_flux_offset = fiber_flux_offset)  # don't need the fiber weights
 
 
         # fluxd = np.nan_to_num(apt['spec'][0]) * 1e-17
