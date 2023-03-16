@@ -194,7 +194,7 @@ apply_dust_correction = False
 # else:
 #     use_counts = False
 
-avg_type = "median" #"biweight",#"weighted_biweight",
+avg_type = "biweight" #"biweight",#"weighted_biweight",
 avg_xlat = {"mean":"mn","median":"md","biweight":"bw","weighted_biweight":"wbw"}
 table_outname = f"fiber_summary_sym_{avg_xlat[avg_type]}_"
 if apply_dust_correction:
@@ -312,6 +312,15 @@ ll_stack_000, ll_stacke_000, ll_ct_000, ll_stack_ct_000, ll_stacke_ct_000, = who
 print("Stacking FF 000 ...")
 ff_stack_000, ff_stacke_000, ff_ct_000, ff_stack_ct_000, ff_stacke_ct_000 = whole_shot_by_pct(fiber_table=FT,trim_pct=0.0, ffsky=True,
                                          avg_type = avg_type, enforce_fluxd_range=True,symmetric=False)
+
+print("Stacking LL 010 ...")
+ll_stack_010, ll_stacke_010, ll_ct_010, ll_stack_ct_010, ll_stacke_ct_010, = whole_shot_by_pct(fiber_table=FT,trim_pct=0.01, ffsky=False,
+                                         avg_type = avg_type, enforce_fluxd_range=True,symmetric=True)
+
+print("Stacking FF 010 ...")
+ff_stack_010, ff_stacke_010, ff_ct_010, ff_stack_ct_010, ff_stacke_ct_010 = whole_shot_by_pct(fiber_table=FT,trim_pct=0.01, ffsky=True,
+                                         avg_type = avg_type, enforce_fluxd_range=True,symmetric=True)
+
 print("Stacking LL 025 ...")
 ll_stack_025, ll_stacke_025, ll_ct_025, ll_stack_ct_025, ll_stacke_ct_025, = whole_shot_by_pct(fiber_table=FT,trim_pct=0.025, ffsky=False,
                                          avg_type = avg_type, enforce_fluxd_range=True,symmetric=True)
@@ -330,13 +339,20 @@ ff_stack_050, ff_stacke_050, ff_ct_050, ff_stack_ct_050, ff_stacke_ct_050 = whol
 T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
                  ('seeing',float),('response',float),
                  ('fiber_total_ct',float),('fiber_cleaned_ct',float),
-                 ('ll_ct_000',float), ('ff_ct_000',float),('ll_ct_025', float),('ff_ct_025', float),('ll_ct_005', float),('ff_ct_005', float),
+                 ('ll_ct_000',float), ('ff_ct_000',float),('ll_ct_010',float), ('ff_ct_010',float),
+                 ('ll_ct_025', float),('ff_ct_025', float),('ll_ct_050', float),('ff_ct_050', float),
 
                  ('ll_stack_000', (float, len(G.CALFIB_WAVEGRID))),
                  ('ll_stacke_000', (float, len(G.CALFIB_WAVEGRID))),
 
                  ('ff_stack_000', (float, len(G.CALFIB_WAVEGRID))),
                  ('ff_stacke_000', (float, len(G.CALFIB_WAVEGRID))),
+
+                 ('ll_stack_010', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ll_stacke_010', (float, len(G.CALFIB_WAVEGRID))),
+
+                 ('ff_stack_010', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ff_stacke_010', (float, len(G.CALFIB_WAVEGRID))),
 
                  ('ll_stack_025', (float, len(G.CALFIB_WAVEGRID))),
                  ('ll_stacke_025', (float, len(G.CALFIB_WAVEGRID))),
@@ -353,6 +369,9 @@ T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
                  ('ll_stack_ct_000', (float, len(G.CALFIB_WAVEGRID))),
                  ('ll_stacke_ct_000', (float, len(G.CALFIB_WAVEGRID))),
 
+                 ('ll_stack_ct_010', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ll_stacke_ct_010', (float, len(G.CALFIB_WAVEGRID))),
+
                  ('ll_stack_ct_025', (float, len(G.CALFIB_WAVEGRID))),
                  ('ll_stacke_ct_025', (float, len(G.CALFIB_WAVEGRID))),
 
@@ -364,14 +383,17 @@ T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
 
 T.add_row([ra, dec, shotid, seeing, response,
            FT_total_ct, FT_cleaned_ct,
-           ll_ct_000,ff_ct_000,ll_ct_025,ff_ct_025,ll_ct_050,ff_ct_050,
+           ll_ct_000,ff_ct_000,ll_ct_010,ff_ct_010,
+           ll_ct_025,ff_ct_025,ll_ct_050,ff_ct_050,
 
            ll_stack_000, ll_stacke_000,  ff_stack_000,ff_stacke_000,
+           ll_stack_010, ll_stacke_010,  ff_stack_010,ff_stacke_010,
            ll_stack_025, ll_stacke_025,  ff_stack_025,ff_stacke_025,
            ll_stack_050, ll_stacke_050,  ff_stack_050,ff_stacke_050,
 
 
            ll_stack_ct_000, ll_stacke_ct_000,
+           ll_stack_ct_010, ll_stacke_ct_010,
            ll_stack_ct_025, ll_stacke_ct_025,
            ll_stack_ct_050, ll_stacke_ct_050,
            ])
