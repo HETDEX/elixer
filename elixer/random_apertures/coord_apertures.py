@@ -66,7 +66,7 @@ else:
     aper = 3.5  # 3.5" aperture
 
 
-table_outname = "coord_apertures_ll000_" + str(shotid) + ".fits"
+table_outname = "coord_apertures_ll025_" + str(shotid) + ".fits"
 
 
 
