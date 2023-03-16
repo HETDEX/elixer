@@ -136,9 +136,21 @@ def whole_shot_by_pct(fiber_table,trim_pct, ffsky=False, avg_type = 'biweight', 
                                                  avg_type=avg_type,  # "weighted_biweight",
                                                  straight_error=False)
 
-    #sanity check ... there can be very weird values at the last non-nan values at each end
-    # ss = ~np.isnan(stack)
-    # if stack[ss][0]  : #left most that is not nan
+    #clean up the edges
+    binsz = 3 #pull median from this many contiguous bins
+    binskip = 5 #move left (or right) away from the first non-nan by this many bins
+                #the most adjacent non-nan is often messed up too
+    maxbins = 20 #limit to 20 bins (40 AA from either edge)
+    #left side (blue)
+    idx = np.argmax(~ (np.isnan(stack[0:maxbins]) | np.array(stack[0:maxbins] < 0)))
+    md = np.nanmedian(stack[idx+binskip:idx+binskip+binsz])
+    stack[0:idx+binskip] = md
+
+    #right side (red) (opposite ...want the first that is NaN or is < 0)
+    idx = np.argmax( np.isnan(stack[-maxbins:]) | np.array(stack[-maxbins:] < 0)) +len(stack)-maxbins
+    md = np.nanmedian(stack[idx-binskip-binsz:idx-binskip])
+    stack[idx-binskip:] = md
+    #will keep the uncertainty as is though ... either nan, 0, or original ?
 
     return stack, stacke, np.count_nonzero(trim_sel), stack_ct, stacke_ct
 
@@ -247,9 +259,10 @@ del super_tab
 keep = good_flag & ~bad
 FT = FT[keep]
 
-li = 265 #index for 4000AA
-ri = 765 #index for 5000AA (actually 5002, but the last bin is not included in the slice)
-wn = ri-li - (540-512) #number of bins (minus the chip gap) again don't need the +1 since the last bin is not included in the slice
+#no longer using these
+# li = 265 #index for 4000AA
+# ri = 765 #index for 5000AA (actually 5002, but the last bin is not included in the slice)
+# wn = ri-li - (540-512) #number of bins (minus the chip gap) again don't need the +1 since the last bin is not included in the slice
 
 # moved to the individual stacking sections as not all stacking options want these masked
 # #mask the chip gap with np.nan
