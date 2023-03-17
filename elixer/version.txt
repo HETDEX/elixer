@@ -1,5 +1,7 @@
 changes to elixer by version
 
+1.19.0a4 [2023-03-17]
+* add universal sky subtraction residual model
 
 1.19.0a3 [2023-03-06]
 * testing new HETDEX API get_spectra() with sky residuals

@@ -22,7 +22,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.19.0a3'
+__version__ = '1.19.0a4'
 #Logging
 GLOBAL_LOGGING = False #set to True in top elixer calls so we do not normally log from package imports
 LOG_TO_STDOUT = False #only kicks in if GLOBAL_LOGGING is False
@@ -1277,7 +1277,16 @@ VOTE_EW_PLAE_POII_CORRECTION    = 0x00000800
 ###################################
 # testing sky residuals
 ###################################
+
+SKY_RESIDUAL_PER_SHOT = False #if True pull each residusl from the match shot, if False, use the universal model
+
+#!!!! don't forget to produce the __default.fits as the bw of all the individual ones ...
+#!!! currently in jupyter-notebook: ff_ll_sky_test.ipynb
 SKY_RESIDUAL_FITS_PATH ="/scratch/03261/polonius/random_apertures/all_fibers/2018_2022_sym_bw/"
 SKY_RESIDUAL_FITS_PREFIX = "fiber_summary_sym_bw_"
 SKY_RESIDUAL_FITS_COL  = "ll_stack_050"
 
+SKY_RESIDUAL_HDR3_LO_FLUXD = None
+SKY_RESIDUAL_HDR3_LO_FN = op.join(op.dirname(op.realpath(__file__)), "sky_subtraction_residuals/hdr3_local_sky_fiber_residual_model.txt")
+SKY_RESIDUAL_HDR3_FF_FLUXD = None
+SKY_RESIDUAL_HDR3_FF_FN = op.join(op.dirname(op.realpath(__file__)), "sky_subtraction_residuals/hdr3_ff_sky_fiber_residual_model.txt")

@@ -2503,7 +2503,7 @@ def combo_fit_wave(peak_func,values,errors,wavelengths,central,wave_slop_kms=500
 
 
 
-def fetch_single_fiber_sky_subtraction_residual(path,shotid,column):
+def fetch_per_shot_single_fiber_sky_subtraction_residual(path,shotid,column):
     """
     in this version (for testing) all the residual fits files are in one place, with each holding one row for the shot
     only returns the residual ... not the error
@@ -2567,6 +2567,32 @@ def fetch_single_fiber_sky_subtraction_residual(path,shotid,column):
         return None
     return None
 
+def fetch_universal_single_fiber_sky_subtraction_residual(ffsky=False,hdr=G.HDR_Version):
+    """
+
+    :param ffsky:
+    :param hdr:
+    :return:
+    """
+
+    try:
+        if hdr == "3":
+            if ffsky:
+                if G.SKY_RESIDUAL_HDR3_FF_FLUXD is None:
+                    # try to load it
+                    G.SKY_RESIDUAL_HDR3_FF_FLUXD = np.loadtxt(G.SKY_RESIDUAL_HDR3_FF_FN, usecols=(1))
+
+                return G.SKY_RESIDUAL_HDR3_FF_FLUXD
+            else: #local sky
+                if G.SKY_RESIDUAL_HDR3_LO_FLUXD is None:
+                    # try to load it
+                    G.SKY_RESIDUAL_HDR3_LO_FLUXD = np.loadtxt(G.SKY_RESIDUAL_HDR3_LO_FN, usecols=(1))
+
+                return G.SKY_RESIDUAL_HDR3_LO_FLUXD
+    except:
+        log.error(f"Exception! Exception loading sky residual for {shotid} + {column}.", exc_info=True)
+        return None
+    return None
 
 def check_overlapping_psf(source_mag,neighbor_mag,psf,dist_baryctr,dist_ellipse=None,effective_radius=None,aperture=1.5):
     """

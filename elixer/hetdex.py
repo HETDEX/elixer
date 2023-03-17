@@ -609,7 +609,7 @@ class DetObj:
         self.nei_mini_buf = None #image holder for neighborhood
         self.line_mini_buf = None
 
-        self.shot_sky_subtraction_residual = None
+        self.sky_subtraction_residual = None
 
         self.phot_z_votes = []
         self.cluster_parent = 0 #detectid of anohter HETDEX source that is the cluster (specifically, redshift) for this object
@@ -7682,14 +7682,18 @@ class DetObj:
             else:
                 get_spectra_loglevel = "ERROR"
 
-            if self.shot_sky_subtraction_residual is None:
-                self.shot_sky_subtraction_residual = SU.fetch_single_fiber_sky_subtraction_residual(G.SKY_RESIDUAL_FITS_PATH,
-                                                                               self.survey_shotid,
-                                                                               G.SKY_RESIDUAL_FITS_COL)
-            if self.shot_sky_subtraction_residual is None:
+            if self.sky_subtraction_residual is None:
+                if G.SKY_RESIDUAL_PER_SHOT:
+                    self.sky_subtraction_residual = SU.fetch_per_shot_single_fiber_sky_subtraction_residual(G.SKY_RESIDUAL_FITS_PATH,
+                                                                                   self.survey_shotid,
+                                                                                   G.SKY_RESIDUAL_FITS_COL)
+                else:
+                    self.sky_subtraction_residual = SU.fetch_universal_single_fiber_sky_subtraction_residual(ffsky=self.extraction_ffsky,
+                                                                                                             hdr=G.HDR_Version)
+            if self.sky_subtraction_residual is None:
                 fiber_flux_offset = None
             else:
-                fiber_flux_offset = -1 * self.shot_sky_subtraction_residual
+                fiber_flux_offset = -1 * self.sky_subtraction_residual
 
             apt = hda_get_spectra(coord, survey=f"hdr{G.HDR_Version}", shotid=self.survey_shotid,
                                   ffsky=self.extraction_ffsky, multiprocess=G.GET_SPECTRA_MULTIPROCESS, rad=aper,
@@ -7770,19 +7774,24 @@ class DetObj:
             else:
                 get_spectra_loglevel = "ERROR"
 
-            if self.shot_sky_subtraction_residual is None:
-                self.shot_sky_subtraction_residual = SU.fetch_single_fiber_sky_subtraction_residual(G.SKY_RESIDUAL_FITS_PATH,
+            if self.sky_subtraction_residual is None:
+                if G.SKY_RESIDUAL_PER_SHOT:
+                    self.sky_subtraction_residual = SU.fetch_per_shot_single_fiber_sky_subtraction_residual(
+                                                                               G.SKY_RESIDUAL_FITS_PATH,
                                                                                self.survey_shotid,
                                                                                G.SKY_RESIDUAL_FITS_COL)
-
-            if self.shot_sky_subtraction_residual is None:
+                else:
+                    self.sky_subtraction_residual = SU.fetch_universal_single_fiber_sky_subtraction_residual(
+                                                                                        ffsky=self.extraction_ffsky,
+                                                                                        hdr=G.HDR_Version)
+            if self.sky_subtraction_residual is None:
                 fiber_flux_offset = None
             else:
-                fiber_flux_offset = -1 * self.shot_sky_subtraction_residual
+                fiber_flux_offset = -1 * self.sky_subtraction_residual
             #     if G.ELIXER_SPECIAL & 2:
             #         fiber_flux_offset = None
             #     else:
-            #         fiber_flux_offset = -1 * self.shot_sky_subtraction_residual
+            #         fiber_flux_offset = -1 * self.sky_subtraction_residual
 
             apt = hda_get_spectra(coord, survey=f"hdr{G.HDR_Version}", shotid=self.survey_shotid,
                                   ffsky=self.extraction_ffsky, multiprocess=G.GET_SPECTRA_MULTIPROCESS, rad=self.extraction_aperture,
@@ -7803,7 +7812,7 @@ class DetObj:
             # if G.ELIXER_SPECIAL & 2:
             #     #perform sky residual correction here instead with PSF Weighting
             #     #3rd value in each is the weight
-            #     psf_sky  = np.sum([self.shot_sky_subtraction_residual * w for w in apt['fiber_weights'][0][:,2]],axis=1)
+            #     psf_sky  = np.sum([self.sky_subtraction_residual * w for w in apt['fiber_weights'][0][:,2]],axis=1)
             #     norm_psf = np.sum(apt['fiber_weights'][0][:,2])
             #     psf_sky /= norm_psf
             #     apt['spec'][0] = np.nan_to_num(apt['spec'][0]) - psf_sky
