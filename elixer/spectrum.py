@@ -5921,7 +5921,10 @@ class Spectrum:
             sel = np.where(np.array([l.absorber for l in solution.lines]) == False)[0]
             sol_lines = np.array(solution.lines)[sel]
             line_waves = [solution.central_rest] + [l.w_rest for l in sol_lines]
-            line_snr = [self.central_eli.snr] + [l.snr for l in sol_lines]
+            if self.central_eli is not None:
+                line_snr = [self.central_eli.snr] + [l.snr for l in sol_lines]
+            else:
+                line_snr = [0] + [l.snr for l in sol_lines]
             #line_ew = [self.eqw_obs / (1 + solution.z)] + [l.eqw_rest for l in sol_lines]
             #line_flux is maybe more reliable ... the continuum estimates for line_ew can go wrong and give horrible results
             line_flux = [self.estflux] + [l.flux for l in sol_lines]
@@ -7675,6 +7678,7 @@ class Spectrum:
                     if abs(line.w_obs - unmatched_wave_list[i]) < (3.0*line.sigma):
                         unmatched_wave_list = np.delete(unmatched_wave_list,i)
                         unmatched_score_list = np.delete(unmatched_score_list,i)
+                        break
 
 
             #also have to to check anchor line (as fit)
@@ -7686,11 +7690,13 @@ class Spectrum:
                             unmatched_wave_list = np.delete(unmatched_wave_list,i)
                             unmatched_score_list = np.delete(unmatched_score_list,i)
 
+
                 elif self.fwhm is not None: #no central eli (might not have a fitted fwhm)
                     for i in range(len(unmatched_wave_list)-1,-1,-1):
                         if abs(self.central- unmatched_wave_list[i]) < (3.0*self.fwhm/2.355):
                             unmatched_wave_list = np.delete(unmatched_wave_list,i)
                             unmatched_score_list = np.delete(unmatched_score_list,i)
+
             except:
                 log.info("Warning. Exception checking anchor line vs unmatched lines.",exc_info=True)
 
