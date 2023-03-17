@@ -2576,6 +2576,7 @@ def fetch_universal_single_fiber_sky_subtraction_residual(ffsky=False,hdr=G.HDR_
     """
 
     try:
+        log.debug("Loading universal sky residual model...")
         if hdr == "3":
             if ffsky:
                 if G.SKY_RESIDUAL_HDR3_FF_FLUXD is None:
@@ -2590,8 +2591,9 @@ def fetch_universal_single_fiber_sky_subtraction_residual(ffsky=False,hdr=G.HDR_
 
                 return G.SKY_RESIDUAL_HDR3_LO_FLUXD
     except:
-        log.error(f"Exception! Exception loading sky residual for {shotid} + {column}.", exc_info=True)
+        log.error(f"Exception! Exception loading universal sky residual.", exc_info=True)
         return None
+    log.error(f"No universal sky residual model found.", exc_info=True)
     return None
 
 def check_overlapping_psf(source_mag,neighbor_mag,psf,dist_baryctr,dist_ellipse=None,effective_radius=None,aperture=1.5):
