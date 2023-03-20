@@ -39,12 +39,26 @@ from elixer import global_config as G
 from elixer import weighted_biweight as weighted_biweight
 import astropy.stats.biweight as biweight
 
+SYMMETRIC = False #if true take percent high and low (that is trim from both end of the distro, else just trim from the high side)
 
-#trim to exclude values outside this range
-zone1_fluxd_range = (-2.0,10.0) #3500-4000AA
-zone2_fluxd_range = (-2.0,2.0) #4000-5000AA
-zone3_fluxd_range = (-2.0,2.0) #5000-5500
+#original LyCon paper largly used +/- 0.5e-17
+#note: 25.0 @ 4730 is 0.049e-19 (assumes perfect PSF and pointsource)
+#trim to exclude values outside this range e-17
+zone1_fluxd_range = (-0.5,2.5) #3500-4000AA
+zone2_fluxd_range = (-0.5,0.5) #4000-5000AA
+zone3_fluxd_range = (-0.5,0.5) #5000-5500
 
+
+# def no_emission_line(flux):
+#     #check from 20:-20
+#     l = len(flux)
+#     narrow = np.array([np.nanmean(flux[i-2:i+3]) for i in range(20,l-20,1)])
+#     wide = ([np.nanmean(flux[i - 10:i + 11]) for i in range(20, l - 20, 1)])
+#
+#     if np.any( (narrow-wide) > 4.0): #are in flux density e-17
+#         return False
+#     else:
+#         return True
 
 def whole_shot_by_pct(fiber_table,trim_pct, ffsky=False, avg_type = 'biweight', enforce_fluxd_range=False, symmetric=False):#, use_counts=False):
     FT = fiber_table
@@ -91,6 +105,7 @@ def whole_shot_by_pct(fiber_table,trim_pct, ffsky=False, avg_type = 'biweight', 
         zone2_calfib = zone2_calfib[trim_sel]
         zone3_calfib = zone3_calfib[trim_sel]
 
+
     # now apply pct cuts
     # zone_calfib = np.sort(zone1_calfib)
     zone1_top_cut_value = np.sort(zone1_calfib)[int(len(zone1_calfib) * (1 - trim_pct))-1]
@@ -121,6 +136,37 @@ def whole_shot_by_pct(fiber_table,trim_pct, ffsky=False, avg_type = 'biweight', 
                    np.array(zone3_calfib <= zone3_top_cut_value)
 
 
+    #run after other cuts since this is the most time and memory consuming
+
+    #simple emission line scan ... any 5 wavelength bin region that is more than 3x the surrounding 21 wavelgnth bin region
+    #gets kicked out? run from 3500 to 5500 (leaves room for the +/- 10 wavelengths)
+    # lt, *_ = SU.getnearpos(G.CALFIB_WAVEGRID, 3500)
+    # rt, *_ = SU.getnearpos(G.CALFIB_WAVEGRID, 5500)
+    # #all the 5 wavenbin means
+    # e_sel = np.array([no_emission_line(calfib[i]) if trim_sel[i] else False for i in range(len(trim_sel)) ])
+    # trim_sel = e_sel
+
+    #
+    # check for 3 or more 3sigma in a row ... call that potential emission line and kick out that fiber
+    #
+    sigx = calfib / calfibe > 3.0 #boolean matrix of any wavelength bin with 3sigma or more above noise
+
+    #make a 3D matrix s|t 3rd axis is 3 in length and are the 3 adjacent wavelength bins
+    sigx1 = sigx[:, 0:-2]
+    sigx2 = sigx[:, 1:-1]
+    sigx3 = sigx[:, 2:]
+    #sum that third axis
+    sigsum = np.sum([sigx1, sigx2, sigx3], axis=0)
+    sig_sel = np.array([np.any(s > 2) for s in sigsum])
+
+    trim_sel = trim_sel & ~sig_sel
+
+    del sigx
+    del sigx1
+    del sigx2
+    del sigx3
+    del sigsum
+    del sig_sel
 
     stack, stacke, _, _ = SU.stack_spectra(calfib[trim_sel],
                                                  calfibe[trim_sel],
@@ -315,32 +361,40 @@ ff_stack_000, ff_stacke_000, ff_ct_000, ff_stack_ct_000, ff_stacke_ct_000 = whol
 
 print("Stacking LL 010 ...")
 ll_stack_010, ll_stacke_010, ll_ct_010, ll_stack_ct_010, ll_stacke_ct_010, = whole_shot_by_pct(fiber_table=FT,trim_pct=0.01, ffsky=False,
-                                         avg_type = avg_type, enforce_fluxd_range=True,symmetric=True)
+                                         avg_type = avg_type, enforce_fluxd_range=True,symmetric=SYMMETRIC)
 
 print("Stacking FF 010 ...")
 ff_stack_010, ff_stacke_010, ff_ct_010, ff_stack_ct_010, ff_stacke_ct_010 = whole_shot_by_pct(fiber_table=FT,trim_pct=0.01, ffsky=True,
-                                         avg_type = avg_type, enforce_fluxd_range=True,symmetric=True)
+                                         avg_type = avg_type, enforce_fluxd_range=True,symmetric=SYMMETRIC)
 
 print("Stacking LL 025 ...")
 ll_stack_025, ll_stacke_025, ll_ct_025, ll_stack_ct_025, ll_stacke_ct_025, = whole_shot_by_pct(fiber_table=FT,trim_pct=0.025, ffsky=False,
-                                         avg_type = avg_type, enforce_fluxd_range=True,symmetric=True)
+                                         avg_type = avg_type, enforce_fluxd_range=True,symmetric=SYMMETRIC)
 print("Stacking FF 025 ...")
 ff_stack_025, ff_stacke_025, ff_ct_025, ff_stack_ct_025, ff_stacke_ct_025 = whole_shot_by_pct(fiber_table=FT,trim_pct=0.025, ffsky=True,
-                                         avg_type = avg_type, enforce_fluxd_range=True,symmetric=True)
+                                         avg_type = avg_type, enforce_fluxd_range=True,symmetric=SYMMETRIC)
 
 print("Stacking LL 050 ...")
 ll_stack_050, ll_stacke_050, ll_ct_050, ll_stack_ct_050, ll_stacke_ct_050, = whole_shot_by_pct(fiber_table=FT,trim_pct=0.05, ffsky=False,
-                                         avg_type = avg_type, enforce_fluxd_range=True,symmetric=True)
+                                         avg_type = avg_type, enforce_fluxd_range=True,symmetric=SYMMETRIC)
 print("Stacking FF 050 ...")
 ff_stack_050, ff_stacke_050, ff_ct_050, ff_stack_ct_050, ff_stacke_ct_050 = whole_shot_by_pct(fiber_table=FT,trim_pct=0.05, ffsky=True,
-                                         avg_type = avg_type, enforce_fluxd_range=True,symmetric=True)
+                                         avg_type = avg_type, enforce_fluxd_range=True,symmetric=SYMMETRIC)
 
+
+print("Stacking LL 100 ...")
+ll_stack_050, ll_stacke_100, ll_ct_100, ll_stack_ct_100, ll_stacke_ct_100, = whole_shot_by_pct(fiber_table=FT,trim_pct=0.10, ffsky=False,
+                                         avg_type = avg_type, enforce_fluxd_range=True,symmetric=SYMMETRIC)
+print("Stacking FF 100 ...")
+ff_stack_100, ff_stacke_100, ff_ct_100, ff_stack_ct_100, ff_stacke_ct_100 = whole_shot_by_pct(fiber_table=FT,trim_pct=0.10, ffsky=True,
+                                         avg_type = avg_type, enforce_fluxd_range=True,symmetric=SYMMETRIC)
 
 T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
                  ('seeing',float),('response',float),
                  ('fiber_total_ct',float),('fiber_cleaned_ct',float),
                  ('ll_ct_000',float), ('ff_ct_000',float),('ll_ct_010',float), ('ff_ct_010',float),
                  ('ll_ct_025', float),('ff_ct_025', float),('ll_ct_050', float),('ff_ct_050', float),
+                 ('ll_ct_100', float),('ff_ct_100', float)
 
                  ('ll_stack_000', (float, len(G.CALFIB_WAVEGRID))),
                  ('ll_stacke_000', (float, len(G.CALFIB_WAVEGRID))),
@@ -366,6 +420,12 @@ T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
                  ('ff_stack_050', (float, len(G.CALFIB_WAVEGRID))),
                  ('ff_stacke_050', (float, len(G.CALFIB_WAVEGRID))),
 
+                 ('ll_stack_100', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ll_stacke_100', (float, len(G.CALFIB_WAVEGRID))),
+
+                 ('ff_stack_100', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ff_stacke_100', (float, len(G.CALFIB_WAVEGRID))),
+
                  ('ll_stack_ct_000', (float, len(G.CALFIB_WAVEGRID))),
                  ('ll_stacke_ct_000', (float, len(G.CALFIB_WAVEGRID))),
 
@@ -378,6 +438,9 @@ T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
                  ('ll_stack_ct_050', (float, len(G.CALFIB_WAVEGRID))),
                  ('ll_stacke_ct_050', (float, len(G.CALFIB_WAVEGRID))),
 
+                 ('ll_stack_ct_100', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ll_stacke_ct_100', (float, len(G.CALFIB_WAVEGRID))),
+
 
                   ])
 
@@ -385,17 +448,20 @@ T.add_row([ra, dec, shotid, seeing, response,
            FT_total_ct, FT_cleaned_ct,
            ll_ct_000,ff_ct_000,ll_ct_010,ff_ct_010,
            ll_ct_025,ff_ct_025,ll_ct_050,ff_ct_050,
+           ll_ct_100,ff_ct_100,
 
            ll_stack_000, ll_stacke_000,  ff_stack_000,ff_stacke_000,
            ll_stack_010, ll_stacke_010,  ff_stack_010,ff_stacke_010,
            ll_stack_025, ll_stacke_025,  ff_stack_025,ff_stacke_025,
            ll_stack_050, ll_stacke_050,  ff_stack_050,ff_stacke_050,
+           ll_stack_100, ll_stacke_100,  ff_stack_100,ff_stacke_100,
 
 
            ll_stack_ct_000, ll_stacke_ct_000,
            ll_stack_ct_010, ll_stacke_ct_010,
            ll_stack_ct_025, ll_stacke_ct_025,
            ll_stack_ct_050, ll_stacke_ct_050,
+           ll_stack_ct_100, ll_stacke_ct_100,
            ])
 
 
