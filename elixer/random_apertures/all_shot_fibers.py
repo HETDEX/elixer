@@ -394,7 +394,7 @@ T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
                  ('fiber_total_ct',float),('fiber_cleaned_ct',float),
                  ('ll_ct_000',float), ('ff_ct_000',float),('ll_ct_010',float), ('ff_ct_010',float),
                  ('ll_ct_025', float),('ff_ct_025', float),('ll_ct_050', float),('ff_ct_050', float),
-                 ('ll_ct_100', float),('ff_ct_100', float)
+                 ('ll_ct_100', float),('ff_ct_100', float),
 
                  ('ll_stack_000', (float, len(G.CALFIB_WAVEGRID))),
                  ('ll_stacke_000', (float, len(G.CALFIB_WAVEGRID))),

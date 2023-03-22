@@ -1,8 +1,9 @@
 # combine (stack) the tables
 import glob
 from astropy.table import Table,vstack
+import sys
 
-
+args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
 #"random_apertures_"
 #"fiber_summary_"
 #"coord_apertures_"
