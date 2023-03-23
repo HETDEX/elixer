@@ -383,7 +383,7 @@ ff_stack_050, ff_stacke_050, ff_ct_050, ff_stack_ct_050, ff_stacke_ct_050 = whol
 
 
 print("Stacking LL 100 ...")
-ll_stack_050, ll_stacke_100, ll_ct_100, ll_stack_ct_100, ll_stacke_ct_100, = whole_shot_by_pct(fiber_table=FT,trim_pct=0.10, ffsky=False,
+ll_stack_100, ll_stacke_100, ll_ct_100, ll_stack_ct_100, ll_stacke_ct_100, = whole_shot_by_pct(fiber_table=FT,trim_pct=0.10, ffsky=False,
                                          avg_type = avg_type, enforce_fluxd_range=True,symmetric=SYMMETRIC)
 print("Stacking FF 100 ...")
 ff_stack_100, ff_stacke_100, ff_ct_100, ff_stack_ct_100, ff_stacke_ct_100 = whole_shot_by_pct(fiber_table=FT,trim_pct=0.10, ffsky=True,
