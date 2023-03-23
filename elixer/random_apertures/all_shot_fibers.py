@@ -16,6 +16,7 @@ record the shot info (PSF, exposure time, etc)
 no pre-selection trimming
 
 """
+
 import sys
 import os.path as op
 import numpy as np
