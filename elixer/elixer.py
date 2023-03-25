@@ -535,6 +535,26 @@ def parse_commandline(auto_force=False):
                 G.CHECK_GAIA_DEX_CATALOG = False
                 G.CHECK_ALL_CATALOG_BID_Z = False
                 G.CHECK_GALAXY_MASK = False
+
+            #residuals
+            if args.special >= 1000:
+                G.SKY_RESIDUAL_PER_SHOT = True  # if True pull each residusl from the match shot, if False, use the universal model
+                G.SKY_RESIDUAL_FITS_PATH = "/scratch/03261/polonius/random_apertures/all_fibers/all/"
+                if args.special >= 2000:
+                    G.SKY_RESIDUAL_FITS_PREFIX = "fiber_summary_sym_bw_"
+                    col = args.special - 2000
+                else:
+                    G.SKY_RESIDUAL_FITS_PREFIX = "fiber_summary_asym_bw_"
+                    col = args.special - 1000
+
+                if args.ffsky:
+                    sky_label = "ff"
+                else:
+                    sky_label = "ll"
+
+                #col is now an integer 0 to 999, though only certain integers have meaning
+                G.SKY_RESIDUAL_FITS_COL = f"{sky_label}_stack_{col:03}"
+
     except:
         pass
 

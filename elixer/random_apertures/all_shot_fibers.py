@@ -243,7 +243,13 @@ apply_dust_correction = False
 
 avg_type = "biweight" #"biweight",#"weighted_biweight",
 avg_xlat = {"mean":"mn","median":"md","biweight":"bw","weighted_biweight":"wbw"}
-table_outname = f"fiber_summary_sym_{avg_xlat[avg_type]}_"
+
+if SYMMETRIC:
+    sym_label = "sym"
+else:
+    sym_label = "asym"
+
+table_outname = f"fiber_summary_{sym_label}_{avg_xlat[avg_type]}_"
 if apply_dust_correction:
     table_outname += "dust_"
 
