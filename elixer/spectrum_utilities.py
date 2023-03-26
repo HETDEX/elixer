@@ -2503,7 +2503,7 @@ def combo_fit_wave(peak_func,values,errors,wavelengths,central,wave_slop_kms=500
 
 
 
-def fetch_per_shot_single_fiber_sky_subtraction_residual(path,shotid,column):
+def fetch_per_shot_single_fiber_sky_subtraction_residual(path,shotid,column,prefix=None):
     """
     in this version (for testing) all the residual fits files are in one place, with each holding one row for the shot
     only returns the residual ... not the error
@@ -2542,18 +2542,21 @@ def fetch_per_shot_single_fiber_sky_subtraction_residual(path,shotid,column):
     """
 
     try:
-        if G.SKY_RESIDUAL_FITS_PREFIX is None:
-            #we are not doing this
-            log.info("***** No sky subtraction residual configured.")
-            return None
+        if prefix is None:
+            if G.SKY_RESIDUAL_FITS_PREFIX is None:
+                #we are not doing this
+                log.info("***** No sky subtraction residual configured.")
+                return None
+            else:
+                prefix = G.SKY_RESIDUAL_FITS_PREFIX
 
         T = None
-        file = op.join(path,f"{G.SKY_RESIDUAL_FITS_PREFIX}{shotid}.fits")
+        file = op.join(path,f"{prefix}{shotid}.fits")
         if op.exists(file):
             T = Table.read(file)
         else:
             #yes, there ends up being two underscores before default
-            file = op.join(path,f"{G.SKY_RESIDUAL_FITS_PREFIX}_default.fits")
+            file = op.join(path,f"{prefix}_default.fits")
             if op.exists(file):
                 T = Table.read(file)
 

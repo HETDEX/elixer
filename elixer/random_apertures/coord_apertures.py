@@ -1,6 +1,12 @@
 """
 based on random_apertures.py, but uses previous determined coordinates rather than seeking new random apertures
 """
+
+SKY_RESIDUAL_FITS_PATH = "/scratch/03261/polonius/random_apertures/all_fibers/all/"
+#SKY_RESIDUAL_FITS_PREFIX = "fiber_summary_sym_bw_"
+SKY_RESIDUAL_FITS_PREFIX = "fiber_summary_asym_bw_"
+SKY_RESIDUAL_FITS_COL = "ll_stack_050"
+
 import sys
 import os.path as op
 import numpy as np
@@ -76,9 +82,30 @@ if op.exists(table_outname):
 
 #get the single fiber residual for THIS shot
 
-shot_sky_subtraction_residual = SU.fetch_single_fiber_sky_subtraction_residual(G.SKY_RESIDUAL_FITS_PATH,
+
+#            #residuals
+#             if args.special >= 1000:
+#                 G.SKY_RESIDUAL_PER_SHOT = True  # if True pull each residusl from the match shot, if False, use the universal model
+#                 G.SKY_RESIDUAL_FITS_PATH = "/scratch/03261/polonius/random_apertures/all_fibers/all/"
+#                 if args.special >= 2000:
+#                     G.SKY_RESIDUAL_FITS_PREFIX = "fiber_summary_sym_bw_"
+#                     col = args.special - 2000
+#                 else:
+#                     G.SKY_RESIDUAL_FITS_PREFIX = "fiber_summary_asym_bw_"
+#                     col = args.special - 1000
+#
+#                 if args.ffsky:
+#                     sky_label = "ff"
+#                 else:
+#                     sky_label = "ll"
+#
+#                 #col is now an integer 0 to 999, though only certain integers have meaning
+#                 G.SKY_RESIDUAL_FITS_COL = f"{sky_label}_stack_{col:03}"
+
+shot_sky_subtraction_residual = SU.fetch_per_shot_single_fiber_sky_subtraction_residual(SKY_RESIDUAL_FITS_PATH,
                                                                                     shotid,
-                                                                                    G.SKY_RESIDUAL_FITS_COL)
+                                                                                    SKY_RESIDUAL_FITS_COL,
+                                                                                    SKY_RESIDUAL_FITS_PREFIX)
 
 if shot_sky_subtraction_residual is None:
     print("FAIL!!! No single fiber shot residual retrieved.")

@@ -26,6 +26,7 @@ if i < 0:
 table_outname = all[0:i]
 
 #could still throw exception if this does not exist, but that is okay .. will see the fail and try again
+print(f"Reading {all} ...")
 T = Table.read(all,format="fits")
 
 columns = T.columns
