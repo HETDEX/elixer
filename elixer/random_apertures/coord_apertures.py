@@ -6,6 +6,7 @@ SKY_RESIDUAL_FITS_PATH = "/scratch/03261/polonius/random_apertures/all_fibers/al
 #SKY_RESIDUAL_FITS_PREFIX = "fiber_summary_sym_bw_"
 SKY_RESIDUAL_FITS_PREFIX = "fiber_summary_asym_bw_"
 SKY_RESIDUAL_FITS_COL = "ll_stack_050"
+COORD_ID = "ll_1050"
 
 import sys
 import os.path as op
@@ -72,7 +73,7 @@ else:
     aper = 3.5  # 3.5" aperture
 
 
-table_outname = "coord_apertures_ll025_" + str(shotid) + ".fits"
+table_outname = f"coord_apertures_{COORD_ID}_" + str(shotid) + ".fits"
 
 
 
