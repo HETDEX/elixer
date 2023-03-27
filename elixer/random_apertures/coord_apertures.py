@@ -1,12 +1,12 @@
 """
 based on random_apertures.py, but uses previous determined coordinates rather than seeking new random apertures
 """
-
-SKY_RESIDUAL_FITS_PATH = "/scratch/03261/polonius/random_apertures/all_fibers/all/"
+COORD_ID = "ll_model" #"ll_1050"
+SKY_RESIDUAL_FITS_PATH = None #"/scratch/03261/polonius/random_apertures/all_fibers/all/"
 #SKY_RESIDUAL_FITS_PREFIX = "fiber_summary_sym_bw_"
 SKY_RESIDUAL_FITS_PREFIX = "fiber_summary_asym_bw_"
 SKY_RESIDUAL_FITS_COL = "ll_stack_050"
-COORD_ID = "ll_1050"
+
 
 import sys
 import os.path as op
@@ -75,8 +75,6 @@ else:
 
 table_outname = f"coord_apertures_{COORD_ID}_" + str(shotid) + ".fits"
 
-
-
 #maybe this one was already done?
 if op.exists(table_outname):
     exit(0)
@@ -103,10 +101,15 @@ if op.exists(table_outname):
 #                 #col is now an integer 0 to 999, though only certain integers have meaning
 #                 G.SKY_RESIDUAL_FITS_COL = f"{sky_label}_stack_{col:03}"
 
-shot_sky_subtraction_residual = SU.fetch_per_shot_single_fiber_sky_subtraction_residual(SKY_RESIDUAL_FITS_PATH,
+if SKY_RESIDUAL_FITS_PATH is not None:
+    shot_sky_subtraction_residual = SU.fetch_per_shot_single_fiber_sky_subtraction_residual(SKY_RESIDUAL_FITS_PATH,
                                                                                     shotid,
                                                                                     SKY_RESIDUAL_FITS_COL,
                                                                                     SKY_RESIDUAL_FITS_PREFIX)
+else: #use the model
+    shot_sky_subtraction_residual = SU.fetch_universal_single_fiber_sky_subtraction_residual(
+                                                                                        ffsky=ffsky,
+                                                                                        hdr=G.HDR_Version)
 
 if shot_sky_subtraction_residual is None:
     print("FAIL!!! No single fiber shot residual retrieved.")
