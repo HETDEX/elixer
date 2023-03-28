@@ -5950,7 +5950,8 @@ def main():
                             log.info(f"{e.entry_id} gridsearch ({ra},{dec},{cw}) at {x}x{y}x{len(shotlist)}")
 
                             edict = SU.raster_search(ra_meshgrid, dec_meshgrid, shotlist, cw,
-                                                     max_velocity=args.gridsearch[2],max_fwhm=args.gridsearch[3],aperture=3.0)
+                                                     max_velocity=args.gridsearch[2],max_fwhm=args.gridsearch[3],aperture=3.0,
+                                                     ffsky=args.ffsky)
                             #show most common (others are available via direct call to the saved py file)
                             z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,"fitflux",
                                                           save=savefn,savepy=savefn,show=args.gridsearch[4])

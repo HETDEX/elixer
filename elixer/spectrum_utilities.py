@@ -1742,7 +1742,7 @@ def wavelength_offset(wave,velocity):
 
 
 
-def extract_at_position(ra,dec,aperture,shotid,ffsky=False):
+def extract_at_position(ra,dec,aperture,shotid,ffsky=False,multiproc=G.GET_SPECTRA_MULTIPROCESS):
     """
 
     :param ra:
@@ -1766,7 +1766,7 @@ def extract_at_position(ra,dec,aperture,shotid,ffsky=False):
     try:
         coord = SkyCoord(ra=ra * U.deg, dec=dec * U.deg)
         apt = hda_get_spectra(coord, survey=f"hdr{G.HDR_Version}", shotid=shotid,ffsky=ffsky,
-                          multiprocess=G.GET_SPECTRA_MULTIPROCESS, rad=aperture,tpmin=0.0,fiberweights=True)
+                          multiprocess=multiproc, rad=aperture,tpmin=0.0,fiberweights=True)
 
         if len(apt) == 0:
             #print(f"No spectra for ra ({self.ra}) dec ({self.dec})")
@@ -1785,6 +1785,62 @@ def extract_at_position(ra,dec,aperture,shotid,ffsky=False):
         log.info(f"Exception in Elixer::spectrum_utilities::extract_at_position",exc_info=True)
 
     return return_dict
+
+
+
+def extract_at_multiple_positions(ra,dec,aperture,shotid,ffsky=False,multiproc=G.GET_SPECTRA_MULTIPROCESS):
+    """
+
+    :param ra: list
+    :param dec: list
+    :param aperture: single value
+    :param shotid: single value
+    :param ffsky: single value
+    :return: in flux e-17 (just like HETDEX standard) (NOT flux density)
+    """
+
+    return_list = [] #list of return_dicts
+
+    try:
+        if G.LOG_LEVEL <= 10:  # 10 = DEBUG
+            get_spectra_loglevel = "INFO"
+        else:
+            get_spectra_loglevel = "ERROR"
+
+        coords = SkyCoord(ra=ra * U.deg, dec=dec * U.deg) #list of coords, ra, dec are lists
+        apts = hda_get_spectra(coords, survey=f"hdr{G.HDR_Version}", shotid=shotid,ffsky=ffsky,
+                          multiprocess=multiproc, rad=aperture,tpmin=0.0,fiberweights=False,
+                          loglevel = get_spectra_loglevel)
+
+        if len(apts) == 0:
+            #print(f"No spectra for ra ({self.ra}) dec ({self.dec})")
+            log.info(f"No spectra for ra ({ra}) dec ({dec})")
+            return []
+        if len(apts) != len(ra):
+            log.info(f"Mismatch in returned spectra {len(apts)} vs requested {len(ra)}")
+            return []
+
+        # returned from get_spectra as flux density (per AA), so multiply by wavebin width to match the HDF5 reads
+        #should be in the same order
+        for apt,r,d in zip(apts,ra,dec):
+            return_dict = {}
+
+            return_dict['flux'] = np.nan_to_num(apt['spec']) * G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)
+            return_dict['fluxerr'] = np.nan_to_num(apt['spec_err']) * G.FLUX_WAVEBIN_WIDTH
+            return_dict['wave'] = np.array(apt['wavelength'])
+            return_dict['apcor'] =  np.array(apt['apcor'])
+            return_dict['ra'] = r
+            return_dict['dec'] = d
+            return_dict['shot'] = shotid
+            return_dict['aperture'] = aperture
+            return_dict['ffsky'] = ffsky
+
+            return_list.append(return_dict)
+    except Exception as E:
+        print(f"Exception in Elixer::spectrum_utilities::extract_at_position",E)
+        log.info(f"Exception in Elixer::spectrum_utilities::extract_at_position",exc_info=True)
+
+    return return_list
 
 def rms(data, fit,cw_pix=None,hw_pix=None,norm=True):
     """
@@ -2752,7 +2808,7 @@ def make_raster_grid(ra,dec,width,resolution):
         return None, None
 
 
-def raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,aperture=3.0,max_velocity=500.0,max_fwhm=15.0):
+def raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,aperture=3.0,max_velocity=500.0,max_fwhm=15.0,ffsky=False):
     """
     Iterate over the supplied meshgrids and force extract at each point
     :param ra_meshgrid: (see make_raster_grid)
@@ -2786,93 +2842,68 @@ def raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,aperture=3.0,max_velocity
         log.info(msg)
         print(msg)
 
-        for r in range(np.shape(ra_meshgrid)[1]): #columns (x or RA values)
-            for d in range(np.shape(ra_meshgrid)[0]): #rows (y or Dec values)
-                exlist = []
-                for s in shotlist:
-                    #print("Shot = ", s)
-                    ct += 1
-                    #print(ct)
-                    ex = extract_at_position(ra_meshgrid[d,r], dec_meshgrid[d,r], aperture, s)
 
-                    if ex['flux'] is None:
-                        continue
+        if True: #new way (effectively a single call to hetdex_api get_spectra() with an array of coords)
+            #get all extractions for each shot
+            all_ra = ra_meshgrid.flatten()
+            all_dec = dec_meshgrid.flatten()
 
-                    exlist.append(ex)
+            all_ex = []
+            #grab all RA,Dec for each shot (full grid, but one shot at a time)
+            #since we are going to average over all the shots
+            for s in shotlist:
+                exlist = extract_at_multiple_positions(all_ra,all_dec, aperture, shotid=s,
+                                     ffsky=ffsky, multiproc=False)
 
-                if len(exlist) == 0:
-                    continue
-                elif len(exlist) == 1:
-                    avg_f = exlist[0]['flux']
-                    avg_fe = exlist[0]['fluxerr']
+                all_ex.append(exlist)
 
-                elif len(exlist) > 1:
-                    #make a new ex dictionary with the weighted biweight average of the data and run simple fit
-                    flux = []
-                    fluxe = []
-                    #waves are all the same
-                    for ex in exlist:
-                        flux.append(ex['flux'])
-                        fluxe.append(ex['fluxerr'])
+            all_ex = np.array(all_ex)
 
-                    flux = np.array(flux)
-                    fluxe = np.array(fluxe)
+            if len(all_ex) == 0: #failed
+                log.error("No extractions.")
+                return edict
 
-                    #now weighted biweight
-                    avg_f  = np.zeros(len(flux[0]))
-                    avg_fe = np.zeros(len(flux[0]))
+            #otherwise we iterate over all the shots (all should have the same number of grids)
+            #all shots is effectively 3D: shot x RA x Dec with each being an extraction dictionary object
+            #though at the moment, since the exlist is flattened, it is just 2D: shot x (RA,DEC)
+            #need to average the flux and flux errors (and apcor?) along the shot axis
+            elif len(all_ex) > 1:
+                exlist = all_ex[0] #choose a baseline
+                for i in range(len(exlist)):
+                    # now weighted biweight
+                    exlist[i]['flux'], exlist[i]['fluxerr'], *_ = stack_spectra( [e['flux'] for e in all_ex[:,i]],
+                                                                   [e['fluxerr'] for e in all_ex[:,i]],
+                                                                   np.tile(G.CALFIB_WAVEGRID,
+                                                                           (len(all_ex), 1)),
+                                                                   grid=G.CALFIB_WAVEGRID,
+                                                                   avg_type="weighted_biweight",
+                                                                   straight_error=True)
+                    #not really using this, but shoudl still be weighed biweight ...
+                    #use the weights from the flux stack in the same fraction
 
-                    # if len(flux[0]) > max_bw_ct:
-                    #     max_bw_ct = len(flux[0])
-                    #
-                    # if len(flux[0]) < min_bw_ct:
-                    #     min_bw_ct = len(flux[0])
+                    try:
+                        frac_errs = np.array([e['fluxerr'] for e in all_ex[:,i]])/np.array([e['flux'] for e in all_ex[:,i]])
+                        exlist[i]['apcor'] = weighted_biweight.biweight_location_errors([e['apcor'] for e in all_ex[:,i]],
+                                                                                    frac_errs)
+                    except:
+                        exlist[i]['apcor'] = np.nanmean([e['apcor'] for e in all_ex[:,i]])
 
-                    for i in range(len(flux[0])):
 
-                        wslice_err = np.array([m[i] for m in fluxe])  # all rows, ith index
-                        wslice = np.array([m[i] for m in flux])  # all rows, ith index
+            else:
+                exlist = all_ex[0]
 
-                        wslice_err = wslice_err[np.where(wslice != -999)]  # so same as wslice, since these need to line up
-                        wslice = wslice[np.where(wslice != -999)]  # git rid of the out of range interp values
 
-                        # git rid of any nans
-                        wslice_err = wslice_err[~np.isnan(wslice)]  # err first so the wslice is not modified
-                        wslice = wslice[~np.isnan(wslice)]
-
-                        try:
-                            f = weighted_biweight.biweight_location_errors(wslice, errors=wslice_err)
-                            #not really using the errors, but this is good enough?
-                            fe = weighted_biweight.biweight_scale(wslice) / np.sqrt(len(wslice))
-                            #wbw_events += 1
-                        except:
-                            #log.info("Weighted_biweight failed. Switching to normal biweight")
-                            f = weighted_biweight.biweight_location(wslice)
-                            fe = weighted_biweight.biweight_scale(wslice) /np.sqrt(len(wslice))
-                            #bw_events += 1
-
-                        if np.isnan(f):
-                            avg_f[i] = 0
-                            avg_fe[i] = 0
-                        elif np.isnan(fe):
-                            avg_f[i] = f
-                            avg_fe[i] = 0
-                        else:
-                            avg_f[i] = f
-                            avg_fe[i] = fe
-                else:
-                    #something very wrong
-                    #print("********** unexpectedly zero spectra???????")
-                    continue
-                #end if
-
-                #now, fit to Gaussian
-                ex['fit'] = combo_fit_wave(SP.peakdet,avg_f,
-                                               avg_fe,
-                                               exlist[0]['wave'],
-                                               cw,
-                                               wave_slop_kms=max_velocity,
-                                               max_fwhm=max_fwhm)
+            #now operate on the collapsed/stacked exlist
+            for idx,ex in enumerate(exlist):
+                log.debug(f"gridsearch scanning spectrum #{idx+1} of {len(exlist)} ...")
+                print(f"gridsearch scanning spectrum #{idx + 1} of {len(exlist)} ...")
+                # now, fit to Gaussian
+                ex['fit'] = combo_fit_wave(SP.peakdet, ex['flux'],
+                                           ex['fluxerr'],
+                                           ex['wave'],
+                                           cw,
+                                           wave_slop_kms=max_velocity,
+                                           max_fwhm=max_fwhm)
 
                 # kill off bad fits based on snr, rmse, sigma, continuum
                 # overly? generous sigma ... maybe make similar to original?
@@ -2880,11 +2911,11 @@ def raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,aperture=3.0,max_velocity
                 if (1.0 < ex['fit']['sigma'] < 20.0) and \
                         (3.0 < ex['fit']['snr'] < 1000.0):
                     if ex['fit']['fitflux'] > 0:
-                        #print("Winner")
+                        # print("Winner")
                         wct += 1
                         test_good = True
                 else:  # is bad, wipe out
-                    #print("bad fit")
+                    # print("bad fit")
                     ex['bad_fit'] = copy.copy(ex['fit'])
                     ex['fit']['snr'] = 0
                     ex['fit']['fitflux'] = 0
@@ -2894,32 +2925,141 @@ def raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,aperture=3.0,max_velocity
                     ex['fit']['x0'] = 0
                     ex['fit']['sigma'] = 0
 
-                edict[r, d] = ex
 
-                #todo: REMOVE ME
-                if False: #extra debugging
-                    print("**********Remove me**********")
-                    plt.close('all')
-                    plt.figure(figsize=(6,3))
+            #and reshape into the 2D grid
+            edict = np.array(exlist).reshape(np.shape(edict)).T
 
-                    plt.axvline(cw,color='k',alpha=0.5)
-                    plt.axvline(cw-cw*max_velocity/3e5,ls="dashed",color='k',alpha=0.5)
-                    plt.axvline(cw+cw*max_velocity/3e5,ls="dashed",color='k',alpha=0.5)
-                    try:
-                        plt.axvline(ex['fit']['x0'],color="r")
-                    except:
-                        pass
+        else: #old way
+            for r in range(np.shape(ra_meshgrid)[1]): #columns (x or RA values)
+                for d in range(np.shape(ra_meshgrid)[0]): #rows (y or Dec values)
+                    exlist = []
+                    for s in shotlist:
+                        #print("Shot = ", s)
+                        ct += 1
+                        #print(ct) ra,dec,aperture,shotid,ffsky=False,multiproc=G.GET_SPECTRA_MULTIPROCESS
+                        ex = extract_at_position(ra_meshgrid[d,r], dec_meshgrid[d,r], aperture,shotid=s,
+                                                 ffsky=ffsky,multiproc=False)
 
-                    plt.plot(G.CALFIB_WAVEGRID, avg_f)
-                    plt.xlim(cw-2*cw*max_velocity/3e5,cw+2*cw*max_velocity/3e5)
+                        if ex['flux'] is None:
+                            continue
 
-                    plt.title(f"Good {test_good}: r({r}) d({d}) RA: {ra_meshgrid[d,r]:0.6f}  Dec: {dec_meshgrid[d,r]:0.6f}\n"
-                              f"fwhm = {ex['fit']['sigma']*2.355:0.2f}, flux = {ex['fit']['fitflux']:0.2f}, snr = {ex['fit']['snr']:0.2f}")
-                    plt.tight_layout()
-                    plt.savefig(f"ip_r{str(r).zfill(3)}_d{str(d).zfill(3)}.png")
+                        exlist.append(ex)
+
+                    if len(exlist) == 0:
+                        continue
+                    elif len(exlist) == 1:
+                        avg_f = exlist[0]['flux']
+                        avg_fe = exlist[0]['fluxerr']
+
+                    elif len(exlist) > 1:
+                        #make a new ex dictionary with the weighted biweight average of the data and run simple fit
+                        flux = []
+                        fluxe = []
+                        #waves are all the same
+                        for ex in exlist:
+                            flux.append(ex['flux'])
+                            fluxe.append(ex['fluxerr'])
+
+                        flux = np.array(flux)
+                        fluxe = np.array(fluxe)
+
+                        #now weighted biweight
+                        avg_f  = np.zeros(len(flux[0]))
+                        avg_fe = np.zeros(len(flux[0]))
 
 
-        log.info(f"Raster 'good' emission fits ({wct}) / ({ct})")
+                        for i in range(len(flux[0])):
+
+                            wslice_err = np.array([m[i] for m in fluxe])  # all rows, ith index
+                            wslice = np.array([m[i] for m in flux])  # all rows, ith index
+
+                            wslice_err = wslice_err[np.where(wslice != -999)]  # so same as wslice, since these need to line up
+                            wslice = wslice[np.where(wslice != -999)]  # git rid of the out of range interp values
+
+                            # git rid of any nans
+                            wslice_err = wslice_err[~np.isnan(wslice)]  # err first so the wslice is not modified
+                            wslice = wslice[~np.isnan(wslice)]
+
+                            try:
+                                f = weighted_biweight.biweight_location_errors(wslice, errors=wslice_err)
+                                #not really using the errors, but this is good enough?
+                                fe = weighted_biweight.biweight_scale(wslice) / np.sqrt(len(wslice))
+                                #wbw_events += 1
+                            except:
+                                #log.info("Weighted_biweight failed. Switching to normal biweight")
+                                f = weighted_biweight.biweight_location(wslice)
+                                fe = weighted_biweight.biweight_scale(wslice) /np.sqrt(len(wslice))
+                                #bw_events += 1
+
+                            if np.isnan(f):
+                                avg_f[i] = 0
+                                avg_fe[i] = 0
+                            elif np.isnan(fe):
+                                avg_f[i] = f
+                                avg_fe[i] = 0
+                            else:
+                                avg_f[i] = f
+                                avg_fe[i] = fe
+                    else:
+                        #something very wrong
+                        #print("********** unexpectedly zero spectra???????")
+                        continue
+                    #end if
+
+                    #now, fit to Gaussian
+                    ex['fit'] = combo_fit_wave(SP.peakdet,avg_f,
+                                                   avg_fe,
+                                                   exlist[0]['wave'],
+                                                   cw,
+                                                   wave_slop_kms=max_velocity,
+                                                   max_fwhm=max_fwhm)
+
+                    # kill off bad fits based on snr, rmse, sigma, continuum
+                    # overly? generous sigma ... maybe make similar to original?
+                    test_good = False
+                    if (1.0 < ex['fit']['sigma'] < 20.0) and \
+                            (3.0 < ex['fit']['snr'] < 1000.0):
+                        if ex['fit']['fitflux'] > 0:
+                            #print("Winner")
+                            wct += 1
+                            test_good = True
+                    else:  # is bad, wipe out
+                        #print("bad fit")
+                        ex['bad_fit'] = copy.copy(ex['fit'])
+                        ex['fit']['snr'] = 0
+                        ex['fit']['fitflux'] = 0
+                        ex['fit']['continuum_level'] = 0
+                        ex['fit']['velocity_offset'] = 0
+                        ex['fit']['rmse'] = 0
+                        ex['fit']['x0'] = 0
+                        ex['fit']['sigma'] = 0
+
+                    edict[r, d] = ex
+
+                    #todo: REMOVE ME
+                    if False: #extra debugging
+                        print("**********Remove me**********")
+                        plt.close('all')
+                        plt.figure(figsize=(6,3))
+
+                        plt.axvline(cw,color='k',alpha=0.5)
+                        plt.axvline(cw-cw*max_velocity/3e5,ls="dashed",color='k',alpha=0.5)
+                        plt.axvline(cw+cw*max_velocity/3e5,ls="dashed",color='k',alpha=0.5)
+                        try:
+                            plt.axvline(ex['fit']['x0'],color="r")
+                        except:
+                            pass
+
+                        plt.plot(G.CALFIB_WAVEGRID, avg_f)
+                        plt.xlim(cw-2*cw*max_velocity/3e5,cw+2*cw*max_velocity/3e5)
+
+                        plt.title(f"Good {test_good}: r({r}) d({d}) RA: {ra_meshgrid[d,r]:0.6f}  Dec: {dec_meshgrid[d,r]:0.6f}\n"
+                                  f"fwhm = {ex['fit']['sigma']*2.355:0.2f}, flux = {ex['fit']['fitflux']:0.2f}, snr = {ex['fit']['snr']:0.2f}")
+                        plt.tight_layout()
+                        plt.savefig(f"ip_r{str(r).zfill(3)}_d{str(d).zfill(3)}.png")
+
+
+            log.info(f"Raster 'good' emission fits ({wct}) / ({ct})")
         #print("Good fits:", wct)
         #print(f"Biweights: max_ct ({max_bw_ct}), min_ct ({min_bw_ct}), wbw ({wbw_events}), bw ({bw_events})")
 
