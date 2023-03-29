@@ -4516,7 +4516,10 @@ def peakdet(x,vals,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.
 
 
     #just iterate over signal_score
-    if (G.LINE_FINDER_FULL_FIT_SCAN or len(eli_list) == 0) and not absorber: #this can be slow ... only run if set OR if no lines found??
+    #G.LINE_FINDER_FULL_FIT_SCAN: -1 = hard no, do not run
+    #G.LINE_FINDER_FULL_FIT_SCAN: 0 = soft run ... run if eli_list == 0
+    #G.LINE_FINDER_FULL_FIT_SCAN: 1 = yes
+    if (G.LINE_FINDER_FULL_FIT_SCAN > -1) and (G.LINE_FINDER_FULL_FIT_SCAN > 0 or len(eli_list) == 0) and not absorber: #this can be slow ... only run if set OR if no lines found??
         log.info(f"Running line finder, full fit ({'absorption' if absorber else 'emission'})  ...")
         quick_eli_list = []
         step = 4.0 #AA

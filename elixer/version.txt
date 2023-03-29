@@ -1,9 +1,14 @@
 changes to elixer by version
 
-1.19.0a4 [2023-03-27]
-* add universal sky subtraction residual model
+1.19.0a5 [2023-03-28]
 * change --gridsearch to call hetdex_api get_spectra() with array of coords rather than one at a time (note: does still
   operate on one shot at a time)
+* added G.LIMIT_GRIDSEARCH_LINE_FINDER (default = True) to reduce the line finder scanning to just the simple case on
+  the gridsearch
+
+1.19.0a4 [2023-03-27]
+* add universal sky subtraction residual model
+
 
 1.19.0a3 [2023-03-06]
 * testing new HETDEX API get_spectra() with sky residuals

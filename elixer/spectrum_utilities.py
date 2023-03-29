@@ -2892,39 +2892,55 @@ def raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,aperture=3.0,max_velocity
             else:
                 exlist = all_ex[0]
 
-
             #now operate on the collapsed/stacked exlist
+
+            #Turn off extra line scanning and just hit the position specified
+            if G.LIMIT_GRIDSEARCH_LINE_FINDER:
+                saved_LINE_FINDER_FULL_FIT_SCAN = G.LINE_FINDER_FULL_FIT_SCAN
+                saved_LINE_FINDER_MEDIAN_SCAN  = G.LINE_FINDER_MEDIAN_SCAN
+
+                G.LINE_FINDER_FULL_FIT_SCAN = -1
+                G.LINE_FINDER_MEDIAN_SCAN = 0
+
             for idx,ex in enumerate(exlist):
                 log.debug(f"gridsearch scanning spectrum #{idx+1} of {len(exlist)} ...")
                 print(f"gridsearch scanning spectrum #{idx + 1} of {len(exlist)} ...")
-                # now, fit to Gaussian
-                ex['fit'] = combo_fit_wave(SP.peakdet, ex['flux'],
-                                           ex['fluxerr'],
-                                           ex['wave'],
-                                           cw,
-                                           wave_slop_kms=max_velocity,
-                                           max_fwhm=max_fwhm)
+                try:
+                    # now, fit to Gaussian
+                    ex['fit'] = combo_fit_wave(SP.peakdet, ex['flux'],
+                                               ex['fluxerr'],
+                                               ex['wave'],
+                                               cw,
+                                               wave_slop_kms=max_velocity,
+                                               max_fwhm=max_fwhm)
 
-                # kill off bad fits based on snr, rmse, sigma, continuum
-                # overly? generous sigma ... maybe make similar to original?
-                test_good = False
-                if (1.0 < ex['fit']['sigma'] < 20.0) and \
-                        (3.0 < ex['fit']['snr'] < 1000.0):
-                    if ex['fit']['fitflux'] > 0:
-                        # print("Winner")
-                        wct += 1
-                        test_good = True
-                else:  # is bad, wipe out
-                    # print("bad fit")
-                    ex['bad_fit'] = copy.copy(ex['fit'])
-                    ex['fit']['snr'] = 0
-                    ex['fit']['fitflux'] = 0
-                    ex['fit']['continuum_level'] = 0
-                    ex['fit']['velocity_offset'] = 0
-                    ex['fit']['rmse'] = 0
-                    ex['fit']['x0'] = 0
-                    ex['fit']['sigma'] = 0
+                    # kill off bad fits based on snr, rmse, sigma, continuum
+                    # overly? generous sigma ... maybe make similar to original?
+                    test_good = False
+                    if (1.0 < ex['fit']['sigma'] < 20.0) and \
+                            (3.0 < ex['fit']['snr'] < 1000.0):
+                        if ex['fit']['fitflux'] > 0:
+                            # print("Winner")
+                            wct += 1
+                            test_good = True
+                    else:  # is bad, wipe out
+                        # print("bad fit")
+                        ex['bad_fit'] = copy.copy(ex['fit'])
+                        ex['fit']['snr'] = 0
+                        ex['fit']['fitflux'] = 0
+                        ex['fit']['continuum_level'] = 0
+                        ex['fit']['velocity_offset'] = 0
+                        ex['fit']['rmse'] = 0
+                        ex['fit']['x0'] = 0
+                        ex['fit']['sigma'] = 0
+                except:
+                    pass
 
+
+            #restore original extra line scanning
+            if G.LIMIT_GRIDSEARCH_LINE_FINDER:
+                G.LINE_FINDER_FULL_FIT_SCAN = saved_LINE_FINDER_FULL_FIT_SCAN
+                G.LINE_FINDER_MEDIAN_SCAN = saved_LINE_FINDER_MEDIAN_SCAN
 
             #and reshape into the 2D grid
             edict = np.array(exlist).reshape(np.shape(edict)).T

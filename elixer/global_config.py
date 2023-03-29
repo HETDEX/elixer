@@ -22,7 +22,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.19.0a4'
+__version__ = '1.19.0a5'
 #Logging
 GLOBAL_LOGGING = False #set to True in top elixer calls so we do not normally log from package imports
 LOG_TO_STDOUT = False #only kicks in if GLOBAL_LOGGING is False
@@ -1116,10 +1116,13 @@ BROADLINE_GMAG_MAX = 23.0 #must be less than (brighter) than this value to auto-
 LINE_FINDER_MEDIAN_SCAN = 13 #SNR scan after applying a median filter to the flux; the value is the #of pixels, must be odd
                             #set to 0 to turn off
                             #13+ seems pretty good at picking up broad AGN
-LINE_FINDER_FULL_FIT_SCAN = False #scan at each pixel (each bin in CALFIB_WAVEGRID) and try to fit emission and/or abosrption
+LINE_FINDER_FULL_FIT_SCAN = 0 # -1 = hard no, never run;  0 = soft no, can still run for other conditions, 1 = hard yes
+                            #scan at each pixel (each bin in CALFIB_WAVEGRID) and try to fit emission and/or abosrption
                             #NOTE: this will still run if False when no lines are found with other methods
                             #if True (always on) increases line finder run-time by ~ 50%
                             #also seems to slightly encourage weak lines (that are false positives)
+
+LIMIT_GRIDSEARCH_LINE_FINDER = True # turn off the median and full_fit scans (see above two value) on --gridsearch
 
 SUBTRACT_HETDEX_SKY_RESIDUAL = False #if true compute a per-shot sky residual, convolve with per-shot PSF and subtract
 # from the HETDEX spectrum (only applies to re-extractions (forced extractions) with ffsky
