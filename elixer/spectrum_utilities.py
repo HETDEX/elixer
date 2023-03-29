@@ -2917,8 +2917,10 @@ def raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,aperture=3.0,max_velocity
                     # kill off bad fits based on snr, rmse, sigma, continuum
                     # overly? generous sigma ... maybe make similar to original?
                     test_good = False
-                    if (1.0 < ex['fit']['sigma'] < 20.0) and \
-                            (3.0 < ex['fit']['snr'] < 1000.0):
+                    # if (1.0 < ex['fit']['sigma'] < 20.0) and \
+                    #         (3.0 < ex['fit']['snr'] < 1000.0):
+                    if (0.0 < ex['fit']['sigma'] < 50.0) and \
+                            (0.0 < ex['fit']['snr']):
                         if ex['fit']['fitflux'] > 0:
                             # print("Winner")
                             wct += 1
@@ -2934,7 +2936,19 @@ def raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,aperture=3.0,max_velocity
                         ex['fit']['x0'] = 0
                         ex['fit']['sigma'] = 0
                 except:
-                    pass
+                    log.debug("Exceotion in raster_search.",exc_info=True)
+                    if ex['fit'] is None:
+                        ex['fit'] = {}
+                        ex['fit']['x0'] = None
+                        ex['fit']['fitflux'] = 0.0
+                        ex['fit']['continuum_level'] = 0.0
+                        ex['fit']['velocity_offset'] = 0.0
+                        ex['fit']['sigma'] = 0.0
+                        ex['fit']['rmse'] = 0.0
+                        ex['fit']['snr'] = 0.0
+                        ex['fit']['meanflux_density'] = 0.0
+                        ex['fit']['velocity_offset_limit'] = max_velocity
+
 
 
             #restore original extra line scanning
