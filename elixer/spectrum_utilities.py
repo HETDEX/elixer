@@ -2723,6 +2723,26 @@ def get_psf(shot_fwhm,ap_radius,max_sep,scale=0.25,normalize=True):
 
     return psf
 
+def get_psf_fixed_side(shot_fwhm,ap_radius,side,scale=0.25,normalize=True):
+    """
+    Build and return a moffat profile grid
+    (unless replaced in the future, this is just a wrappered call to hetdex_api)
+
+    :param shot_fwhm: FWHM (seeing) for the shot
+    :param ap_radius: radius of the aperture in which to sum up flux (the central object's aperture)
+    :param max_sep: maximum distance (in arcsec) out to which we want to check the PSF overlap
+    :param scale: arsec per pixel (sets number of pixels to use in the grid)
+    :param normalize: if True, divide the weights by the sum s|t the volume under the PSF is 1.0
+    :return: [0] is the weight, [1] and [2] are the x and y grids
+    """
+
+    psf = Extract().moffat_psf(shot_fwhm,side,scale)
+
+    if normalize:
+        psf[0] = psf[0] / np.sum(psf[0])
+
+    return psf
+
 def apply_psf(spec,err,coord,shotid,fwhm,radius=3.0,ffsky=True,hdrversion="hdr2.1"):
     """
     Apply the shot specific PSF to the provided spec and error.

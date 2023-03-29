@@ -910,8 +910,20 @@ class science_image():
                 try:
                     # SEP_FIXED_APERTURE_RADIUS is in arcsec and we need pixels, so divide by pixel_size in arcsec/pixel
                     radius = G.SEP_FIXED_APERTURE_RADIUS / self.pixel_size
-                    # now, get the flux
-                    flux, fluxerr, flag = sep.sum_circle(data_sub, obj['x'], obj['y'],
+                    if G.SEP_FIXED_APERTURE_PSF:
+                        import spectrum_utilities as SU
+                        #f(shot_fwhm,ap_radius,max_sep,scale=0.25,normalize=True):
+                        #self.pixel_size (arcsec/pixel?)
+                        psf = SU.get_psf_fixed_side(G.SHOT_SEEING,radius,side=np.shape(data_sub)[0]*self.pixel_size,
+                                                    scale=self.pixel_size,normalize=True)
+                        #get the weights
+                        w = psf[0][1:-1,1:-1]
+                        conv_data = scipy.signal.convolve2d(data_sub,w,mode='same')
+                        flux, fluxerr, flag = sep.sum_circle(conv_data, obj['x'], obj['y'],
+                                                         radius, subpix=1,err=data_err*w)
+                    else:
+                        # now, get the flux
+                        flux, fluxerr, flag = sep.sum_circle(data_sub, obj['x'], obj['y'],
                                                          radius, subpix=1,err=data_err)
                 except:
                     log.warning("Exception with source extractor",exc_info=True)
@@ -2072,6 +2084,9 @@ class science_image():
             except:
                 #print("Sky Mask Problem ....")
                 log.error("Exception in science_image::get_cutout () figuring sky subtraction aperture", exc_info=True)
+
+
+        #todo: here ? fixed 3.5" aperture with PSF weight?
 
         if return_details: #elixer_aperture in details is ALREADY set
             return cutout, counts, mag, radius, details

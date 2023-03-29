@@ -1,5 +1,10 @@
 changes to elixer by version
 
+1.19.0a6 [2023-03-28]
+* special version ... add to SEP fixed aperture magnitude on imaging a convolution of the HETDEX aperture
+ and HETDEX seeing fwhm as PSF
+
+
 1.19.0a5 [2023-03-28]
 * change --gridsearch to call hetdex_api get_spectra() with array of coords rather than one at a time (note: does still
   operate on one shot at a time)

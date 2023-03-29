@@ -7292,6 +7292,8 @@ class DetObj:
             except:
                 pass
 
+            G.SHOT_SEEING = self.survey_fwhm
+
             self.survey_response = row['response_4540']
             try:
                 self.survey_fieldname = row['field'].decode()

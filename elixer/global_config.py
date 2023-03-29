@@ -22,7 +22,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.19.0a5'
+__version__ = '1.19.0a6'
 #Logging
 GLOBAL_LOGGING = False #set to True in top elixer calls so we do not normally log from package imports
 LOG_TO_STDOUT = False #only kicks in if GLOBAL_LOGGING is False
@@ -1145,7 +1145,9 @@ LAE_EW_MAG_TRIGGER_MIN = 15.0 #if the associated EW_rest(LyA) is greater than th
 LINEWIDTH_SIGMA_TRANSITION = 4.5  #larger than this, is increasingly more likely to be LyA, below .. could be either
 LINEWIDTH_SIGMA_MAX_OII = 6.5 #there just are not any larger than this (FWHM > 16.5)
 
-SEP_FIXED_APERTURE_RADIUS = 1.5 #RADIUS in arcsec ... used at the barycenter position of SEP objects
+SEP_FIXED_APERTURE_RADIUS = 3.5 #RADIUS in arcsec ... used at the barycenter position of SEP objects
+SEP_FIXED_APERTURE_PSF = True #if true apply the HETDEX seeing PSF
+SHOT_SEEING = None #temporay usage for HSC-g comparison
 
 FWHM_TYPE1_AGN_VELOCITY_THRESHOLD = 1500.0 #km/s #FWHM velocity in emission line above this value might be a type 1 AGN
 
