@@ -3149,10 +3149,17 @@ def make_raster_plots(dict_meshgrid,ra_meshgrid,dec_meshgrid,cw,key,colormap=cm.
         colormap.set_bad(color=[1.0, 1.0, 1.0]) #white
         bad_value = -1e9
         z = np.full(ra_meshgrid.shape,bad_value,dtype=float)
+        #does not have to be loops, but this is easy to read
+        #could instead be:
+        # z = np.array([ [xy['fit'][key] for xy in x] for x in dict_meshgrid]).reshape(np.shape(dict_meshgrid))
+        # but then also need to find the "bad fit" locations and mask those or set to -1
+        # since there are rarely more than a few hundred (at most) grid points, this is plenty fast,
+        # and rarely used, so just keep it easy to read
+
         for r in range(np.shape(ra_meshgrid)[1]):  # columns (x or RA values)
             for d in range(np.shape(ra_meshgrid)[0]):  # rows (y or Dec values)
                 try:
-                    if key != 'meanflux_density' and 'bad_fit' in dict_meshgrid[d, r].keys():
+                    if key != 'fitflux' and 'bad_fit' in dict_meshgrid[d, r].keys():
                         pass # no fit, assume same as "no-data"
                     else:
                         z[d,r] = dict_meshgrid[d, r]['fit'][key]
