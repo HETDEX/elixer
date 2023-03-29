@@ -5953,7 +5953,7 @@ def main():
                                                      max_velocity=args.gridsearch[2],max_fwhm=args.gridsearch[3],aperture=3.0,
                                                      ffsky=args.ffsky)
                             #show most common (others are available via direct call to the saved py file)
-                            z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,"fitflux",
+                            z = SU.make_raster_plots(edict, ra_meshgrid, dec_meshgrid, cw,"meanflux_density",
                                                           save=savefn,savepy=savefn,show=args.gridsearch[4])
                             #don't know how meaningful this really is, given that this is a single source (not a stack)
                             #and the f900 would be at the 0.01 S/N level

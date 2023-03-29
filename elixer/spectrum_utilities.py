@@ -3298,9 +3298,9 @@ def make_raster_plots(dict_meshgrid,ra_meshgrid,dec_meshgrid,cw,key,colormap=cm.
                 pyfilestr += "        print(f'Available keys to plot: {allkeys}')\n"
                 pyfilestr += "        exit(0)\n"
                 pyfilestr += "else:\n"
-                pyfilestr += "    print('Assuming fitflux plot')\n"
+                pyfilestr += "    print('Assuming meanflux_density plot')\n"
                 pyfilestr += "    print(f'Available keys to plot: {allkeys}')\n"
-                pyfilestr += "    key = 'fitflux'\n"
+                pyfilestr += "    key = 'meanflux_density'\n"
                 pyfilestr += "SU.make_raster_plots(parms_dict['dict_meshgrid']," \
                              "parms_dict['ra_meshgrid']," \
                              "parms_dict['dec_meshgrid']," \
