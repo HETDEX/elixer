@@ -918,7 +918,7 @@ class science_image():
                                                     scale=self.pixel_size,normalize=True)
                         #get the weights
                         w = psf[0][1:-1,1:-1]
-                        conv_data = scipy.signal.convolve2d(data_sub,w,mode='same')
+                        conv_data = scipy.signal.convolve2d(data_sub+bkg,w,mode='same')
                        # conv_err = scipy.signal.convolve2d(data_err,w,mode='same')
                         #no .... data_err is a single value, not a matrix ... it is the sky rms
                         # flux, fluxerr, flag = sep.sum_circle(conv_data, obj['x'], obj['y'],
