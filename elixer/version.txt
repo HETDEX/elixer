@@ -1,8 +1,12 @@
 changes to elixer by version
 
+1.19.0a7 [2023-03-30]
+* correct issues with mis-aligned and missing spectra from --gridsearch
+
 1.19.0a6 [2023-03-28]
 * special version ... add to SEP fixed aperture magnitude on imaging a convolution of the HETDEX aperture
  and HETDEX seeing fwhm as PSF
+
 
 
 1.19.0a5 [2023-03-28]

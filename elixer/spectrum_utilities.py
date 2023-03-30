@@ -1763,10 +1763,16 @@ def extract_at_position(ra,dec,aperture,shotid,ffsky=False,multiproc=G.GET_SPECT
     return_dict['aperture'] = aperture
     return_dict['ffsky'] = ffsky
 
+    # if G.LOG_LEVEL <= 10:  # 10 = DEBUG
+    #     get_spectra_loglevel = "INFO"
+    # else:
+    #     get_spectra_loglevel = "ERROR"
+
     try:
         coord = SkyCoord(ra=ra * U.deg, dec=dec * U.deg)
         apt = hda_get_spectra(coord, survey=f"hdr{G.HDR_Version}", shotid=shotid,ffsky=ffsky,
-                          multiprocess=multiproc, rad=aperture,tpmin=0.0,fiberweights=True)
+                          multiprocess=multiproc, rad=aperture,tpmin=0.0,fiberweights=False,
+                              loglevel = "ERROR")
 
         if len(apt) == 0:
             #print(f"No spectra for ra ({self.ra}) dec ({self.dec})")
@@ -1799,7 +1805,18 @@ def extract_at_multiple_positions(ra,dec,aperture,shotid,ffsky=False,multiproc=G
     :return: in flux e-17 (just like HETDEX standard) (NOT flux density)
     """
 
-    return_list = [] #list of return_dicts
+
+
+    return_list = list(np.full(len(ra),None)) #list of return_dicts
+    dummy_dict = {}
+    dummy_dict['flux'] = np.full(len(G.CALFIB_WAVEGRID),np.nan)
+    dummy_dict['fluxerr'] = np.full(len(G.CALFIB_WAVEGRID),0.0)
+    dummy_dict['wave'] = G.CALFIB_WAVEGRID
+    dummy_dict['ra'] = None
+    dummy_dict['dec'] = None
+    dummy_dict['shot'] = shotid
+    dummy_dict['aperture'] = aperture
+    dummy_dict['ffsky'] = ffsky
 
     try:
         if G.LOG_LEVEL <= 10:  # 10 = DEBUG
@@ -1808,7 +1825,7 @@ def extract_at_multiple_positions(ra,dec,aperture,shotid,ffsky=False,multiproc=G
             get_spectra_loglevel = "ERROR"
 
         coords = SkyCoord(ra=ra * U.deg, dec=dec * U.deg) #list of coords, ra, dec are lists
-        apts = hda_get_spectra(coords, survey=f"hdr{G.HDR_Version}", shotid=shotid,ffsky=ffsky,
+        apts = hda_get_spectra(coords, ID=np.arange(len(coords)),survey=f"hdr{G.HDR_Version}", shotid=shotid,ffsky=ffsky,
                           multiprocess=multiproc, rad=aperture,tpmin=0.0,fiberweights=False,
                           loglevel = get_spectra_loglevel)
 
@@ -1816,26 +1833,34 @@ def extract_at_multiple_positions(ra,dec,aperture,shotid,ffsky=False,multiproc=G
             #print(f"No spectra for ra ({self.ra}) dec ({self.dec})")
             log.info(f"No spectra for ra ({ra}) dec ({dec})")
             return []
-        if len(apts) != len(ra):
-            log.info(f"Mismatch in returned spectra {len(apts)} vs requested {len(ra)}")
-            return []
+        # if len(apts) != len(ra):
+        #     log.info(f"Mismatch in returned spectra {len(apts)} vs requested {len(ra)}")
+        #     return []
 
         # returned from get_spectra as flux density (per AA), so multiply by wavebin width to match the HDF5 reads
         #should be in the same order
-        for apt,r,d in zip(apts,ra,dec):
+        for apt in apts:
             return_dict = {}
 
             return_dict['flux'] = np.nan_to_num(apt['spec']) * G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)
             return_dict['fluxerr'] = np.nan_to_num(apt['spec_err']) * G.FLUX_WAVEBIN_WIDTH
             return_dict['wave'] = np.array(apt['wavelength'])
             return_dict['apcor'] =  np.array(apt['apcor'])
-            return_dict['ra'] = r
-            return_dict['dec'] = d
+            return_dict['ra'] = coords[apt['ID']].ra.value
+            return_dict['dec'] =  coords[apt['ID']].dec.value
             return_dict['shot'] = shotid
             return_dict['aperture'] = aperture
             return_dict['ffsky'] = ffsky
 
-            return_list.append(return_dict)
+            return_list[apt['ID']] = return_dict
+
+
+        sel = np.array([r is None for r in return_list])
+        #fill in the Nones
+        for i in np.arange(len(ra))[sel]:
+            dummy_dict['ra'] = ra[i]
+            dummy_dict['dec'] = dec[i]
+            return_list[i] =  dummy_dict
     except Exception as E:
         print(f"Exception in Elixer::spectrum_utilities::extract_at_position",E)
         log.info(f"Exception in Elixer::spectrum_utilities::extract_at_position",exc_info=True)
@@ -2865,8 +2890,18 @@ def raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,aperture=3.0,max_velocity
 
         if True: #new way (effectively a single call to hetdex_api get_spectra() with an array of coords)
             #get all extractions for each shot
-            all_ra = ra_meshgrid.flatten()
-            all_dec = dec_meshgrid.flatten()
+            all_ra = ra_meshgrid.flatten('F') #to keep the same ordering as before and eliminate the extra transpose
+            all_dec = dec_meshgrid.flatten('F')
+
+            #sanity check ...
+            # all_ra = []
+            # all_dec = []
+            # for r in range(np.shape(ra_meshgrid)[1]): #columns (x or RA values)
+            #     for d in range(np.shape(ra_meshgrid)[0]): #rows (y or Dec values)
+            #         all_ra.append(ra_meshgrid[d,r])
+            #         all_dec.append(dec_meshgrid[d,r])
+            # all_dec = np.array(all_dec)
+            # all_ra = np.array(all_ra)
 
             all_ex = []
             #grab all RA,Dec for each shot (full grid, but one shot at a time)
@@ -2969,23 +3004,32 @@ def raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,aperture=3.0,max_velocity
                         ex['fit']['meanflux_density'] = 0.0
                         ex['fit']['velocity_offset_limit'] = max_velocity
 
-
-
             #restore original extra line scanning
             if G.LIMIT_GRIDSEARCH_LINE_FINDER:
                 G.LINE_FINDER_FULL_FIT_SCAN = saved_LINE_FINDER_FULL_FIT_SCAN
                 G.LINE_FINDER_MEDIAN_SCAN = saved_LINE_FINDER_MEDIAN_SCAN
 
             #and reshape into the 2D grid
-            edict = np.array(exlist).reshape(np.shape(edict)).T
+            edict = np.array(exlist).reshape(np.shape(edict))
 
         else: #old way
+
+            #Turn off extra line scanning and just hit the position specified
+            if G.LIMIT_GRIDSEARCH_LINE_FINDER:
+                saved_LINE_FINDER_FULL_FIT_SCAN = G.LINE_FINDER_FULL_FIT_SCAN
+                saved_LINE_FINDER_MEDIAN_SCAN  = G.LINE_FINDER_MEDIAN_SCAN
+
+                G.LINE_FINDER_FULL_FIT_SCAN = -1
+                G.LINE_FINDER_MEDIAN_SCAN = 0
+
+            tot = np.shape(ra_meshgrid)[1] * np.shape(ra_meshgrid)[0]
             for r in range(np.shape(ra_meshgrid)[1]): #columns (x or RA values)
                 for d in range(np.shape(ra_meshgrid)[0]): #rows (y or Dec values)
                     exlist = []
                     for s in shotlist:
                         #print("Shot = ", s)
                         ct += 1
+                        log.debug(f"Extracting {ct} of {tot}")
                         #print(ct) ra,dec,aperture,shotid,ffsky=False,multiproc=G.GET_SPECTRA_MULTIPROCESS
                         ex = extract_at_position(ra_meshgrid[d,r], dec_meshgrid[d,r], aperture,shotid=s,
                                                  ffsky=ffsky,multiproc=False)
@@ -3067,8 +3111,11 @@ def raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,aperture=3.0,max_velocity
                     # kill off bad fits based on snr, rmse, sigma, continuum
                     # overly? generous sigma ... maybe make similar to original?
                     test_good = False
-                    if (1.0 < ex['fit']['sigma'] < 20.0) and \
-                            (3.0 < ex['fit']['snr'] < 1000.0):
+                    # if (1.0 < ex['fit']['sigma'] < 20.0) and \
+                    #         (3.0 < ex['fit']['snr'] < 1000.0):
+                    #     if ex['fit']['fitflux'] > 0:
+                    if (0.0 < ex['fit']['sigma'] < 50.0) and \
+                                    (0.0 < ex['fit']['snr']):
                         if ex['fit']['fitflux'] > 0:
                             #print("Winner")
                             wct += 1
@@ -3110,6 +3157,12 @@ def raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,aperture=3.0,max_velocity
 
 
             log.info(f"Raster 'good' emission fits ({wct}) / ({ct})")
+
+            #restore original extra line scanning
+            if G.LIMIT_GRIDSEARCH_LINE_FINDER:
+                G.LINE_FINDER_FULL_FIT_SCAN = saved_LINE_FINDER_FULL_FIT_SCAN
+                G.LINE_FINDER_MEDIAN_SCAN = saved_LINE_FINDER_MEDIAN_SCAN
+
         #print("Good fits:", wct)
         #print(f"Biweights: max_ct ({max_bw_ct}), min_ct ({min_bw_ct}), wbw ({wbw_events}), bw ({bw_events})")
 
