@@ -919,8 +919,16 @@ class science_image():
                         #get the weights
                         w = psf[0][1:-1,1:-1]
                         conv_data = scipy.signal.convolve2d(data_sub,w,mode='same')
-                        flux, fluxerr, flag = sep.sum_circle(conv_data, obj['x'], obj['y'],
-                                                         radius, subpix=1,err=data_err*w)
+                       # conv_err = scipy.signal.convolve2d(data_err,w,mode='same')
+                        #no .... data_err is a single value, not a matrix ... it is the sky rms
+                        # flux, fluxerr, flag = sep.sum_circle(conv_data, obj['x'], obj['y'],
+                        #                                  radius, subpix=1,err=data_err*w)
+                        #center on the image center (e.g. the HETDEX position) (yes, all SEP will then have the
+                        # same value, but this is for a temporary test
+                        mid_x = int(np.shape(conv_data)[0]//2)
+                        mid_y = mid_x #these are square cutouts
+                        flux, fluxerr, flag = sep.sum_circle(conv_data, mid_x,mid_y,
+                                                         radius, subpix=1,err=data_err)
                     else:
                         # now, get the flux
                         flux, fluxerr, flag = sep.sum_circle(data_sub, obj['x'], obj['y'],
