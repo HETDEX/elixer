@@ -1444,9 +1444,9 @@ class DetObj:
                                     img_limit = True
 
                             if d['filter_name'].lower() in ['g']: #allow 0.5 variation?
-                                allowed_diff = 0.8
+                                allowed_diff = 0.8 #factor of x2 in flux
                             elif d['filter_name'].lower() in ['r','f606w']: #different filter so, maybe allow 1.5?
-                                allowed_diff = 1.3 #noting
+                                allowed_diff = 1.5 #noting x4 difference
                             else:
                                 continue #only checking g or r
 
