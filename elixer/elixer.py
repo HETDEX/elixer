@@ -4594,7 +4594,10 @@ def main():
 
     fcsdir_list = []
     hdf5_detectid_list = []
-    explicit_extraction = False
+    if args.aperture:
+        explicit_extraction = True
+    else:
+        explicit_extraction = False
     #is this an explicit extraction?
     if args.aperture and args.ra and args.dec:
         #args.wavelength, args.shotid are optional
