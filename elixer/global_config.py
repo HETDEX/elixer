@@ -1287,10 +1287,11 @@ SKY_RESIDUAL_PER_SHOT = False #if True pull each residusl from the match shot, i
 
 #!!!! don't forget to produce the __default.fits as the bw of all the individual ones ...
 #!!! currently in jupyter-notebook: ff_ll_sky_test.ipynb
-SKY_RESIDUAL_FITS_PATH ="/scratch/03261/polonius/random_apertures/all_fibers/2018_2022_sym_bw/"
-SKY_RESIDUAL_FITS_PREFIX = "fiber_summary_sym_bw_"
+SKY_RESIDUAL_FITS_PATH ="/scratch/03261/polonius/random_apertures/all_fibers//2018_2022_asym_bw_strict//"
+SKY_RESIDUAL_FITS_PREFIX = "fiber_summary_asym_bw_"
 SKY_RESIDUAL_FITS_COL  = "ll_stack_050"
 
+SKY_RESIDUAL_USE_MODEL = False #if True, use the model of the stack, if False, use the stack directly
 SKY_RESIDUAL_HDR3_LO_FLUXD = None
 SKY_RESIDUAL_HDR3_LO_FN = op.join(op.dirname(op.realpath(__file__)), "sky_subtraction_residuals/hdr3_local_sky_fiber_residual_model.txt")
 SKY_RESIDUAL_HDR3_FF_FLUXD = None

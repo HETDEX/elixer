@@ -2661,23 +2661,31 @@ def fetch_universal_single_fiber_sky_subtraction_residual(ffsky=False,hdr=G.HDR_
 
     try:
         log.debug("Loading universal sky residual model...")
+        if G.SKY_RESIDUAL_USE_MODEL:
+            which_col = 1
+        else:
+            which_col = 2
         if hdr == "3":
             if ffsky:
                 if G.SKY_RESIDUAL_HDR3_FF_FLUXD is None:
                     # try to load it
-                    G.SKY_RESIDUAL_HDR3_FF_FLUXD = np.loadtxt(G.SKY_RESIDUAL_HDR3_FF_FN, usecols=(1))
+                    G.SKY_RESIDUAL_HDR3_FF_FLUXD = np.loadtxt(G.SKY_RESIDUAL_HDR3_FF_FN, usecols=(which_col))
 
+                log.info(f"***** Returning ff sky subtraction residual ({which_col})")
                 return G.SKY_RESIDUAL_HDR3_FF_FLUXD
             else: #local sky
                 if G.SKY_RESIDUAL_HDR3_LO_FLUXD is None:
                     # try to load it
-                    G.SKY_RESIDUAL_HDR3_LO_FLUXD = np.loadtxt(G.SKY_RESIDUAL_HDR3_LO_FN, usecols=(1))
+                    G.SKY_RESIDUAL_HDR3_LO_FLUXD = np.loadtxt(G.SKY_RESIDUAL_HDR3_LO_FN, usecols=(which_col))
 
+                log.info(f"***** Returning local sky subtraction residual ({which_col})")
                 return G.SKY_RESIDUAL_HDR3_LO_FLUXD
+        else:
+            log.warning(f"Unknown HDR version ({hdr}). No sky residual available.")
     except:
         log.error(f"Exception! Exception loading universal sky residual.", exc_info=True)
         return None
-    log.error(f"No universal sky residual model found.", exc_info=True)
+    log.error(f"No universal sky residual found.", exc_info=True)
     return None
 
 def check_overlapping_psf(source_mag,neighbor_mag,psf,dist_baryctr,dist_ellipse=None,effective_radius=None,aperture=1.5):
