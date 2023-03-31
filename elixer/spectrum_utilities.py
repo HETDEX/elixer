@@ -2871,7 +2871,7 @@ def raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,aperture=3.0,max_velocity
         import spectrum as SP
 
     try:
-        edict = np.transpose(np.zeros_like(ra_meshgrid, dtype=dict)) #need to transpose since addressing as dec,ra
+        edict = None
         ct = 0
         wct = 0
 
@@ -2892,7 +2892,7 @@ def raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,aperture=3.0,max_velocity
             #get all extractions for each shot
             all_ra = ra_meshgrid.flatten('F') #to keep the same ordering as before and eliminate the extra transpose
             all_dec = dec_meshgrid.flatten('F')
-
+            #edict = np.zeros_like(ra_meshgrid, dtype=dict)
             #sanity check ...
             # all_ra = []
             # all_dec = []
@@ -3010,10 +3010,12 @@ def raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,aperture=3.0,max_velocity
                 G.LINE_FINDER_MEDIAN_SCAN = saved_LINE_FINDER_MEDIAN_SCAN
 
             #and reshape into the 2D grid
-            edict = np.array(exlist).reshape(np.shape(edict))
+            edict = np.array(exlist).reshape(np.shape(ra_meshgrid),order='F')#.T #transpose looks right but index is off
+
+            #print(f"***** RA {np.shape(ra_meshgrid)}, Dec {np.shape(dec_meshgrid)}, edict {np.shape(edict)}")
 
         else: #old way
-
+            edict = np.transpose(np.zeros_like(ra_meshgrid, dtype=dict))  # need to transpose since addressing as dec,ra
             #Turn off extra line scanning and just hit the position specified
             if G.LIMIT_GRIDSEARCH_LINE_FINDER:
                 saved_LINE_FINDER_FULL_FIT_SCAN = G.LINE_FINDER_FULL_FIT_SCAN
