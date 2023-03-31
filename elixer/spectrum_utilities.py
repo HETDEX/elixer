@@ -3020,7 +3020,17 @@ def raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,aperture=3.0,max_velocity
             #and reshape into the 2D grid
             edict = np.array(exlist).reshape(np.shape(ra_meshgrid),order='F')#.T #transpose looks right but index is off
 
-            #print(f"***** RA {np.shape(ra_meshgrid)}, Dec {np.shape(dec_meshgrid)}, edict {np.shape(edict)}")
+            #test
+            # print(f"***** RA {np.shape(ra_meshgrid)}, Dec {np.shape(dec_meshgrid)}, edict {np.shape(edict)}")
+            # for r2,e2 in zip(ra_meshgrid,edict):
+            #     for r,e in zip (r2,e2):
+            #         if r != e['ra']:
+            #             print("!!!! FAIL RA != Edict RA")
+            #
+            # for d2,e2 in zip(dec_meshgrid,edict):
+            #     for d,e in zip (d2,e2):
+            #         if d != e['dec']:
+            #             print("!!!! FAIL RA != Edict RA")
 
         else: #old way
             edict = np.transpose(np.zeros_like(ra_meshgrid, dtype=dict))  # need to transpose since addressing as dec,ra
@@ -3262,11 +3272,14 @@ def make_raster_plots(dict_meshgrid,ra_meshgrid,dec_meshgrid,cw,key,colormap=cm.
         ax = plt.gca()
         num_levels = np.max(ra_meshgrid.shape)
         levels = MaxNLocator(nbins=num_levels).tick_values(z.min(), z.max())
-        surf = ax.contourf((dec_meshgrid-DEC)*3600.0,(ra_meshgrid-RA)*3600.0, z, cmap=colormap, levels=levels)
+        #surf = ax.contourf((dec_meshgrid-DEC)*3600.0,(ra_meshgrid-RA)*3600.0, z, cmap=colormap, levels=levels)
+        surf = ax.contourf((ra_meshgrid-RA)*3600.0,(dec_meshgrid-DEC)*3600.0, z, cmap=colormap, levels=levels)
+        #surf = ax.contourf(ra_meshgrid, dec_meshgrid, z, cmap=colormap, levels=levels)
+        ax.invert_xaxis()
 
         #get the x-range, then reverse so East is to the left
-        xlim = ax.get_xlim()
-        ax.set_xlim(xlim[1],xlim[0])
+        #xlim = ax.get_xlim()
+        #ax.set_xlim(xlim[1],xlim[0])
 
         if max_aa_offset is not None:
             info_title = fr"$\alpha$ ({RA:0.5f}) $\delta$ ({DEC:0.5f}) $\lambda$ ({cw:0.2f} +/- {max_aa_offset:0.2f})"
@@ -3291,10 +3304,12 @@ def make_raster_plots(dict_meshgrid,ra_meshgrid,dec_meshgrid,cw,key,colormap=cm.
         fig = plt.figure()
         ax = plt.gca()
         #notice here, ra & dec are in the other order vs 3D plot
-        surf = ax.pcolormesh((dec_meshgrid-DEC)*3600.0, (ra_meshgrid-RA)*3600.0, z, cmap=colormap)
+       #surf = ax.pcolormesh((dec_meshgrid-DEC)*3600.0, (ra_meshgrid-RA)*3600.0, z, cmap=colormap)
+        surf = ax.pcolormesh((ra_meshgrid-RA)*3600.0, (dec_meshgrid-DEC)*3600.0, z, cmap=colormap)
         #get the x-range, then reverse so East is to the left
-        xlim = ax.get_xlim()
-        ax.set_xlim(xlim[1],xlim[0])
+        # xlim = ax.get_xlim()
+        # ax.set_xlim(xlim[1],xlim[0])
+        ax.invert_xaxis()
 
         ax.set_title(info_title)
         ax.set_xlabel(r'$\Delta$RA"')
@@ -3327,12 +3342,15 @@ def make_raster_plots(dict_meshgrid,ra_meshgrid,dec_meshgrid,cw,key,colormap=cm.
         # that is, all the RAs  (X's) for each given Dec)
         # in otherwords, though, the RAs are values of X coords, but first parameter are the ROWS (row-major)
         # which are along the vertical (each row contains the list of all RAs (x's) for that row
-        surf = ax.plot_surface((dec_meshgrid - DEC) * 3600.0, (ra_meshgrid - RA) * 3600.0, z, cmap=colormap,
+        #surf = ax.plot_surface((dec_meshgrid - DEC) * 3600.0, (ra_meshgrid - RA) * 3600.0, z, cmap=colormap,
+        #                       linewidth=0, antialiased=False)
+        surf = ax.plot_surface((ra_meshgrid - RA) * 3600.0, (dec_meshgrid - DEC) * 3600.0, z, cmap=colormap,
                                linewidth=0, antialiased=False)
 
         # get the x-range, then reverse so East is to the left
-        xlim = ax.get_xlim()
-        ax.set_xlim(xlim[1], xlim[0])
+        # xlim = ax.get_xlim()
+        # ax.set_xlim(xlim[1], xlim[0])
+        ax.invert_xaxis()
 
         ax.set_title(info_title)
         ax.set_xlabel(r'$\Delta$RA"')
