@@ -1,4 +1,5 @@
-Piecewise linear: x (3470,3750,4000,5540), y (0.0115,0.005,0.003,0.003)# Model from biweight stack of "empty" fibers from shots from 2018-2022.
+# Piecewise linear: x (3470,3750,4000,5540), y (0.0115,0.005,0.003,0.003)
+# Model from biweight stack of "empty" fibers from shots from 2018-2022.
 # WAVE MODEL_FLUXD          STACK_FLUXD         STACK_FLUXDe    (e-17)
 3470.0 0.011499999999999996 0.0 0.0
 3472.0 0.011453571428571424 0.0 0.0
