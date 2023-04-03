@@ -1,6 +1,9 @@
 changes to elixer by version
 
 
+1.19.0a10 [2023-04-03]
+* update gridsearch timing
+
 1.19.0a9 [2023-03-31]
 * working on --gridsearch plotting issue
 

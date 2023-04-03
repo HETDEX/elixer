@@ -236,7 +236,7 @@ if "--gridsearch" in args:
         gridsearch_extracts = int(gridsearch[0]*2.0/gridsearch[1]+2)**2
         #gridsearch_task_boost = gridsearch_extracts * 0.15 / 60.0 #per gridsearch task, in minutes
         #also assumes only one shot per gridsearch
-        base_time_multiplier = gridsearch_extracts * 0.004
+        base_time_multiplier = gridsearch_extracts * 0.0045
 
     except:
         base_time_multiplier = 3.0 #just to put something in
