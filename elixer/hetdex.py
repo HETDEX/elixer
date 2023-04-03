@@ -610,6 +610,7 @@ class DetObj:
         self.line_mini_buf = None
 
         self.sky_subtraction_residual = None
+        self.aperture_sky_subtraction_residual = None
 
         self.phot_z_votes = []
         self.cluster_parent = 0 #detectid of anohter HETDEX source that is the cluster (specifically, redshift) for this object

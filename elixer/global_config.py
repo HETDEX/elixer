@@ -881,7 +881,7 @@ GRID_SZ_Y = 3 # equivalent figure_sz_y for a grid height (e.g. one row)
 LyC = False #switch for Lyman Continuum specialized code
 DeblendSpectra = False #if true (automatically true if --LyC), get spectra or mags with flat fnu and PSF deblend neighbors
                         # from the target spectra
-VoteFeaturesTable = True #if true, include the P(LyA) extra voting features table
+
 PLOT_FULLWIDTH_2D_SPEC = False #if true, show the combined full-width 2D spectra just under the 1D plot
 
 FIT_FULL_SPEC_IN_WINDOW = False #if true, allow y-axis range to fit entire spectrum, not just the emission line
@@ -1260,6 +1260,7 @@ DETFLAG_CORRUPT_DATA                = 0x80000000    #some nontrivial portion of 
 #Voter Flags (32 bit)
 # Turn ON each voter
 ##################################
+VoteFeaturesTable = False #if true, include the P(LyA) extra voting features table in the h5 output
 
 VOTER_ACTIVE = 0xFFFFFFFF
 
@@ -1282,6 +1283,9 @@ VOTE_EW_PLAE_POII_CORRECTION    = 0x00000800
 ###################################
 # testing sky residuals
 ###################################
+
+APPLY_SKY_RESIDUAL_TYPE = 0 #0 = No, off, do not use:   1 = per fiber, 2 = per 3.5" aperture
+#Note: there are many issues in ELiXer and post-ELiXer for the aperture version, so it has been removed
 
 SKY_RESIDUAL_PER_SHOT = False #if True pull each residusl from the match shot, if False, use the universal model
 

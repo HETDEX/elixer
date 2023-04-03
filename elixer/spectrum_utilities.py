@@ -2588,33 +2588,10 @@ def fetch_per_shot_single_fiber_sky_subtraction_residual(path,shotid,column,pref
     """
     in this version (for testing) all the residual fits files are in one place, with each holding one row for the shot
     only returns the residual ... not the error
-                 ('ra', float), ('dec', float), ('shotid', int),
-                 ('seeing',float),('response',float),
-                 ('fiber_total_ct',float),('fiber_cleaned_ct',float),
-                 ('ll_ct_05',float), ('ff_ct_05',float),('ll_ct_10', float),('ff_ct_10', float),('ll_ct_15', float),('ff_ct_15', float),
 
-                 ('ll_stack_05', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ll_stacke_05', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ff_stack_05', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ff_stacke_05', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ll_stack_10', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ll_stacke_10', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ff_stack_10', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ff_stacke_10', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ll_stack_15', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ll_stacke_15', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ff_stack_15', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ff_stacke_15', (float, len(G.CALFIB_WAVEGRID))),
-
-
-                 ('ll_stack_ct_05', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ll_stacke_ct_05', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ll_stack_ct_10', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ll_stacke_ct_10', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ll_stack_ct_15', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ll_stacke_ct_15', (float, len(G.CALFIB_WAVEGRID))),
-
-                example: fiber_summary_md_20190724017.fits
+    This is applied with the call to HETDEX_API get_spectra() and, as such, this needs to be in:
+        erg/s/cm2/AA e-17 (not 2AA)
+    This should NOT be de-reddened or have any other such corrections as those are applied as part of get_spectra()
 
     :param path:
     :param shotid:
@@ -2623,6 +2600,9 @@ def fetch_per_shot_single_fiber_sky_subtraction_residual(path,shotid,column,pref
     """
 
     try:
+        if G.APPLY_SKY_RESIDUAL_TYPE != 1:
+            return None
+
         if prefix is None:
             if G.SKY_RESIDUAL_FITS_PREFIX is None:
                 #we are not doing this
@@ -2654,12 +2634,20 @@ def fetch_per_shot_single_fiber_sky_subtraction_residual(path,shotid,column,pref
 def fetch_universal_single_fiber_sky_subtraction_residual(ffsky=False,hdr=G.HDR_Version):
     """
 
+        This is applied with the call to HETDEX_API get_spectra() and, as such, this needs to be in:
+        erg/s/cm2/AA e-17 (not 2AA)
+    This should NOT be de-reddened or have any other such corrections as those are applied as part of get_spectra()
+
+
     :param ffsky:
     :param hdr:
     :return:
     """
 
     try:
+        if G.APPLY_SKY_RESIDUAL_TYPE != 1:
+            return None
+
         log.debug("Loading universal sky residual model...")
         if G.SKY_RESIDUAL_USE_MODEL:
             which_col = 1
@@ -2687,6 +2675,125 @@ def fetch_universal_single_fiber_sky_subtraction_residual(ffsky=False,hdr=G.HDR_
         return None
     log.error(f"No universal sky residual found.", exc_info=True)
     return None
+
+# ###############################################################
+#  There are too many issues with deblending, de-reddening, etc
+# (deblinding should happen first to completion, perior to this, etc)
+# so this per aperture should be done POST ELIXER and PRE STACKING
+# ##############################################################
+#
+# def fetch_per_shot_aperture_sky_subtraction_residual(path,shotid,column,prefix=None,aperture=3.5):
+#     """
+#     similar to the fetch_per_shot_single_fiber_sky_subtraction_residual but this is for an entire aperture, not
+#     just a single fiber.
+#
+#     For HETDEX the default aperture is 3.5" radius
+#     Any other aperture size is invalid unless specifically adapted.
+#     This can be applied to a HETDEX lookup spectrum (i.e. from a data release run) or AFTER HETDEX_API get_spectra()
+#
+#     !!! this is a PSF weighted, DAR corrected, etc spectrum !!!
+#
+#     :param path:
+#     :param shotid:
+#     :param column:
+#     :return: residual
+#     """
+#
+#     try:
+#         if G.APPLY_SKY_RESIDUAL_TYPE != 2:
+#             return None
+#
+#         if aperture != 3.5:
+#             log.error(f"ERROR! Invalid aperture size ({aperture}) requested for fetch_per_shot_aperture_sky_subtraction_residual.")
+#             return None
+#
+#         if prefix is None:
+#             if G.APERTURE_SKY_RESIDUAL_FITS_PREFIX is None:
+#                 #we are not doing this
+#                 log.info("***** No aperture sky subtraction residual configured.")
+#                 return None
+#             else:
+#                 prefix = G.APERTURE_SKY_RESIDUAL_FITS_PREFIX
+#
+#         T = None
+#         file = op.join(path,f"{prefix}{shotid}.fits")
+#         if op.exists(file):
+#             T = Table.read(file)
+#         else:
+#             #yes, there ends up being two underscores before default
+#             file = op.join(path,f"{prefix}_default.fits")
+#             if op.exists(file):
+#                 T = Table.read(file)
+#
+#         if T is not None:
+#             log.info(f"***** Returning aperture sky subtraction residual: {file} [{column}.")
+#             return T[column][0]
+#         else:
+#             log.info(f"***** Unable to find aperture sky subtraction residual: {file} {column}.")
+#     except:
+#         log.error(f"Exception! Exception loading aperture sky residual for {shotid} + {column}.",exc_info=True)
+#         return None
+#     return None
+#
+# def fetch_universal_aperture_sky_subtraction_residual(ffsky=False,hdr=G.HDR_Version,aperture=3.5,):
+#     """
+#     similar to the single fiber verision, this, instead is for an empty "aperture" at the
+#     matched aperture size.
+#     For HETDEX this is 3.5"
+#     Any other aperture size is invalid unless specifically adapted.
+#     This can be applied to a HETDEX lookup spectrum (i.e. from a data release run) or AFTER HETDEX_API get_spectra()
+#
+#     !!! this is a PSF weighted, DAR corrected, etc spectrum !!!
+#
+#     :param ffsky:
+#     :param hdr:
+#     :param aperture: the apeture to lookup
+#     :return:
+#     """
+#
+#     try:
+#         if G.APPLY_SKY_RESIDUAL_TYPE != 2:
+#             return None
+#
+#         if aperture != 3.5:
+#             log.error(f"ERROR! Invalid aperture size ({aperture}) requested for fetch_universal_aperture_sky_subtraction_residual.")
+#             return None
+#
+#
+#         log.debug("Loading universal sky residual model...")
+#         if G.APERTURE_SKY_RESIDUAL_USE_MODEL:
+#             which_col = 1
+#         else:
+#             which_col = 2
+#         if hdr == "3":
+#             if ffsky:
+#                 if G.APERTURE_SKY_RESIDUAL_HDR3_FF_FLUXD is None:
+#                     # try to load it
+#                     G.APERTURE_SKY_RESIDUAL_HDR3_FF_FLUXD = np.loadtxt(G.APERTURE_SKY_RESIDUAL_HDR3_FF_FN, usecols=(which_col))
+#
+#                 log.info(f"***** Returning aperture ff sky subtraction residual ({which_col})")
+#                 return G.APERTURE_SKY_RESIDUAL_HDR3_FF_FLUXD
+#             else: #local sky
+#                 if G.APERTURE_SKY_RESIDUAL_HDR3_LO_FLUXD is None:
+#                     # try to load it
+#                     G.APERTURE_SKY_RESIDUAL_HDR3_LO_FLUXD = np.loadtxt(G.APERTURE_SKY_RESIDUAL_HDR3_LO_FN, usecols=(which_col))
+#
+#                 log.info(f"***** Returning aperture local sky subtraction residual ({which_col})")
+#                 return G.APERTURE_SKY_RESIDUAL_HDR3_LO_FLUXD
+#         else:
+#             log.warning(f"Unknown HDR version ({hdr}). No aperture sky residual available.")
+#     except:
+#         log.error(f"Exception! Exception loading universal aperture sky residual.", exc_info=True)
+#         return None
+#     log.error(f"No universal aperture sky residual found.", exc_info=True)
+#     return None
+#
+#
+#
+#
+#
+
+
 
 def check_overlapping_psf(source_mag,neighbor_mag,psf,dist_baryctr,dist_ellipse=None,effective_radius=None,aperture=1.5):
     """
