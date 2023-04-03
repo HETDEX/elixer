@@ -2967,7 +2967,7 @@ def raster_search(ra_meshgrid,dec_meshgrid,shotlist,cw,aperture=3.0,max_velocity
 
             for idx,ex in enumerate(exlist):
                 log.debug(f"gridsearch scanning spectrum #{idx+1} of {len(exlist)} ...")
-                print(f"gridsearch scanning spectrum #{idx + 1} of {len(exlist)} ...")
+                #print(f"gridsearch scanning spectrum #{idx + 1} of {len(exlist)} ...")
                 try:
                     # now, fit to Gaussian
                     ex['fit'] = combo_fit_wave(SP.peakdet, ex['flux'],
