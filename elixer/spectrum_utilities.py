@@ -2381,6 +2381,7 @@ def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=500.0,max_fw
     return_dict['sigma'] = 0.0
     return_dict['rmse'] = 0.0
     return_dict['snr'] = 0.0
+    return_dict['chi2'] = 9999.9
     return_dict['meanflux_density'] = 0.0
     return_dict['velocity_offset_limit'] = wave_slop_kms  # not memory efficient to store the same value
     # repeatedly, but, thinking ahead to maybe allowing the max velocity limit to vary by coordinate
@@ -2457,14 +2458,41 @@ def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=500.0,max_fw
                                  norm=False)
 
             num_sn_pix = num_sn_pix * 2 + 1 #update to full counting of sn_pix (each side + 1 for the peak bin)
-            snr = A / (np.sqrt(num_sn_pix) * fit_rmse)
+            #old computation
+            #snr = A / (np.sqrt(num_sn_pix) * fit_rmse)
+
+
+            #updated SNR and Chi2 to match mcmc and signalscore
+            sigma_width = 2.0
+            delta_wave = max(sigma * sigma_width, 2.1195)  # must be at least +/- 2.1195AA
+            left, *_ = getnearpos(wavelengths, x0 - delta_wave)
+            right, *_ = getnearpos(wavelengths, x0 + delta_wave)
+            if wavelengths[left] - (x0 - delta_wave) < 0:
+                left += 1  # less than 50% overlap in the left bin, so move one bin to the red
+            if wavelengths[right] - (x0 + delta_wave) > 0:
+                right -= 1  # less than 50% overlap in the right bin, so move one bin to the blue
+
+            right += 1  # since the right index is not included in slice
+
+            model_fit = gaussian(wavelengths[left:right], x0, sigma, A,Y)
+            data_err = copy.copy(errors[left:right])
+            data_err[data_err <= 0] = np.nan
+            data_flux = values[left:right]
+            snr = abs(np.sum(model_fit - Y)) / np.sqrt(np.nansum(data_err ** 2))
+            #elsewhere we are using the full width of the spectrum, so do that here too?
+            delta_wave = 40.0 #use 40AA
+            left, *_ = getnearpos(wavelengths, x0 - delta_wave)
+            right, *_ = getnearpos(wavelengths, x0 + delta_wave)
+            chi2_model_fit = gaussian(wavelengths, x0, sigma,A,Y)
+            chi2, _ = chi_sqr(values[left:right], chi2_model_fit[left:right], error=errors[left:right], c=1.0)  # ,dof=3)
 
             return_dict['x0'] = x0
             return_dict['fitflux'] = fitflux
             return_dict['continuum_level'] = continuum_level
             return_dict['velocity_offset'] = vel_offset
-            return_dict['sigma']=sigma
+            return_dict['sigma'] = sigma
             return_dict['rmse'] = fit_rmse
+            return_dict['chi2'] = chi2
             return_dict['snr'] = snr
             #return_dict['score'] = line_score
 
@@ -2508,6 +2536,7 @@ def combo_fit_wave(peak_func,values,errors,wavelengths,central,wave_slop_kms=500
     return_dict['sigma'] = 0.0
     return_dict['rmse'] = 0.0
     return_dict['snr'] = 0.0
+    return_dict['chi2'] = 9999.9
     return_dict['meanflux_density'] = 0.0
     return_dict['velocity_offset_limit'] = wave_slop_kms
 
@@ -2544,6 +2573,7 @@ def combo_fit_wave(peak_func,values,errors,wavelengths,central,wave_slop_kms=500
                 return_dict['velocity_offset'] = velocity_offset(central, all_found_lines[idx].fit_x0).value
                 return_dict['sigma'] = all_found_lines[idx].fit_sigma
                 return_dict['rmse'] = all_found_lines[idx].fit_rmse
+                return_dict['chi2'] = all_found_lines[idx].fit_chi2
                 return_dict['snr'] = all_found_lines[idx].snr
 
                 #now w/o the extra padding

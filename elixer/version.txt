@@ -1,5 +1,7 @@
 changes to elixer by version
 
+1.19.0a11 [2023-04-04]
+* update gridsearch SNR to match the rest of elixer, added chi2 (over +/- 40AA)
 
 1.19.0a10 [2023-04-03]
 * update gridsearch timing
