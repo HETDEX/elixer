@@ -170,7 +170,6 @@ if "--hdr" in args: #overide default if specified on command line
         print(f"Invalid --hdr specified ({HDR_Version})")
         exit(-1)
 
-
 def set_hdr_basepath(version=None):
     """
     Sets the globals to be used
@@ -613,16 +612,18 @@ if "--log" in args: #overide default if specified on command line
 ##log initialization moved to elixer.py to incorporate --name into filename
 # reminder to self ... this is pointless with SLURM given the bash wraper (which does not know about the
 # specific dir name and just builds elixer.run ... so leave this here
-LOG_FILENAME = "elixer.log"
+if "--merge" in args or "--merge_unique" in args:
+    LOG_FILENAME = "elixer_merge.log"
+else:
+    LOG_FILENAME = "elixer.log"
+
 #loggin intialization moved to elixer.py in parse_commandline as that is the first place we need to log ...
 #   if --help, then the logger is not created
 #logging.basicConfig(filename=LOG_FILENAME,level=LOG_LEVEL,filemode='w')
 #.debug(), .info(), .warning(), .error(), .critical()
 
 
-
 #first time we need to log anything
-
 
 class Global_Logger:
     FIRST_LOG = True
