@@ -2093,9 +2093,6 @@ class science_image():
                 #print("Sky Mask Problem ....")
                 log.error("Exception in science_image::get_cutout () figuring sky subtraction aperture", exc_info=True)
 
-
-        #todo: here ? fixed 3.5" aperture with PSF weight?
-
         if return_details: #elixer_aperture in details is ALREADY set
             return cutout, counts, mag, radius, details
         else:
