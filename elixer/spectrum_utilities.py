@@ -2143,13 +2143,17 @@ def quick_fit(waves, flux, flux_err, w, delta_w=4.0, width=50, min_sigma=1.7, ma
             parm, pcov = curve_fit(f=gaussian,
                                xdata=np.float64(narrow_wave_x),
                                ydata=np.float64(narrow_wave_y),
-                               p0=(w, min_sigma, 1.0, 0.0),
+                               p0=(w, min_sigma, 1.0, np.nanmedian(narrow_wave_y)), #0.0 #maybe use the median value?
                                absolute_sigma=False,
                                # bounds limit to fitting at THIS wavelength or either adjacent bin
+                               # bounds=((w - delta_w, min_sigma, 0.0,
+                               #          min(flux) - max(flux)),
+                               #         (w + delta_w, max_sigma, max(narrow_wave_y) * len(narrow_wave_y),
+                               #          max(flux) * 1.5)),
                                bounds=((w - delta_w, min_sigma, 0.0,
-                                        min(flux) - max(flux)),
-                                       (w + delta_w, max_sigma, max(narrow_wave_y) * len(narrow_wave_y),
-                                        max(flux) * 1.5)),
+                                            min(narrow_wave_y)-errors[np.argmin(narrow_wave_y)]),
+                                           (w + delta_w, max_sigma, max(narrow_wave_y) * len(narrow_wave_y),
+                                            max(narrow_wave_y) + errors[np.argmax(narrow_wave_y)])),
 
                                # sigma=1./(narrow_wave_errors*narrow_wave_errors)
                                sigma=wave_err_sigma  # , #handles the 1./(err*err)

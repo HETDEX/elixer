@@ -2800,7 +2800,6 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         mcmc.data_y = narrow_wave_counts # / adjust
         mcmc.err_y = narrow_wave_errors  # not the 1./err*err .... that is done in the mcmc likelihood function
 
-
         # if using the scipy::curve_fit, 50-100 burn-in and ~1000 main run is plenty
         # if other input (like Karl's) ... the method is different and we are farther off ... takes longer to converge
         #   but still converges close to the scipy::curve_fit
