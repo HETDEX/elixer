@@ -2408,7 +2408,10 @@ def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=500.0,max_fw
             max_sigma = max_fwhm / 2.355
 
         wave_slop = wavelength_offset(central,wave_slop_kms) #for HETDEX, in AA
-        wave_side = int(round(max(40,2*wave_slop) / G.FLUX_WAVEBIN_WIDTH)) #at least 40AA to either side or twice the slop
+
+        #wave_side = int(np.max([3*wave_slop,3*max_sigma,10.0]) / G.FLUX_WAVEBIN_WIDTH) +1
+        #wave_side = int(round(max(40,2*wave_slop) / G.FLUX_WAVEBIN_WIDTH)) #at least 40AA to either side or twice the slop
+        wave_side = int(40/G.FLUX_WAVEBIN_WIDTH) #wavebins, not AA
         idx,_,_ = getnearpos(wavelengths,central)
         min_idx = max(0,idx-wave_side)
         max_idx = min(len(values),idx+wave_side)
@@ -2433,12 +2436,14 @@ def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=500.0,max_fw
             narrow_wave_errors = None
             narrow_wave_err_sigma = None
 
+        mx_ct = np.nanmax(narrow_wave_counts)
+        mn_ct = np.nanmin(narrow_wave_counts)
         try:
 
             parm, pcov = curve_fit(gaussian, np.float64(narrow_wave_x), np.float64(narrow_wave_counts),
-                                   p0=(central, 0.5*(min_sigma+max_sigma), 1.0, 0.0),
-                                   bounds=((central - wave_slop, min_sigma, 0.0, -100.0),
-                                           (central + wave_slop, max_sigma, np.inf, np.inf)),
+                                   p0=(central, 0.5*(min_sigma+max_sigma), 1.0, mn_ct),
+                                   bounds=((central - wave_slop, min_sigma, 0.0, mn_ct-0.5*(mx_ct-mn_ct)),
+                                           (central + wave_slop, max_sigma, 2*wave_slop*mx_ct,mx_ct)),
                                    # sigma=1./(narrow_wave_errors*narrow_wave_errors)
                                    sigma=narrow_wave_err_sigma,  # , #handles the 1./(err*err)
                                    # note: if sigma == None, then curve_fit uses array of all 1.0
@@ -2497,11 +2502,31 @@ def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=500.0,max_fw
             data_flux = values[left:right]
             snr = abs(np.sum(model_fit - Y)) / np.sqrt(np.nansum(data_err ** 2))
             #elsewhere we are using the full width of the spectrum, so do that here too?
-            delta_wave = 40.0 #use 40AA
+            delta_wave = max(5*sigma,6.0 ) #use 40AA
             _,left, _ = getnearpos(wavelengths, x0 - delta_wave)
             _,_,right = getnearpos(wavelengths, x0 + delta_wave)
-            chi2_model_fit = gaussian(wavelengths[left:right+1], x0, sigma,A,Y)
-            chi2, _ = chi_sqr(values[left:right+1], chi2_model_fit, error=errors[left:right+1], c=1.0 ,dof=2)
+            if wavelengths[left] - (x0 - delta_wave) < 0:
+                left += 1  # less than 50% overlap in the left bin, so move one bin to the red
+            if wavelengths[right] - (x0 + delta_wave) > 0:
+                right -= 1  # less than 50% overlap in the right bin, so move one bin to the blue
+
+            right += 1  # since the right index is not included in slice
+
+
+            chi2_model_fit = gaussian(wavelengths[left:right], x0, sigma,A,Y)
+            chi2, _ = chi_sqr(values[left:right], chi2_model_fit, error=errors[left:right], c=1.0 ,dof=2)
+
+
+            # #################
+            # # test
+            # #################
+            # print("!!!!!!! REMOVE ME !!!!!!!")
+            # plt.close('all')
+            # plot_fit = gaussian(narrow_wave_x,x0, sigma, A,Y)
+            # plt.title(f"S/N {snr:0.1f} Chi2 {chi2:0.2f} sig {sigma:0.1f} flux {fitflux:0.2f} cont {continuum_level:0.1f}")
+            # plt.errorbar(narrow_wave_x,narrow_wave_counts,yerr=narrow_wave_errors)
+            # plt.plot(narrow_wave_x,plot_fit)
+            # plt.savefig("chi2_test.png")
 
             return_dict['x0'] = x0
             return_dict['fitflux'] = fitflux
@@ -2586,7 +2611,7 @@ def combo_fit_wave(peak_func,values,errors,wavelengths,central,wave_slop_kms=500
             else:
                 return_dict['x0'] = all_found_lines[idx].fit_x0
                 return_dict['fitflux'] = all_found_lines[idx].line_flux * 1e17
-                return_dict['continuum_level'] =  all_found_lines[idx].cont * 1e17
+                return_dict['continuum_level'] = all_found_lines[idx].cont * 1e17
                 return_dict['velocity_offset'] = velocity_offset(central, all_found_lines[idx].fit_x0).value
                 return_dict['sigma'] = all_found_lines[idx].fit_sigma
                 return_dict['rmse'] = all_found_lines[idx].fit_rmse
