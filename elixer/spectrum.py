@@ -61,10 +61,21 @@ DEFAULT_BACKGROUND_WIDTH = 100.0 #pixels
 DEFAULT_MIN_WIDTH_FROM_CENTER_FOR_BACKGROUND = 10.0 #pixels
 
 
+#note: these are not the same usage as the global_config LIMIT_GAUSS_FIT_SIGMA_MIN and LIMIT_GAUSS_FIT_SIGMA_MAX
+#which can override these later
 GAUSS_FIT_MAX_SIGMA = 17.0 #maximum width (pixels) for fit gaussian to signal (greater than this, is really not a fit)
 GAUSS_FIT_MIN_SIGMA = 1.0 #roughly 1/2 pixel where pixel = 1.9AA (#note: "GOOD_MIN_SIGMA" below provides post
                           # check and is more strict) ... allowed to fit a more narrow sigma, but will be rejected later
                           # as not a good signal .... should these actually be the same??
+
+#depending on when this is included, the command line may not yet have been parsed, so
+#you need to be aware and may need to call update_from_globals() later, after the command line is parsed
+if G.LIMIT_GAUSS_FIT_SIGMA_MAX is not None:
+    GAUSS_FIT_MAX_SIGMA = G.LIMIT_GAUSS_FIT_SIGMA_MAX
+
+if G.LIMIT_GAUSS_FIT_SIGMA_MIN is not None:
+    GAUSS_FIT_MIN_SIGMA = G.LIMIT_GAUSS_FIT_SIGMA_MIN
+
 GAUSS_FIT_AA_RANGE = 50.0 #AA to either side of the line center to include in the gaussian fit attempt
                           #a bit of an art here; too wide and the general noise and continuum kills the fit (too wide)
                           #too narrow and fit hard to find if the line center is off by more than about 2 AA
@@ -161,6 +172,16 @@ FLUX_CONVERSION_w_grid = np.arange(3000.0, 6000.0, 1.0)
 FLUX_CONVERSION_f_grid = np.interp(FLUX_CONVERSION_w_grid, FLUX_CONVERSION_measured_w, FLUX_CONVERSION_measured_f)
 
 FLUX_CONVERSION_DICT = dict(zip(FLUX_CONVERSION_w_grid,FLUX_CONVERSION_f_grid))
+
+
+def update_with_globals():
+    global GAUSS_FIT_MAX_SIGMA,GAUSS_FIT_MIN_SIGMA
+
+    if G.LIMIT_GAUSS_FIT_SIGMA_MAX is not None:
+        GAUSS_FIT_MAX_SIGMA = G.LIMIT_GAUSS_FIT_SIGMA_MAX
+
+    if G.LIMIT_GAUSS_FIT_SIGMA_MIN is not None:
+        GAUSS_FIT_MIN_SIGMA = G.LIMIT_GAUSS_FIT_SIGMA_MIN
 
 
 def in_same_family(a,e):#are the emission lines different species of the same element
@@ -1834,10 +1855,10 @@ def local_continuum(wavelengths, values, errors, central, amplitude, sigma, cont
 
 #really should change this to use kwargs
 def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=None,values_units=0, sbr=None,
-                 min_sigma=GAUSS_FIT_MIN_SIGMA,show_plot=False,plot_id=None,plot_path=None,do_mcmc=False,absorber=False,
+                 min_sigma=None,show_plot=False,plot_id=None,plot_path=None,do_mcmc=False,absorber=False,
                  force_score=False,values_dx=G.FLUX_WAVEBIN_WIDTH,allow_broad=False,broadfit=1,relax_fit=False,
                  min_fit_sigma=1.0,test_solution=None,wave_fit_side_aa=GAUSS_FIT_AA_RANGE, fit_range_AA=None,
-                 quick_fit=False,spec_obj=None,targetted_fit=False,max_sigma=999.):
+                 quick_fit=False,spec_obj=None,targetted_fit=False,max_sigma=None):
     """
 
     :param wavelengths:
@@ -1895,6 +1916,18 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     if (wavelengths is None) or (values is None) or (len(wavelengths)==0) or (len(values)==0):
         log.warning("Zero length (or None) spectrum passed to spectrum::signal_score().")
         return None
+
+    if min_sigma is None:
+        if G.LIMIT_GAUSS_FIT_SIGMA_MIN is not None:  #explicitly defined by user on command line
+            min_sigma = G.LIMIT_GAUSS_FIT_SIGMA_MIN
+        else: #otherwise, use the elixer default
+            min_sigma = GAUSS_FIT_MIN_SIGMA
+
+    if max_sigma is None:
+        if G.LIMIT_GAUSS_FIT_SIGMA_MAX is not None: #explicitly defined by user on command line
+            max_sigma = G.LIMIT_GAUSS_FIT_SIGMA_MAX
+        else: #otherwise, use the elixer default
+            max_sigma = 999.0
 
     recommend_mcmc = False #internal trigger ... may want MCMC even if do_mcmc is false
     accept_fit = False
@@ -2101,7 +2134,16 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                             ]
 
         else:
-            fit_dict_array = [ {"type": "small", "fit_range_AA": fit_range_AA, "wave_fit_side_aa": 20.0,
+            if G.LIMIT_GAUSS_FIT_SIGMA_MIN is not None: #the user specified something
+                #force to the users sigmas, based on the "medium" settings
+                fit_dict_array = [{"type": "user", "fit_range_AA": fit_range_AA, "wave_fit_side_aa": 40.0,
+                                       "min_fit_sigma": min_sigma, "max_fit_sigma": max_sigma,
+                                       "min_snr": 3.0 if targetted_fit else 4.0,
+                                       "max_gmag": G.BROADLINE_GMAG_MAX, "min_gmag": 0.0,
+                                       "snr": 0, "chi2": 999, "ew": 0, "parm": [], "pcov": [], "model": None,
+                                       "score": 0}]
+            else:
+                fit_dict_array = [ {"type": "small", "fit_range_AA": fit_range_AA, "wave_fit_side_aa": 20.0,
                             "min_fit_sigma": 1.5, "max_fit_sigma": 5.5, "min_snr":3.5 if targetted_fit else 4.0,
                             "max_gmag":99, "min_gmag": G.BROADLINE_GMAG_MAX,
                             "snr":0, "chi2":999, "ew":0, "parm":[], "pcov":[], "model":None, "score":0},
@@ -2126,6 +2168,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                             "max_gmag":G.BROADLINE_GMAG_MAX, "min_gmag": 0.0,
                             "snr": 0, "chi2": 999, "ew": 0, "parm": [], "pcov": [], "model": None, "score": 0},
                         ]
+
         #track and select the "best" to process below
         max_tested_sigma = GAUSS_FIT_MAX_SIGMA #if xlarge is allowed, this can be exceeded
 
@@ -2141,7 +2184,6 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             else:
 
                 max_tested_sigma = max (max_tested_sigma,fd["max_fit_sigma"])
-
                 fd["snr"], fd["chi2"], fd["ew"], fd["parm"], fd["pcov"], fd["model"] = SU.quick_fit(
                                                             wavelengths, values, errors, central,
                                                             fd["fit_range_AA"], fd["wave_fit_side_aa"],
@@ -2168,6 +2210,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                                 fd["next_max_sigma"] = fit_dict_array[i + 1]["max_fit_sigma"]
                             except:
                                 pass
+
 
         fd_idx = np.argmax([fd["score"] for fd in fit_dict_array])
 
@@ -2799,6 +2842,16 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         mcmc.data_x = narrow_wave_x
         mcmc.data_y = narrow_wave_counts # / adjust
         mcmc.err_y = narrow_wave_errors  # not the 1./err*err .... that is done in the mcmc likelihood function
+
+        if G.LIMIT_GAUSS_FIT_SIGMA_MIN is not None:
+            mcmc.min_sigma = G.LIMIT_GAUSS_FIT_SIGMA_MIN
+            mcmc.max_sigma = G.LIMIT_GAUSS_FIT_SIGMA_MAX
+        else:
+            mcmc.min_sigma = min_sigma
+            if max_sigma >= 999:
+                mcmc.max_sigma = GAUSS_FIT_MAX_SIGMA
+            else:
+                mcmc.max_sigma = max_sigma
 
         # if using the scipy::curve_fit, 50-100 burn-in and ~1000 main run is plenty
         # if other input (like Karl's) ... the method is different and we are farther off ... takes longer to converge
@@ -4358,7 +4411,7 @@ def sn_peakdet_no_fit(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,absorber=Fals
 
 
 def sn_peakdet(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,values_units=0,
-            enforce_good=True,min_sigma=GAUSS_FIT_MIN_SIGMA,absorber=False,do_mcmc=False,allow_broad=False,spec_obj=None):
+            enforce_good=True,min_sigma=None,absorber=False,do_mcmc=False,allow_broad=False,spec_obj=None):
     """
 
     :param wave: x-values (wavelength)
@@ -4381,6 +4434,9 @@ def sn_peakdet(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,values_units=0,
         if not (len(wave) == len(spec) == len(spec_err)):
             log.debug("Bad call to sn_peakdet(). Lengths of arrays do not match")
             return []
+
+        if min_sigma is None: #GAUSS_FIT_MIN_SIGMA can change after construction, so cannot set as a parameter default
+            min_sigma = GAUSS_FIT_MIN_SIGMA
 
         x = np.array(wave)
         v = np.array(copy.copy(spec))
@@ -4461,7 +4517,7 @@ def sn_peakdet(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,values_units=0,
 
 
 def peakdet(x,vals,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,values_units=0,
-            enforce_good=True,min_sigma=GAUSS_FIT_MIN_SIGMA,absorber=False,spec_obj=None):
+            enforce_good=True,min_sigma=None,absorber=False,spec_obj=None):
     """
     Keeping same interface as old peakdet for convenience
 
@@ -4481,6 +4537,9 @@ def peakdet(x,vals,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.
 
     if (vals is None) or (len(vals) < 3):
         return [] #cannot execute
+
+    if min_sigma is None: #GAUSS_FIT_MIN_SIGMA can change after construction, so cannot set as a default for the parameter
+        min_sigma = GAUSS_FIT_MIN_SIGMA
 
     v = copy.copy(vals)
     eli_list = []
@@ -4568,328 +4627,6 @@ def peakdet(x,vals,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.
     return combined_eli
 #end (new) peakdet
 
-
-def old_peakdet(x,vals,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.0,values_units=0,
-            enforce_good=True,min_sigma=GAUSS_FIT_MIN_SIGMA,absorber=False):
-
-    """
-
-    :param x: wavelengths
-    :param vals: values
-    :param dw:
-    :param h:
-    :param dh:
-    :param zero:
-    :return: array of [ pi, px, pv, pix_width, centroid_pos, eli.score, eli.snr]
-    """
-
-    #peakind = signal.find_peaks_cwt(v, [2,3,4,5],min_snr=4.0) #indexes of peaks
-
-    #emis = zip(peakind,x[peakind],v[peakind])
-    #emistab.append((pi, px, pv, pix_width, centroid))
-    #return emis
-
-
-
-    #dh (formerly, delta)
-    #dw (minimum width (as a fwhm) for a peak, else is noise and is ignored) IN PIXELS
-    # todo: think about jagged peaks (e.g. a wide peak with many subpeaks)
-    #zero is the count level zero (nominally zero, but with noise might raise or lower)
-    """
-    Converted from MATLAB script at http://billauer.co.il/peakdet.html
-
-
-    function [maxtab, mintab]=peakdet(v, delta, x)
-    %PEAKDET Detect peaks in a vector
-    %        [MAXTAB, MINTAB] = PEAKDET(V, DELTA) finds the local
-    %        maxima and minima ("peaks") in the vector V.
-    %        MAXTAB and MINTAB consists of two columns. Column 1
-    %        contains indices in V, and column 2 the found values.
-    %
-    %        With [MAXTAB, MINTAB] = PEAKDET(V, DELTA, X) the indices
-    %        in MAXTAB and MINTAB are replaced with the corresponding
-    %        X-values.
-    %
-    %        A point is considered a maximum peak if it has the maximal
-    %        value, and was preceded (to the left) by a value lower by
-    %        DELTA.
-
-    % Eli Billauer, 3.4.05 (Explicitly not copyrighted).
-    % This function is released to the public domain; Any use is allowed.
-
-    """
-
-    if (vals is None) or (len(vals) < 3):
-        return [] #cannot execute
-
-    v = copy.copy(vals)
-
-    maxtab = []
-    mintab = []
-    emistab = []
-    eli_list = []
-    delta = dh
-
-    eli_list = sn_peakdet(x,v,err,values_units=values_units,enforce_good=enforce_good,min_sigma=min_sigma,
-                          absorber=absorber)
-
-
-    if True:
-        try:
-            #repeat with median filter and kick up the minimum sigma for a broadfit
-            medfilter_eli_list = sn_peakdet(x,medfilt(v,5),medfilt(err,5),values_units=values_units,
-                                           enforce_good=enforce_good,min_sigma=GOOD_BROADLINE_SIGMA,absorber=absorber,
-                                           allow_broad=True)
-
-            # medfilter_eli_list = sn_peakdet(x,gaussian_filter1d(v,5),gaussian_filter1d(err,5),values_units=values_units,
-            #                                 enforce_good=enforce_good,min_sigma=GOOD_BROADLINE_SIGMA,absorber=absorber,
-            #                                 allow_broad=True)
-
-            for m in medfilter_eli_list:
-                m.broadfit = True
-
-            if medfilter_eli_list and len(medfilter_eli_list) > 0:
-                eli_list += medfilter_eli_list
-        except:
-            log.debug("Exception in peakdet with median filter",exc_info=True)
-
-    if x is None:
-        x = np.arange(len(v))
-
-    pix_size = abs(x[1] - x[0])  # aa per pix
-    if pix_size == 0:
-        log.error("Unexpected pixel_size in spectrum::peakdet(). Wavelength step is zero.")
-        return []
-    # want +/- 20 angstroms
-    wave_side_pix = int(round(20.0 / pix_size))  # pixels
-
-    dw = int(dw / pix_size) #want round down (i.e. 2.9 -> 2) so this is fine
-
-    v = np.asarray(v)
-    num_pix = len(v)
-
-
-    if num_pix != len(x):
-        log.warning('peakdet: Input vectors v and x must have same length')
-        return []
-
-    if not np.isscalar(dh):
-        log.warning('peakdet: Input argument delta must be a scalar')
-        return []
-
-    if dh <= 0:
-        log.warning('peakdet: Input argument delta must be positive')
-        return []
-
-
-    v_0 = copy.copy(v)# v[:] #slicing copies if list, but not if array
-    x_0 = copy.copy(x)#x[:]
-    values_units_0 = values_units
-
-    if absorber:
-        v = invert_spectrum(x,v)
-
-    #if values_are_flux:
-    #    v = v * 10.0
-
-    #don't need to normalize errors for peakdet ... will be handled in signal_score
-    v,values_units = norm_values(v,values_units)
-
-    #smooth v and rescale x,
-    #the peak positions are unchanged but some of the jitter is smoothed out
-    #v = v[:-2] + v[1:-1] + v[2:]
-    v = v[:-4] + v[1:-3] + v[2:-2] + v[3:-1] + v[4:]
-    #v = v[:-6] + v[1:-5] + v[2:-4] + v[3:-3] + v[4:-2] + v[5:-1] + v[6:]
-    v /= 5.0
-    x = x[2:-2]
-
-    minv, maxv = np.Inf, -np.Inf
-    minpos, maxpos = np.NaN, np.NaN
-
-    lookformax = True
-
-    for i in np.arange(len(v)):
-        thisv = v[i]
-        if thisv > maxv:
-            maxv = thisv
-            maxpos = x[i]
-            maxidx = i
-        if thisv < minv:
-            minv = thisv
-            minpos = x[i]
-            minidx = i
-        if lookformax:
-            if (thisv >= h) and (thisv < maxv - delta):
-                #i-1 since we are now on the right side of the peak and want the index associated with max
-                maxtab.append((maxidx,maxpos, maxv))
-                minv = thisv
-                minpos = x[i]
-                lookformax = False
-        else:
-            if thisv > minv + delta:
-                mintab.append((minidx,minpos, minv))
-                maxv = thisv
-                maxpos = x[i]
-                lookformax = True
-
-
-    if len(maxtab) < 1:
-        log.warning("No peaks found with given conditions: mininum:  fwhm = %f, height = %f, delta height = %f" \
-                %(dw,h,dh))
-        return eli_list
-
-    #make an array, slice out the 3rd column
-    #gm = gmean(np.array(maxtab)[:,2])
-    peaks = np.array(maxtab)[:, 2]
-    gm = np.mean(peaks)
-    std = np.std(peaks)
-
-
-    ################
-    #DEBUG
-    ################
-
-    # if False:
-    #     so = Spectrum()
-    #     eli = []
-    #     for p in maxtab:
-    #         e = EmissionLineInfo()
-    #         e.raw_x0 = p[1] #xposition p[0] is the index
-    #         e.raw_h = v_0[p[0]+2] #v_0[getnearpos(x_0,p[1])]
-    #         eli.append(e)
-    #
-    #     so.build_full_width_spectrum(wavelengths=x_0, counts=v_0, errors=None, central_wavelength=0,
-    #                                   show_skylines=False, show_peaks=True, name="peaks",
-    #                                   dw=MIN_FWHM, h=MIN_HEIGHT, dh=MIN_DELTA_HEIGHT, zero=0.0,peaks=eli,annotate=False)
-    #
-    #
-    #
-    # #now, throw out anything waaaaay above the mean (toss out the outliers and recompute mean)
-    # if False:
-    #     sub = peaks[np.where(abs(peaks - gm) < (3.0*std))[0]]
-    #     if len(sub) < 3:
-    #         sub = peaks
-    #     gm = np.mean(sub)
-
-    for pi,px,pv in maxtab:
-        #check fwhm (assume 0 is the continuum level)
-
-        #minium height above the mean of the peaks (w/o outliers)
-        if False:
-            if (pv < 1.333 * gm):
-                continue
-
-        hm = float((pv - zero) / 2.0)
-        pix_width = 0
-
-        #for centroid (though only down to fwhm)
-        sum_pos_val = x[pi] * v[pi]
-        sum_pos = x[pi]
-        sum_val = v[pi]
-
-        #check left
-        pix_idx = pi -1
-
-        try:
-            while (pix_idx >=0) and (v[pix_idx] >= hm):
-                sum_pos += x[pix_idx]
-                sum_pos_val += x[pix_idx] * v[pix_idx]
-                sum_val += v[pix_idx]
-                pix_width += 1
-                pix_idx -= 1
-
-        except:
-            pass
-
-        #check right
-        pix_idx = pi + 1
-
-        try:
-            while (pix_idx < num_pix) and (v[pix_idx] >= hm):
-                sum_pos += x[pix_idx]
-                sum_pos_val += x[pix_idx] * v[pix_idx]
-                sum_val += v[pix_idx]
-                pix_width += 1
-                pix_idx += 1
-        except:
-            pass
-
-        #check local region around centroid
-        centroid_pos = sum_pos_val / sum_val #centroid is an index
-
-        #what is the average value in the vacinity of the peak (exlcuding the area under the peak)
-        #should be 20 AA not 20 pix
-        side_pix = max(wave_side_pix,pix_width)
-        left = max(0,(pi - pix_width)-side_pix)
-        sub_left = v[left:(pi - pix_width)]
-   #     gm_left = np.mean(v[left:(pi - pix_width)])
-
-        right = min(num_pix,pi+pix_width+side_pix+1)
-        sub_right = v[(pi + pix_width):right]
-   #     gm_right = np.mean(v[(pi + pix_width):right])
-
-        #minimum height above the local gm_average
-        #note: can be a problem for adjacent peaks?
-        # if False:
-        #     if pv < (2.0 * np.mean(np.concatenate((sub_left,sub_right)))):
-        #         continue
-
-        #check vs minimum width
-        if not (pix_width < dw):
-            #see if too close to prior peak (these are in increasing wavelength order)
-            already_found = np.array([e.fit_x0 for e in eli_list])
-
-            if np.any(abs(already_found-px) < 2.0):
-                pass #skip and move on
-            else:
-                eli = signal_score(x_0, v_0, err, px,values_units=values_units_0,min_sigma=min_sigma,absorber=absorber)
-                #since these are comming in inverted (if absorber)
-                #eli = signal_score(x_0, v_0, err, px,values_units=values_units_0,min_sigma=min_sigma,absorber=False)
-
-                #if (eli is not None) and (eli.score > 0) and (eli.snr > 7.0) and (eli.fit_sigma > 1.6) and (eli.eqw_obs > 5.0):
-                if (eli is not None) and ((not enforce_good) or eli.is_good()):
-                    eli_list.append(eli)
-                    log.debug("*** old peakdet added new ELI")
-                    if len(emistab) > 0:
-                        if (px - emistab[-1][1]) > 6.0:
-                            emistab.append((pi, px, pv,pix_width,centroid_pos,eli.eqw_obs,eli.snr))
-                        else: #too close ... keep the higher peak
-                            if pv > emistab[-1][2]:
-                                emistab.pop()
-                                emistab.append((pi, px, pv, pix_width, centroid_pos,eli.eqw_obs,eli.snr))
-                    else:
-                        emistab.append((pi, px, pv, pix_width, centroid_pos,eli.eqw_obs,eli.snr))
-
-
-    #return np.array(maxtab), np.array(mintab)
-    #print("DEBUG ... peak count = %d" %(len(emistab)))
-    #for i in range(len(emistab)):
-    #    print(emistab[i][1],emistab[i][2], emistab[i][5])
-    #return emistab
-
-    ################
-    #DEBUG
-    ################
-    # if False:
-    #     so = Spectrum()
-    #     eli = []
-    #     for p in eli_list:
-    #         e = EmissionLineInfo()
-    #         e.raw_x0 = p.raw_x0
-    #         e.raw_h = p.raw_h / 10.0
-    #         eli.append(e)
-    #     so.build_full_width_spectrum(wavelengths=x_0, counts=v_0, errors=None, central_wavelength=0,
-    #                                  show_skylines=False, show_peaks=True, name="peaks_trimmed",
-    #                                  dw=MIN_FWHM, h=MIN_HEIGHT, dh=MIN_DELTA_HEIGHT, zero=0.0, peaks=eli,
-    #                                  annotate=False)
-
-    combined_eli = combine_lines(eli_list,sep=4.0)
-    try:
-        log.debug(f"Peakdet, {len(combined_eli)} possible lines at: {[e.fit_x0 for e in combined_eli]}")
-        print(f"*****Peakdet, {len(combined_eli)} possible lines at:\n{[e.fit_x0 for e in combined_eli]} ")
-    except:
-        log.debug("Exception logging peakdet list",exc_info=True)
-    return combined_eli
 
 
 def combine_lines(eli_list,sep=4.0):
@@ -6814,12 +6551,15 @@ class Spectrum:
 
 
     def set_spectra(self,wavelengths, values, errors, central, values_units = 0, estflux=None, estflux_unc=None,
-                    eqw_obs=None, eqw_obs_unc=None, fit_min_sigma=GAUSS_FIT_MIN_SIGMA,estcont=None,estcont_unc=None,
+                    eqw_obs=None, eqw_obs_unc=None, fit_min_sigma=None,estcont=None,estcont_unc=None,
                     fwhm=None,fwhm_unc=None,continuum_g=None,continuum_g_unc=None,reset=False,gmag=None, gmag_err=None,
                     detobj=None):
         self.wavelengths = []
         self.values = []
         self.errors = []
+
+        if fit_min_sigma is None: #GAUSS_FIT_MIN_SIGMA can change after construction, so cannot set as a parameter default
+            fit_min_sigma = GAUSS_FIT_MIN_SIGMA
 
         #these could have already been done if we searched for a central wavelength
         if reset:

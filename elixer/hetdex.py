@@ -8506,17 +8506,12 @@ class DetObj:
             except:
                 log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra")
 
-
-
-
-            #todo: then update the values on record
-            # mu, sigma, Amplitude, y, dx   (dx is the bin width if flux instead of flux/dx)
-            #continuum does NOT get the bin scaling
+            #*G.FLUX_WAVEBIB_WIDTH is to get to the x2AA binning for the plots
             self.line_gaussfit_parms = (self.w,self.sigma,self.estflux*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,
-                                        self.cont_cgs/G.HETDEX_FLUX_BASE_CGS,
+                                        self.cont_cgs*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,
                                         G.FLUX_WAVEBIN_WIDTH) #*2.0 for Karl's bin width
             self.line_gaussfit_unc = (self.w_unc,self.sigma_unc,self.estflux_unc*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,
-                                      self.cont_cgs_unc/G.HETDEX_FLUX_BASE_CGS, 0.0)
+                                      self.cont_cgs_unc*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS, 0.0)
 
             try:
                 #this is a dumb way to do this ... need to go refactor and change the CONTINUUM_RULES from a global
@@ -8626,6 +8621,7 @@ class DetObj:
                         cat_type == 'broad'
 
                     hda_detobj = hda_Detections(loadtable=False, searchable=False, catalog_type=cat_type,curated_version=None)
+                    #note: reported flux and cont are the SAME as in the H5 ... just the spectra are /2AA
                     row = hda_detobj.get_detection_info(detectid_i=id, rawh5=False, verbose=False)[0]
                 except:
                     hda_detobj = None
@@ -8728,8 +8724,10 @@ class DetObj:
 
             # mu, sigma, Amplitude, y, dx   (dx is the bin width if flux instead of flux/dx)
             #continuum does NOT get the bin scaling
+            #the * G.FLUX_WAVEBIN_WIDTH on the lineflux (Area) and continuum are to put into the x2AA binning for
+            #the plotting purposes
             self.line_gaussfit_parms = (self.w,self.sigma,self.estflux*G.FLUX_WAVEBIN_WIDTH,self.cont_cgs*G.FLUX_WAVEBIN_WIDTH,
-                                        G.FLUX_WAVEBIN_WIDTH) #*2.0 for Karl's bin width
+                                       G.FLUX_WAVEBIN_WIDTH) #*2.0 for Karl's bin width
             self.line_gaussfit_unc = (self.w_unc,self.sigma_unc,self.estflux_unc*G.FLUX_WAVEBIN_WIDTH,self.cont_cgs_unc*G.FLUX_WAVEBIN_WIDTH,
                                       0.0)
 
@@ -14065,6 +14063,7 @@ class HETDEX:
         specplot = plt.axes([0.1, 0.1, 0.8, 0.8])
         wave_grid = np.arange(cwave - ww, cwave + ww + dwave, 0.1)
         #wave_grid = np.arange(cwave - ww, cwave + ww + dwave + 2.0, 2.0)  # 0.1)
+        #these are in the x2AA binning
         fit_spec = gaussian(x=wave_grid,x0=parms[0],sigma=parms[1],a=parms[2],y=parms[3])
 
         # mn = min(mn, min(summed_spec))

@@ -251,8 +251,18 @@ def parse_commandline(auto_force=False):
     parser = argparse.ArgumentParser(description=desc)
     parser.add_argument('-f', '--force', help='Do not prompt for confirmation.', required=False,
                         action='store_true', default=False)
+
+
+
+    #old CURE options ... no longer supported
+    #Some may be re-used for other purposes
     parser.add_argument('-c', '--cure', help='Use Cure processed fits (instead of Panacea).', required=False,
                         action='store_true', default=False)
+    parser.add_argument('--sigma', help="Minimum sigma threshold (Cure) to meet in selecting detections", required=False,
+                        type=float,default=0.0)
+    parser.add_argument('--chi2', help="Maximum chi2 threshold (Cure) to meet in selecting detections", required=False,
+                        type=float,default=1e9)
+
 
     parser.add_argument('--ra', help='Target RA as decimal degrees or h:m:s.as (end with \'h\')'
                                            'or d:m:s.as (end with \'d\') '
@@ -316,10 +326,7 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--dist', help="HETDEX Distortion (Cure) file base (i.e. do not include trailing _L.dist or _R.dist)",
                         required=False)
     parser.add_argument('--id', help="ID or list of IDs from detect line file for which to search", required=False)
-    parser.add_argument('--sigma', help="Minimum sigma threshold (Cure) to meet in selecting detections", required=False,
-                        type=float,default=0.0)
-    parser.add_argument('--chi2', help="Maximum chi2 threshold (Cure) to meet in selecting detections", required=False,
-                        type=float,default=1e9)
+
     parser.add_argument('--sn', help="Minimum fiber signal/noise threshold (Panacea) to plot in spectra cutouts",
                         required=False, type=float, default=0.0)
     parser.add_argument('--score', help='Do not build report. Just compute detection scores and output *_fib.txt. '
@@ -458,6 +465,11 @@ def parse_commandline(auto_force=False):
 
     parser.add_argument('--gridsearch', help='Search a grid around the RA, Dec. 5-tuple.'
                                              'Specify (+/- arcsec, grid size (arcsec), velocity offset (km/s), fwhm (AA), 0=plot, 1=interactive)', required=False)
+
+
+    parser.add_argument('--fit_sigma', help='Minimum and maximum Gaussian sigma for the line-fitter: 2-tuple.'
+                                             'Specify (min,max)', required=False)
+
 
     parser.add_argument('--version', help='Print the version to screen.',
                         required=False, action='store_true', default=False)
@@ -945,6 +957,31 @@ def parse_commandline(auto_force=False):
             # args.gridsearch = (3.0,0.2,500.0,15.0,False)
             print(f"Fatal. Invalid gridsearch parameters: {args.gridsearch}")
             log.error(f"Fatal. Invalid gridsearch parameters: {args.gridsearch}")
+            exit(-1)
+
+    if args.fit_sigma:
+        #first get rid of parenthesis that are not supposed to be there, but are commonly typed in
+        try:
+            args.fit_sigma = args.fit_sigma.replace(')','')
+            args.fit_sigma = args.fit_sigma.replace('(','')
+        except:
+            pass
+        try:
+            args.fit_sigma = tuple(map(float, args.fit_sigma.split(',')))
+            if len(args.fit_sigma) != 2:
+                print(f"Fatal. Invalid fit_sigma parameters: {args.fit_sigma}")
+                log.error(f"Fatal. Invalid fit_sigma parameters: {args.fit_sigma}")
+                exit(-1)
+
+            G.LIMIT_GAUSS_FIT_SIGMA_MIN = args.fit_sigma[0]
+            G.LIMIT_GAUSS_FIT_SIGMA_MAX  = args.fit_sigma[1]
+            if G.LIMIT_GAUSS_FIT_SIGMA_MIN < 0 or G.LIMIT_GAUSS_FIT_SIGMA_MIN > G.LIMIT_GAUSS_FIT_SIGMA_MAX:
+                print(f"Fatal. Invalid fit_sigma parameters: {args.fit_sigma}")
+                log.error(f"Fatal. Invalid fit_sigma parameters: {args.fit_sigma}")
+                exit(-1)
+        except:
+            print(f"Fatal. Invalid fit_sigma parameters: {args.fit_sigma}")
+            log.error(f"Fatal. Invalid fit_sigma parameters: {args.fit_sigma}")
             exit(-1)
 
 
@@ -4528,6 +4565,7 @@ def main():
         log.critical("Exception in command line.",exc_info=True)
         exit(0)
 
+    elixer_spectrum.update_with_globals()
     try: #may be used for refrerence later
          #several arguments can be modified during runtime and the original may need to be references
         original_command_line_args = copy.deepcopy(args)

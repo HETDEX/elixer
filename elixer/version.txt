@@ -1,5 +1,9 @@
 changes to elixer by version
 
+1.19.0a12 [2023-04-06]
+* added --fit_sigma as a tuple to force the fitted line sigma to be between the two values (i.e. ---fit_sigma 1.5, 10.0)
+* fixed missing *2.0 for the 2AA binning on the Gaussian paramters for the the upper right figure when re-extracting
+
 1.19.0a11 [2023-04-04]
 * update gridsearch SNR to match the rest of elixer, added chi2 (over +/- 40AA)
 

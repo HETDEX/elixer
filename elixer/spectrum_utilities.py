@@ -2135,9 +2135,9 @@ def quick_fit(waves, flux, flux_err, w, delta_w=4.0, width=50, min_sigma=1.7, ma
                                         max(flux) * 1.5)),
 
                                # sigma=1./(narrow_wave_errors*narrow_wave_errors)
-                               sigma=wave_err_sigma  # , #handles the 1./(err*err)
+                               sigma=wave_err_sigma, # , #handles the 1./(err*err)
                                # note: if sigma == None, then curve_fit uses array of all 1.0
-                               # method='trf'
+                               method='trf',
                                )
         else:
             parm, pcov = curve_fit(f=gaussian,
@@ -2156,9 +2156,9 @@ def quick_fit(waves, flux, flux_err, w, delta_w=4.0, width=50, min_sigma=1.7, ma
                                             max(narrow_wave_y) + errors[np.argmax(narrow_wave_y)])),
 
                                # sigma=1./(narrow_wave_errors*narrow_wave_errors)
-                               sigma=wave_err_sigma  # , #handles the 1./(err*err)
+                               sigma=wave_err_sigma,  # , #handles the 1./(err*err)
                                # note: if sigma == None, then curve_fit uses array of all 1.0
-                               # method='trf'
+                               method='trf'
                                )
     except Exception as ex:
         try:
@@ -2395,8 +2395,15 @@ def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=500.0,max_fw
         return return_dict
 
     try:
-        min_sigma = 1.5 #FWHM  ~ 3.5AA (w/o error, best measure would be about 5AA)
-        max_sigma = max_fwhm/2.355
+
+        #change if the user specified something specific
+        if G.LIMIT_GAUSS_FIT_SIGMA_MIN is not None:
+            min_sigma = G.LIMIT_GAUSS_FIT_SIGMA_MIN
+            max_sigma = G.LIMIT_GAUSS_FIT_SIGMA_MAX
+        else:
+            min_sigma = 1.5  # FWHM  ~ 3.5AA (w/o error, best measure would be about 5AA)
+            max_sigma = max_fwhm / 2.355
+
         wave_slop = wavelength_offset(central,wave_slop_kms) #for HETDEX, in AA
         wave_side = int(round(max(40,2*wave_slop) / G.FLUX_WAVEBIN_WIDTH)) #at least 40AA to either side or twice the slop
         idx,_,_ = getnearpos(wavelengths,central)
@@ -2423,13 +2430,13 @@ def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=500.0,max_fw
         try:
 
             parm, pcov = curve_fit(gaussian, np.float64(narrow_wave_x), np.float64(narrow_wave_counts),
-                                   p0=(central, 1.5, 1.0, 0.0),
+                                   p0=(central, 0.5*(min_sigma+max_sigma), 1.0, 0.0),
                                    bounds=((central - wave_slop, min_sigma, 0.0, -100.0),
                                            (central + wave_slop, max_sigma, np.inf, np.inf)),
                                    # sigma=1./(narrow_wave_errors*narrow_wave_errors)
-                                   sigma=narrow_wave_err_sigma  # , #handles the 1./(err*err)
+                                   sigma=narrow_wave_err_sigma,  # , #handles the 1./(err*err)
                                    # note: if sigma == None, then curve_fit uses array of all 1.0
-                                   # method='trf'
+                                   method='trf'
                                    )
 
             try:

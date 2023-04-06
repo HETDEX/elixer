@@ -22,7 +22,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.19.0a11'
+__version__ = '1.19.0a12'
 #Logging
 GLOBAL_LOGGING = False #set to True in top elixer calls so we do not normally log from package imports
 LOG_TO_STDOUT = False #only kicks in if GLOBAL_LOGGING is False
@@ -78,6 +78,8 @@ PANACEA_HDF5_BASEDIR = None
 PIXFLT_LOC = None
 FORCE_MCMC = False
 FORCE_MCMC_MIN_SNR = 4.0
+LIMIT_GAUSS_FIT_SIGMA_MIN = None #configurable on commandline with --fit_sigma
+LIMIT_GAUSS_FIT_SIGMA_MAX = None
 
 CANDELS_EGS_Stefanon_2016_BASE_PATH = None
 EGS_CFHTLS_PATH = None
