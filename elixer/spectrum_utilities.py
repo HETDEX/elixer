@@ -2137,7 +2137,7 @@ def quick_fit(waves, flux, flux_err, w, delta_w=4.0, width=50, min_sigma=1.7, ma
                                # sigma=1./(narrow_wave_errors*narrow_wave_errors)
                                sigma=wave_err_sigma, # , #handles the 1./(err*err)
                                # note: if sigma == None, then curve_fit uses array of all 1.0
-                               method='trf',
+                               #method='trf',
                                )
         else:
             parm, pcov = curve_fit(f=gaussian,
@@ -2158,7 +2158,7 @@ def quick_fit(waves, flux, flux_err, w, delta_w=4.0, width=50, min_sigma=1.7, ma
                                # sigma=1./(narrow_wave_errors*narrow_wave_errors)
                                sigma=wave_err_sigma,  # , #handles the 1./(err*err)
                                # note: if sigma == None, then curve_fit uses array of all 1.0
-                               method='trf'
+                               #method='trf'
                                )
     except Exception as ex:
         try:
@@ -2399,7 +2399,10 @@ def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=500.0,max_fw
         #change if the user specified something specific
         if G.LIMIT_GAUSS_FIT_SIGMA_MIN is not None:
             min_sigma = G.LIMIT_GAUSS_FIT_SIGMA_MIN
-            max_sigma = G.LIMIT_GAUSS_FIT_SIGMA_MAX
+            max_sigma = min(G.LIMIT_GAUSS_FIT_SIGMA_MAX, max_fwhm/2.355)
+            if min_sigma > max_sigma:
+                log.error(f"Error! Error in Gridsearch. Specified minimum sigma is greater than the max. min: {min_sigma}, max: {max_sigma}")
+                return return_dict
         else:
             min_sigma = 1.5  # FWHM  ~ 3.5AA (w/o error, best measure would be about 5AA)
             max_sigma = max_fwhm / 2.355
@@ -2413,8 +2416,11 @@ def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=500.0,max_fw
         narrow_wave_x = wavelengths[min_idx:max_idx+1]
         narrow_wave_counts = values[min_idx:max_idx+1]
 
-        return_dict['meanflux_density'] = np.nansum(values[min_idx:max_idx+1])/\
-                                         (wavelengths[max_idx+1]-wavelengths[min_idx])
+        #what about fractionals?
+        _, left, _ = getnearpos(wavelengths,central-wave_slop)
+        _,_,right = getnearpos(wavelengths,central+wave_slop)
+        return_dict['meanflux_density'] = np.nansum(values[left:right+1])/\
+                                         (wavelengths[right+1]-wavelengths[left])
         #reminder, max_idx+1 since we want to include the WIDTH of the last bin in the sum
         #also, assumes input is in flux units and the wavebins are the same width
 
@@ -2436,7 +2442,7 @@ def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=500.0,max_fw
                                    # sigma=1./(narrow_wave_errors*narrow_wave_errors)
                                    sigma=narrow_wave_err_sigma,  # , #handles the 1./(err*err)
                                    # note: if sigma == None, then curve_fit uses array of all 1.0
-                                   method='trf'
+                                   #method='trf'
                                    )
 
             try:
@@ -2492,10 +2498,10 @@ def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=500.0,max_fw
             snr = abs(np.sum(model_fit - Y)) / np.sqrt(np.nansum(data_err ** 2))
             #elsewhere we are using the full width of the spectrum, so do that here too?
             delta_wave = 40.0 #use 40AA
-            left, *_ = getnearpos(wavelengths, x0 - delta_wave)
-            right, *_ = getnearpos(wavelengths, x0 + delta_wave)
-            chi2_model_fit = gaussian(wavelengths, x0, sigma,A,Y)
-            chi2, _ = chi_sqr(values[left:right], chi2_model_fit[left:right], error=errors[left:right], c=1.0)  # ,dof=3)
+            _,left, _ = getnearpos(wavelengths, x0 - delta_wave)
+            _,_,right = getnearpos(wavelengths, x0 + delta_wave)
+            chi2_model_fit = gaussian(wavelengths[left:right+1], x0, sigma,A,Y)
+            chi2, _ = chi_sqr(values[left:right+1], chi2_model_fit, error=errors[left:right+1], c=1.0 ,dof=2)
 
             return_dict['x0'] = x0
             return_dict['fitflux'] = fitflux

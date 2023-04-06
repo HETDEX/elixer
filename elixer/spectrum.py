@@ -7991,24 +7991,36 @@ class Spectrum:
                     max_offset_spread = self.fwhm/2.355 #i.e. about one sigma of the anchor line sigma
                 else:
                     max_offset_spread = G.SPEC_MAX_OFFSET_SPREAD
-                while len(all_dx0) > 1:
-                    #todo: no ... throw out the line farthest from the average and recompute ....
-                    if max(all_dx0) - min(all_dx0) > max_offset_spread: #differ by more than 2 AA
-                        #throw out lowest score? or greatest dx0?
-                        i = np.argmin(all_score)
-                        #if s.lines[i].score >
-                        log.info("Removing lowest score from solution %s (%s at %0.1f) due to extremes in fit_dx0 (%f,%f)."
-                                 " Line (%s) Score (%f)"
-                                 %(self.identifier,s.emission_line.name,s.central_rest,min(all_dx0),max(all_dx0),
-                                   s.lines[i].name, s.lines[i].score))
+                try:
+                    while len(all_dx0) > 1:
+                        #todo: no ... throw out the line farthest from the average and recompute ....
+                        if (max(all_dx0) - min(all_dx0)) > max_offset_spread: #differ by more than 2 AA
+                            #throw out lowest score? or greatest dx0?
+                            avg_dx0 = np.median(all_dx0)
+                            delta_dx0 = np.array(abs(all_dx0-avg_dx0))
+                            all_i = np.argwhere(delta_dx0 == np.max(delta_dx0)).flatten()
+                            if len(all_i) > 1:
+                                #find lowest score if there are multple lowest scores, it does not matter which
+                                i = np.argmin(np.array(all_score)[all_i])
+                            else:
+                                i = all_i[0]
 
-                        s.rejected_lines.append(copy.deepcopy(s.lines[i]))
-                        del all_dx0[i]
-                        del all_score[i]
-                        del s.lines[i]
-                        rescore = True
-                    else:
-                        break
+                            #i = np.argmax(abs(all_dx0-avg_dx0))
+                            #if s.lines[i].score >
+                            log.info("Removing largest offset line from solution %s (%s at %0.1f) due to extremes in fit_dx0 (%f,%f)."
+                                     " Line (%s) Score (%f) Offset (%f)"
+                                     %(self.identifier,s.emission_line.name,s.central_rest,min(all_dx0),max(all_dx0),
+                                       s.lines[i].name, s.lines[i].score, all_dx0[i]))
+
+                            s.rejected_lines.append(copy.deepcopy(s.lines[i]))
+                            del all_dx0[i]
+                            del all_score[i]
+                            del s.lines[i]
+                            rescore = True
+                        else:
+                            break
+                except:
+                    log.warning("Exception! Unexpected exception: ",exc_info=True)
 
                 if rescore:
                     #remove this solution?

@@ -3,6 +3,13 @@ changes to elixer by version
 1.19.0a12 [2023-04-06]
 * added --fit_sigma as a tuple to force the fitted line sigma to be between the two values (i.e. ---fit_sigma 1.5, 10.0)
 * fixed missing *2.0 for the 2AA binning on the Gaussian paramters for the the upper right figure when re-extracting
+* change line removal from solution to be largest offset from the average offsets rather than the lowest score (this
+  was a problem when multiple scores were the same, e.g. if all great lines and all score = 100.0 then you could end
+  up removing all the lines until you happen to fall below the offset limit).
+* changed (corrected) meanflux_desnity for --gridsearch to be the mean between the central wavelength +/- kms offset
+  rather than the width of spectrum used in the fit. **NOTE** this is NOT continuum subtracted and is rounded to the
+  nearest whole wavelength bin
+
 
 1.19.0a11 [2023-04-04]
 * update gridsearch SNR to match the rest of elixer, added chi2 (over +/- 40AA)
