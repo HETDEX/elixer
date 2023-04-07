@@ -109,13 +109,13 @@ def main():
         except:
             merge_count = -1
 
-        timeout_wait = 60.0 #seconds
+        timeout_wait = 90.0 #seconds
         while still_waiting and timeout_wait > 0.0: #could sleep until the entire job times out if there is a problem
             merge_list = get_base_merge_files(".","dispatch_*/*intermediate_merge.working")
             if len(merge_list) > 0:
                 print(f"Waiting on *working files to complete ...")
                 time.sleep(10.0) #sleep 10 secs
-                timeout_wait = 60.0 #seconds #reset to full timeout
+                timeout_wait = 90.0 #seconds #reset to full timeout
             else:
                 #get the final list
                 merge_list = get_base_merge_files(".", "dispatch_*/*intermediate_merge.h5")
