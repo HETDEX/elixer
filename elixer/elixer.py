@@ -2239,7 +2239,7 @@ def run_convert_pdf(filename, resolution=150, jpeg=False, png=True,systemcall="p
 
 
 
-def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
+def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,shotid=None,sort=False):
     """
     Find all detections within +/- error from given ra and dec
 
@@ -2266,20 +2266,25 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,sort=False):
 
         #get the shots first
         #shot FOV diameter 18' (telecope is 22') ... just to be safe use the larger
-        with tables.open_file(G.HDF5_SURVEY_FN, mode="r") as h5: #survey
-            stb = h5.root.Survey
-            fov = 0.1834 #22arcmin diameter to 11' radius x 60 arcsec / 3600 to get degree
-            ra1 = ra - fov/dec_correction
-            ra2 = ra + fov/dec_correction
-            dec1 = dec - fov
-            dec2 = dec + fov
-            log.debug("Reading for shotids ...")
-            shotlist = stb.read_where("(ra > ra1) & (ra < ra2) & (dec > dec1) & (dec < dec2)",field="shotid")
-            if shotlist is not None:
-                log.info(f"Shots found ({len(shotlist)}): {shotlist}")
+        if shotid is None or ((isinstance(shotid,list) or isinstance(shotid,np.ndarray)) and len(shotid)==0) or shotid ==0:
+            with tables.open_file(G.HDF5_SURVEY_FN, mode="r") as h5: #survey
+                stb = h5.root.Survey
+                fov = 0.1834 #22arcmin diameter to 11' radius x 60 arcsec / 3600 to get degree
+                ra1 = ra - fov/dec_correction
+                ra2 = ra + fov/dec_correction
+                dec1 = dec - fov
+                dec2 = dec + fov
+                log.debug("Reading for shotids ...")
+                shotlist = stb.read_where("(ra > ra1) & (ra < ra2) & (dec > dec1) & (dec < dec2)",field="shotid")
+                if shotlist is not None:
+                    log.info(f"Shots found ({len(shotlist)}): {shotlist}")
+                else:
+                    log.info(f"Shots found: 0")
+        else:
+            if isinstance(shotid,list) or isinstance(shotid,np.ndarray):
+                shotlist = shotid
             else:
-                log.info(f"Shots found: 0")
-
+                shotlist = [shotid]
 
         with tables.open_file(hdf5, mode="r") as h5:
             dtb = h5.root.Detections
@@ -2449,9 +2454,11 @@ def get_hdf5_detectids_to_process(args):
                         error = args.error
 
                     try:
-                        ras,decs,*_ = read_coords_file(args.coords,args) #shotids don't matter here
-                        for r,d in zip (ras,decs):
-                            dlist = get_hdf5_detectids_by_coord(args.hdf5,r,d,error/3600.)
+                        ras,decs,shotids,*_ = read_coords_file(args.coords,args)
+                        if shotids is None or ((isinstance(shotids, list) or isinstance(shotids, np.ndarray)) and len(shotids) == 0):
+                            shotids = np.zeros(len(ras))
+                        for r,d,s in zip (ras,decs,shotids):
+                            dlist = get_hdf5_detectids_by_coord(args.hdf5,r,d,error/3600.,s)
                             if len(dlist) > 0:
                                 detectids.extend(dlist)
                     except:
@@ -2490,7 +2497,7 @@ def get_hdf5_detectids_to_process(args):
                     else:
                         error = args.error
 
-                    return get_hdf5_detectids_by_coord(args.hdf5, args.ra, args.dec, error / 3600.)
+                    return get_hdf5_detectids_by_coord(args.hdf5, args.ra, args.dec, error / 3600.,args.shotid)
             else:
                 return []
 
@@ -2670,7 +2677,7 @@ def read_coords_file(filename,args=None,as_rows=False):
 
     ras, decs, shots, waves, rows, names = [],[],[],[],[],[]
     try:
-        if (args is not None) and (args.aperture is None):
+        if (args is not None) and (args.aperture is None) and (args.search is None):
             if as_rows:
                 rows = np.loadtxt(filename, unpack=False, usecols=(0, 1))  # ignore shotids
             else:
@@ -3577,7 +3584,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     total_detectids = 0
     if not just_mini_cutout:
         neighbor_color = "red"
-        detectids, ras, decs, dists = get_hdf5_detectids_by_coord(hdf5, ra=ra, dec=dec, error=error, sort=True)
+        detectids, ras, decs, dists = get_hdf5_detectids_by_coord(hdf5, ra=ra, dec=dec, error=error, shotid=None,sort=True)
 
         all_ras = ras[:]
         all_decs = decs[:]
@@ -3594,7 +3601,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         broad_dists = []
         if broad_hdf5 is not None:
             broad_detectids, broad_ras, broad_decs, broad_dists = get_hdf5_detectids_by_coord(broad_hdf5,ra=ra, dec=dec,
-                                                                                          error=error, sort=True)
+                                                                                          error=error, shotid=None,sort=True)
 
             if (broad_ras is not None) and (broad_decs is not None):
                 np.concatenate((all_ras,broad_ras))
@@ -3611,7 +3618,8 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         cont_decs = []
         cont_dists = []
         if cont_hdf5 is not None:
-            cont_detectids, cont_ras, cont_decs, cont_dists = get_hdf5_detectids_by_coord(cont_hdf5, ra=ra, dec=dec, error=error, sort=True)
+            cont_detectids, cont_ras, cont_decs, cont_dists = get_hdf5_detectids_by_coord(cont_hdf5, ra=ra, dec=dec,
+                                                                                          error=error,shotid=None, sort=True)
 
             if (cont_ras is not None) and (cont_decs is not None):
                 np.concatenate((all_ras,cont_ras))
