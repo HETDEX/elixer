@@ -1,6 +1,6 @@
 changes to elixer by version
 
-1.19.0a12 [2023-04-06]
+1.19.0a12 [2023-04-07]
 * added --fit_sigma as a tuple to force the fitted line sigma to be between the two values (i.e. ---fit_sigma 1.5, 10.0)
 * fixed missing *2.0 for the 2AA binning on the Gaussian paramters for the the upper right figure when re-extracting
 * change line removal from solution to be largest offset from the average offsets rather than the lowest score (this
@@ -9,6 +9,10 @@ changes to elixer by version
 * changed (corrected) meanflux_desnity for --gridsearch to be the mean between the central wavelength +/- kms offset
   rather than the width of spectrum used in the fit. **NOTE** this is NOT continuum subtracted and is rounded to the
   nearest whole wavelength bin
+* add optional --slurm command line parameter (1 = normal, 0 = make .slurm file but do not auto-queue it)
+* add optional --delta_wave command line parameter. If used w/o --aperture and with --ra, --dec, optioanlly --shotid or
+  with --coords and a wavelength is available, will attempt to find existing HETDEX detectIDs that meet the condition:
+  within +/- (--search) of the RA, Dec, in the same shotid (if specified) and within +/- (--delta_wave) of observed wave
 
 
 1.19.0a11 [2023-04-04]

@@ -2398,8 +2398,26 @@ def get_hdf5_detectids_to_process(args,as_rows=False):
     detlist = None
     check_for_numeric = False
 
+    #special case, dispatch mode where dispatch has coords BUT this is not a re-extraction
+    #so, we want to assign the dispatch file to the coords file and run as a search
     try:
-        if args.dispatch is not None:  # from multi-task SLURM only
+        if (args.dispatch is not None): #applies ONLY to DISPATCH mode
+            if (args.aperture is None) and (args.coords is not None):
+                #this is a coordinate search even if --search and --delta_wave are not provided
+                args.coords = args.dispatch
+                coord_search = True
+            else:
+                coord_search = False
+        else:
+            coord_search = None
+    except:
+        msg = "Fatal. Cannot execute dispatch mode coordinate search "
+        print(msg)
+        log.error(msg,exc_info=True)
+        exit(-1)
+
+    try:
+        if args.dispatch is not None and coord_search is False:  # from multi-task SLURM only
             try:
                 # is this a list or a file
                 if os.path.isfile(args.dispatch):
