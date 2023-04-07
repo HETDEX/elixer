@@ -929,6 +929,7 @@ CCD_EDGE_FIBERS_ALL_2 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 
 WAVEGRID_BLUE_LIMIT = 3470.
 WAVEGRID_RED_LIMIT = 5540.
 WAVEGRID_NUM_BINS = 1036
+SEARCH_DELTA_WAVELENGTH = -1 #if 0 to 100 and combined with --search, is a constraint on searching the catalog
 CALFIB_WAVEGRID = np.linspace(WAVEGRID_BLUE_LIMIT,WAVEGRID_RED_LIMIT,WAVEGRID_NUM_BINS) #np.arange(3470.,5542.,2.0) #3470 - 5540
 CALFIB_WAVEGRID.flags.writeable = False
 CALFIB_WAVEGRID_VAC = None #this will be populated when spectrum_utilities is imported

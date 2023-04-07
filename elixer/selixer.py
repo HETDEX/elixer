@@ -258,6 +258,15 @@ if "--cluster" in args: #runs a clustering search per detectid but only re-runs 
 else:
     CLUSTER = False
 
+autoqueue_slurm = 1
+if "--slurm" in args:
+    i = args.index("--slurm")
+    try:
+        autoqueue_slurm = int(sys.argv[i + 1])
+    except:
+        autoqueue_slurm = 1
+
+
 if MERGE:
     base_time_multiplier = 0.05
 
@@ -642,7 +651,7 @@ else: # multiple tasks
             #     exit(0)
             else: #if (args.ra is not None):
                 #either a --dets list or a --coords list, but either way, get a list of HETDEX detectids to process
-                subdirs = elixer.get_hdf5_detectids_to_process(args)
+                subdirs = elixer.get_hdf5_detectids_to_process(args,as_rows=True)#just want the number of rows
 
         if tasks != 0:
             if tasks > len(subdirs):  # problem too many tasks requestd
@@ -1069,6 +1078,8 @@ except:
 print ("Calling SLURM queue ...")
 if host == HOST_LOCAL:
     print("Here we will call: sbatch elixer.slurm")
+elif autoqueue_slurm == 0:
+    print("SLURM job created, but not auto-queued.")
 else:
     if MERGE:
         os.system('sbatch elixer_merge.slurm')

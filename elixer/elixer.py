@@ -399,6 +399,10 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--wavelength', help="Target wavelength (observed) in angstroms. Used with --annulus or --aperture",
                         required=False, type=float)
 
+    parser.add_argument('--delta_wave',
+                        help="Delta wavelength in AA for matching to coordinates. Used with --search",
+                        required=False, type=float)
+
     parser.add_argument('--shotid', help="Integer shotid [YYYYMMDDiii] (optional). Otherwise, searches all.", required=False)
 
     parser.add_argument('--include_all_amps', help='Override bad amp list and process all amps',
@@ -523,6 +527,9 @@ def parse_commandline(auto_force=False):
 
     parser.add_argument('--plya_thresh', help='Specify 1, 2, or 3 (as primary then  1 or 2 secondary) P(LyA) voting thresholds, comma separated floats. Must be stictly 0.0 to 1.0, non-inclusive.',
                         required=False)
+
+    parser.add_argument('--slurm',help="For use with selixer. If (1) automatically queue the SLURM job, if (0) create but"
+                                       " do not queue the SLURM job", required=False, type=int, default=1)
 
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
@@ -1041,7 +1048,7 @@ def parse_commandline(auto_force=False):
 
     if args.wavelength:
         try:
-            if not (3500.0 < args.wavelength < 5500.0):
+            if not (G.CALFIB_WAVEGRID[0] <= args.wavelength <= G.CALFIB_WAVEGRID[-1]):
                 print("Fatal. Invalid target wavelength.")
                 log.error("Fatal. Invalid target wavelength.")
                 exit(-1)
@@ -1049,6 +1056,9 @@ def parse_commandline(auto_force=False):
             print("Fatal. Invalid target wavelength.")
             log.error("Fatal. Invalid target wavelength.")
             exit(-1)
+
+    if args.delta_wave:
+        G.SEARCH_DELTA_WAVELENGTH = args.delta_wave
 
     if args.gaussplots is not None:
         G.DEBUG_SHOW_GAUSS_PLOTS = args.gaussplots
@@ -2239,7 +2249,7 @@ def run_convert_pdf(filename, resolution=150, jpeg=False, png=True,systemcall="p
 
 
 
-def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,shotid=None,sort=False):
+def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,shotid=None,wave=None,sort=False):
     """
     Find all detections within +/- error from given ra and dec
 
@@ -2295,7 +2305,12 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,shotid=None,sort=False):
 
             rows = None
             for q_shot in shotlist: #probably not indexed by shot
-                q_rows = dtb.read_where("(shotid == q_shot) & (ra > ra1) & (ra < ra2) & (dec > dec1) & (dec < dec2)")
+                if wave is not None and wave != 0 and G.SEARCH_DELTA_WAVELENGTH > 0:
+                    q_wave1 = wave - G.SEARCH_DELTA_WAVELENGTH
+                    q_wave2 = wave + G.SEARCH_DELTA_WAVELENGTH
+                    q_rows = dtb.read_where("(shotid == q_shot) & (ra > ra1) & (ra < ra2) & (dec > dec1) & (dec < dec2) & (wave >= q_wave1) & (wave <= q_wave2)")
+                else:
+                    q_rows = dtb.read_where("(shotid == q_shot) & (ra > ra1) & (ra < ra2) & (dec > dec1) & (dec < dec2)")
                 if q_rows is not None and len(q_rows) > 0:
                     if rows is None:
                         rows = q_rows
@@ -2353,7 +2368,7 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,shotid=None,sort=False):
 
 
 
-def get_hdf5_detectids_to_process(args):
+def get_hdf5_detectids_to_process(args,as_rows=False):
     """
     returns a list of detectids (Int64) to process
 
@@ -2446,7 +2461,7 @@ def get_hdf5_detectids_to_process(args):
         elif args.dets is None:
             # maybe an ra and dec  OR a list of RA and Decs
             if args.coords is not None:
-                if args.aperture is None: #then this is a list of RA, Dec to find nearest HETDEX detections
+                if args.aperture is None and not as_rows: #then this is a list of RA, Dec to find nearest HETDEX detections
                     #need to iterate over coords
                     if args.search is not None:
                         error = args.search
@@ -2454,11 +2469,11 @@ def get_hdf5_detectids_to_process(args):
                         error = args.error
 
                     try:
-                        ras,decs,shotids,*_ = read_coords_file(args.coords,args)
+                        ras,decs,shotids,waves,*_ = read_coords_file(args.coords,args,as_rows)
                         if shotids is None or ((isinstance(shotids, list) or isinstance(shotids, np.ndarray)) and len(shotids) == 0):
                             shotids = np.zeros(len(ras))
-                        for r,d,s in zip (ras,decs,shotids):
-                            dlist = get_hdf5_detectids_by_coord(args.hdf5,r,d,error/3600.,s)
+                        for r,d,s,w in zip (ras,decs,shotids,waves):
+                            dlist = get_hdf5_detectids_by_coord(args.hdf5,r,d,error/3600.,s,w)
                             if len(dlist) > 0:
                                 detectids.extend(dlist)
                     except:
@@ -2497,7 +2512,7 @@ def get_hdf5_detectids_to_process(args):
                     else:
                         error = args.error
 
-                    return get_hdf5_detectids_by_coord(args.hdf5, args.ra, args.dec, error / 3600.,args.shotid)
+                    return get_hdf5_detectids_by_coord(args.hdf5, args.ra, args.dec, error / 3600.,args.shotid,args.wavelength)
             else:
                 return []
 
@@ -3584,7 +3599,8 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     total_detectids = 0
     if not just_mini_cutout:
         neighbor_color = "red"
-        detectids, ras, decs, dists = get_hdf5_detectids_by_coord(hdf5, ra=ra, dec=dec, error=error, shotid=None,sort=True)
+        detectids, ras, decs, dists = get_hdf5_detectids_by_coord(hdf5, ra=ra, dec=dec, error=error, shotid=None,
+                                                                  wave=None,sort=True)
 
         all_ras = ras[:]
         all_decs = decs[:]
@@ -3601,7 +3617,8 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         broad_dists = []
         if broad_hdf5 is not None:
             broad_detectids, broad_ras, broad_decs, broad_dists = get_hdf5_detectids_by_coord(broad_hdf5,ra=ra, dec=dec,
-                                                                                          error=error, shotid=None,sort=True)
+                                                                                          error=error, shotid=None,
+                                                                                          wave=None,sort=True)
 
             if (broad_ras is not None) and (broad_decs is not None):
                 np.concatenate((all_ras,broad_ras))
@@ -3619,7 +3636,8 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         cont_dists = []
         if cont_hdf5 is not None:
             cont_detectids, cont_ras, cont_decs, cont_dists = get_hdf5_detectids_by_coord(cont_hdf5, ra=ra, dec=dec,
-                                                                                          error=error,shotid=None, sort=True)
+                                                                                          error=error,shotid=None,
+                                                                                          wave=None,sort=True)
 
             if (cont_ras is not None) and (cont_decs is not None):
                 np.concatenate((all_ras,cont_ras))
