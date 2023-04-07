@@ -120,7 +120,7 @@ def main():
                 #get the final list
                 merge_list = get_base_merge_files(".", "dispatch_*/*intermediate_merge.h5")
                 if len(merge_list) < merge_count: #the final job could get kicked off before all the prior jobs are complete or even started
-                    print(f"Waiting on merge_count to match. Current {len(merge_list)}, expected {merge_count} ...")
+                    print(f"Waiting on merge_count to match. Current {len(merge_list)}, expected {merge_count}. Current timer: {timeout_wait:0.1f} ...")
                     time.sleep(10.0)             #so all the .working files might not even have been created yet
                     timeout_wait -= 10.0
                 else:
