@@ -1288,7 +1288,7 @@ VOTE_EW_PLAE_POII_CORRECTION    = 0x00000800
 # testing sky residuals
 ###################################
 
-APPLY_SKY_RESIDUAL_TYPE = 0 #0 = No, off, do not use:   1 = per fiber, 2 = per 3.5" aperture
+APPLY_SKY_RESIDUAL_TYPE = 1 #0 = No, off, do not use:   1 = per fiber, 2 = per 3.5" aperture
 #Note: there are many issues in ELiXer and post-ELiXer for the aperture version, so it has been removed
 
 SKY_RESIDUAL_PER_SHOT = False #if True pull each residusl from the match shot, if False, use the universal model
@@ -1299,7 +1299,7 @@ SKY_RESIDUAL_FITS_PATH = None #"/scratch/03261/polonius/random_apertures/all_fib
 SKY_RESIDUAL_FITS_PREFIX = None #"fiber_summary_asym_bw_"
 SKY_RESIDUAL_FITS_COL  = None #"ll_stack_050"
 
-SKY_RESIDUAL_USE_MODEL = False #if True, use the model of the stack, if False, use the stack directly
+SKY_RESIDUAL_USE_MODEL = True #if True, use the model of the stack, if False, use the stack directly
 SKY_RESIDUAL_HDR3_LO_FLUXD = None
 SKY_RESIDUAL_HDR3_LO_FN = op.join(op.dirname(op.realpath(__file__)), "sky_subtraction_residuals/hdr3_local_sky_fiber_residual_model.txt")
 SKY_RESIDUAL_HDR3_FF_FLUXD = None
