@@ -5634,6 +5634,9 @@ def main():
                                 dex_mag =  np.array([x['dex_g_mag'] if x['dex_g_mag'] < G.HETDEX_CONTINUUM_MAG_LIMIT
                                                      else G.HETDEX_CONTINUUM_MAG_LIMIT for x in sep_objects])
                                 dex_mag_err =  np.array([x['dex_g_mag'] for x in sep_objects])
+                                #check vs the corresponding survey seeing or the hetdex seeing?
+                                #... since we are re-extracting, point-source like for HETDEX should be on the HETDEX seeing
+                                # (e.survey_fwhm IS the HETDEX seeing)
                                 if np.count_nonzero(major > 2.0 * e.survey_fwhm) > 0:
                                     e.deblended_flags |= G.DETFLAG_LARGE_NEIGHBOR
 
@@ -5752,10 +5755,17 @@ def main():
                                     measured_fluxes = np.vstack((target_flux,measured_fluxes))
                                     measured_flux_errs = np.vstack((target_flux_err,measured_flux_errs))
 
+                                    zero_check_matrix = np.zeros(np.shape(measured_fluxes))
+                                    #set first row  (the target fluxes) to not be checked
+                                    zero_check_matrix[0] = np.full(len(G.CALFIB_WAVEGRID),-np.inf)
+
                                     for i in range(num_mc):
                                         iter_measured_flux = np.random.normal(measured_fluxes, measured_flux_errs)
                                         #just a test ... maybe should only zero those that are not row 0 (the target flux)?
-                                        #iter_measured_flux = np.clip(iter_measured_flux, a_min = 0, a_max = None)
+                                        #iter_measured_flux = np.clip(iter_measured_flux[1:], a_min = 0, a_max = None)
+                                        zero_sel = iter_measured_flux < zero_check_matrix
+                                        iter_measured_flux[zero_sel] = 0
+
                                         true_flux_matrix = SU.spectra_deblend(iter_measured_flux, overlap_matrix)
                                         true_flux_matrix_list.append(true_flux_matrix)
 

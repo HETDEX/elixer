@@ -3724,6 +3724,43 @@ def patch_holes_in_hetdex_spectrum(wavelengths,flux,flux_err,mag,mag_err=0,filte
         log.error("Exception! Exception in patch_holes_in_hetdex_spectrum.",exc_info=True)
 
 
+
+# this is probably unnecessary. Given the MC sampling on each individual deblend and then the later stacking of
+# many thousands of spectra, any weird, deeply negative neighbor spectra than increases the HETDEX spectrum for a
+# wavelength bin will be averaged out by the stacking
+#
+# def clear_negative_fluxes_in_spectrum(wavelengths,flux,flux_err,flux_limits=None):
+#     """
+#     If flux_limits is specified, set any wavelength bin flux below the flux_limit to zero,
+#     otherwise if it is less than zero, set to zero.
+#
+#     NOTICE: the errors are not directly included since the callers do not directly use the errors on an individual deblend call,
+#     instead, the errors are used in an MC .... the flux is nudged by sampling over the reported errors and the deblend
+#     is called many times and an average taken
+#
+#     Instead we use the errors to inform on the zero set. If the flux is less than zero AND
+#
+#     SO... this func should be called AFTER each sampling and BEFORE the deblend call
+#
+#     :param wavelengths:
+#     :param flux:
+#     :param flux_err:
+#     :param flux_limits:
+#     :return: flux
+#     """
+#
+#     try:
+#         if flux_limits is None or len(flux_limits) == 0:
+#             flux_limits = np.zeros(len(wavelengths))
+#
+#         sel = np.array(flux) < np.array(flux_limits)
+#         #sel2 = np.array(flux) < 2.0*np.array(flux_err)
+#         #sel = sel & sel2
+#         flux[sel] = 0.0
+#     except:
+#         log.error("Exception! Exception in spectrum_utilities::clear_negative_fluxes_in_spectrum().",exc_info=True)
+#     return flux
+
 def norm_overlapping_psf(psf,dist_baryctr,dist_ellipse=None,effective_radius=None):
     """
 
