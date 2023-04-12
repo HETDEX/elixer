@@ -5755,16 +5755,16 @@ def main():
                                     measured_fluxes = np.vstack((target_flux,measured_fluxes))
                                     measured_flux_errs = np.vstack((target_flux_err,measured_flux_errs))
 
-                                    zero_check_matrix = np.zeros(np.shape(measured_fluxes))
+                                    #zero_check_matrix = np.zeros(np.shape(measured_fluxes))
                                     #set first row  (the target fluxes) to not be checked
-                                    zero_check_matrix[0] = np.full(len(G.CALFIB_WAVEGRID),-np.inf)
+                                    #zero_check_matrix[0] = np.full(len(G.CALFIB_WAVEGRID),-np.inf)
 
                                     for i in range(num_mc):
                                         iter_measured_flux = np.random.normal(measured_fluxes, measured_flux_errs)
                                         #just a test ... maybe should only zero those that are not row 0 (the target flux)?
                                         #iter_measured_flux = np.clip(iter_measured_flux[1:], a_min = 0, a_max = None)
-                                        zero_sel = iter_measured_flux < zero_check_matrix
-                                        iter_measured_flux[zero_sel] = 0
+                                        #zero_sel = iter_measured_flux < zero_check_matrix
+                                        #iter_measured_flux[zero_sel] = 0
 
                                         true_flux_matrix = SU.spectra_deblend(iter_measured_flux, overlap_matrix)
                                         true_flux_matrix_list.append(true_flux_matrix)
