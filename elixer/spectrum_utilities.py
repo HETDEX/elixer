@@ -2915,6 +2915,28 @@ def check_overlapping_psf(source_mag,neighbor_mag,psf,dist_baryctr,dist_ellipse=
     return fraction_overlap, overlap, flat_flux
 
 
+#todo: is it just the PSF grid or is it the 3xNxN version?
+#in which case we want to multiply psf[0]
+def psf_by_wave(psf,wave_0,wave):
+    """
+
+    !!!NO!!!! it is the FWHM not the PSF function,
+    So, technically need a new PSF grid for each wavelength where the FWHM sent in to get_psf is x wave**-0.2
+
+    use the Kolmogorov relation (Roddier 1981 and Karl's paper sec 6.15)
+    to adjust the PSF to the wavelength being checked
+
+    :param psf: the baseline PSF
+    :param wave_0:  the wavelength at which the baseline PSF was computed
+    :param wave: the new wavelength
+    :return: updated PSF
+    """
+    try:
+        return psf * (wave/wave_0)**-0.2
+    except:
+        log.error("Exception! Exception in spectrum_utilities::psf_by_wave().",exc_info=True)
+        return None
+
 def get_psf(shot_fwhm,ap_radius,max_sep,scale=0.25,normalize=True):
     """
     Build and return a moffat profile grid
@@ -3948,13 +3970,18 @@ def integrate_fiber_over_psf(fwhm,fiber_flux,fiber_flux_err):
 
     return None, None
 
-def spectra_deblend(measured_flux_matrix, overlap_matrix):
+def spectra_deblend(measured_flux_matrix, overlap_tensor):
     """
     Single iteration call. Expected that the caller will resample measured_flux_matrix from the uncertainties and call
     this function repeatedly.
 
+    NEW: 2023-04-13 overlap_matrix is now overlap_tendor where each pair of objects has a full length "spectrum" of
+         overlap fractions
+
     :param measured_flux_matrix: each row is a mesured spectrum (or from flat in fnu) (columns are the wavebins)
-    :param overlap_matrix: pair-wise PSF overlaps; row or column corresponses to the row index in measured_flux_matrix
+    #:param overlap_matrix: pair-wise PSF overlaps; row or column corresponses to the row index in measured_flux_matrix
+    :param overlap_tensor: pair-wise PSF overlaps; row or column corresponses to the row index in measured_flux_matrix
+                          and the 3rd dimension is the "spectrum" of overlap fractions
     :return: true (deblended) flux matrix (same shape as measured_flux_matrix)
     """
 
@@ -3962,8 +3989,9 @@ def spectra_deblend(measured_flux_matrix, overlap_matrix):
         row,col = np.shape(measured_flux_matrix) #rows are the sources, columns are the measured fluxes
         true_flux_matrix = np.full((row,col),np.nan) #not strictly "True" flux, just estimated deblend, but keeps the paper naming convention
 
+        #each c is wavelength
         for c in range(col):
-            true_flux_matrix[:,c] = np.linalg.solve(overlap_matrix,measured_flux_matrix[:,c])
+            true_flux_matrix[:,c] = np.linalg.solve(overlap_tensor[:,:,c],measured_flux_matrix[:,c])
 
             #debug
             # flux_vector =  measured_flux_matrix[:,c] #a slice down the flux matrix, all rows, column = c

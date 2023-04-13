@@ -1,5 +1,9 @@
 changes to elixer by version
 
+1.19.0a13 [2023-04-13]
+* bumped max distance to curve for HETDEX match to imaging from 0.5" (0.75" for early data) to 1.25" (and 1.75")
+* added interpolated, per wavelength bin modeled PSF neighbor deblending
+
 1.19.0a12 [2023-04-07]
 * added --fit_sigma as a tuple to force the fitted line sigma to be between the two values (i.e. ---fit_sigma 1.5, 10.0)
 * fixed missing *2.0 for the 2AA binning on the Gaussian paramters for the the upper right figure when re-extracting

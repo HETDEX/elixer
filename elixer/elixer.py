@@ -5681,15 +5681,56 @@ def main():
                                     #get all zeroe?
                                 else:
 
-                                    #compute the PSF and the overlap_matrix
-                                    log.info(f"Building PSF overlap matrix ...")
-                                    psf = SU.get_psf(e.survey_fwhm, ap_radius=aperture, max_sep=3*aperture, scale=0.25,normalize=True)
-                                    overlap_matrix = SU.psf_overlap(psf, separation_matrix)
+                                    #these are wavelength dependent, (Kolmogorov relation: Seeing FWHM propto lambda^-0.2)
+                                    #Karl's HETDEX paper sec 6.15 and (Roddier 1981)
+                                    # So, we will get an array of key wavelength PSFs and at the end
+                                    # linearly interpolate between them for the solution
+                                    # The default seeing_fwhm is figures at 4540AA
+                                    key_waves = [3470.,3600.,3800.,4000.,4200.,4400.,4540.,4600.,4800.,5000.,5200.,5400.,5540.]
+                                    anchor_wave = 4540.
 
-                                    #sanity check: only valid check if the PSF volume is normalized
-                                    if np.count_nonzero(overlap_matrix > 1.0):
-                                        log.warning("Warning. Deblending overlap matrix invalid. Has fractions > 1")
-                                        e.deblended_flags |= G.DETFLAG_BLENDED_SPECTRA
+                                    #compute the PSF and the overlap_matrix
+                                    log.info(f"Building PSF overlap matrices ...")
+
+                                    #psf_list = []
+                                    overlap_matrix_list = []
+
+                                    for wave in key_waves:
+                                        log.debug(f"Building PSF overlap matrix at {wave:0.1f}AA ...")
+                                        psf = SU.get_psf(e.survey_fwhm * (wave/anchor_wave)**(-0.2), ap_radius=aperture,
+                                                         max_sep=3*aperture, scale=0.25,normalize=True)
+                                        overlap_matrix = SU.psf_overlap(psf, separation_matrix)
+                                        overlap_matrix_list.append(overlap_matrix)
+
+                                        #sanity check: only valid check if the PSF volume is normalized
+                                        if np.count_nonzero(overlap_matrix > 1.0):
+                                            log.warning(f"Warning. Deblending overlap matrix for {wave:0.1f}AA is invalid. Has fractions > 1")
+                                            e.deblended_flags |= G.DETFLAG_BLENDED_SPECTRA
+
+                                    overlap_matrix_list = np.array(overlap_matrix_list) #key_waves x N x N
+                                    #now, build a single overlap_tensor from the list by iterpolating between the key waves
+                                    # THIS overlap_tensor is no longer an NxN matrix adds a 3rd dimension that is the per wavelength overlap
+                                    # iterate over all pairs (it is symmetric) of objects (i,j) and build a 1036 long array of floats
+                                    # for the fractional overlap of that pair per wavelength by using the 13 key_waves
+                                    # and interpolating between them
+                                    N = np.shape(separation_matrix)[0] #NxN
+                                    #it is symmetric and the diagnonal is all 1's, so this is not necessary
+                                    #but for the moment, I am coding it out just to keep it all straight
+                                    overlap_tensor = np.full((N,N,len(G.CALFIB_WAVEGRID)),0.0)
+                                    full_overlap = np.full(len(G.CALFIB_WAVEGRID),1.0)
+                                    for i in range(N):
+                                        overlap_tensor[i,i] = full_overlap
+                                    for i in np.arange(1,N,1): # don't need the i = j cells as they are all 1 (so no 0,0, 1,1, etc)
+                                        for j in np.arange(0,i):
+                                            #now have to get all the key wavelenghts
+                                            key_fracs = overlap_matrix_list[:,i,j]
+                                            overlap_tensor[i,j] = np.interp(G.CALFIB_WAVEGRID,key_waves,key_fracs)
+                                            overlap_tensor[j,i] = overlap_tensor[i,j] #again, symmetric so this is not necessary
+
+                                            # #testing
+                                            # plt.close('all')
+                                            # plt.plot(G.CALFIB_WAVEGRID,overlap_tensor[i,j])
+                                            # plt.savefig(f"overlap_tensor_{i}_{j}.png")
 
 
                                     #originally in LyCon project this was part of the deblending, but here we have pulled it out
@@ -5766,7 +5807,7 @@ def main():
                                         #zero_sel = iter_measured_flux < zero_check_matrix
                                         #iter_measured_flux[zero_sel] = 0
 
-                                        true_flux_matrix = SU.spectra_deblend(iter_measured_flux, overlap_matrix)
+                                        true_flux_matrix = SU.spectra_deblend(iter_measured_flux, overlap_tensor)
                                         true_flux_matrix_list.append(true_flux_matrix)
 
                                     true_flux_matrix_list = np.array(true_flux_matrix_list)
@@ -5775,6 +5816,13 @@ def main():
                                     deblended_matrix = true_flux_matrix_list[:, 0, :] #indicies are 1st: each run,  2nd: which target, 3rd: flux bins
                                     e.deblended_flux = np.mean(deblended_matrix, axis=0)
                                     e.deblended_fluxerr = np.std(deblended_matrix, axis=0)
+
+                                    # #testing
+                                    # plt.close('all')
+                                    # plt.plot(G.CALFIB_WAVEGRID,e.deblended_flux,label="Deblended")
+                                    # plt.plot(G.CALFIB_WAVEGRID, e.sumspec_flux, label="Original")
+                                    # plt.legend()
+                                    # plt.savefig(f"deblend_test.png")
 
                                     e.deblended_gmag, e.deblended_gmag_unc, e.deblended_gmag_cont, e.deblended_gmag_cont_unc = \
                                                     elixer_spectrum.get_best_gmag(e.deblended_flux/G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS,

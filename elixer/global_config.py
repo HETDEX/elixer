@@ -22,7 +22,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.19.0a12'
+__version__ = '1.19.0a13'
 #Logging
 GLOBAL_LOGGING = False #set to True in top elixer calls so we do not normally log from package imports
 LOG_TO_STDOUT = False #only kicks in if GLOBAL_LOGGING is False
@@ -1012,14 +1012,17 @@ NUDGE_MAG_APERTURE_MAX_DATE = 20180601 #nudge center only BEFORE this date (usin
 NUDGE_MAG_APERTURE_CENTER = 0.0 #0.5  #allow the center of the mag aperture to drift to the 2D Gaussian centroid
                                  #up to this distance in x and y in arcsec (if 0.0 then no drift is allowed)
 
-NUDGE_SEP_MAX_DIST_EARLY_DATA = 0.75 #1.5 #allow source extractor found objects to be matched to the HETDEX target up to this distances
+#We are finding that we could be off as much as 2.0", though about 80% are less than 1.0"  and 90+% less than 1.5"
+#There is about 0.35" error in absolute astrometry and then the rest (which is most of the error) is in the finding of
+# the flux peak. It is worst for low SNR
+NUDGE_SEP_MAX_DIST_EARLY_DATA = 1.75 #1.5 #allow source extractor found objects to be matched to the HETDEX target up to this distances
                           #in arcsec (for early data, 2017 and fist part of 2018 when # of IFUs was low and astrometric
                           #solution was not great
 
-NUDGE_SEP_MAX_DIST_LATER_DATA = 0.5 #1.0 #allow source extractor found objects to be matched to the HETDEX target up to this distances
+NUDGE_SEP_MAX_DIST_LATER_DATA = 1.25 #1.0 #allow source extractor found objects to be matched to the HETDEX target up to this distances
                           #in arcsec
 
-NUDGE_SEP_MAX_DIST = 0.5 # 1.0 allow source extractor found objects to be matched to the HETDEX target up to this distances
+NUDGE_SEP_MAX_DIST = 1.25 # 1.0 allow source extractor found objects to be matched to the HETDEX target up to this distances
                           #in arcsec. NOTICE. this takes one of the above values (set in elixer.py) based on the observation
                           #date
 
@@ -1288,7 +1291,7 @@ VOTE_EW_PLAE_POII_CORRECTION    = 0x00000800
 # testing sky residuals
 ###################################
 
-APPLY_SKY_RESIDUAL_TYPE = 0 #0 = No, off, do not use:   1 = per fiber, 2 = per 3.5" aperture
+APPLY_SKY_RESIDUAL_TYPE = 1 #0 = No, off, do not use:   1 = per fiber, 2 = per 3.5" aperture
 #Note: there are many issues in ELiXer and post-ELiXer for the aperture version, so it has been removed
 
 SKY_RESIDUAL_PER_SHOT = False #if True pull each residusl from the match shot, if False, use the universal model
