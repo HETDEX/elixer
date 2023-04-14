@@ -2175,8 +2175,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         for i,fd in enumerate(fit_dict_array):
             #if the sigma limit or the gmag is out of range for the particular "type" then skip it
             # yes, I want max vs max, not min vs max
-            if (fd["max_fit_sigma"] <= min_sigma) or (fd["max_fit_sigma"] > max_sigma) or \
-                    (gmag is not None and ( gmag > fd["max_gmag"] or gmag < fd["min_gmag"])):
+            if fd["type"] != "user" and ((fd["max_fit_sigma"] <= min_sigma) or (fd["max_fit_sigma"] > max_sigma) or \
+                    (gmag is not None and ( gmag > fd["max_gmag"] or gmag < fd["min_gmag"]))):
                 fd["parm"] = [central,0,0,0]
                 fd["pcov"] = np.zeros((4, 4))
                 fd["score"] = -1
@@ -4581,10 +4581,13 @@ def peakdet(x,vals,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.
         log.info(f"Running line finder, full fit ({'absorption' if absorber else 'emission'})  ...")
         quick_eli_list = []
         step = 4.0 #AA
+        #min_sigma = G.LIMIT_GAUSS_FIT_SIGMA_MIN if G.LIMIT_GAUSS_FIT_SIGMA_MIN is not None else 10.0
+        #actually for min_sigma, None is okay
+        max_sigma = G.LIMIT_GAUSS_FIT_SIGMA_MAX if G.LIMIT_GAUSS_FIT_SIGMA_MAX is not None else 10.0
         for central_wave in np.arange(G.CALFIB_WAVEGRID[0],G.CALFIB_WAVEGRID[-1]+step,step): #this is very slow, but maybe use broader steps?
             quick_eli = signal_score(x, v, err, central_wave, values_units=values_units, absorber=absorber,
                                      fit_range_AA=step*0.55, quick_fit=True,allow_broad=False,spec_obj=spec_obj,
-                                     max_sigma=10.0) #max_sigma at 10. alllows small and medium (and hetdex std) fits
+                                     max_sigma=max_sigma,min_sigma=G.LIMIT_GAUSS_FIT_SIGMA_MIN) #max_sigma at 10. allows small and medium (and hetdex std) fits
             #fit_range_AA is to either side, so only want some overlap so step/2 * 1.5 or step * 0.75 (may be too much of an overlap, just need a little)
             #anything greater than 0.5
 
