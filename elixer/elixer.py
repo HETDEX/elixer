@@ -5718,16 +5718,18 @@ def main():
                                     N = np.shape(separation_matrix)[0] #NxN
                                     #it is symmetric and the diagnonal is all 1's, so this is not necessary
                                     #but for the moment, I am coding it out just to keep it all straight
-                                    overlap_tensor = np.full((N,N,len(G.CALFIB_WAVEGRID)),0.0)
-                                    full_overlap = np.full(len(G.CALFIB_WAVEGRID),1.0)
-                                    for i in range(N):
-                                        overlap_tensor[i,i] = full_overlap
+                                    #overlap_tensor = np.full((N,N,len(G.CALFIB_WAVEGRID)),0.0)
+                                    overlap_tensor = np.full((N,N),None)
+                                    #full_overlap = np.full(len(G.CALFIB_WAVEGRID),1.0)
+                                    #for i in range(N):
+                                    #    overlap_tensor[i,i] = full_overlap
                                     for i in np.arange(1,N,1): # don't need the i = j cells as they are all 1 (so no 0,0, 1,1, etc)
                                         for j in np.arange(0,i):
                                             #now have to get all the key wavelenghts
                                             key_fracs = overlap_matrix_list[:,i,j]
-                                            overlap_tensor[i,j] = np.interp(G.CALFIB_WAVEGRID,key_waves,key_fracs)
-                                            overlap_tensor[j,i] = overlap_tensor[i,j] #again, symmetric so this is not necessary
+                                            #overlap_tensor[i,j] = np.interp(G.CALFIB_WAVEGRID,key_waves,key_fracs)
+                                            overlap_tensor[i][j] = np.interp(G.CALFIB_WAVEGRID,key_waves,key_fracs)
+                                            #overlap_tensor[j,i] = overlap_tensor[i,j] #again, symmetric so this is not necessary
 
                                             # #testing
                                             # plt.close('all')
