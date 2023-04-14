@@ -5686,7 +5686,8 @@ def main():
                                     # So, we will get an array of key wavelength PSFs and at the end
                                     # linearly interpolate between them for the solution
                                     # The default seeing_fwhm is figures at 4540AA
-                                    key_waves = [3470.,3600.,3800.,4000.,4200.,4400.,4540.,4600.,4800.,5000.,5200.,5400.,5540.]
+                                    #key_waves = [3470.,3600.,3800.,4000.,4200.,4400.,4540.,4600.,4800.,5000.,5200.,5400.,5540.]
+                                    key_waves = [3470., 4000., 4540., 5000., 5540.]
                                     anchor_wave = 4540.
 
                                     #compute the PSF and the overlap_matrix
