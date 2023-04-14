@@ -11598,9 +11598,9 @@ class HETDEX:
                     "ObsDate %s  ObsID %s IFU %s  CAM %s\n" \
                     "Science file(s):\n%s" \
                     "RA,Dec (%f,%f) \n" \
-                    "$\lambda$ = %g$\AA$  FWHM = %0.1f($\pm$%0.1f)$\AA$\n" \
+                    "$\lambda$ = %g$\AA$  $\sigma$ = %0.1f($\pm$%0.1f)$\AA$\n" \
                     "LineFlux = %s" \
-                    % (self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, ra, dec, e.w,e.fwhm,e.fwhm_unc,
+                    % (self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, ra, dec, e.w,e.fwhm/2.355,e.fwhm_unc/2.355,
                        estflux_str )
 
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
@@ -11642,9 +11642,9 @@ class HETDEX:
                 title += "\n" \
                      "ObsDate %s  ObsID %s IFU %s  CAM %s\n" \
                      "Science file(s):\n%s" \
-                     "$\lambda$ = %g$\AA$  FWHM = %0.1f($\pm$%0.1f)$\AA$\n" \
+                     "$\lambda$ = %g$\AA$  $\sigma$ = %0.1f($\pm$%0.1f)$\AA$\n" \
                      "LineFlux = %s" \
-                             % (self.ymd, self.obsid, self.ifu_slot_id, self.specid, sci_files, e.w,e.fwhm,e.fwhm_unc,
+                             % (self.ymd, self.obsid, self.ifu_slot_id, self.specid, sci_files, e.w,e.fwhm/2.355,e.fwhm_unc/2.355,
                                 estflux_str)  # note: e.fluxfrac gauranteed to be nonzero
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux, e.fluxfrac)
@@ -11716,9 +11716,9 @@ class HETDEX:
                 title += "\n"
 
                 title += "RA,Dec (%f,%f) \n" \
-                     "$\lambda$ = %g$\AA$  FWHM = %0.1f($\pm$%0.1f)$\AA$\n" \
+                     "$\lambda$ = %g$\AA$  $\sigma$ = %0.1f($\pm$%0.1f)$\AA$\n" \
                      "LineFlux = %s" \
-                     %(ra, dec, e.w,e.fwhm,e.fwhm_unc, estflux_str)
+                     %(ra, dec, e.w,e.fwhm/2.355,e.fwhm_unc/2.355, estflux_str)
 
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
@@ -11788,9 +11788,9 @@ class HETDEX:
                 # title += f"A={e.amp_stats:0.2f}"
                 title += "\n"
 
-                title += "$\lambda$ = %g$\AA$  FWHM = %0.1f($\pm$%0.1f)$\AA$\n" \
+                title += "$\lambda$ = %g$\AA$  $\sigma$ = %0.1f($\pm$%0.1f)$\AA$\n" \
                          "LineFlux = %s" \
-                         % (e.w, e.fwhm, e.fwhm_unc, estflux_str)
+                         % (e.w, e.fwhm/2.355, e.fwhm_unc/2.355, estflux_str)
 
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
