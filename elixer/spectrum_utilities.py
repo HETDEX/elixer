@@ -3990,17 +3990,17 @@ def spectra_deblend(measured_flux_matrix, overlap_tensor):
         true_flux_matrix = np.full((row,col),np.nan) #not strictly "True" flux, just estimated deblend, but keeps the paper naming convention
 
 
-        N = np.shape(overlap_tensor)[0]
-        overlap_matrix = np.ones((N,N))
+        #N = np.shape(overlap_tensor)[0]
+        #overlap_matrix = np.ones((N,N))
         #each c is wavelength
         for c in range(col):
-            for i in np.arange(1,N,1):
-                for j in np.arange(0,i):
-                    overlap_matrix[i,j] = overlap_tensor[i][j][c]
-                    overlap_matrix[j,i] = overlap_matrix[i,j]
+        #    for i in np.arange(1,N,1):
+        #        for j in np.arange(0,i):
+        #            overlap_matrix[i,j] = overlap_tensor[i][j][c]
+        #            overlap_matrix[j,i] = overlap_matrix[i,j]
 
-           # true_flux_matrix[:,c] = np.linalg.solve(overlap_tensor[:,:,c],measured_flux_matrix[:,c])
-            true_flux_matrix[:,c] = np.linalg.solve(overlap_matrix,measured_flux_matrix[:,c])
+            true_flux_matrix[:,c] = np.linalg.solve(overlap_tensor[:,:,c],measured_flux_matrix[:,c])
+           # true_flux_matrix[:,c] = np.linalg.solve(overlap_matrix,measured_flux_matrix[:,c])
 
             #debug
             # flux_vector =  measured_flux_matrix[:,c] #a slice down the flux matrix, all rows, column = c
