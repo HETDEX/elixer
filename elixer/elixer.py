@@ -5582,20 +5582,20 @@ def main():
                 ##############################
 
                 #so we can turn off
-                if True:
-
-                    #do this for each object we have
-                    for hd in hd_list:
-                        for e in hd.emis_list:
-                            if e.status < 0:
-                                continue #go to the next one
-
-                            #todo: pick a random direction
-
-                            #todo: pick a radius
-
-                            #todo: check for an neighbor already at that position
-                            # say, within some small offset, 0.5" or so?
+                # if True:
+                #
+                #     #do this for each object we have
+                #     for hd in hd_list:
+                #         for e in hd.emis_list:
+                #             if e.status < 0:
+                #                 continue #go to the next one
+                #
+                #             #todo: pick a random direction
+                #
+                #             #todo: pick a radius
+                #
+                #             #todo: check for an neighbor already at that position
+                #             # say, within some small offset, 0.5" or so?
 
 
                 ##########################
