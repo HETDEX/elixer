@@ -5582,20 +5582,103 @@ def main():
                 ##############################
 
                 #so we can turn off
-                # if True:
-                #
-                #     #do this for each object we have
-                #     for hd in hd_list:
-                #         for e in hd.emis_list:
-                #             if e.status < 0:
-                #                 continue #go to the next one
-                #
-                #             #todo: pick a random direction
-                #
-                #             #todo: pick a radius
-                #
-                #             #todo: check for an neighbor already at that position
-                #             # say, within some small offset, 0.5" or so?
+                if False:
+                    print("**********************************************************************")
+                    print("***** TURN ME OFF. TEMPORARY RANDOM APERTURES AROUND DETECTIONS ******")
+                    print("**********************************************************************")
+                    def initialize_dict():
+                        d = {}
+                        d['idx'] = None
+                        d['x'] = None
+                        d['y'] = None
+                        d['ra'] = None
+                        d['dec'] = None
+                        d['a'] = None
+                        d['b'] = None
+                        d['theta'] = None
+                        d['background'] = None
+                        d['background_rms'] = None
+                        d['dist_baryctr'] = None
+                        d['dist_curve'] = None
+                        d['flux_cts'] = None
+                        d['flux_cts_err'] = None
+                        d['flags'] = None
+                        d['mag'] = None
+                        d['mag_faint'] = None
+                        d['mag_bright'] = None
+                        d['mag_err'] = None
+                        d['selected'] = False
+
+                        return d
+
+                    aperture_displacement_list = np.array([0.5, 1.0, 1.5, 2.0, 2.5, 3.0])/3600.
+                    sep_dist_min = 0.5
+                    #do this for each object we have
+                    for hd in hd_list:
+                        for e in hd.emis_list:
+                            if e.status < 0:
+                                continue #go to the next one
+
+                            dummy_neighbors = []
+                            for dist in aperture_displacement_list:
+                                #todo: pick a random direction
+                                okay = False
+                                retries = 10
+                                while not okay and retries > 0:
+                                    theta = np.random.uniform(0.0,360.) * np.pi/180.0 #technically
+
+                                    #this is in coordinate space, so need to divide by the correction to RA due to the DEC
+                                    ap_ra = e.ra  + dist * np.cos(theta) / np.cos(np.deg2rad(e.dec))
+                                    ap_dec = e.dec  + dist * np.sin(theta)
+
+                                    #todo: check for an neighbor already at that position
+                                    # say, within some small offset, 0.5" or so?
+                                    if e.neighbors_sep is None or len(e.neighbors_sep) == 0 or \
+                                            e.neighbors_sep['sep_objects'] is None or \
+                                            len(e.neighbors_sep['sep_objects']) == 0:
+                                        #there are no neighbors, so this is good already
+                                        okay = True
+                                    else:
+                                        #check positions of all neighbors
+                                        #using the distance to the curve or even the PSF over lap would
+                                        #be more correct, but lets just keep this simple to 1st order
+                                        #and use the distace to the barycenter
+                                        okay = True
+                                        for sep in e.neighbors_sep['sep_objects']:
+                                            if UTIL.angular_distance(ap_ra,ap_dec,sep['ra'],sep['dec']) < sep_dist_min:
+                                                retries -= 1
+                                                okay = False
+                                                break
+
+
+                                if okay:
+                                    #make a dummy "neighbor"
+                                    dummy = initialize_dict()
+                                    dummy['ra'] = ap_ra
+                                    dummy['dec'] = ap_dec
+                                    #use the fixed dist value to make it easier to select on later
+                                    dummy['dist_baryctr'] = dist*3600.0# UTIL.angular_distance(ap_ra,ap_dec,e.ra,e.dec)
+                                    dummy['dist_curve'] = 999 # or set to 999 to exclude from deblending??
+                                    dummy['a'] = 3.5
+                                    dummy['b'] = 3.5
+                                    dummy['theta'] = 0.0
+                                    dummy['mag'] = 99.9
+                                    dummy['mag_err'] = 0
+                                    dummy['mag_faint'] = 99.9
+                                    dummy['mag_bright'] = 99.9
+                                    dummy_neighbors.append(dummy)
+                                    #todo: add ra, dec to list
+
+                            #iterate over the ra and dec lists and extract at those positions
+                            log.info(f"Forced extraction of ({len(dummy_neighbors)}) Random Aperture positions ...")
+                            for n in dummy_neighbors:
+                                e.neighbor_forced_extraction(n, filter='x', catalog_name='x')  # populates the spectrum
+                                #and append to the "real" neighbors
+                                #what if it is None?
+                                if e.neighbors_sep['sep_objects'] is None:
+                                    e.neighbors_sep['sep_objects'] = []
+                                e.neighbors_sep['sep_objects'].append(n)
+
 
 
                 ##########################
