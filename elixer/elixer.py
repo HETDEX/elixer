@@ -5582,7 +5582,7 @@ def main():
                 ##############################
 
                 #so we can turn off
-                if False:
+                if True:
                     print("**********************************************************************")
                     print("***** TURN ME OFF. TEMPORARY RANDOM APERTURES AROUND DETECTIONS ******")
                     print("**********************************************************************")
