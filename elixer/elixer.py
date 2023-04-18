@@ -5675,6 +5675,8 @@ def main():
                                 e.neighbor_forced_extraction(n, filter='x', catalog_name='x')  # populates the spectrum
                                 #and append to the "real" neighbors
                                 #what if it is None?
+                                if e.neighbors_sep is None:
+                                    e.neighbors_sep = {'sep_objects':None}
                                 if e.neighbors_sep['sep_objects'] is None:
                                     e.neighbors_sep['sep_objects'] = []
                                 e.neighbors_sep['sep_objects'].append(n)
