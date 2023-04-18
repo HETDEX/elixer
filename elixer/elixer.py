@@ -5676,7 +5676,18 @@ def main():
                                 #and append to the "real" neighbors
                                 #what if it is None?
                                 if e.neighbors_sep is None:
-                                    e.neighbors_sep = {'sep_objects':None}
+                                    e.neighbors_sep =  {'catalog_name':None,'filter_name':None,'ra':None,'dec':None,
+                                                       'radius':None, #effective radius, sqrt(a*b) IF ellipse
+                                                       'mag':None,'mag_err':None, 'mag_bright':None,'mag_faint':None,
+                                                       'pixel_scale':None, #pixel_scale = arcsex/pixel
+                                                       'area_pix':None,'sky_area_pix':None,
+                                                       'aperture_counts':None, #adjusted ... sky subtracted If applicable
+                                                       'sky_counts':None, 'sky_average':None,
+                                                       'aperture_eqw_rest_lya':None,'aperture_eqw_rest_lya_err':None,'aperture_plae':None,
+                                                       'elixer_apertures':None,'elixer_aper_idx':None,
+                                                       'sep_objects':None,'sep_obj_idx':None,
+                                                       'fail_mag_limit':False,'raw_mag':None,'raw_mag_bright':None,'raw_mag_faint':None,'raw_mag_err':None,
+                                                       'exptime':None}
                                 if e.neighbors_sep['sep_objects'] is None:
                                     e.neighbors_sep['sep_objects'] = []
                                 e.neighbors_sep['sep_objects'].append(n)
