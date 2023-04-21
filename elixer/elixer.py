@@ -5582,7 +5582,8 @@ def main():
                 ##############################
 
                 #so we can turn off
-                if False:
+                # !!! ***  DON'T FORGET TO UP THE ERROR WINDOWS so we find neighbors farther out *** !!!!
+                if True:
                     print("**********************************************************************")
                     print("***** TURN ME OFF. TEMPORARY RANDOM APERTURES AROUND DETECTIONS ******")
                     print("**********************************************************************")
@@ -5628,18 +5629,30 @@ def main():
                                 num_apers = 1
                                 ok_apers = 0
                                 used_thetas = []
-                                if (dist*3600.) >= 7.0:
-                                    num_apers = 3
-                                    max_retries = 30
+                                min_angle = 2*np.arcsin(args.aperture/(dist*3600.))
+                                # must be at least pi/3 apart in azimuth (60deg) at 7" with 3.5" aperture
+                                if not np.isnan(min_angle):
+                                    best_ct = int(np.pi/min_angle) #e.g. max number (integer) that can fit around the circle
+                                                            #placed exactly right .... divide that number by 2 and take
+                                                            #the integer portion
+                                else:
+                                    best_ct = 1
+
+                                num_apers = best_ct
+                                max_retries = max_retries*best_ct
+                                if dist*3600. <= 3.0:
+                                    sep_dist_min = 0.5
+                                elif dist*3600 <= 5.0:
+                                    sep_dist_min = 1.0
+                                else:
                                     sep_dist_min = 1.5
-                                    #must be at least pi/3 apart in azimuth (60deg) at 7" with 3.5" aperture
 
                                 while retries > 0 and ok_apers < num_apers:
                                     while not okay and retries > 0:
                                         theta = np.random.uniform(0.0,360.) * np.pi/180.0 #technically
 
                                         #first check the angle
-                                        if np.any([(np.pi - abs(abs(theta-t)-np.pi)) <= np.pi/3.0 for t in used_thetas]):
+                                        if np.any([(np.pi - abs(abs(theta-t)-np.pi)) <= min_angle for t in used_thetas]):
                                             #this theta is no good
                                             retries -= 1
                                             if retries >= max_retries and (len(used_thetas)==2):
