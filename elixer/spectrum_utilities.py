@@ -290,8 +290,10 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640
             log.debug("Exception checking for edge fiber in calc_dex_g_limit",exc_info=True)
 
         # first trim off the ends that are not as well calibrated and/or subject to extemes
-        all_calfib = calfib[:, 100:-100]
-        all_calfibe = calfibe[:,100:-100]
+        #all_calfib = calfib[:, 100:-100] #was 100,-100, 215:-70 is 3900-5400
+        #all_calfibe = calfibe[:,100:-100]
+        all_calfib = calfib[:, 215:-70] #was 100,-100, 215:-70 is 3900-5400 (closer to SDSS-g, but maybe does not matter much)
+        all_calfibe = calfibe[:,215:-70]
         if ifu_fibid is None:
             ifu_fibid = np.full(np.shape(all_calfib)[0],-1)
 
@@ -302,7 +304,8 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640
         #make each element the mean of itself and its two neighbors and compare to the flux limit
         #this is roughly equivalent to the LyCon paper looking for any 3 consecutive wavebins with 4.0, 5.0, 4.0 flux or greater
         mf = (calfib[:, :-2] + calfib[:, 1:-1] + calfib[:, 2:]) / 3.0
-        mf = mf[:,99:-99] #to match 100:-100 having shrunk by one (though it does not really matter)
+        #mf = mf[:,99:-99] #to match 100:-100 having shrunk by one (though it does not really matter)
+        mf = mf[:, 214:-69]  # to match 215:-70 having shrunk by one (though it does not really matter)
         sel = np.max(mf, axis=1) < flux_limit
         all_calfib = all_calfib[sel]
         all_calfibe = all_calfibe[sel]

@@ -5582,7 +5582,7 @@ def main():
                 ##############################
 
                 #so we can turn off
-                if True:
+                if False:
                     print("**********************************************************************")
                     print("***** TURN ME OFF. TEMPORARY RANDOM APERTURES AROUND DETECTIONS ******")
                     print("**********************************************************************")
@@ -5673,6 +5673,17 @@ def main():
                             log.info(f"Forced extraction of ({len(dummy_neighbors)}) Random Aperture positions ...")
                             for n in dummy_neighbors:
                                 e.neighbor_forced_extraction(n, filter='x', catalog_name='x')  # populates the spectrum
+
+                                #did we actually get a spectrum?
+                                try:
+                                    if 'flux' in n.keys() and np.any(n['flux']):
+                                        pass #all good
+                                    else:
+                                        continue #did not get a good extraction
+                                except:
+                                    log.debug("Bad extraction for dummy neighbor")
+                                    continue
+
                                 #and append to the "real" neighbors
                                 #what if it is None?
                                 if e.neighbors_sep is None:
@@ -5692,6 +5703,8 @@ def main():
                                     e.neighbors_sep['sep_objects'] = []
                                 e.neighbors_sep['sep_objects'].append(n)
 
+                                #note: the spectrum can be all zeros for the flux and the fluxerr if it fails to collect
+                                #this should be trapped when stacking, though
 
 
                 ##########################

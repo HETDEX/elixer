@@ -138,6 +138,18 @@ fibers_table = Table(FibIndex.hdfile.root.FiberIndex.read_coordinates(rand_idx))
 mask_table = Table(FibIndex.fibermaskh5.root.Flags.read_coordinates(rand_idx))
 super_tab = join(fibers_table, mask_table, "fiber_id")
 
+#
+# todo: if min_mag is 0 (say, not specified) attempt to make an overall depth estimate for the SHOT
+# todo: based on the elixer method in spectrum_utilities::calc_dex_g_limit()
+# todo: maybe just grab a bunch of random fibers, say up to 500?
+# todo: toss out any with high flux counts or high noise (like in elixer)
+# todo: then send the rest into SU.calc_dex_g_limit() along with the seeing FWHM etc
+# todo: and use the resulting value as the mag limit? OR just send in ALL the fibers?
+
+
+
+
+
 ##
 ## iterate over the random fibers, verify is NOT on a bad amp, nudge the coordinate and extract
 ##

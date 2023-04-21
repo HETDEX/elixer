@@ -5,6 +5,8 @@ changes to elixer by version
 * added interpolated, per wavelength bin modeled PSF neighbor deblending
 * fixed skip of line fitting for elixer checked incompatible conditions when --fit_sigma is used
 * changed report (line) FWHM = to $\sigma\ =
+* small tweak to selection of fibers in spectrum_utilites::calc_dex_g_limit() to use 3900-5400AA rather than 3670-5342AA
+  (only look over SDSS-g wavelength range for the fiber selection ... the gmag calc already only used the SDSS-g range)
 
 1.19.0a12 [2023-04-07]
 * added --fit_sigma as a tuple to force the fitted line sigma to be between the two values (i.e. ---fit_sigma 1.5, 10.0)
