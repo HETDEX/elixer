@@ -5611,7 +5611,7 @@ def main():
 
                         return d
 
-                    aperture_displacement_list = np.array([0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0,5.5,6.0,6.5,7.0])/3600.
+                    aperture_displacement_list = np.arange(0,12.5,0.5)/3600.
                     sep_dist_min = 0.5
                     #do this for each object we have
                     for hd in hd_list:
@@ -5620,54 +5620,82 @@ def main():
                                 continue #go to the next one
 
                             dummy_neighbors = []
+                            max_retries = 10
                             for dist in aperture_displacement_list:
                                 #todo: pick a random direction
                                 okay = False
-                                retries = 10
-                                while not okay and retries > 0:
-                                    theta = np.random.uniform(0.0,360.) * np.pi/180.0 #technically
+                                retries = max_retries
+                                num_apers = 1
+                                ok_apers = 0
+                                used_thetas = []
+                                if (dist*3600.) >= 7.0:
+                                    num_apers = 3
+                                    max_retries = 30
+                                    sep_dist_min = 1.5
+                                    #must be at least pi/3 apart in azimuth (60deg) at 7" with 3.5" aperture
 
-                                    #this is in coordinate space, so need to divide by the correction to RA due to the DEC
-                                    ap_ra = e.ra  + dist * np.cos(theta) / np.cos(np.deg2rad(e.dec))
-                                    ap_dec = e.dec  + dist * np.sin(theta)
+                                while retries > 0 and ok_apers < num_apers:
+                                    while not okay and retries > 0:
+                                        theta = np.random.uniform(0.0,360.) * np.pi/180.0 #technically
 
-                                    #todo: check for an neighbor already at that position
-                                    # say, within some small offset, 0.5" or so?
-                                    if e.neighbors_sep is None or len(e.neighbors_sep) == 0 or \
-                                            e.neighbors_sep['sep_objects'] is None or \
-                                            len(e.neighbors_sep['sep_objects']) == 0:
-                                        #there are no neighbors, so this is good already
-                                        okay = True
-                                    else:
-                                        #check positions of all neighbors
-                                        #using the distance to the curve or even the PSF over lap would
-                                        #be more correct, but lets just keep this simple to 1st order
-                                        #and use the distace to the barycenter
-                                        okay = True
-                                        for sep in e.neighbors_sep['sep_objects']:
-                                            if UTIL.angular_distance(ap_ra,ap_dec,sep['ra'],sep['dec']) < sep_dist_min:
-                                                retries -= 1
-                                                okay = False
-                                                break
+                                        #first check the angle
+                                        if np.any([(np.pi - abs(abs(theta-t)-np.pi)) <= np.pi/3.0 for t in used_thetas]):
+                                            #this theta is no good
+                                            retries -= 1
+                                            if retries >= max_retries and (len(used_thetas)==2):
+                                                #attempt a very specific check ... exactly between the two or that + pi
+                                                theta = np.sum(used_thetas) / 2.0
+                                                if np.any([(np.pi - abs(abs(theta-t)-np.pi)) <= np.pi/3.0 for t in used_thetas]):
+                                                    theta += np.pi
+                                                    if np.any([(np.pi - abs(abs(theta-t)-np.pi)) <= np.pi/3.0 for t in used_thetas]):
+                                                        continue
+                                            continue
 
+                                        #this is in coordinate space, so need to divide by the correction to RA due to the DEC
+                                        ap_ra = e.ra  + dist * np.cos(theta) / np.cos(np.deg2rad(e.dec))
+                                        ap_dec = e.dec  + dist * np.sin(theta)
 
-                                if okay:
-                                    #make a dummy "neighbor"
-                                    dummy = initialize_dict()
-                                    dummy['ra'] = ap_ra
-                                    dummy['dec'] = ap_dec
-                                    #use the fixed dist value to make it easier to select on later
-                                    dummy['dist_baryctr'] = dist*3600.0# UTIL.angular_distance(ap_ra,ap_dec,e.ra,e.dec)
-                                    dummy['dist_curve'] = 999 # or set to 999 to exclude from deblending??
-                                    dummy['a'] = 3.5
-                                    dummy['b'] = 3.5
-                                    dummy['theta'] = 0.0
-                                    dummy['mag'] = 99.9
-                                    dummy['mag_err'] = 0
-                                    dummy['mag_faint'] = 99.9
-                                    dummy['mag_bright'] = 99.9
-                                    dummy_neighbors.append(dummy)
-                                    #todo: add ra, dec to list
+                                        #todo: check for an neighbor already at that position
+                                        # say, within some small offset, 0.5" or so?
+                                        if e.neighbors_sep is None or len(e.neighbors_sep) == 0 or \
+                                                e.neighbors_sep['sep_objects'] is None or \
+                                                len(e.neighbors_sep['sep_objects']) == 0:
+                                            #there are no neighbors, so this is good already
+                                            okay = True
+                                        else:
+                                            #check positions of all neighbors
+                                            #using the distance to the curve or even the PSF over lap would
+                                            #be more correct, but lets just keep this simple to 1st order
+                                            #and use the distace to the barycenter
+                                            okay = True
+                                            for sep in e.neighbors_sep['sep_objects']:
+                                                if UTIL.angular_distance(ap_ra,ap_dec,sep['ra'],sep['dec']) < sep_dist_min:
+                                                    retries -= 1
+                                                    okay = False
+                                                    break
+
+                                    if okay:
+                                        ok_apers += 1
+                                        if ok_apers < num_apers:
+                                            okay = False #still not done yet
+                                        retries = max_retries
+                                        used_thetas.append(theta)
+                                        #make a dummy "neighbor"
+                                        dummy = initialize_dict()
+                                        dummy['ra'] = ap_ra
+                                        dummy['dec'] = ap_dec
+                                        #use the fixed dist value to make it easier to select on later
+                                        dummy['dist_baryctr'] = dist*3600.0# UTIL.angular_distance(ap_ra,ap_dec,e.ra,e.dec)
+                                        dummy['dist_curve'] = 999 # or set to 999 to exclude from deblending??
+                                        dummy['a'] = 3.5
+                                        dummy['b'] = 3.5
+                                        dummy['theta'] = 0.0
+                                        dummy['mag'] = 99.9
+                                        dummy['mag_err'] = 0
+                                        dummy['mag_faint'] = 99.9
+                                        dummy['mag_bright'] = 99.9
+                                        dummy_neighbors.append(dummy)
+                                        #todo: add ra, dec to list
 
                             #iterate over the ra and dec lists and extract at those positions
                             log.info(f"Forced extraction of ({len(dummy_neighbors)}) Random Aperture positions ...")
