@@ -5583,7 +5583,7 @@ def main():
 
                 #so we can turn off
                 # !!! ***  DON'T FORGET TO UP THE ERROR WINDOWS so we find neighbors farther out *** !!!!
-                if True:
+                if False:
                     print("**********************************************************************")
                     print("***** TURN ME OFF. TEMPORARY RANDOM APERTURES AROUND DETECTIONS ******")
                     print("**********************************************************************")
