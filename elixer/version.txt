@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.19.0 [2023-05-02]
+* Fix to 1.19.0 for HDR 3.0.3 run
+
 1.19.0a13 [2023-04-14]
 * bumped max distance to curve for HETDEX match to imaging from 0.5" (0.75" for early data) to 1.25" (and 1.75")
 * added interpolated, per wavelength bin modeled PSF neighbor deblending
