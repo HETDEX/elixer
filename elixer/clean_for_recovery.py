@@ -297,7 +297,8 @@ for d in tqdm(alldets):
 
             except:
                pass
-
+        else:
+            would_be_removed.append(d)
     elif not png_okay and (pdf_idx > -1):
         if remove_no_png:
             would_be_removed.append(d)
