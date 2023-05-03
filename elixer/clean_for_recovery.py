@@ -65,7 +65,7 @@ if len(i) > 0 and i.upper() == "Y":
 i = input("Remove if no imaging (y/n)?")
 if len(i) > 0 and i.upper() == "Y":
     remove_no_imaging = True
-    i = input("**** Are you sure? This version of imaging check is not reliable (yes/no) [full word response]?")
+    #i = input("**** Are you sure? This version of imaging check is not reliable (yes/no) [full word response]?")
     # if len(i) > 0 and i.upper() == "YES":
     #     remove_no_imaging = True
 
