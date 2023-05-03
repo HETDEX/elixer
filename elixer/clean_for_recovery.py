@@ -83,14 +83,16 @@ for g in globdets:
 allpdf_dets = np.array(allpdf_dets)
 
 all_h5_dets = None
+all_apt_dets = None
 if remove_no_imaging:
     try:
         h5 = tables.open_file("elixer_merged_cat.h5","r")
         dtb = h5.root.Detections
         apt = h5.root.Aperture
 
-        alldets = dtb.read(field="detectid")
+        #alldets = dtb.read(field="detectid")
         all_h5_dets = dtb.read(field="detectid")
+        all_apt_dets = np.unique(apt.read(field="detectid")) #detectids that have an aperture entry
     except Exception as e:
         print(e)
         print("elixer_merged_cat.h5 is needed. You must run elixer --merge first")
@@ -118,6 +120,11 @@ if all_h5_dets is not None:
 else:
     missing_h5_entries = []
 
+if all_apt_dets is not None:
+    missing_apt_entries = np.setdiff1d(alldets, all_apt_dets)
+else:
+    missing_apt_entries = []
+
 #print(f"Missing h5 entries: {len(missing_h5_entries)}")
 #print(missing_h5_entries)
 
@@ -131,28 +138,30 @@ ct_no_pdf = 0
 
 would_be_removed = [] #list of detectIDs that would be removed (or are to be removed)
 
-if remove_no_imaging:
-    for d in alldets:
-        rows = apt.read_where("detectid==d",field="detectid")
-        #hmm ... that is not 100% accurate ... there are reasons this might be zero even with imaging
-        if rows.size==0:
-            missing.append(d)
-
-    ct_no_imaging = len(missing)
-    h5.close()
-
-    would_be_removed += missing
-    if remove_files:
-        for d in missing:
-            files = glob.glob(f"dispatch_*/{out_subdir}/"+str(d)+"*")
-            if len(files) > 0:
-                print("Removing " + str(d) + "...")
-                for f in files:
-                    try:
-                        os.remove(f)
-                    except:
-                        pass
-# else:
+#replaced with logic similar to missing from h5
+# if remove_no_imaging:
+#
+#     for d in alldets:
+#         rows = apt.read_where("detectid==d",field="detectid")
+#         #hmm ... that is not 100% accurate ... there are reasons this might be zero even with imaging
+#         if rows.size==0:
+#             missing.append(d)
+#
+#     ct_no_imaging = len(missing)
+#     h5.close()
+#
+#     would_be_removed += missing
+#     if remove_files:
+#         for d in missing:
+#             files = glob.glob(f"dispatch_*/{out_subdir}/"+str(d)+"*")
+#             if len(files) > 0:
+#                 print("Removing " + str(d) + "...")
+#                 for f in files:
+#                     try:
+#                         os.remove(f)
+#                     except:
+#                         pass
+# # else:
 #     print(f"{len(missing)} reports without imaging ... ")
 #     for d in missing:
 #         files = glob.glob("dispatch_*/*/" + str(d) + ".pdf")
@@ -188,6 +197,7 @@ for d in tqdm(alldets):
     nei_okay = True #was found or don't care
     png_okay = True
     h5_okay = True #was found in h5 file
+    apt_okay = True #has an aperture entry (aka has imaging)
     pdf_okay = True
     pdf_file = None
 
@@ -217,9 +227,18 @@ for d in tqdm(alldets):
     try:
         if d in missing_h5_entries:
             h5_okay = False
-            print(f"{d} missing from h5")
+            #print(f"{d} missing from h5")
     except:
         pass
+
+    #checking for no aperture entry (equivalent to no imaging)
+    try:
+        if remove_no_imaging and (d in missing_apt_entries):
+            apt_okay = False
+            #print(f"{d} missing from h5")
+    except:
+        pass
+
 
     #check the PDF filesize ... if too small, it was generated but missing data
     #is that ever okay?
@@ -283,7 +302,7 @@ for d in tqdm(alldets):
         png_okay = False
 
 
-    if not (mini_okay and nei_okay and pdf_okay and png_okay and h5_okay):
+    if not (mini_okay and nei_okay and pdf_okay and png_okay and h5_okay and apt_okay):
         #remove the report for recovery
         would_be_removed.append(d)
         if remove_files:
