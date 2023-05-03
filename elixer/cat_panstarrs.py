@@ -108,7 +108,10 @@ def getimages(ra, dec, size=240, filters="grizy"):
     service = "https://ps1images.stsci.edu/cgi-bin/ps1filenames.py"
     url = ("{service}?ra={ra}&dec={dec}&size={size}&format=fits"
            "&filters={filters}").format(**locals())
-    table = Table.read(url, format='ascii')
+    try:
+        table = Table.read(url, format='ascii')
+    except:
+        table = None
     return table
 
 
@@ -131,6 +134,8 @@ def geturl(ra, dec, size=240, output_size=None, filters="grizy", format="jpg", c
     if format not in ("jpg", "png", "fits"):
         raise ValueError("format must be one of jpg, png, fits")
     table = getimages(ra, dec, size=size, filters=filters)
+    if table is None:
+        return None
     url = ("https://ps1images.stsci.edu/cgi-bin/fitscut.cgi?"
            "ra={ra}&dec={dec}&size={size}&format={format}").format(**locals())
     if output_size:
@@ -213,7 +218,11 @@ def get_image(ra,dec,radius,filters):
     try:
         size = arcsec2pix(radius)
         fitsurl = geturl(ra, dec, size=size, filters=filters, format="fits")
+        if fitsurl is None:
+            return None
         hdulist = fits.open(fitsurl[0])
+    except ConnectionRefusedError:
+        log.error("Exception in cat_panstarrs.py::get_image(). Connection REFUSED.", exc_info=False)
     except:
         log.error("Exception in cat_panstarrs.py::get_image",exc_info=True)
 
