@@ -36,7 +36,7 @@ check_mini = False
 remove_no_imaging = False
 remove_no_png = False
 remove_pdf_too_small = False
-remove_files = True #set to false if only want to list the files that would be removed
+remove_files = False #set to false if only want to list the files that would be removed
 
 if os.path.exists("elixer_merged_cat.h5"):
     print("elixer_merged_cat.h5 exists ... will compare with PDFs")

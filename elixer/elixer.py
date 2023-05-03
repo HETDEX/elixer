@@ -531,6 +531,9 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--slurm',help="For use with selixer. If (1) automatically queue the SLURM job, if (0) create but"
                                        " do not queue the SLURM job", required=False, type=int, default=1)
 
+    parser.add_argument('--missing', help='Launch the check for missing reports.', required=False,
+                            action='store_true', default=False)
+
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
 
@@ -677,6 +680,11 @@ def parse_commandline(auto_force=False):
 
     if args.merge or args.merge_unique:
         print("Merging catalogs (ignoring all other parameters) ... ")
+        return args
+
+
+    if args.missing:
+        print("Check for missing reports ... ")
         return args
 
     #don't really use id any more, but pass it into dets
@@ -4631,6 +4639,11 @@ def main():
     if args.merge:
         merge(args)
         exit(0)
+
+    if args.missing:
+        import clean_for_recovery
+        exit(0)
+
 
     #later, below most of the processing will be skipped and only the neighborhood map is generated
     if args.neighborhood_only:
