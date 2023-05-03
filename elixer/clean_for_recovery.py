@@ -39,6 +39,7 @@ remove_no_png = False
 remove_pdf_too_small = False
 remove_png_too_small = False
 remove_files = False #set to false if only want to list the files that would be removed
+show_tqdm = False
 
 if os.path.exists("elixer_merged_cat.h5"):
     print("elixer_merged_cat.h5 exists ... will compare with PDFs")
@@ -63,9 +64,10 @@ if len(i) > 0 and i.upper() == "Y":
 
 i = input("Remove if no imaging (y/n)?")
 if len(i) > 0 and i.upper() == "Y":
+    remove_no_imaging = True
     i = input("**** Are you sure? This version of imaging check is not reliable (yes/no) [full word response]?")
-    if len(i) > 0 and i.upper() == "YES":
-        remove_no_imaging = True
+    # if len(i) > 0 and i.upper() == "YES":
+    #     remove_no_imaging = True
 
 i = input("Check for nei.png (y/n)?")
 if len(i) > 0 and i.upper() == "Y":
@@ -74,6 +76,10 @@ if len(i) > 0 and i.upper() == "Y":
 i = input("Check for mini.png (y/n)?")
 if len(i) > 0 and i.upper() == "Y":
     check_mini = True
+
+i = input("Show progress bar (y/n)?")
+if len(i) > 0 and i.upper() == "Y":
+    show_tqdm = True
 
 out_subdir = os.path.basename(os.getcwd())
 globdets = glob.glob(f"dispatch_*/{out_subdir}/*.pdf")
@@ -188,6 +194,9 @@ names_pdf = [os.path.basename(x) for x in all_pdf]
 #print(names_rpt)
 
 regen_png = []
+if not show_tqdm:
+    def tqdm(x):
+        return x
 
 for d in tqdm(alldets):
     if d in missing:
