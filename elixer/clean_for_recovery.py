@@ -166,15 +166,14 @@ print("Checking for missing .png files ...")
 all_nei = glob.glob(f"dispatch_*/{out_subdir}/*_nei.png")
 all_mini = glob.glob(f"dispatch_*/{out_subdir}/*_mini.png")
 all_rpt = glob.glob(f"dispatch_*/{out_subdir}/*[0-9].png")
-
-print(all_rpt)
-
 all_pdf = glob.glob(f"dispatch_*/{out_subdir}/*.pdf")
 
 names_nei = [os.path.basename(x) for x in all_nei]
 names_mini = [os.path.basename(x) for x in all_mini]
 names_rpt = [os.path.basename(x) for x in all_rpt]
 names_pdf = [os.path.basename(x) for x in all_pdf]
+
+#print(names_rpt)
 
 regen_png = []
 
@@ -260,6 +259,7 @@ for d in tqdm(alldets):
                     # this is a problem ... the main reports should be 43k+ or so
                     rpt_idx = -1
                     ct_no_png += 1
+                    print(f"Small png: {d}")
                     pdf_okay = False  # technically, the PDF is fine, it is the PNG that has a problem
                     # todo:
                     # try:
@@ -272,6 +272,7 @@ for d in tqdm(alldets):
     except:
         rpt_idx = -1
         ct_no_png += 1
+        print(f"Missing png: {d}")
         png_okay = False
 
 
