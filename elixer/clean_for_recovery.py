@@ -118,6 +118,8 @@ if all_h5_dets is not None:
 else:
     missing_h5_entries = []
 
+print(f"Missing h5 entries: {len(missing_h5_entries)}")
+print(missing_h5_entries)
 
 missing = []
 
@@ -347,10 +349,9 @@ for d in tqdm(alldets):
     except Exception as e:
         print(e)
 
-print(f"would_be_rmoved: {len(would_be_removed)}")
 would_be_removed = np.unique(would_be_removed)
-print(f"would_be_rmoved: {len(would_be_removed)} -- unique")
 print(f"Missing h5 entry: {len(missing_h5_entries)}")
+print(missing_h5_entries)
 print(f"Missing PDF: {ct_no_pdf}")
 print(f"Missing imaging: {ct_no_imaging}")
 print(f"Missing report png: {ct_no_png}")
