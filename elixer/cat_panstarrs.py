@@ -223,6 +223,8 @@ def get_image(ra,dec,radius,filters):
         hdulist = fits.open(fitsurl[0])
     except ConnectionRefusedError:
         log.error("Exception in cat_panstarrs.py::get_image(). Connection REFUSED.", exc_info=False)
+        G.PANSTARRS_ALLOW = False
+        G.PANSTARRS_FORCE = False
     except:
         log.error("Exception in cat_panstarrs.py::get_image",exc_info=True)
 
