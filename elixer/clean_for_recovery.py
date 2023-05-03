@@ -118,8 +118,8 @@ if all_h5_dets is not None:
 else:
     missing_h5_entries = []
 
-print(f"Missing h5 entries: {len(missing_h5_entries)}")
-print(missing_h5_entries)
+#print(f"Missing h5 entries: {len(missing_h5_entries)}")
+#print(missing_h5_entries)
 
 missing = []
 
@@ -215,6 +215,7 @@ for d in tqdm(alldets):
     try:
         if d in missing_h5_entries:
             h5_okay = False
+            print(f"{d} missing from h5")
     except:
         pass
 
