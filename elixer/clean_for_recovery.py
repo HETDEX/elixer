@@ -15,6 +15,7 @@ import glob
 import os
 import numpy as np
 import sys
+from tqdm import tqdm
 
 MINIMUM_PDF_FILESIZE = 100000 #100k bytes
 MINIMUM_PNG_FILESIZE = 430000 #43k bytes
@@ -163,10 +164,15 @@ if remove_no_imaging:
 #find pdfs without pngs
 print("Checking for missing .png files ...")
 
-all_nei = glob.glob("dispatch_*/*/*_nei.png")
-all_mini = glob.glob("dispatch_*/*/*_mini.png")
-all_rpt = glob.glob("dispatch_*/*/*[0-9].png")
-all_pdf = glob.glob("dispatch_*/*/*.pdf")
+out_subdir = os.path.basename(os.getcwd())
+
+all_nei = glob.glob(f"dispatch_*/{out_subdir}/*_nei.png")
+all_mini = glob.glob(f"dispatch_*/{out_subdir}/*_mini.png")
+all_rpt = glob.glob(f"dispatch_*/{out_subdir}/*[0-9].png")
+
+print(all_rpt)
+
+all_pdf = glob.glob(f"dispatch_*/{out_subdir}/*.pdf")
 
 names_nei = [os.path.basename(x) for x in all_nei]
 names_mini = [os.path.basename(x) for x in all_mini]
@@ -175,7 +181,7 @@ names_pdf = [os.path.basename(x) for x in all_pdf]
 
 regen_png = []
 
-for d in alldets:
+for d in tqdm(alldets):
     if d in missing:
         continue #skip it, already marked for re-creation
 
