@@ -382,7 +382,7 @@ elif hostname == "stampede2":
                 MAX_TASKS_PER_NODE = 48
             else:
                 MAX_TASKS = 10000
-                MAX_NODES = 20
+                MAX_NODES = 128 #why 20?
                 MAX_TASKS_PER_NODE = 48 #still some memory issues ... this gives us a little more room
             #MAX_TASKS = MAX_NODES * MAX_TASKS_PER_NODE #800
     else: #knl (much slower than SKX and much less memory (96 GB per node)
