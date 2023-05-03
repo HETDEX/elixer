@@ -279,8 +279,8 @@ for d in tqdm(alldets):
 
     if not (mini_okay and nei_okay and pdf_okay and png_okay and h5_okay):
         #remove the report for recovery
+        would_be_removed.append(d)
         if remove_files:
-            would_be_removed.append(d)
             print("Removing " + str(d) + " ...")
             try:
                 if pdf_path:
@@ -297,8 +297,7 @@ for d in tqdm(alldets):
 
             except:
                pass
-        else:
-            would_be_removed.append(d)
+
     elif not png_okay and (pdf_idx > -1):
         if remove_no_png:
             would_be_removed.append(d)
@@ -348,7 +347,9 @@ for d in tqdm(alldets):
     except Exception as e:
         print(e)
 
+print(f"would_be_rmoved: {len(would_be_removed)}")
 would_be_removed = np.unique(would_be_removed)
+print(f"would_be_rmoved: {len(would_be_removed)} -- unique")
 print(f"Missing h5 entry: {len(missing_h5_entries)}")
 print(f"Missing PDF: {ct_no_pdf}")
 print(f"Missing imaging: {ct_no_imaging}")
