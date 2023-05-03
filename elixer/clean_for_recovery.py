@@ -74,8 +74,8 @@ i = input("Check for mini.png (y/n)?")
 if len(i) > 0 and i.upper() == "Y":
     check_mini = True
 
-
-globdets = glob.glob("dispatch_*/*/*.pdf")
+out_subdir = os.path.basename(os.getcwd())
+globdets = glob.glob(f"dispatch_*/{out_subdir}/*.pdf")
 allpdf_dets = []
 for g in globdets:
     allpdf_dets.append(np.int64(g.rstrip(".pdf").split("/")[-1]))
@@ -141,7 +141,7 @@ if remove_no_imaging:
     would_be_removed += missing
     if remove_files:
         for d in missing:
-            files = glob.glob("dispatch_*/*/"+str(d)+"*")
+            files = glob.glob(f"dispatch_*/{out_subdir}/"+str(d)+"*")
             if len(files) > 0:
                 print("Removing " + str(d) + "...")
                 for f in files:
@@ -163,9 +163,6 @@ if remove_no_imaging:
 
 #find pdfs without pngs
 print("Checking for missing .png files ...")
-
-out_subdir = os.path.basename(os.getcwd())
-
 all_nei = glob.glob(f"dispatch_*/{out_subdir}/*_nei.png")
 all_mini = glob.glob(f"dispatch_*/{out_subdir}/*_mini.png")
 all_rpt = glob.glob(f"dispatch_*/{out_subdir}/*[0-9].png")
