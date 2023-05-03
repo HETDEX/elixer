@@ -37,6 +37,7 @@ check_mini = False
 remove_no_imaging = False
 remove_no_png = False
 remove_pdf_too_small = False
+remove_png_too_small = False
 remove_files = False #set to false if only want to list the files that would be removed
 
 if os.path.exists("elixer_merged_cat.h5"):
@@ -173,7 +174,7 @@ names_mini = [os.path.basename(x) for x in all_mini]
 names_rpt = [os.path.basename(x) for x in all_rpt]
 names_pdf = [os.path.basename(x) for x in all_pdf]
 
-print(names_rpt)
+#print(names_rpt)
 
 regen_png = []
 
@@ -269,10 +270,10 @@ for d in tqdm(alldets):
                     #     pdf_okay = False  # technically, the PDF is fine, it is the PNG that has a problem
             except Exception as e:
                 print(e)
-    except Exception as ex:
+    except:# Exception as ex:
         rpt_idx = -1
         ct_no_png += 1
-        print(f"Missing png: {d}", ex)
+       # print(f"Missing png: {d}", ex)
         png_okay = False
 
 
