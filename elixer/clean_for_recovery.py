@@ -32,6 +32,15 @@ if "--dets" in args: #overide default if specified on command line
         pass
 
 
+if ("--force" in args) or ("-f" in args): #overide default if specified on command line
+    use_defaults = True
+else:
+    i = input("Use all defaults (y/n)?")
+    if len(i) > 0 and i.upper() == "Y":
+        use_defaults = True
+    else:
+        use_defaults = False
+
 check_nei = False
 check_mini = False
 remove_no_imaging = False
@@ -44,42 +53,54 @@ show_tqdm = False
 if os.path.exists("elixer_merged_cat.h5"):
     print("elixer_merged_cat.h5 exists ... will compare with PDFs")
 
-
-i = input("Remove Files (Y)  or List only (N)?")
-if len(i) > 0 and i.upper() == "Y":
-    remove_files = True
-
-i = input("Remove if PDF too small (y/n)?")
-if len(i) > 0 and i.upper() == "Y":
-    remove_pdf_too_small = True
-
-i = input("Remove if no report png (y/n)?")
-if len(i) > 0 and i.upper() == "Y":
-    remove_no_png = True
-
-i = input("Remove if PNG too small (y/n)?")
-if len(i) > 0 and i.upper() == "Y":
-    remove_png_too_small = True
-    remove_no_png = True #force to check if removing if too small
-
-i = input("Remove if no imaging (y/n)?")
-if len(i) > 0 and i.upper() == "Y":
-    remove_no_imaging = True
-    #i = input("**** Are you sure? This version of imaging check is not reliable (yes/no) [full word response]?")
-    # if len(i) > 0 and i.upper() == "YES":
-    #     remove_no_imaging = True
-
-i = input("Check for nei.png (y/n)?")
-if len(i) > 0 and i.upper() == "Y":
+if use_defaults:
+    print("Using defaults ...")
     check_nei = True
+    check_mini = False
+    remove_no_imaging = True
+    remove_no_png = True
+    remove_pdf_too_small = False
+    remove_png_too_small = True
+    remove_files = False  # set to false if only want to list the files that would be removed
+    show_tqdm = False
+    use_defaults = True
+else:
 
-i = input("Check for mini.png (y/n)?")
-if len(i) > 0 and i.upper() == "Y":
-    check_mini = True
+    i = input("Remove Files (Y)  or List only (N)?")
+    if len(i) > 0 and i.upper() == "Y":
+        remove_files = True
 
-i = input("Show progress bar (y/n)?")
-if len(i) > 0 and i.upper() == "Y":
-    show_tqdm = True
+    i = input("Remove if PDF too small (y/n)?")
+    if len(i) > 0 and i.upper() == "Y":
+        remove_pdf_too_small = True
+
+    i = input("Remove if no report png (y/n)?")
+    if len(i) > 0 and i.upper() == "Y":
+        remove_no_png = True
+
+    i = input("Remove if PNG too small (y/n)?")
+    if len(i) > 0 and i.upper() == "Y":
+        remove_png_too_small = True
+        remove_no_png = True #force to check if removing if too small
+
+    i = input("Remove if no imaging (y/n)?")
+    if len(i) > 0 and i.upper() == "Y":
+        remove_no_imaging = True
+        #i = input("**** Are you sure? This version of imaging check is not reliable (yes/no) [full word response]?")
+        # if len(i) > 0 and i.upper() == "YES":
+        #     remove_no_imaging = True
+
+    i = input("Check for nei.png (y/n)?")
+    if len(i) > 0 and i.upper() == "Y":
+        check_nei = True
+
+    i = input("Check for mini.png (y/n)?")
+    if len(i) > 0 and i.upper() == "Y":
+        check_mini = True
+
+    i = input("Show progress bar (y/n)?")
+    if len(i) > 0 and i.upper() == "Y":
+        show_tqdm = True
 
 out_subdir = os.path.basename(os.getcwd())
 globdets = glob.glob(f"dispatch_*/{out_subdir}/*.pdf")
