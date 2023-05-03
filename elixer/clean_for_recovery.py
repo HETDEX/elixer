@@ -277,7 +277,7 @@ for d in tqdm(alldets):
         png_okay = False
 
 
-    if not (mini_okay and nei_okay and pdf_okay and h5_okay):
+    if not (mini_okay and nei_okay and pdf_okay and png_okay and h5_okay):
         #remove the report for recovery
         if remove_files:
             would_be_removed.append(d)
