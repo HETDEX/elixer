@@ -173,7 +173,7 @@ names_mini = [os.path.basename(x) for x in all_mini]
 names_rpt = [os.path.basename(x) for x in all_rpt]
 names_pdf = [os.path.basename(x) for x in all_pdf]
 
-#print(names_rpt)
+print(names_rpt)
 
 regen_png = []
 
@@ -259,7 +259,7 @@ for d in tqdm(alldets):
                     # this is a problem ... the main reports should be 43k+ or so
                     rpt_idx = -1
                     ct_no_png += 1
-                    print(f"Small png: {d}")
+                    #print(f"Small png: {d}")
                     pdf_okay = False  # technically, the PDF is fine, it is the PNG that has a problem
                     # todo:
                     # try:
@@ -269,10 +269,10 @@ for d in tqdm(alldets):
                     #     pdf_okay = False  # technically, the PDF is fine, it is the PNG that has a problem
             except Exception as e:
                 print(e)
-    except:
+    except Exception as ex:
         rpt_idx = -1
         ct_no_png += 1
-        print(f"Missing png: {d}")
+        print(f"Missing png: {d}", ex)
         png_okay = False
 
 
