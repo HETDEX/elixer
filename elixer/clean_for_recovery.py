@@ -405,9 +405,10 @@ for d in tqdm(alldets):
 
 would_be_removed = np.unique(would_be_removed)
 print(f"Missing h5 entry: {len(missing_h5_entries)}")
+print(f"Missing h5 aperture entry: {len(missing_apt_entries)}")
 #print(missing_h5_entries)
 print(f"Missing PDF: {ct_no_pdf}")
-print(f"Missing imaging: {ct_no_imaging}")
+#print(f"Missing imaging: {ct_no_imaging}")
 print(f"Missing report png: {ct_no_png}")
 print(f"Missing nei png: {ct_no_nei}")
 print(f"Missing mini png: {ct_no_mini}")
