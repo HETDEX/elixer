@@ -1285,6 +1285,9 @@ class science_image():
                         except Exception as ex:
                             if "Arrays do not overlap" in str(ex):
                                 log.info("Unable to load cutout (NoOverlapError")
+                            elif "buffer is too small" in str(ex):
+                                log.info("Unable to load cutout (buffer too small")
+
                             else:
                                 log.error("Exception. Unable to load cutout.",exc_info=True)
                             retries = max_retries

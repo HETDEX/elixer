@@ -291,6 +291,9 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                     #separate string
                     table['tract'] = ';'.join(tract)  # need this later to get the zPDF (use ; as some tracts could have a comma)
 
+                except KeyError:
+                    log.error(name + " Exception attempting to open catalog file. KeyError." + cat_loc)
+                    continue
                 except Exception as e:
                     if type(e) is astropy.io.registry.IORegistryError:
                         log.error(name + " Exception attempting to open catalog file: (IORegistryError, bad format)" + cat_loc, exc_info=False)
