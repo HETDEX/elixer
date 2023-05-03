@@ -207,6 +207,8 @@ for d in tqdm(alldets):
     except:
         pdf_idx = -1
         ct_no_pdf += 1
+        pdf_okay = False
+        would_be_removed.append(d)
         #the pdf is missing, so no need to go further for this one
         continue
 
@@ -231,6 +233,7 @@ for d in tqdm(alldets):
         except:
             pdf_idx = -1
             ct_no_pdf += 1
+            would_be_removed.append(d)
             #the pdf is already missing, so no need to go further for this one
             continue
 
@@ -331,24 +334,24 @@ for d in tqdm(alldets):
         #todo: should we add these to a list to check again at the end (after a pause to complete?)
 
     #regardles, we can now remove this detection from the list so next searches are faster
-    try:
-        if pdf_idx > -1:
-            del all_pdf[pdf_idx]
-            del names_pdf[pdf_idx]
-
-        if mini_idx > -1:
-            del all_mini[mini_idx]
-            del names_mini[mini_idx]
-
-        if nei_idx > -1:
-            del all_nei[nei_idx]
-            del names_nei[nei_idx]
-
-        if rpt_idx > -1:
-            del all_rpt[rpt_idx]
-            del names_rpt[rpt_idx]
-    except Exception as e:
-        print(e)
+    # try:
+    #     if pdf_idx > -1:
+    #         del all_pdf[pdf_idx]
+    #         del names_pdf[pdf_idx]
+    #
+    #     if mini_idx > -1:
+    #         del all_mini[mini_idx]
+    #         del names_mini[mini_idx]
+    #
+    #     if nei_idx > -1:
+    #         del all_nei[nei_idx]
+    #         del names_nei[nei_idx]
+    #
+    #     if rpt_idx > -1:
+    #         del all_rpt[rpt_idx]
+    #         del names_rpt[rpt_idx]
+    # except Exception as e:
+    #     print(e)
 
 would_be_removed = np.unique(would_be_removed)
 print(f"Missing h5 entry: {len(missing_h5_entries)}")
