@@ -104,7 +104,7 @@ if "--cluster" in args:
 #check for --merge (if so just call elixer
 MERGE = False
 LOCAL_MERGE = False
-if "--local_merge" in args:
+if "--merge_local" in args:
     MERGE = True
     LOCAL_MERGE = True
 

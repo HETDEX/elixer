@@ -378,7 +378,7 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--merge', help='Merge all cat and fib txt files in disapatch_xxxx dirs only.',
                         required=False, action='store_true', default=False)
 
-    parser.add_argument('--local_merge', help='Merge all cat.h5 files in the current directory or in any dispatch_xxxx dirs.',
+    parser.add_argument('--merge_local', help='Merge all cat.h5 files in the current directory or in any dispatch_xxxx dirs.',
                         required=False, action='store_true', default=False)
 
     parser.add_argument('--remove_duplicates', help='Remove duplicate rows in specified elixer HDF5 catalog file.',
@@ -681,7 +681,7 @@ def parse_commandline(auto_force=False):
         print("This can take a long time depending on total number of records.")
         return args
 
-    if args.merge or args.merge_unique or args.local_merge:
+    if args.merge or args.merge_unique or args.merge_local:
         print("Merging catalogs (ignoring all other parameters) ... ")
         return args
 
@@ -4653,7 +4653,7 @@ def main():
         merge_unique(args)
         exit(0)
 
-    if args.merge or args.local_merge:
+    if args.merge or args.merge_local:
         merge(args)
         exit(0)
 
