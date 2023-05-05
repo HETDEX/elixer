@@ -103,6 +103,11 @@ if "--cluster" in args:
 
 #check for --merge (if so just call elixer
 MERGE = False
+LOCAL_MERGE = False
+if "--local_merge" in args:
+    MERGE = True
+    LOCAL_MERGE = True
+
 if "--merge" in args:
     MERGE = True
     # if hostname == "z50":
@@ -641,7 +646,13 @@ else: # multiple tasks
         subdirs = [] #this is a list of detectids OR RA and Decs (the length of the list is used and each "row" is written out later)
 
         if MERGE:
-            subdirs = smerge.get_base_merge_files()
+            if LOCAL_MERGE:
+                subdirs = smerge.get_base_merge_files(".",pattern=None)
+                if subdirs is None or len(subdirs)==0:
+                    print("No files to merge. Exiting")
+                    exit(0)
+            else:
+                subdirs = smerge.get_base_merge_files()
         else:
             if args.fcsdir is not None:
                 subdirs = elixer.get_fcsdir_subdirs_to_process(args)

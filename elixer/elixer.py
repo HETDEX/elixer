@@ -375,7 +375,10 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--catcheck', help='Only check to see if there possible matches. Simplified commandline output only',
                         required=False, action='store_true', default=False)
 
-    parser.add_argument('--merge', help='Merge all cat and fib txt files',
+    parser.add_argument('--merge', help='Merge all cat and fib txt files in disapatch_xxxx dirs only.',
+                        required=False, action='store_true', default=False)
+
+    parser.add_argument('--local_merge', help='Merge all cat.h5 files in the current directory or in any dispatch_xxxx dirs.',
                         required=False, action='store_true', default=False)
 
     parser.add_argument('--remove_duplicates', help='Remove duplicate rows in specified elixer HDF5 catalog file.',
@@ -678,7 +681,7 @@ def parse_commandline(auto_force=False):
         print("This can take a long time depending on total number of records.")
         return args
 
-    if args.merge or args.merge_unique:
+    if args.merge or args.merge_unique or args.local_merge:
         print("Merging catalogs (ignoring all other parameters) ... ")
         return args
 
@@ -3021,6 +3024,16 @@ def merge_hdf5(args=None):
     try:
         merge_fn = "elixer_merged_cat.h5"
         fn_list = sorted(glob.glob("*_cat.h5"))
+
+        if merge_fn in fn_list:
+            print(f"Reserved file found: {merge_fn}")
+            print("Remove reserved file before re-running merge.")
+            log.critical(f"Reserved file found: {merge_fn}")
+            log.critical(f"Remove reserved file before re-running merge.")
+            del fn_list
+            fn_list = None
+            return
+
         fn_list += sorted(glob.glob("*_cat_*.h5"))
         fn_list += sorted(glob.glob("dispatch_*/*/*_cat.h5"))
 
@@ -4640,7 +4653,7 @@ def main():
         merge_unique(args)
         exit(0)
 
-    if args.merge:
+    if args.merge or args.local_merge:
         merge(args)
         exit(0)
 

@@ -19,7 +19,7 @@ try:
 except:
     import elixer_hdf5
 
-def get_base_merge_files(topdir=".",pattern="dispatch_*/*/*_cat.h5"):
+def get_base_merge_files(topdir=".",pattern="dispatch_*/*/*_cat.h5",):
     """
     Scan for all _cat.h5 files to merge
     **DOES NOT INCLUDE elixer_merged_cat.h5 at the top directory if present**
@@ -30,7 +30,21 @@ def get_base_merge_files(topdir=".",pattern="dispatch_*/*/*_cat.h5"):
 
     files = []
     try:
-        files = glob.glob(os.path.join(topdir,pattern))
+        if pattern is None:
+            reserved_name = os.path.join(topdir,"elixer_merged_cat.h5")
+            files = sorted(glob.glob(os.path.join(topdir,"*_cat.h5")))
+            files += sorted(glob.glob(os.path.join(topdir,"*_cat_*.h5")))
+            files += sorted(glob.glob(os.path.join(topdir,"dispatch_*/*/*_cat.h5")))
+
+            if reserved_name in files:
+                #print(f"Excluding reserved file: {reserved_name}")
+                files.remove(reserved_name)
+                print(f"Reserved file found: {reserved_name}")
+                print("Remove reserved file before re-running merge.")
+                del files
+                files = None
+        else:
+            files = glob.glob(os.path.join(topdir,pattern))
     except:
         pass
 
