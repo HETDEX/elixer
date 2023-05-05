@@ -1,7 +1,7 @@
 #!/bin/bash 
 #SBATCH -J ELiXerDB              # Job name
 #SBATCH -N 1                  # Total number of nodes requested
-#SBATCH --ntasks-per-node 3       #Tasks per node
+#SBATCH --ntasks-per-node 3       #Tasks per node ## there is a lot of I/O, so keep this low
 #SBATCH -p normal                 # Queue name
 #SBATCH -o ELIXER.o%j          # Name of stdout output file (%j expands to jobid)
 #SBATCH -t 20:00:00            # Run time (hh:mm:ss)

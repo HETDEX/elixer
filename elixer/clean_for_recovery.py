@@ -329,7 +329,8 @@ for d in tqdm(alldets):
         rpt_idx = -1
         ct_no_png += 1
        # print(f"Missing png: {d}", ex)
-        png_okay = False
+        if remove_no_png:
+            png_okay = False
 
 
     if not (mini_okay and nei_okay and pdf_okay and png_okay and h5_okay and apt_okay):
