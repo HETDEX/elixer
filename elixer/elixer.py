@@ -3026,13 +3026,17 @@ def merge_hdf5(args=None):
 
         #fn_list.append(sorted(glob.glob("dispatch_*/*/*_cat.h5")))
         if len(fn_list) != 0:
+            log.critical(f"Meging: {fn_list}")
             merge_fn = elixer_hdf5.merge_elixer_hdf5_files(merge_fn,fn_list)
             if merge_fn is not None:
                 print("Done: " + merge_fn)
+                log.critical(f"Done.")
             else:
                 print("Failed to write HDF5 catalog.")
+                log.critical(f"Failed to write HDF5 catalog.")
         else:
             print("No HDF5 catalog files found. Are you in the directory with the dispatch_* subdirs?")
+            log.critical(f"No HDF5 catalog files found. Are you in the directory with the dispatch_* subdirs?")
     except Exception as e:
         print(e)
         log.error("Exception! merging HDF5 files.",exc_info=True)
