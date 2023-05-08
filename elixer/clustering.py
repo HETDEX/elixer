@@ -54,6 +54,8 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
 
     try:
         log.info(f"Clustering on {detectid} ...")
+        z_col = 'z_best'
+        pz_col = 'z_best_pz'
 
         dtb = elixerh5.root.Detections
         ltb = elixerh5.root.SpectraLines
@@ -106,7 +108,13 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
 
         target_ra = rows[0]['ra']
         target_dec = rows[0]['dec']
-        target_z = rows[0]['best_z']
+        try:
+            target_z = rows[0][z_col] #use the primary (instead of the alternate plya thresholds)
+        except:
+            target_z = rows[0]['best_z']
+            z_col = 'best_z'
+            pz_col = 'best_pz'
+
         target_wave = rows[0]['wavelength_obs']
         target_wave_err = rows[0]['wavelength_obs_err']
 
@@ -138,7 +146,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
 
         #check lines
         neighbor_ids = rows['detectid']
-        neighbor_z = rows['best_z']
+        neighbor_z = rows[z_col]
         line_scores = np.zeros(len(neighbor_ids))
         line_w_obs = np.zeros(len(neighbor_ids))
         used_in_solution = np.full(len(neighbor_ids),False)
@@ -163,7 +171,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
             #     continue
 
             lines = sp.match_lines( lrows[0]['wavelength'],
-                                    rows[i]['best_z'],
+                                    rows[i][z_col],
                                     z_error=0.001,
                                     aa_error=None,
                                     allow_absorption=False,
@@ -219,7 +227,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
                 best_idx = best_line
 
 
-        if use_avg and abs(rows[best_idx]['best_z'] - avg) > 0.1:
+        if use_avg and abs(rows[best_idx][z_col] - avg) > 0.1:
             #this is a problem ... this should normally match that average
             #we are going to keep going, but set the flag
             dict_flag |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
@@ -228,7 +236,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
 
 
         #check if the z is the same, then don't bother
-        if abs(rows[best_idx]['best_z'] - target_z) < 0.1:
+        if abs(rows[best_idx][z_col] - target_z) < 0.1:
             log.info(f"Clustering on {detectid}. Neighbors at same z = {target_z:0.5f}")
             return cluster_dict
 
@@ -248,13 +256,13 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
         if not used_in_solution[best_idx]:
             sp = spectrum.Spectrum()
             lines = sp.match_lines(line_w_obs[best_idx],
-                                   rows[best_idx]['best_z'],
+                                   rows[best_idx][z_col],
                                    z_error=0.001,
                                    aa_error=None,
                                    allow_absorption=False)
             if lines is None or len(lines) == 0:
-                log.info(f"Clustering on {detectid}. Best neighbor {neighbor_ids[best_idx]} line {line_w_obs[best_idx]:0.2f} inconsistent with redshift {rows[best_idx]['best_z']:0.4f}."
-                         f"No common lines near rest {line_w_obs[best_idx]/(1 + rows[best_idx]['best_z']):0.2f}")
+                log.info(f"Clustering on {detectid}. Best neighbor {neighbor_ids[best_idx]} line {line_w_obs[best_idx]:0.2f} inconsistent with redshift {rows[best_idx][z_col]:0.4f}."
+                         f"No common lines near rest {line_w_obs[best_idx]/(1 + rows[best_idx][z_col]):0.2f}")
                 return cluster_dict
 
 
@@ -272,13 +280,13 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
                             "neighbor_ra": rows[best_idx]['ra'],
                             "neighbor_dec": rows[best_idx]['dec'],
                             "neighhor_gmag": rows[best_idx]['mag_g_wide'],
-                            "neighbor_z": rows[best_idx]['best_z'],
-                            "neighbor_qz": rows[best_idx]['best_pz'],
+                            "neighbor_z": rows[best_idx][z_col],
+                            "neighbor_qz": rows[best_idx][pz_col],
                             "neighbor_plya": plya,
                             "flag": dict_flag
                             }
 
-        log.info(f"Clustering on {detectid}. Found bright neighbor ({rows[best_idx]['detectid']}) at z = {rows[best_idx]['best_z']:0.5f}")
+        log.info(f"Clustering on {detectid}. Found bright neighbor ({rows[best_idx]['detectid']}) at z = {rows[best_idx][z_col]:0.5f}")
         if outfile:
             with open(f"{detectid}.cluster","w+") as f:
                 f.write("# detectid  n_z      n_qz  n_detectid  n_ra       n_dec     n_dist  n_gmag  n_p(lya)\n")
