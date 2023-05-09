@@ -40,9 +40,30 @@ if "--coord" in args:
     except:
         print("bad coordinate filename specified")
         exit(-1)
+elif "--shot" in args:
+    i = args.index("--shot")
+    try:
+        coord_fn = "random_apertures_" + sys.argv[i + 1] +".coord"
+    except:
+        print("bad coordinate filename specified")
+        exit(-1)
+
 else:
     print("no coordinate filename (--coord) specified")
     exit(-1)
+
+
+if "--minmag" in args:
+    i = args.index("--minmag")
+    try:
+        min_gmag = float(sys.argv[i + 1])
+        print(f"using specified {min_gmag} bright limit mag.")
+    except:
+        print("bad --minmag specified")
+        exit(-1)
+else:
+    print("using default 24.5 bright limit on mag.")
+    min_gmag = 24.5  # 3.5" aperture
 
 coord_ra, coord_dec, coord_shot = np.loadtxt(coord_fn,unpack=True)
 coord_shot =coord_shot.astype(np.int64)
@@ -100,21 +121,23 @@ if op.exists(table_outname):
 #
 #                 #col is now an integer 0 to 999, though only certain integers have meaning
 #                 G.SKY_RESIDUAL_FITS_COL = f"{sky_label}_stack_{col:03}"
+if False:
+    if SKY_RESIDUAL_FITS_PATH is not None:
+        shot_sky_subtraction_residual = SU.fetch_per_shot_single_fiber_sky_subtraction_residual(SKY_RESIDUAL_FITS_PATH,
+                                                                                        shotid,
+                                                                                        SKY_RESIDUAL_FITS_COL,
+                                                                                        SKY_RESIDUAL_FITS_PREFIX)
+    else: #use the model
+        shot_sky_subtraction_residual = SU.fetch_universal_single_fiber_sky_subtraction_residual(
+                                                                                            ffsky=ffsky,
+                                                                                            hdr=G.HDR_Version)
 
-if SKY_RESIDUAL_FITS_PATH is not None:
-    shot_sky_subtraction_residual = SU.fetch_per_shot_single_fiber_sky_subtraction_residual(SKY_RESIDUAL_FITS_PATH,
-                                                                                    shotid,
-                                                                                    SKY_RESIDUAL_FITS_COL,
-                                                                                    SKY_RESIDUAL_FITS_PREFIX)
-else: #use the model
-    shot_sky_subtraction_residual = SU.fetch_universal_single_fiber_sky_subtraction_residual(
-                                                                                        ffsky=ffsky,
-                                                                                        hdr=G.HDR_Version)
+    if shot_sky_subtraction_residual is None:
+        print("FAIL!!! No single fiber shot residual retrieved.")
 
-if shot_sky_subtraction_residual is None:
-    print("FAIL!!! No single fiber shot residual retrieved.")
-
-fiber_flux_offset = -1 * shot_sky_subtraction_residual
+    fiber_flux_offset = -1 * shot_sky_subtraction_residual
+else:
+    fiber_flux_offset = None
 
 survey_name = "hdr3" #"hdr2.1"
 hetdex_api_config = HDRconfig(survey_name)

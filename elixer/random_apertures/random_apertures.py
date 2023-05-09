@@ -34,6 +34,10 @@ from elixer import global_config as G
 
 #get the shot from the command line
 
+def linear_g(seeing): #estimate of depth from the seeing (based on HDR 3.0.3 detections)
+    # return seeing * (-31./70.) + 25.76  # middle of the y_err
+    return seeing * (-31. / 70.) + 25.56  # bottom of the y_err
+
 args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
 
 #form is integer dateobs (no 'v')
