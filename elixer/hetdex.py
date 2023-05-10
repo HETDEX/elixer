@@ -5623,6 +5623,7 @@ class DetObj:
         size_in_psf = None #estimate of extent in terms of PSF (sort-of)
 
         gmag_at_limit = False
+        cgs_limit = G.HETDEX_CONTINUUM_FLUX_LIMIT
 
         # set weight to zero if gmag > 25
         # set to low value if gmag > 24
@@ -5667,8 +5668,13 @@ class DetObj:
             # cgs_24 = 1.35e-18
             # cgs_23p5 = 2.14e-18
 
-            cgs_limit = G.HETDEX_CONTINUUM_FLUX_LIMIT # cgs_24p5
-            cgs_fc =  G.HETDEX_CONTINUUM_FLUX_LIMIT * 1.2 #start downweighting at 20% brighter than hard limit
+
+            if (self.hetdex_gmag_limit is not None):
+                cgs_limit = SU.mag2cgs(self.hetdex_gmag_limit,self.w)
+            else:
+                cgs_limit = G.HETDEX_CONTINUUM_FLUX_LIMIT # cgs_24p5
+
+            cgs_fc =  cgs_limit * 1.2 #start downweighting at 20% brighter than hard limit
 
             if not self.best_gmag_cgs_cont_unc: #None or 0.0
                 log.debug(f"{self.entry_id} Combine ALL Continuum: HETDEX wide estimate has no uncertainty. "
@@ -5683,7 +5689,7 @@ class DetObj:
                 #when brighter than the flux limit, the vote moves up to a max of 4 by 1.2x the limit
                 #as we go fainter than the limit we rapidly fall to zero by 10% past the flux limit
 
-                rat = (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) / G.HETDEX_CONTINUUM_FLUX_LIMIT
+                rat = (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) / cgs_limit
                 w = 1.0 / (1.0 + np.exp(-40 * (rat -0.015) + 40.5)) * 4.0
                 continuum.append(self.best_gmag_cgs_cont)
                 weight.append(w)
@@ -5696,8 +5702,12 @@ class DetObj:
                     gmag_at_limit = False
                 else:
                     variance.append((cgs_limit-cgs_faint_limit)**2)
-                    nondetect.append(1)
-                    gmag_at_limit = True
+                    if (self.hetdex_gmag_limit is not None) and (self.best_gmag is not None) and (self.hetdex_gmag_limit <= self.best_gmag):
+                        nondetect.append(1)
+                        gmag_at_limit = True
+                    else:
+                        nondetect.append(0)
+
 
                 log.info(
                         f"{self.entry_id} Combine All Continuum: Added best spectrum gmag estimate ({continuum[-1]}) "
@@ -5716,7 +5726,7 @@ class DetObj:
             try:
                 if (self.hetdex_cont_cgs is not None) and (self.hetdex_cont_cgs_unc is not None):
                     #hetdex_cont_limit = 2.0e-18 #don't trust below this
-                    if (self.hetdex_cont_cgs - self.hetdex_cont_cgs_unc) > G.HETDEX_CONTINUUM_FLUX_LIMIT:
+                    if (self.hetdex_cont_cgs - self.hetdex_cont_cgs_unc) > cgs_limit:
                         continuum.append(self.hetdex_cont_cgs)
                         variance.append(self.hetdex_cont_cgs_unc*self.hetdex_cont_cgs_unc)
                         weight.append(0.2) #never very high
@@ -5725,9 +5735,9 @@ class DetObj:
                         log.debug(f"{self.entry_id} Combine All Continuum: Added HETDEX estimate ({continuum[-1]:#.4g}) "
                                   f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
                     else: #set as lower limit ... too far to be meaningful
-                        continuum.append(G.HETDEX_CONTINUUM_FLUX_LIMIT)
+                        continuum.append(cgs_limit)
                         # set to itself as a big error (basically, 100% error)
-                        variance.append(G.HETDEX_CONTINUUM_FLUX_LIMIT * G.HETDEX_CONTINUUM_FLUX_LIMIT)
+                        variance.append(cgs_limit * cgs_limit)
 
                         #does it make any sense to attempt to use the calculated error in this case? it is the
                         #error on a value that is rejected as meaningless (below the limit or negative)
@@ -5824,7 +5834,7 @@ class DetObj:
 
                             if a['fail_mag_limit']:
                                 #mag is set to the (safety) mag limit
-                                if a['mag'] < 24.0:
+                                if a['mag'] <= 24.0:
                                     #no useful information
                                     log.info(f"Combine ALL continuum: mag ({a['mag']}) at mag limit ({a['mag_limit']}) brighter than 24,"
                                              f" no useful information.")
@@ -5892,6 +5902,10 @@ class DetObj:
                                                 #it is just not growing
                                                 #most likely this is just sky or nearby neighbor, down weight as unreliable
                                                 w = 0.0
+                                            elif (a['mag_limit'] is not None) and (self.hetdex_gmag_limit is not None) \
+                                                    and (a['mag_limit'] < self.hetdex_gmag_limit):
+                                                #this is a shallow image (like DECaLs, PanSTARRS, SDSS) and HETDEX is deeper
+                                                w = 0.0
 
                                 #do we want to use this?
                                 #if there are SEP apertures, but we are not using them
@@ -5899,7 +5913,7 @@ class DetObj:
                                 #then we are likely looking at a bright object on which we are NOT centered
                                 #and it is throwing off the aperture magnitude
                                 if self.best_gmag_cgs_cont is not None:
-                                    cont_check = max(G.HETDEX_CONTINUUM_FLUX_LIMIT,self.best_gmag_cgs_cont)
+                                    cont_check = max(cgs_limit,self.best_gmag_cgs_cont)
                                 else:
                                     cont_check = None
                                 if any_sep and (not matched_sep) and (elix_aper_radius > 2.5) and \
@@ -5922,7 +5936,10 @@ class DetObj:
                                             variance.append(cont_var)
                                             continuum.append(cont)
                                             cont_type.append("a" + a['filter_name'])
-                                            nondetect.append(0)
+                                            if w <= 0:
+                                                nondetect.append(1)
+                                            else:
+                                                nondetect.append(0)
                                             aperture_radius = a['radius']
 
                                             log.debug(
@@ -6175,11 +6192,16 @@ class DetObj:
                         log.info(
                             f"Exception checking variance {variance[i]} vs continuum {continuum[i]}. but weight kept as too few to zero out.")
 
-            #remove any zero weights
+            #remove any zero weights (unless they are all zero)
             sel = np.where(weight==0)
-            continuum = np.delete(continuum,sel)
-            variance = np.delete(variance,sel)
-            weight = np.delete(weight,sel)
+
+            if np.count_nonzero(sel) != len(continuum):
+                continuum = np.delete(continuum,sel)
+                variance = np.delete(variance,sel)
+                weight = np.delete(weight,sel)
+            else:
+                #they are all zero weights, so the result would be zero, so need to change to all 1
+                weight = np.full(len(weight),1.0)
 
             #if more than 3, use weighted biweight to down play any outliers (even if lower variance)
             if len(continuum) > 2:

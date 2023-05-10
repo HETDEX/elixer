@@ -1,7 +1,7 @@
 """
 based on random_apertures.py, but uses previous determined coordinates rather than seeking new random apertures
 """
-COORD_ID = "ll_model" #"ll_1050"
+COORD_ID = None #"ll_model" #"ll_1050"
 SKY_RESIDUAL_FITS_PATH = None #"/scratch/03261/polonius/random_apertures/all_fibers/all/"
 #SKY_RESIDUAL_FITS_PREFIX = "fiber_summary_sym_bw_"
 SKY_RESIDUAL_FITS_PREFIX = "fiber_summary_asym_bw_"
@@ -93,8 +93,10 @@ else:
     print("using default 3.5\" aperture")
     aper = 3.5  # 3.5" aperture
 
-
-table_outname = f"coord_apertures_{COORD_ID}_" + str(shotid) + ".fits"
+if COORD_ID is not None:
+    table_outname = f"coord_apertures_{COORD_ID}_" + str(shotid) + ".fits"
+else:
+    table_outname = f"coord_apertures_" + str(shotid) + ".fits"
 
 #maybe this one was already done?
 if op.exists(table_outname):
