@@ -2232,13 +2232,14 @@ def quick_linescore(snr, chi2, sigma, ew, data_side_aa=40.0):
         else:
             s_mult = 1.0
 
+
         # return 5.0 * snr / np.sqrt(2 * sigma) \
         #        - 1.0 * max(0.1, chi2) \
         #        + 1.0 * abs(min(200, ew) / np.sqrt(2 * sigma) / 100.0)
 
         return w_mult * s_mult * ( \
-             (5.0 * snr)  \
-           - (1.0 * max(0.1, chi2)) \
+             (5.0 * min(15.0,snr))  \
+           - (max(0.5, chi2)**2) \
            + (1.0 * abs(min(200, ew) / 100.0)) \
               )
     except:

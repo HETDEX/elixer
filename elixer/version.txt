@@ -4,6 +4,8 @@ changes to elixer by version
 * in combine_continuum, use the IFU computed HETDEX glimit rather than the global average estimate of 24.5
   + limit low depth (g <= 24) imaging weights for aperture mags at limit, consider non-detects
 * change default P(LyA) thresholds from 0.5,0.6,0.4 to 0.5,0.4,0.3
+* adjusted spectrum_utilities quick_score to limit max considered SNR; was allowing overly broad fit with high SNR where
+  chi2 was poor
 
 1.19.0 [2023-05-02]
 * Fix to 1.19.0 for HDR 3.0.3 run
