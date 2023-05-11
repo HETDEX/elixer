@@ -7718,7 +7718,7 @@ class DetObj:
             if self.sky_subtraction_residual is None:
                 fiber_flux_offset = None
             else:
-                fiber_flux_offset = -1 * self.sky_subtraction_residual
+                fiber_flux_offset = -1 * SU.adjust_fiber_correction_by_seeing(self.sky_subtraction_residual,self.survey_fwhm)
 
             apt = hda_get_spectra(coord, survey=f"hdr{G.HDR_Version}", shotid=self.survey_shotid,
                                   ffsky=self.extraction_ffsky, multiprocess=G.GET_SPECTRA_MULTIPROCESS, rad=aper,
@@ -7812,7 +7812,7 @@ class DetObj:
             if self.sky_subtraction_residual is None:
                 fiber_flux_offset = None
             else:
-                fiber_flux_offset = -1 * self.sky_subtraction_residual
+                fiber_flux_offset = -1 * SU.adjust_fiber_correction_by_seeing(self.sky_subtraction_residual,self.survey_fwhm)
             #     if G.ELIXER_SPECIAL & 2:
             #         fiber_flux_offset = None
             #     else:

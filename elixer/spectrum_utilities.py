@@ -2659,8 +2659,44 @@ def combo_fit_wave(peak_func,values,errors,wavelengths,central,wave_slop_kms=500
     return return_dict
 
 
+def adjust_fiber_correction_by_seeing(fiber_fluxd, seeing):
+    """
+    returns the updated fiber fluxd spectrum
 
-def fetch_per_shot_single_fiber_sky_subtraction_residual(path,shotid,column,prefix=None):
+    :param fiber_fluxd: observed frame fiber fluxd correction spectrum in 1e-17 erg/s/cm2/AA units
+    :param seeing: seeing FWHM for the shot
+    :return:
+    """
+
+    # see notebooks/hdr303_depth_vs_seeing for source of the -3/7 slope
+    # for 1.5" to 3.0" this slope is very accurate; for seeing better than 1.5" (fiber width) the slope gets more negative
+    # but here we're just adopting the single value
+    # The basline at 1.7" is the "average" seeing, so that is our nominal correction.
+
+    #aperture_to_fiber_scale = 7.5
+    baseline_seeing = 1.7 #arcsec
+    baseline_slope = -3./7.
+
+    def adj_model(seeing):
+        #model_depth = seeing * (-3. / 7.) + 25.75  # middle of the y_err
+        #baseline_depth = 1.7 * (-3./7.) + 25.75  #middle of the y_err
+        #return 1./aperture_to_fiber_scale * (1.- 10**(0.4*(seeing-baseline_seeing)*baseline_slope))
+        #return 1. / aperture_to_fiber_scale * (10 ** (-0.4 * (seeing - baseline_seeing) * baseline_slope) - 1.0)
+
+        return 10**(0.4 * baseline_slope * (baseline_seeing - seeing) )
+
+    try:
+        if seeing is None:
+            log.debug("Seeing FWHM provided to adjust_fiber_correction_by_seeing() is None.")
+            return fiber_fluxd
+
+        return fiber_fluxd * adj_model(seeing)
+
+    except:
+        log.warning("Exception adjusting per fiber correction by seeing.",exc_info=True)
+        return fiber_fluxd
+
+def fetch_per_shot_single_fiber_sky_subtraction_residual(path,shotid,column,prefix=None,seeing=None):
     """
     in this version (for testing) all the residual fits files are in one place, with each holding one row for the shot
     only returns the residual ... not the error
@@ -2672,6 +2708,8 @@ def fetch_per_shot_single_fiber_sky_subtraction_residual(path,shotid,column,pref
     :param path:
     :param shotid:
     :param column:
+    :param prefix:
+    :param seeing: seeing FWHM ... if present, adjust the fiber residual based on the seeing
     :return: residual
     """
 
@@ -2707,7 +2745,7 @@ def fetch_per_shot_single_fiber_sky_subtraction_residual(path,shotid,column,pref
         return None
     return None
 
-def fetch_universal_single_fiber_sky_subtraction_residual(ffsky=False,hdr=G.HDR_Version):
+def fetch_universal_single_fiber_sky_subtraction_residual(ffsky=False,hdr=G.HDR_Version,seeing=None):
     """
 
         This is applied with the call to HETDEX_API get_spectra() and, as such, this needs to be in:
@@ -2717,6 +2755,7 @@ def fetch_universal_single_fiber_sky_subtraction_residual(ffsky=False,hdr=G.HDR_
 
     :param ffsky:
     :param hdr:
+    :param seeing:  if present, adjust the fiber residual based on the seeing
     :return:
     """
 
