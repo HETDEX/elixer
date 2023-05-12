@@ -854,6 +854,7 @@ HETDEX_RED_SAFE_WAVE = 5400.0 #index 965
 SDSS_G_FILTER_BLUE = 3900.0
 SDSS_G_FILTER_RED = 5400.0
 DEX_G_EFF_LAM = 4726.1 #HSC-2017-g (4843.7) sdss-2010-g (4726.1), other reports SDSS as 4770 or 4640;
+DEX_G_EFF_LAM_IDX = 628 #index into CALFIB_WAVEGIRD that is closest to effective lam, that index = 4726AA
 #if both below are TRUE and both good, the mean is used; if only one that that one is used
 USE_HETDEX_SPEC_GMAG = True #allow calculation of gmag from the HETDEX spectrum directly (spectrum::get_hetdex_gmag())
 USE_SDSS_SPEC_GMAG = True #allow calcuation of gmag via SDSS filter (spectrum::get_sdss_gmag()
