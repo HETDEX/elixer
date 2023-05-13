@@ -179,10 +179,10 @@ response = float(survey_table['response_4540'][sel])
 
 del survey_table
 
-elix_h5  = tables.open_file("/scratch/03946/hetdex/hdr3/detect/elixer.h5")
-dex_ra = elix_h5.root.Detections.read(field='ra')
-dex_dec = elix_h5.root.Detections.read(field='dec')
-elix_h5.close()
+# elix_h5  = tables.open_file("/scratch/03946/hetdex/hdr3/detect/elixer.h5")
+# dex_ra = elix_h5.root.Detections.read(field='ra')
+# dex_dec = elix_h5.root.Detections.read(field='dec')
+# elix_h5.close()
 
 
 for ra,dec,shotid in zip(coord_ra,coord_dec,coord_shot):
@@ -214,10 +214,10 @@ for ra,dec,shotid in zip(coord_ra,coord_dec,coord_shot):
         fiber_weights = apt['fiber_weights'][0]  # as array of ra,dec,weight
 
 
-        ftb = get_fibers_table(self.survey_shotid, coord,
-                                   radius=self.extraction_aperture * U.arcsec,
+        ftb = get_fibers_table(shot, coord,
+                                   radius=aper,
                                    # radius=60.0 * U.arcsec,
-                                   survey=f"hdr{G.HDR_Version}")
+                                   survey=survey_name)
 
 
         #match up with the weights
@@ -228,7 +228,7 @@ for ra,dec,shotid in zip(coord_ra,coord_dec,coord_shot):
                               (abs(fiber_weights[:, 1] - row['dec']) < 0.00003))[0]
 
             if len(fw_idx) == 1:
-                ftb_weights.append(fiber_weights[fw_idx, 2])
+                ftb_weights.append(fiber_weights[fw_idx, 2][0])
 
         w_idx = np.argsort(ftb_weights)[::-1] #want decending order, so 1st is the highest weight from ftb
 
@@ -244,7 +244,7 @@ for ra,dec,shotid in zip(coord_ra,coord_dec,coord_shot):
 
         #just for consistencey with other tables
         dex_g = 99.0
-        deg_g_err = 0
+        dex_g_err = 0
 
 
         # check for any emission lines ... simple scan? or should we user elixer's method?

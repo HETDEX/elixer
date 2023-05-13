@@ -179,10 +179,10 @@ response = float(survey_table['response_4540'][sel])
 
 del survey_table
 
-elix_h5  = tables.open_file("/scratch/03946/hetdex/hdr3/detect/elixer.h5")
-dex_ra = elix_h5.root.Detections.read(field='ra')
-dex_dec = elix_h5.root.Detections.read(field='dec')
-elix_h5.close()
+# elix_h5  = tables.open_file("/scratch/03946/hetdex/hdr3/detect/elixer.h5")
+# dex_ra = elix_h5.root.Detections.read(field='ra')
+# dex_dec = elix_h5.root.Detections.read(field='dec')
+# elix_h5.close()
 
 
 for ra,dec,shotid in zip(coord_ra,coord_dec,coord_shot):
@@ -218,7 +218,7 @@ for ra,dec,shotid in zip(coord_ra,coord_dec,coord_shot):
 
         if g is None or np.isnan(g):
             dex_g = 99.0
-            deg_g_err = 0
+            dex_g_err = 0
         else:
             dex_g = g
             dex_g_err = ge
