@@ -1,12 +1,13 @@
 """
 based on random_apertures.py, but uses previous determined coordinates rather than seeking new random apertures
+... saves off the FIBER spectra in the aperture, not the PSF weighted spectrum
 """
 COORD_ID = None #"ll_model" #"ll_1050"
 SKY_RESIDUAL_FITS_PATH = None #"/scratch/03261/polonius/random_apertures/all_fibers/all/"
 #SKY_RESIDUAL_FITS_PREFIX = "fiber_summary_sym_bw_"
-SKY_RESIDUAL_FITS_PREFIX = "fiber_summary_asym_bw_"
-SKY_RESIDUAL_FITS_COL = "ll_stack_050"
-
+SKY_RESIDUAL_FITS_PREFIX = None #"fiber_summary_asym_bw_"
+SKY_RESIDUAL_FITS_COL = None#"ll_stack_050"
+NUM_TOP_FIBERS = 3
 
 import sys
 import os.path as op
@@ -87,7 +88,6 @@ else:
     print("NO dust correction")
     dust = False
 
-
 if "--aper" in args:
     i = args.index("--aper")
     try:
@@ -101,9 +101,9 @@ else:
     aper = 3.5  # 3.5" aperture
 
 if COORD_ID is not None:
-    table_outname = f"coord_apertures_{COORD_ID}_" + str(shotid) + ".fits"
+    table_outname = f"coord_fibers_{COORD_ID}_" + str(shotid) + ".fits"
 else:
-    table_outname = f"coord_apertures_" + str(shotid) + ".fits"
+    table_outname = f"coord_fibers_" + str(shotid) + ".fits"
 
 #maybe this one was already done?
 if op.exists(table_outname):
@@ -162,7 +162,7 @@ survey_table=survey.return_astropy_table()
 ##
 ## iterate over the random fibers, verify is NOT on a bad amp, nudge the coordinate and extract
 ##
-aper_ct = 0
+#aper_ct = 0
 write_every = 100
 
 T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int), ('ffsky',bool),
@@ -193,7 +193,7 @@ for ra,dec,shotid in zip(coord_ra,coord_dec,coord_shot):
         apt = get_spectra(coord, survey=survey_name, shotid=shot,
                           ffsky=ffsky, multiprocess=True, rad=aper,
                           tpmin=0.0, fiberweights=True, loglevel="ERROR",
-                          fiber_flux_offset = fiber_flux_offset)  # don't need the fiber weights
+                          fiber_flux_offset = fiber_flux_offset)  # DO want the weights here
 
 
         # fluxd = np.nan_to_num(apt['spec'][0]) * 1e-17
@@ -203,47 +203,84 @@ for ra,dec,shotid in zip(coord_ra,coord_dec,coord_shot):
         fluxd_err = np.array(apt['spec_err'][0]) * 1e-17
         wavelength = np.array(apt['wavelength'][0])
 
+        #the per fiber correction, since a common spectrum is wanted, cannot be made with dust correction that
+        #depends on the RA, Dec
         if dust:
             dust_corr = deredden_spectra(wavelength, coord)
             fluxd *= dust_corr
             fluxd_err *= dust_corr
 
+        #want the top xxx fibers by weight
+        fiber_weights = apt['fiber_weights'][0]  # as array of ra,dec,weight
+
+
+        ftb = get_fibers_table(self.survey_shotid, coord,
+                                   radius=self.extraction_aperture * U.arcsec,
+                                   # radius=60.0 * U.arcsec,
+                                   survey=f"hdr{G.HDR_Version}")
+
+
+        #match up with the weights
+        ftb_weights = [] #has the weights matched to the order of fibers in ftb
+        for row in ftb:
+
+            fw_idx = np.where((abs(fiber_weights[:, 0] - row['ra']) < 0.00003) &
+                              (abs(fiber_weights[:, 1] - row['dec']) < 0.00003))[0]
+
+            if len(fw_idx) == 1:
+                ftb_weights.append(fiber_weights[fw_idx, 2])
+
+        w_idx = np.argsort(ftb_weights)[::-1] #want decending order, so 1st is the highest weight from ftb
+
+
+
         ##
         ## check the extracted spectrum for evidence of continuum or emission lines
         ##
 
-        g, c, ge, ce = elixer_spectrum.get_hetdex_gmag(fluxd, wavelength, fluxd_err)
-        dex_cont = c
-        dex_cont_err = ce
+        # g, c, ge, ce = elixer_spectrum.get_hetdex_gmag(fluxd, wavelength, fluxd_err)
+        # dex_cont = c
+        # dex_cont_err = ce
 
-        if g is None or np.isnan(g):
-            dex_g = 99.0
-            deg_g_err = 0
-        else:
-            dex_g = g
-            dex_g_err = ge
+        #just for consistencey with other tables
+        dex_g = 99.0
+        deg_g_err = 0
+
 
         # check for any emission lines ... simple scan? or should we user elixer's method?
         #2022-12-09 should re-run and use this with fluxd*2.0 since that is how it is calibrated
-        pos, status = elixer_spectrum.sn_peakdet_no_fit(wavelength, fluxd*2.0, fluxd_err*2.0, dx=3, dv=3, dvmx=4.0,
-                                                        absorber=False,
-                                                        spec_obj=None, return_status=True)
-        if status != 0:
-            continue  # some failure or 1 or more possible lines
+        # pos, status = elixer_spectrum.sn_peakdet_no_fit(wavelength, fluxd*2.0, fluxd_err*2.0, dx=3, dv=3, dvmx=4.0,
+        #                                                 absorber=False,
+        #                                                 spec_obj=None, return_status=True)
+        # if status != 0:
+        #     continue  # some failure or 1 or more possible lines
 
-        f50, apcor = SU.get_fluxlimits(ra, dec, [3800.0, 5000.0], shot)
+        #f50, apcor = SU.get_fluxlimits(ra, dec, [3800.0, 5000.0], shot)
 
-        fluxd_sum = np.nansum(fluxd[215:966])
-        fluxd_sum_wide = np.nansum(fluxd[65:966])
-        fluxd_median = np.nanmedian(fluxd[215:966])
-        fluxd_median_wide = np.nanmedian(fluxd[65:966])
+        f50 = [np.nan,np.nan]
+        apcor = [np.nan,np.nan]
 
-        T.add_row([ra, dec, shotid, ffsky, seeing, response, apcor[1], f50[0], f50[1],
-                   dex_g, dex_g_err, dex_cont, dex_cont_err,
-                   fluxd_sum,fluxd_sum_wide,fluxd_median,fluxd_median_wide,
-                   fluxd, fluxd_err])
+        #get the top few:
+        for i in w_idx[0:NUM_TOP_FIBERS]:
+            ra = ftb[i]['ra']
+            dec = ftb[i]['dec']
+            if ffsky:
+                fluxd = ftb[i]['calfib_ffsky']
+            else:
+                fluxd = ftb[i]['calfib']
+            fluxd_err = ftb[i]['calfibe']
 
-        aper_ct += 1
+            fluxd_sum = np.nansum(fluxd[215:966])
+            fluxd_sum_wide = np.nansum(fluxd[65:966])
+            fluxd_median = np.nanmedian(fluxd[215:966])
+            fluxd_median_wide = np.nanmedian(fluxd[65:966])
+
+            T.add_row([ra, dec, shotid, ffsky, seeing, response, apcor[1], f50[0], f50[1],
+                       dex_g, dex_g_err, dex_cont, dex_cont_err,
+                       fluxd_sum,fluxd_sum_wide,fluxd_median,fluxd_median_wide,
+                       fluxd, fluxd_err])
+
+        #aper_ct += 1
 
     except Exception as e:
         print("Exception (2) !", e)

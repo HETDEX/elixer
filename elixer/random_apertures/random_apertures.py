@@ -61,6 +61,15 @@ else:
     ffsky = False
 
 
+
+if "--dust" in args:
+    print("applying dust correction")
+    dust = True
+else:
+    print("NO dust correction")
+    dust = False
+
+
 if "--aper" in args:
     i = args.index("--aper")
     try:
@@ -216,9 +225,10 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
         fluxd_err = np.array(apt['spec_err'][0]) * 1e-17
         wavelength = np.array(apt['wavelength'][0])
 
-        dust_corr = deredden_spectra(wavelength, coord)
-        fluxd *= dust_corr
-        fluxd_err *= dust_corr
+        if dust:
+            dust_corr = deredden_spectra(wavelength, coord)
+            fluxd *= dust_corr
+            fluxd_err *= dust_corr
 
         ##
         ## check the extracted spectrum for evidence of continuum or emission lines
