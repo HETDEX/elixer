@@ -86,7 +86,6 @@ if "--dust" in args:
     dust = True
 else:
     print("NO dust correction")
-    dust = False
 
 if "--aper" in args:
     i = args.index("--aper")
@@ -239,8 +238,8 @@ for ra,dec,shotid in zip(coord_ra,coord_dec,coord_shot):
         ##
 
         # g, c, ge, ce = elixer_spectrum.get_hetdex_gmag(fluxd, wavelength, fluxd_err)
-        # dex_cont = c
-        # dex_cont_err = ce
+        dex_cont = -999
+        dex_cont_err = 0
 
         #just for consistencey with other tables
         dex_g = 99.0
