@@ -2682,7 +2682,6 @@ def adjust_fiber_correction_by_seeing(fiber_fluxd, seeing):
         #baseline_depth = 1.7 * (-3./7.) + 25.75  #middle of the y_err
         #return 1./aperture_to_fiber_scale * (1.- 10**(0.4*(seeing-baseline_seeing)*baseline_slope))
         #return 1. / aperture_to_fiber_scale * (10 ** (-0.4 * (seeing - baseline_seeing) * baseline_slope) - 1.0)
-        #todo: should this be a multiplicative? (which hits the blue end harder) or just a shift up/down?
         return 10**(0.4 * baseline_slope * (baseline_seeing - seeing) )
 
     try:
@@ -2690,11 +2689,12 @@ def adjust_fiber_correction_by_seeing(fiber_fluxd, seeing):
             log.debug("Seeing FWHM provided to adjust_fiber_correction_by_seeing() is None.")
             return fiber_fluxd
 
-        #return fiber_fluxd * adj_model(seeing)
+        #multiplicative
+        return fiber_fluxd * adj_model(seeing)
         #or as an additive
-        idx,*_ = getnearpos(G.CALFIB_WAVEGRID,G.DEX_G_EFF_LAM)
-        shift = fiber_fluxd[idx] * (adj_model(seeing) -1.0)
-        return fiber_fluxd + shift
+        # idx,*_ = getnearpos(G.CALFIB_WAVEGRID,G.DEX_G_EFF_LAM)
+        # shift = fiber_fluxd[idx] * (adj_model(seeing) -1.0)
+        # return fiber_fluxd + shift
 
     except:
         log.warning("Exception adjusting per fiber correction by seeing.",exc_info=True)
