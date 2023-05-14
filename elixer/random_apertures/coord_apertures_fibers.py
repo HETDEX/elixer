@@ -7,7 +7,8 @@ SKY_RESIDUAL_FITS_PATH = None #"/scratch/03261/polonius/random_apertures/all_fib
 #SKY_RESIDUAL_FITS_PREFIX = "fiber_summary_sym_bw_"
 SKY_RESIDUAL_FITS_PREFIX = None #"fiber_summary_asym_bw_"
 SKY_RESIDUAL_FITS_COL = None#"ll_stack_050"
-NUM_TOP_FIBERS = 3
+NUM_TOP_FIBERS = 1 #for 2020 with 3 fibers, ends up being about 700k spectra to stack ... barely enough memory
+                   #on the laptop to do that, if close everything else
 
 import sys
 import os.path as op
