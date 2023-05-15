@@ -87,6 +87,7 @@ if "--dust" in args:
     dust = True
 else:
     print("NO dust correction")
+    dust = False
 
 if "--aper" in args:
     i = args.index("--aper")
@@ -172,6 +173,7 @@ T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int), ('ffsky',bool),
                  ('fluxd_sum',float),('fluxd_sum_wide',float),('fluxd_median',float),('fluxd_median_wide',float),
                  ('fluxd', (float, len(G.CALFIB_WAVEGRID))),
                  ('fluxd_err', (float, len(G.CALFIB_WAVEGRID)))])
+                 #('flux_mul', (float, len(G.CALFIB_WAVEGRID)))])
 
 sel = np.array(survey_table['shotid'] == shotid)
 seeing = float(survey_table['fwhm_virus'][sel])
@@ -199,16 +201,17 @@ for ra,dec,shotid in zip(coord_ra,coord_dec,coord_shot):
         # fluxd = np.nan_to_num(apt['spec'][0]) * 1e-17
         # fluxd_err = np.nan_to_num(apt['spec_err'][0]) * 1e-17
         # lets leave the nans in place
-        fluxd = np.array(apt['spec'][0]) * 1e-17
-        fluxd_err = np.array(apt['spec_err'][0]) * 1e-17
+        psf_fluxd = np.array(apt['spec'][0]) #* 1e-17
+        psf_fluxd_err = np.array(apt['spec_err'][0]) #* 1e-17
         wavelength = np.array(apt['wavelength'][0])
 
         #the per fiber correction, since a common spectrum is wanted, cannot be made with dust correction that
         #depends on the RA, Dec
         if dust:
             dust_corr = deredden_spectra(wavelength, coord)
-            fluxd *= dust_corr
-            fluxd_err *= dust_corr
+            psf_fluxd *= dust_corr
+            psf_fluxd_err *= dust_corr
+
 
         #want the top xxx fibers by weight
         fiber_weights = apt['fiber_weights'][0]  # as array of ra,dec,weight
@@ -246,6 +249,32 @@ for ra,dec,shotid in zip(coord_ra,coord_dec,coord_shot):
         dex_g = 99.0
         dex_g_err = 0
 
+        #what is the multiplicative uplift from fiber to PSF weighted aperture
+        # ... this is just too noisy on a per extration basis
+        if False:
+            deg = 6
+            psel = np.full(len(G.CALFIB_WAVEGRID), False)
+            psel[30:1005] = True
+            psel = psel & ~np.isnan(psf_fluxd)
+            psel = psel & ~np.isinf(psf_fluxd)
+
+            psf_poly = np.polyfit(G.CALFIB_WAVEGRID[psel], psf_fluxd[psel], deg=deg)
+            psf_model = np.polyval(psf_poly, G.CALFIB_WAVEGRID)
+
+            if ffsky:
+                avg_fib_fluxd = np.nanmedian(ftb['calfib_ffsky'],axis=0)
+            else:
+                avg_fib_fluxd = np.nanmedian(ftb['calfib'],axis=0)
+
+            psel = np.full(len(G.CALFIB_WAVEGRID), False)
+            psel[30:1005] = True
+            psel = psel & ~np.isnan(avg_fib_fluxd)
+            psel = psel & ~np.isinf(avg_fib_fluxd)
+
+            fib_poly = np.polyfit(G.CALFIB_WAVEGRID[psel], avg_fib_fluxd[psel], deg=deg)
+            fib_model = np.polyval(fib_poly, G.CALFIB_WAVEGRID)
+
+            flux_mul = psf_model / fib_model
 
         # check for any emission lines ... simple scan? or should we user elixer's method?
         #2022-12-09 should re-run and use this with fluxd*2.0 since that is how it is calibrated

@@ -252,7 +252,7 @@ def get_fluxlimits(ra,dec,wave,datevobs,sncut=4.8,flim_model=None,ffsky=False,ra
         return None, None
 
 
-def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640.,aper=3.5,ifu_fibid = None,
+def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=G.DEX_G_EFF_LAM,aper=3.5,ifu_fibid = None,
                      central_fiber=None, detectid=None):
     """
     calcuate an approximage gband mag limit for THIS set of calfibs (e.g. typically one IFU for one shot)
@@ -366,12 +366,14 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640
         #mean_of_means = np.mean(np.mean(all_calfib,axis=0)) #should be the same as the full mean
 
         #want the mean of the means of the fibers (each fiber gets its own mean and then we want the mean and the std of those)
-        fiber_means = np.nanmean(all_calfib,axis=1) / 2.0 #!! don't forget the 2.0 !! these are fluxes in 2AA bins, need flux densities
+        fiber_avg = np.nanmean(all_calfib,axis=1) / 2.0 #!! don't forget the 2.0 !! these are fluxes in 2AA bins, need flux densities
+        mean_of_fiber_means = np.nanmean(fiber_avg)
+        std_of_fiber_means = np.nanstd(fiber_avg)
+
         #fiber_mean_errors = np.nanmean(np.sqrt(all_calfibe * all_calfibe),axis=1)/2.0
-        mean_of_fiber_means = np.nanmean(fiber_means)
-        std_of_fiber_means = np.nanstd(fiber_means)
-        #mean_of_fiber_errors = np.nanmean(fiber_mean_errors)
-        #std_of_fiber_errors = np.nanstd(fiber_mean_errors)
+        # fiber_error_means = np.nanmean(all_calfibe, axis=1) / 2.0
+        # mean_of_fiber_errors = np.nanmean(fiber_error_means)
+        # std_of_fiber_errors = np.nanstd(fiber_error_means)
 
         if abs(mean_of_fiber_means > 0.1): # 0.05 ~25.01 g, 0.075 ~ 24.57, 0.08 ~ 24.50g, 0.10 ~24.26
             # #would be same as straight mean of all wavelength bin fluxes
@@ -442,6 +444,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=4640
 
         #this is sort of a best case ... if the object is faint and not near the center of a fiber, it can be more
         #difficult to detect
+        #basically assuming a 0 flux measure + std_of_fiber_means (which assumes MOST of the fibers are "empty")
         limit = cgs2mag(psf_corr * std_of_fiber_means * 1e-17, wavelength)
 
         if limit is None or np.isnan(limit):
