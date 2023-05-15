@@ -7,6 +7,7 @@ changes to elixer by version
 * adjusted spectrum_utilities quick_score to limit max considered SNR; was allowing overly broad fit with high SNR where
   chi2 was poor
 * tweak the estimated g-limit just a bit to use the HETDEX effective lambda (4726) instead of 4640AA
+* added another trigger for DETFLAG_QUESTIONABLE_DETECTION ... if 3rd fiber is unusually brighter than 1st fiber
 
 1.19.0 [2023-05-02]
 * Fix to 1.19.0 for HDR 3.0.3 run

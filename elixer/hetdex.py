@@ -13402,8 +13402,10 @@ class HETDEX:
                     gauss_vmin = datakeep['vmin1'][ind[i]]
                     gauss_vmax = datakeep['vmax1'][ind[i]]
 
+                    #pix_image = pixel_flat ... should usually be all near 1.0
                     pix_image = datakeep['pix'][ind[i]]
                     #bad_pix_image = datakeep['pix'][ind[i]][:]
+                    #image = flux image
                     image = datakeep['im'][ind[i]]  # im can be the cosmic removed version, depends on G.PreferCosmicCleaned
                     bad_pix_value = -99999
 
@@ -13415,10 +13417,11 @@ class HETDEX:
                         if nonzero > 0 and float(nonzero)/float(len(flat)) > 0.5:
                             cy,cx = np.array(np.shape(pix_image))//2
                             #cntr = pix_image[cy - 1:cy + 2, cx - 2:cx + 3]  # center 3 high, 5 wide
-                            #cntr = pix_image[cy-2:cy+3,cx-2:cx+3]   #center 25
+                            #cntr25 = pix_image[cy-2:cy+3,cx-2:cx+3]   #center 25 of the pixel flat image
+                            #center 25 of the FLUX (not the pixel flat)
+                            detobj.fibers[len(detobj.fibers) - i - 1].cntr_flux_avg = np.nanmedian(image[cy-2:cy+3,cx-2:cx+3])
                             #cntr = pix_image[cy - 3:cy + 4, cx - 3:cx + 4]  # center 49
                             cntr = pix_image[cy - 1:cy + 2, cx - 1:cx + 2]  # center 9 (3x3)
-
                             # nan_pix_image = copy(pix_image) #makes no difference to 4 or 5 decimal places
                             # nan_pix_image[cy - 1:cy + 2, cx - 1:cx + 2] = np.nan
 
@@ -13745,6 +13748,41 @@ class HETDEX:
                 _,c = np.unique(top_pixels,return_counts=True)
                 # save that info for the classifier
                 detobj.num_duplicate_central_pixels = np.sum(c[np.where(c>1)])
+        except:
+            pass
+
+        #check for 3rd rank fiber providing too much flux
+        #the third fiber should NOT have more flux than 1st fiber or first two fibers,
+        #the treshold to trigger should be based on the relative weights
+        #i.e. for poor seeing where the PSF weighted center is between fibers, it is reasonable that all top 3 fibers
+        # could have similar flux (and similar weights)  BUT where the seeing is good and the center is inside the 1st
+        # fiber, we expect that 1st fiber to have the highest weight AND the most flux; the weights incorporate the position
+        # and the seeing already, so just ues the weights ... we expect the weighted fiber fluxes to be
+        # kind of similar and in rank order (fiber 1 * weight 1  >~  fiber 2 * weight 2 >~ fiber 3 * weight 3)
+        try:
+            if detobj.fibers[0].cntr_flux_avg < 0 and detobj.fibers[2].cntr_flux_avg > 0:
+                detobj.flags |= G.DETFLAG_QUESTIONABLE_DETECTION
+                log.info(f"[{detobj.id}] top fiber flux is negative and 3rd is positive. "
+                         f"Setting questionable detection flag.")
+            elif (detobj.fibers[0].cntr_flux_avg * detobj.fibers[0].relative_weight) < \
+                 (detobj.fibers[2].cntr_flux_avg * detobj.fibers[2].relative_weight):
+                detobj.flags |= G.DETFLAG_QUESTIONABLE_DETECTION # this would be a big problem
+                log.info(f"[{detobj.id}] weighted top fiber flux is less than 3rd fiber. "
+                         f"Setting questionable detection flag.")
+            elif (detobj.fibers[0].cntr_flux_avg / detobj.fibers[2].cntr_flux_avg) > 0 and \
+                 (detobj.fibers[0].cntr_flux_avg <  detobj.fibers[2].cntr_flux_avg) and \
+                 (detobj.fibers[0].cntr_flux_avg / detobj.fibers[2].cntr_flux_avg) < \
+                 (min(5.0, detobj.fibers[0].relative_weight / detobj.fibers[2].relative_weight)):
+                detobj.flags |= G.DETFLAG_QUESTIONABLE_DETECTION
+                log.info(f"[{detobj.id}] 1st/3rd fiber flux ratio is out of range."
+                         f"Setting questionable detection flag.")
+                # fill this in ... just < or maybe give some room??
+                # if this is a resolved object, the point source ratio of weights would not be correct
+                # if the ratio of fluxes is negative, this is also wrong, so require positive ratio on flux
+                # if weight 2 is super close to zero, the flux ratio might not be enough, so limit to 5.0x (though up to
+                # 10x is not super uncommon for great seeing and well fiber centered faint point source)
+
+
         except:
             pass
 
