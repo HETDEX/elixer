@@ -440,7 +440,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=G.DE
         radius_rat = effective_radius / 0.75 #single fiber radius
         area_rat = whole / inner
 
-        psf_corr = area_rat * radius_rat * gaps_correction
+        psf_corr = area_rat * radius_rat / gaps_correction
 
         #this is sort of a best case ... if the object is faint and not near the center of a fiber, it can be more
         #difficult to detect
