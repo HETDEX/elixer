@@ -175,7 +175,9 @@ T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
                  ('dex_g',float),('dex_g_err',float),('dex_cont',float),('dex_cont_err',float),
                  ('fluxd_sum',float),('fluxd_sum_wide',float),('fluxd_median',float),('fluxd_median_wide',float),
                  ('fluxd', (float, len(G.CALFIB_WAVEGRID))),
-                 ('fluxd_err', (float, len(G.CALFIB_WAVEGRID)))])
+                 ('fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('fiber_weights',(float,32)),
+                 ('fiber_weights_norm',(float,32))])
 
 sel = np.array(survey_table['shotid'] == shotid)
 seeing = float(survey_table['fwhm_virus'][sel])
@@ -217,6 +219,7 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
                 continue  # too few fibers, probably on the edge or has dead fibers
         except Exception as e:
             continue
+
 
         # fluxd = np.nan_to_num(apt['spec'][0]) * 1e-17
         # fluxd_err = np.nan_to_num(apt['spec_err'][0]) * 1e-17
@@ -296,6 +299,11 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
         if fail:
             continue
 
+        fiber_weights = sorted(apt['fiber_weights'][0][:,2])[::-1]
+        norm_weights = fiber_weights/np.sum(fiber_weights)
+        fiber_weights = np.pad(fiber_weights,(0,32-len(fiber_weights)))
+        norm_weights = np.pad(norm_weights, (0, 32 - len(norm_weights)))
+
         f50, apcor = SU.get_fluxlimits(ra, dec, [3800.0, 5000.0], shot)
 
         # FUTURE/OPTIONAL: Should we check the imaging?? run a cutout and SEP check and only accept if nothing found?
@@ -316,7 +324,7 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
         T.add_row([ra, dec, shotid, seeing, response, apcor[1], f50[0], f50[1],
                    dex_g, dex_g_err, dex_cont, dex_cont_err,
                    fluxd_sum,fluxd_sum_wide,fluxd_median,fluxd_median_wide,
-                   fluxd, fluxd_err])
+                   fluxd, fluxd_err,fiber_weights,norm_weights])
 
         aper_ct += 1
 

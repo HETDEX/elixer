@@ -171,7 +171,9 @@ T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int), ('ffsky',bool),
                  ('dex_g',float),('dex_g_err',float),('dex_cont',float),('dex_cont_err',float),
                  ('fluxd_sum',float),('fluxd_sum_wide',float),('fluxd_median',float),('fluxd_median_wide',float),
                  ('fluxd', (float, len(G.CALFIB_WAVEGRID))),
-                 ('fluxd_err', (float, len(G.CALFIB_WAVEGRID)))])
+                 ('fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('fiber_weights',(float,32)),
+                 ('fiber_weights_norm',(float,32))])
 
 sel = np.array(survey_table['shotid'] == shotid)
 seeing = float(survey_table['fwhm_virus'][sel])
@@ -231,6 +233,13 @@ for ra,dec,shotid in zip(coord_ra,coord_dec,coord_shot):
         if status != 0:
             continue  # some failure or 1 or more possible lines
 
+        fiber_weights = sorted(apt['fiber_weights'][0][:,2])[::-1]
+        norm_weights = fiber_weights / np.sum(fiber_weights)
+
+        fiber_weights = np.pad(fiber_weights,(0,32-len(fiber_weights)))
+        norm_weights = np.pad(norm_weights, (0, 32 - len(norm_weights)))
+
+
         f50, apcor = SU.get_fluxlimits(ra, dec, [3800.0, 5000.0], shot)
 
         fluxd_sum = np.nansum(fluxd[215:966])
@@ -241,7 +250,7 @@ for ra,dec,shotid in zip(coord_ra,coord_dec,coord_shot):
         T.add_row([ra, dec, shotid, ffsky, seeing, response, apcor[1], f50[0], f50[1],
                    dex_g, dex_g_err, dex_cont, dex_cont_err,
                    fluxd_sum,fluxd_sum_wide,fluxd_median,fluxd_median_wide,
-                   fluxd, fluxd_err])
+                   fluxd, fluxd_err,fiber_weights,norm_weights])
 
         aper_ct += 1
 

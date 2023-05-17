@@ -280,7 +280,7 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=G.DE
         # min_std_of_fiber_means = 0.003 #e-17 ... leads to mag limits 26 and fainter; see these with large objects in the IFU
         # can still push down the error ... I think it squelces variation in the IFU
         # maybe an issue with the calibration?
-        min_mean_calfibe = 0.055  # e-17 like above, large object squelces the error? ... this is a bit of a guess not sure it makes sense
+        min_mean_calfibe = 0.055  # e-17 like above, large object squelches the error? ... this is a bit of a guess not sure it makes sense
 
         edge = False
         try:
@@ -3027,7 +3027,55 @@ def get_psf_fixed_side(shot_fwhm,ap_radius,side,scale=0.25,normalize=True):
 
     return psf
 
-def apply_psf(spec,err,coord,shotid,fwhm,radius=3.0,ffsky=True,hdrversion="hdr2.1"):
+
+def fiber_to_psf(seeing_fwhm,box_size=10.5,step_arcsec=0.25,num_fibers = 22):
+    """
+    Assumes we are centered on the center most fiber in the center of an ideal IFU.
+
+    :return:
+    """
+
+    try:
+        spec = np.full((num_fibers, 1036), 1.0)
+        err = np.full((num_fibers, 1036), 1.0)
+        mask = np.full((num_fibers, 1036), True)
+
+        ifux = [2.54, 0.00, -2.54, 1.27,
+                -1.27, 2.54, 0.00, -2.54,
+                1.27, -1.27, 2.54, 0.00,
+                -2.54, 1.27, -1.27, 1.27,
+                -1.27, 2.54, 0.00, -2.54,
+                1.27, -1.27]
+        ifuy = [2.20, 2.20, 2.20, 0.00,
+                0.00, -2.20, -2.20, -2.20,
+                2.93, 2.93, 0.73, 0.73,
+                0.73, -1.47, -1.47, 1.47,
+                1.47, -0.73, -0.73, -0.73,
+                -2.93, -2.93]
+        xc = 0
+        yc = 0
+
+        spectrum_conv_psf = None
+        error_conv_psf = None
+
+        E = Extract()
+
+        # data = np.full(fiber_data.shape,spec)
+        # error = np.full(fiber_data.shape,err)
+
+        moffat = E.moffat_psf(seeing_fwhm, box_size, step_arcsec)
+        weights = E.build_weights(xc, yc, ifux, ifuy, moffat)
+        result = E.get_spectrum(spec, err, mask, weights)
+
+        spectrum_conv_psf, error_conv_psf = [res for res in result]
+
+        return np.nanmean(spectrum_conv_psf)
+    except:
+        log.error(f"Exception computing fiber to PSF weighted aperture multiplier.",exc_info=True)
+        return None
+
+
+def apply_psf(spec,err,coord,shotid,fwhm,radius=3.5,ffsky=True,hdrversion=G.HDR_Version):
     """
     Apply the shot specific PSF to the provided spec and error.
 
@@ -3051,7 +3099,7 @@ def apply_psf(spec,err,coord,shotid,fwhm,radius=3.0,ffsky=True,hdrversion="hdr2.
         E = Extract()
 
         if radius == None or radius <= 0:
-            radius = 3.0
+            radius = 3.5
 
         E.load_shot(shotid, fibers=True, survey=hdrversion)
 
