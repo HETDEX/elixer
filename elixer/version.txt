@@ -8,6 +8,9 @@ changes to elixer by version
   chi2 was poor
 * tweak the estimated g-limit just a bit to use the HETDEX effective lambda (4726) instead of 4640AA
 * added another trigger for DETFLAG_QUESTIONABLE_DETECTION ... if 3rd fiber is unusually brighter than 1st fiber
+* fix issue with Gaussin line fit parameters when ELiXer performs the fit. The y-level was input as the continuum (a
+  flux density) but when plotting they can be in 2AA wide bins so, as shown appears to be off by a factor of 2. Corrected
+  the parameter for y to be in the same binning.
 
 1.19.0 [2023-05-02]
 * Fix to 1.19.0 for HDR 3.0.3 run
