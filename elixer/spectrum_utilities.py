@@ -495,7 +495,11 @@ def get_bary_corr(shotid, units='km/s'):
     #global the_Survey
     try:
         if G.the_Survey is None:
-            G.the_Survey = hda_survey.Survey(G.HETDEX_API_CONFIG.LATEST_HDR_NAME) #make G.survey
+            try:
+                G.the_Survey = hda_survey.Survey(f"hdr{G.HDR_Version}")
+            except:
+                log.error(f"Failed to collect Survey object for: hdr{G.HDR_Version}",exc_info=True)
+                G.the_Survey = hda_survey.Survey(G.HETDEX_API_CONFIG.LATEST_HDR_NAME)  # make G.survey
 
         sel_shot = np.array(G.the_Survey.shotid == shotid)
         if np.count_nonzero(sel_shot) > 0:
@@ -601,6 +605,9 @@ def z_correction(z,w_obs,vcor=None,shotid=None):#,*args):
             if shotid is not None:
                 vcor = get_bary_corr(shotid)
                 # can come back as an array
+                if vcor is None:
+                    vcor = 0
+                    log.info(f"Warning! No velocity correction for {shotid}")
                 try:
                     vcor = vcor[0]
                 except:
@@ -2701,8 +2708,10 @@ def adjust_fiber_correction_by_seeing(fiber_fluxd, seeing):
             md = np.nanmedian(fiber_fluxd[left:right+1])
             shift = md * (adj_model(seeing) -1.0)
             return fiber_fluxd + shift
-        else: #fixed
-            return fiber_fluxd
+        elif G.ELIXER_SPECIAL == 30000:
+            return fiber_fluxd #fixed
+        else: #multiplicative ... seems best, but there is not a lot of difference between them IF a shifted baseline spectrum is used
+            return fiber_fluxd * adj_model(seeing)
 
 
     except:

@@ -7807,7 +7807,7 @@ class DetObj:
                     elif str(id)[2] == '8':
                         cat_type == 'broad'
 
-                    hda_detobj = hda_Detections(loadtable=False, searchable=False, catalog_type=cat_type,curated_version=None)
+                    hda_detobj = hda_Detections(survey=f"hdr{G.HDR_Version}",loadtable=False, searchable=False, catalog_type=cat_type,curated_version=None)
                     #note: reported flux and cont are the SAME as in the H5 ... just the spectra are /2AA
                     row = hda_detobj.get_detection_info(detectid_i=id, rawh5=False, verbose=False)[0]
                 except:

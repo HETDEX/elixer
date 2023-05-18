@@ -41,7 +41,7 @@ else:
 
 LAUNCH_PDF_VIEWER = None
 
-valid_HDR_Versions = [1,2,2.1,3,3.0]
+valid_HDR_Versions = [1,2,2.1,3,3.0,4,4.0]
 
 HDR_Version = "3" #"2.1"
 HDR_Version_float = 3.0

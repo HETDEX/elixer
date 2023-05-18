@@ -1,6 +1,6 @@
 changes to elixer by version
 
-1.20.0a1 [2023-05-10]
+1.20.0a1 [2023-05-18]
 * in combine_continuum, use the IFU computed HETDEX glimit rather than the global average estimate of 24.5
   + limit low depth (g <= 24) imaging weights for aperture mags at limit, consider non-detects
 * change default P(LyA) thresholds from 0.5,0.6,0.4 to 0.5,0.4,0.3
@@ -11,6 +11,8 @@ changes to elixer by version
 * fix issue with Gaussian line fit parameters when ELiXer performs the fit. The y-level was input as the continuum (a
   flux density) but when plotting they can be in 2AA wide bins so, as shown appears to be off by a factor of 2. Corrected
   the parameter for y to be in the same binning.
+* testing for HDR4
+
 
 1.19.0 [2023-05-02]
 * Fix to 1.19.0 for HDR 3.0.3 run
