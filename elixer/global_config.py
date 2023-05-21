@@ -1303,7 +1303,7 @@ SKY_RESIDUAL_FITS_PATH = None #"/scratch/03261/polonius/random_apertures/all_fib
 SKY_RESIDUAL_FITS_PREFIX = None #"fiber_summary_asym_bw_"
 SKY_RESIDUAL_FITS_COL  = None #"ll_stack_050"
 
-SKY_RESIDUAL_USE_MODEL = False #if True, use the model of the stack, if False, use the stack directly
+SKY_RESIDUAL_USE_MODEL = True #if True, use the model of the stack, if False, use the stack directly
 SKY_RESIDUAL_HDR3_LO_FLUXD = None
 SKY_RESIDUAL_HDR3_LO_FN = op.join(op.dirname(op.realpath(__file__)), "sky_subtraction_residuals/hdr3_local_sky_fiber_residual_model.txt")
 SKY_RESIDUAL_HDR3_FF_FLUXD = None
