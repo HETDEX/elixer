@@ -2689,8 +2689,9 @@ def adjust_fiber_correction_by_seeing(fiber_fluxd, seeing, adjust_type = 0):
     baseline_slope = -3./7.
 
     #7th deg polynomial fit, ... see hdr303_depth_vs_seeing.ipynb
-    poly7 = [-0.17629955, 1.49450884, -2.31860911, -15.94160631, 78.98427199, -146.10528007, 123.96121397, -14.46966303]
-
+    #poly7 = [-0.17629955, 1.49450884, -2.31860911, -15.94160631, 78.98427199, -146.10528007, 123.96121397, -14.46966303]
+    #degree 3 is accurate and does not behave oddly around 1" seeing (though it is unlikely we ever get that)
+    poly3 = [-0.33105551,  2.2871651 , -5.56681813, 29.34075907]
     def adj_model_linear(seeing):
         #model_depth = seeing * (-3. / 7.) + 25.75  # middle of the y_err
         #baseline_depth = 1.7 * (-3./7.) + 25.75  #middle of the y_err
@@ -2699,7 +2700,7 @@ def adjust_fiber_correction_by_seeing(fiber_fluxd, seeing, adjust_type = 0):
 
         return 10**(0.4 * baseline_slope * (baseline_seeing - seeing) )
 
-    def adj_model_poly(seeing,model=poly7):
+    def adj_model_poly(seeing,model=poly3):
         return 10**(0.4  * (np.polyval(poly7,baseline_seeing)- np.polyval(poly7,seeing)))
 
     try:

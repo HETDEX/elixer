@@ -2,7 +2,7 @@ changes to elixer by version
 
 
 1.20.0a2 [2023-05-22]
-* adjusted seeing fwhm translation model for per-fiber correction from linear to deg7 polynomial to fit the seeing less
+* adjusted seeing fwhm translation model for per-fiber correction from linear to deg3 polynomial to fit the seeing less
   than the fiber width
     + default adjustment is None (options available for None, multiplicative or additive)
 
