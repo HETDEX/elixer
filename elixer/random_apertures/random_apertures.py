@@ -177,7 +177,10 @@ T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
                  ('fluxd', (float, len(G.CALFIB_WAVEGRID))),
                  ('fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
                  ('fiber_weights',(float,32)),
-                 ('fiber_weights_norm',(float,32))])
+                 ('fiber_weights_norm',(float,32)),
+                 ('fluxd_zero', (float, len(G.CALFIB_WAVEGRID))),
+                 ('fluxd_zero_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ])
 
 sel = np.array(survey_table['shotid'] == shotid)
 seeing = float(survey_table['fwhm_virus'][sel])
@@ -211,9 +214,11 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
     coord = SkyCoord(ra, dec, unit="deg")
     try:
 
+        #this one does NOT use the fiber_flux_offset, but if it passes, we will call again with one that does use it
         apt = get_spectra(coord, survey=survey_name, shotid=shot,
                           ffsky=ffsky, multiprocess=True, rad=aper,
-                          tpmin=0.0, fiberweights=True, loglevel="ERROR")  # don't need the fiber weights
+                          tpmin=0.0, fiberweights=True, loglevel="ERROR",
+                          fiber_flux_offset = None)
         try:
             if apt['fiber_weights'][0].shape[0] < min_fibers:
                 continue  # too few fibers, probably on the edge or has dead fibers
@@ -321,10 +326,38 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
         outfile.write(f"{ra}  {dec}  {shot}\n")
         outfile.flush()
 
+        try:
+            sky_subtraction_residual = SU.fetch_universal_single_fiber_sky_subtraction_residual(
+                ffsky=ffsky, hdr="3")
+
+            #adjust_type  0 = default (none), 1 = multiply  2 = add, 3 = None
+            fiber_flux_offset = -1 * SU.adjust_fiber_correction_by_seeing(sky_subtraction_residual, seeing, adjust_type=3)
+
+            apt_offset = get_spectra(coord, survey=survey_name, shotid=shot,
+                                     ffsky=ffsky, multiprocess=True, rad=aper,
+                                     tpmin=0.0, fiberweights=True, loglevel="ERROR",
+                                     fiber_flux_offset=fiber_flux_offset)
+
+            fluxd_offset = np.array(apt_offset['spec'][0]) * 1e-17
+            fluxd_offset_err = np.array(apt_offset['spec_err'][0]) * 1e-17
+            #wavelength = np.array(apt['wavelength'][0])
+
+            if dust:
+                dust_corr = deredden_spectra(wavelength, coord)
+                fluxd_offset *= dust_corr
+                fluxd_offset_err *= dust_corr
+
+        except Exception as e:
+            print(e)
+            fluxd_offset = np.full(len(fluxd), np.nan)
+            fluxd_offset_err = np.full(len(fluxd),np.nan)
+
+
+
         T.add_row([ra, dec, shotid, seeing, response, apcor[1], f50[0], f50[1],
                    dex_g, dex_g_err, dex_cont, dex_cont_err,
                    fluxd_sum,fluxd_sum_wide,fluxd_median,fluxd_median_wide,
-                   fluxd, fluxd_err,fiber_weights,norm_weights])
+                   fluxd, fluxd_err,fiber_weights,norm_weights,fluxd_offset, fluxd_offset_err])
 
         aper_ct += 1
 

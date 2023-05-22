@@ -5,6 +5,7 @@ changes to elixer by version
 * adjusted seeing fwhm translation model for per-fiber correction from linear to deg3 polynomial to fit the seeing less
   than the fiber width
     + default adjustment is None (options available for None, multiplicative or additive)
+* default sky subtraction residual (zero point) is now model rather than the stack
 
 1.20.0a1 [2023-05-18]
 * in combine_continuum, use the IFU computed HETDEX glimit rather than the global average estimate of 24.5
