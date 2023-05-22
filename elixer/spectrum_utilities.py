@@ -2669,12 +2669,13 @@ def combo_fit_wave(peak_func,values,errors,wavelengths,central,wave_slop_kms=500
     return return_dict
 
 
-def adjust_fiber_correction_by_seeing(fiber_fluxd, seeing):
+def adjust_fiber_correction_by_seeing(fiber_fluxd, seeing, adjust_type = 0):
     """
     returns the updated fiber fluxd spectrum
 
     :param fiber_fluxd: observed frame fiber fluxd correction spectrum in 1e-17 erg/s/cm2/AA units
     :param seeing: seeing FWHM for the shot
+    :param adjust_type (0 = default, 1 = multiply, 2 = add, 3 = none)
     :return:
     """
 
@@ -2687,7 +2688,10 @@ def adjust_fiber_correction_by_seeing(fiber_fluxd, seeing):
     baseline_seeing = 1.7 #arcsec
     baseline_slope = -3./7.
 
-    def adj_model(seeing):
+    #7th deg polynomial fit, ... see hdr303_depth_vs_seeing.ipynb
+    poly7 = [-0.17629955, 1.49450884, -2.31860911, -15.94160631, 78.98427199, -146.10528007, 123.96121397, -14.46966303]
+
+    def adj_model_linear(seeing):
         #model_depth = seeing * (-3. / 7.) + 25.75  # middle of the y_err
         #baseline_depth = 1.7 * (-3./7.) + 25.75  #middle of the y_err
         #return 1./aperture_to_fiber_scale * (1.- 10**(0.4*(seeing-baseline_seeing)*baseline_slope))
@@ -2695,23 +2699,28 @@ def adjust_fiber_correction_by_seeing(fiber_fluxd, seeing):
 
         return 10**(0.4 * baseline_slope * (baseline_seeing - seeing) )
 
+    def adj_model_poly(seeing,model=poly7):
+        return 10**(0.4  * (np.polyval(poly7,baseline_seeing)- np.polyval(poly7,seeing)))
+
     try:
         if seeing is None:
             log.debug("Seeing FWHM provided to adjust_fiber_correction_by_seeing() is None.")
             return fiber_fluxd
 
-        if G.ELIXER_SPECIAL == 10000:  #multiplicative
+        adj_model = adj_model_poly
+
+        if adjust_type == 1 or G.ELIXER_SPECIAL == 10000:  #multiplicative
             return fiber_fluxd * adj_model(seeing)
-        elif G.ELIXER_SPECIAL == 20000:  #additive (shift translation)
+        elif  adjust_type == 2 or  G.ELIXER_SPECIAL == 20000:  #additive (shift translation)
             left,*_ = getnearpos(G.CALFIB_WAVEGRID,G.DEX_G_EFF_LAM-100.0)
             right, *_ = getnearpos(G.CALFIB_WAVEGRID, G.DEX_G_EFF_LAM+100.0)
             md = np.nanmedian(fiber_fluxd[left:right+1])
             shift = md * (adj_model(seeing) -1.0)
             return fiber_fluxd + shift
-        elif G.ELIXER_SPECIAL == 30000:
+        elif  adjust_type == 3 or G.ELIXER_SPECIAL == 30000:
             return fiber_fluxd #fixed
-        else: #multiplicative ... seems best, but there is not a lot of difference between them IF a shifted baseline spectrum is used
-            return fiber_fluxd * adj_model(seeing)
+        else: #default ... no adjustment
+            return fiber_fluxd
 
 
     except:

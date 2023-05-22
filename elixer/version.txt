@@ -1,5 +1,11 @@
 changes to elixer by version
 
+
+1.20.0a2 [2023-05-22]
+* adjusted seeing fwhm translation model for per-fiber correction from linear to deg7 polynomial to fit the seeing less
+  than the fiber width
+    + default adjustment is None (options available for None, multiplicative or additive)
+
 1.20.0a1 [2023-05-18]
 * in combine_continuum, use the IFU computed HETDEX glimit rather than the global average estimate of 24.5
   + limit low depth (g <= 24) imaging weights for aperture mags at limit, consider non-detects
