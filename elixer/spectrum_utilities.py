@@ -3053,7 +3053,7 @@ def get_psf_fixed_side(shot_fwhm,ap_radius,side,scale=0.25,normalize=True):
     return psf
 
 
-def fiber_to_psf(seeing_fwhm,box_size=10.5,step_arcsec=0.25,num_fibers = 22):
+def fiber_to_psf(seeing_fwhm,box_size=10.5,step_arcsec=0.25,fiber_spec=None, fiber_err=None):
     """
     Assumes we are centered on the center most fiber in the center of an ideal IFU.
 
@@ -3061,8 +3061,16 @@ def fiber_to_psf(seeing_fwhm,box_size=10.5,step_arcsec=0.25,num_fibers = 22):
     """
 
     try:
-        spec = np.full((num_fibers, 1036), 1.0)
-        err = np.full((num_fibers, 1036), 1.0)
+        num_fibers = 22
+        if fiber_spec is None:
+            spec = np.full((num_fibers, 1036), 1.0)
+        else:
+            spec = np.tile(fiber_spec,(num_fibers,1))
+
+        if fiber_err is None:
+            err = np.full((num_fibers, 1036), 1.0)
+        else:
+            err = np.tile(fiber_err,(num_fibers,1))
         mask = np.full((num_fibers, 1036), True)
 
         ifux = [2.54, 0.00, -2.54, 1.27,
@@ -3094,9 +3102,27 @@ def fiber_to_psf(seeing_fwhm,box_size=10.5,step_arcsec=0.25,num_fibers = 22):
 
         spectrum_conv_psf, error_conv_psf = [res for res in result]
 
-        return np.nanmean(spectrum_conv_psf)
+        if fiber_spec is None:
+            if fiber_err is None:
+                return np.nanmean(spectrum_conv_psf)
+            else:
+                return np.nanmean(spectrum_conv_psf), error_conv_psf
+        elif fiber_err is None:
+            return np.nanmean(spectrum_conv_psf/fiber_spec), spectrum_conv_psf
+        else:
+            return np.nanmean(spectrum_conv_psf/fiber_spec), spectrum_conv_psf , error_conv_psf
+
     except:
         log.error(f"Exception computing fiber to PSF weighted aperture multiplier.",exc_info=True)
+        if fiber_spec is None:
+            if fiber_err is None:
+                return None
+            else:
+                return None, None
+        elif fiber_err is None:
+            return None, None
+        else:
+            return None, None, None
         return None
 
 
@@ -4993,10 +5019,10 @@ def bin_num_bins(flux,wave,num_bins): #assumes a regular input wavegrid
 # https://github.com/ACCarnall/SpectRes/blob/master/spectres/spectral_resampling.py
 # Adam Carnall
 # BUT this is effectively no different than what I am already doing with interpolation
-#
+# (this is here for reference, but is not actually used anywhere in this code)
 ###################################################################################
 
-def make_bins(wavs):
+def spectres_make_bins(wavs):
     """ Given a series of wavelength points, find the edges and widths
     of corresponding wavelength bins. """
 
@@ -5011,7 +5037,7 @@ def make_bins(wavs):
 
         return edges, widths
     except:
-        log.warning("Exception! Exception in [spectres] spectrum_utilities::make_bins()",exc_info=True)
+        log.warning("Exception! Exception in [spectres] spectrum_utilities::spectres_make_bins()",exc_info=True)
         return [],[]
 
 
@@ -5063,8 +5089,8 @@ def spect_rebin(new_wavs, spec_wavs, spec_fluxes, spec_errs=None, fill=None,
 
         # Make arrays of edge positions and widths for the old and new bins
 
-        old_edges, old_widths = make_bins(old_wavs)
-        new_edges, new_widths = make_bins(new_wavs)
+        old_edges, old_widths = spectres_make_bins(old_wavs)
+        new_edges, new_widths = spectres_make_bins(new_wavs)
 
         # Generate output arrays to be populated
         new_fluxes = np.zeros(old_fluxes[..., 0].shape + new_wavs.shape)
@@ -5145,7 +5171,7 @@ def spect_rebin(new_wavs, spec_wavs, spec_fluxes, spec_errs=None, fill=None,
         else:
             return new_fluxes
     except:
-        log.warning("Exception! Exception in [spectres] spectrum_utilities::make_bins()",exc_info=True)
+        log.warning("Exception! Exception in [spectres] spectrum_utilities::spect_rebin()",exc_info=True)
         if spec_errs is not None:
             return [],[]
         else:
