@@ -1,5 +1,7 @@
 changes to elixer by version
 
+1.20.0a3 [2023-05-24]
+* changed to interpolated models by PSF for per-fiber (zero point) correction
 
 1.20.0a2 [2023-05-22]
 * adjusted seeing fwhm translation model for per-fiber correction from linear to deg3 polynomial to fit the seeing less

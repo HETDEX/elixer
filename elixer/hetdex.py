@@ -6878,12 +6878,15 @@ class DetObj:
                                                                                    self.survey_shotid,
                                                                                    G.SKY_RESIDUAL_FITS_COL)
                 else:
-                    self.sky_subtraction_residual = SU.fetch_universal_single_fiber_sky_subtraction_residual(ffsky=self.extraction_ffsky,
-                                                                                                             hdr=G.HDR_Version)
+                    # self.sky_subtraction_residual = SU.fetch_universal_single_fiber_sky_subtraction_residual(ffsky=self.extraction_ffsky,
+                    #                                                                                          hdr=G.HDR_Version)
+                    self.sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
+                        self.survey_fwhm,ffsky=self.extraction_ffsky,hdr=G.HDR_Version)
             if self.sky_subtraction_residual is None:
                 fiber_flux_offset = None
             else:
-                fiber_flux_offset = -1 * SU.adjust_fiber_correction_by_seeing(self.sky_subtraction_residual,self.survey_fwhm)
+                #fiber_flux_offset = -1 * SU.adjust_fiber_correction_by_seeing(self.sky_subtraction_residual,self.survey_fwhm)
+                fiber_flux_offset = -1 * self.sky_subtraction_residual
 
             apt = hda_get_spectra(coord, survey=f"hdr{G.HDR_Version}", shotid=self.survey_shotid,
                                   ffsky=self.extraction_ffsky, multiprocess=G.GET_SPECTRA_MULTIPROCESS, rad=aper,
@@ -6971,13 +6974,19 @@ class DetObj:
                                                                                self.survey_shotid,
                                                                                G.SKY_RESIDUAL_FITS_COL)
                 else:
-                    self.sky_subtraction_residual = SU.fetch_universal_single_fiber_sky_subtraction_residual(
-                                                                                        ffsky=self.extraction_ffsky,
-                                                                                        hdr=G.HDR_Version)
+                    #self.sky_subtraction_residual = SU.fetch_universal_single_fiber_sky_subtraction_residual(
+                    #                                                                   ffsky=self.extraction_ffsky,
+                    #                                                                    hdr=G.HDR_Version)
+                    self.sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
+                        self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version)
+
             if self.sky_subtraction_residual is None:
                 fiber_flux_offset = None
             else:
-                fiber_flux_offset = -1 * SU.adjust_fiber_correction_by_seeing(self.sky_subtraction_residual,self.survey_fwhm)
+                # fiber_flux_offset = -1 * SU.adjust_fiber_correction_by_seeing(self.sky_subtraction_residual,self.survey_fwhm)
+                fiber_flux_offset = -1 * self.sky_subtraction_residual
+
+
             #     if G.ELIXER_SPECIAL & 2:
             #         fiber_flux_offset = None
             #     else:

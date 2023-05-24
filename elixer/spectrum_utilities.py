@@ -2713,6 +2713,7 @@ def adjust_fiber_correction_by_seeing(fiber_fluxd, seeing, adjust_type = 0):
         if adjust_type == 1 or G.ELIXER_SPECIAL == 10000:  #multiplicative
             return fiber_fluxd * adj_model(seeing)
         elif  adjust_type == 2 or  G.ELIXER_SPECIAL == 20000:  #additive (shift translation)
+            #flat (constant) shift
             left,*_ = getnearpos(G.CALFIB_WAVEGRID,G.DEX_G_EFF_LAM-100.0)
             right, *_ = getnearpos(G.CALFIB_WAVEGRID, G.DEX_G_EFF_LAM+100.0)
             md = np.nanmedian(fiber_fluxd[left:right+1])
@@ -2822,6 +2823,92 @@ def fetch_universal_single_fiber_sky_subtraction_residual(ffsky=False,hdr=G.HDR_
         return None
     log.error(f"No universal sky residual found.", exc_info=True)
     return None
+
+
+
+
+
+
+def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=False,hdr=G.HDR_Version):
+    """
+
+        This is applied with the call to HETDEX_API get_spectra() and, as such, this needs to be in:
+        erg/s/cm2/AA e-17 (not 2AA)
+    This should NOT be de-reddened or have any other such corrections as those are applied as part of get_spectra()
+
+    :param seeing:
+    :param ffsky:
+    :param hdr:
+    :return:
+    """
+
+
+    def low_high_rats(seeing,low,high):
+        #assumes we have 1.2" to 3.0" in steps of 0.1"
+        step = 0.1
+        deci = 2 #2 decimals is plenty
+        if seeing < 1.2:
+            return 1.0,0
+        elif seeing > 3.0:
+            return 0,1.0
+        elif low == high:
+            return 1.0, 0
+        else:
+            return np.round(1.0-(abs(seeing-low)/step),deci), np.round(1.0-(abs(high-seeing)/step),deci)
+
+    try:
+        if G.APPLY_SKY_RESIDUAL_TYPE != 1:
+            return None
+
+        log.debug("Loading universal sky residual model...")
+
+        if ffsky:
+            if G.SKY_RESIDUAL_ALL_FF_MODELS is None:
+
+                #right now all HDRx are the same ... if this changes, need to load different files
+                #this is because HDR2 does not use it
+                #and HDR3 and HDR4 are the same
+
+                #load the LL models
+                G.SKY_RESIDUAL_ALL_FF_MODELS  = np.loadtxt(G.SKY_RESIDUAL_HDR3_ALL_FF_MODELS_FN, unpack=True)
+                # 1st column  [idx 0] is the wavelength, cut that off
+                G.SKY_RESIDUAL_ALL_FF_MODELS = G.SKY_RESIDUAL_ALL_FF_MODELS[1:]
+
+            which_models = G.SKY_RESIDUAL_ALL_FF_MODELS
+        else:
+            if G.SKY_RESIDUAL_ALL_LL_MODELS is None:
+                # right now all HDRx are the same ... if this changes, need to load different files
+                # this is because HDR2 does not use it
+                # and HDR3 and HDR4 are the same
+
+
+                #load the LL models
+                G.SKY_RESIDUAL_ALL_LL_MODELS  = np.loadtxt(G.SKY_RESIDUAL_HDR3_ALL_LL_MODELS_FN, unpack=True)
+                # 1st column  [idx 0] is the wavelength, cut that off
+                G.SKY_RESIDUAL_ALL_LL_MODELS = G.SKY_RESIDUAL_ALL_LL_MODELS[1:]
+
+            which_models = G.SKY_RESIDUAL_ALL_LL_MODELS
+
+        #get the two flanking models
+        _, l, h = getnearpos(G.SKY_RESIDUAL_ALL_PSF, seeing)
+
+        rl,rh = low_high_rats(seeing, G.SKY_RESIDUAL_ALL_PSF[l], G.SKY_RESIDUAL_ALL_PSF[h])
+
+        if l is None:
+            return which_models[h]
+        elif h is None:
+            return which_models[l]
+        else:
+            return rl*which_models[l] + rh*which_models[h]
+
+    except:
+        log.error(f"Exception! Exception in interpolate_universal_single_fiber_sky_subtraction_residual.", exc_info=True)
+        return None
+    log.error(f"No universal sky residual found.", exc_info=True)
+    return None
+
+
+
 
 # ###############################################################
 #  There are too many issues with deblending, de-reddening, etc
