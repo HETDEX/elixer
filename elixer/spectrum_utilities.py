@@ -2701,7 +2701,7 @@ def adjust_fiber_correction_by_seeing(fiber_fluxd, seeing, adjust_type = 0):
         return 10**(0.4 * baseline_slope * (baseline_seeing - seeing) )
 
     def adj_model_poly(seeing,model=poly3):
-        return 10**(0.4  * (np.polyval(poly7,baseline_seeing)- np.polyval(poly7,seeing)))
+        return 10**(0.4  * (np.polyval(model,baseline_seeing)- np.polyval(model,seeing)))
 
     try:
         if seeing is None:
