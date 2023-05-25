@@ -12582,6 +12582,7 @@ class HETDEX:
                     #image = flux image
                     image = datakeep['im'][ind[i]]  # im can be the cosmic removed version, depends on G.PreferCosmicCleaned
                     bad_pix_value = -99999
+                    image_err = datakeep['err'][ind[i]]
 
                     # check for bad flat in the center (where emission line would be)
                     # check 9 central pixels (using "blank")
@@ -12593,7 +12594,10 @@ class HETDEX:
                             #cntr = pix_image[cy - 1:cy + 2, cx - 2:cx + 3]  # center 3 high, 5 wide
                             #cntr25 = pix_image[cy-2:cy+3,cx-2:cx+3]   #center 25 of the pixel flat image
                             #center 25 of the FLUX (not the pixel flat)
-                            detobj.fibers[len(detobj.fibers) - i - 1].cntr_flux_avg = np.nanmedian(image[cy-2:cy+3,cx-2:cx+3])
+                            detobj.fibers[len(detobj.fibers) - i - 1].cntr_flux_sum = np.nansum(image[cy - 2:cy + 3, cx - 2:cx + 3])
+                            #detobj.fibers[len(detobj.fibers) - i - 1].cntr_flux_avg = np.nanmedian(image[cy-2:cy+3,cx-2:cx+3])
+                            detobj.fibers[len(detobj.fibers) - i - 1].cntr_flux_err = np.sqrt(np.nansum(image_err[cy - 2:cy + 3, cx - 2:cx + 3]**2))
+                            #detobj.fibers[len(detobj.fibers) - i - 1].cntr_flux_std = np.nanstd(image[cy - 2:cy + 3, cx - 2:cx + 3])
                             #cntr = pix_image[cy - 3:cy + 4, cx - 3:cx + 4]  # center 49
                             cntr = pix_image[cy - 1:cy + 2, cx - 1:cx + 2]  # center 9 (3x3)
                             # nan_pix_image = copy(pix_image) #makes no difference to 4 or 5 decimal places
@@ -12934,22 +12938,22 @@ class HETDEX:
         # and the seeing already, so just ues the weights ... we expect the weighted fiber fluxes to be
         # kind of similar and in rank order (fiber 1 * weight 1  >~  fiber 2 * weight 2 >~ fiber 3 * weight 3)
         try:
-            if detobj.fibers[0].cntr_flux_avg < 0 and detobj.fibers[2].cntr_flux_avg > 0:
+            if detobj.fibers[0].cntr_flux_sum < 0 and detobj.fibers[2].cntr_flux_sum > 0:
                 detobj.flags |= G.DETFLAG_QUESTIONABLE_DETECTION
                 log.info(f"[{detobj.id}] top fiber flux is negative and 3rd is positive. "
                          f"Setting questionable detection flag.")
-            elif (detobj.fibers[0].cntr_flux_avg * detobj.fibers[0].relative_weight) < \
-                 (detobj.fibers[2].cntr_flux_avg * detobj.fibers[2].relative_weight):
+            elif ((detobj.fibers[0].cntr_flux_sum + 0.5*detobj.fibers[0].cntr_flux_err) * detobj.fibers[0].relative_weight) < \
+                    ((detobj.fibers[2].cntr_flux_sum - 0.5*detobj.fibers[2].cntr_flux_err) * detobj.fibers[2].relative_weight):
                 detobj.flags |= G.DETFLAG_QUESTIONABLE_DETECTION # this would be a big problem
                 log.info(f"[{detobj.id}] weighted top fiber flux is less than 3rd fiber. "
                          f"Setting questionable detection flag.")
-            elif (detobj.fibers[0].cntr_flux_avg / detobj.fibers[2].cntr_flux_avg) > 0 and \
-                 (detobj.fibers[0].cntr_flux_avg <  detobj.fibers[2].cntr_flux_avg) and \
-                 (detobj.fibers[0].cntr_flux_avg / detobj.fibers[2].cntr_flux_avg) < \
-                 (min(5.0, detobj.fibers[0].relative_weight / detobj.fibers[2].relative_weight)):
-                detobj.flags |= G.DETFLAG_QUESTIONABLE_DETECTION
-                log.info(f"[{detobj.id}] 1st/3rd fiber flux ratio is out of range."
-                         f"Setting questionable detection flag.")
+            # elif (detobj.fibers[0].cntr_flux_sum / detobj.fibers[2].cntr_flux_sum) > 0 and \
+            #      (detobj.fibers[0].cntr_flux_sum <  detobj.fibers[2].cntr_flux_sum) and \
+            #      (detobj.fibers[0].cntr_flux_sum / detobj.fibers[2].cntr_flux_sum) < \
+            #      (min(5.0, detobj.fibers[0].relative_weight / detobj.fibers[2].relative_weight)):
+            #     detobj.flags |= G.DETFLAG_QUESTIONABLE_DETECTION
+            #     log.info(f"[{detobj.id}] 1st/3rd fiber flux ratio is out of range."
+            #              f"Setting questionable detection flag.")
                 # fill this in ... just < or maybe give some room??
                 # if this is a resolved object, the point source ratio of weights would not be correct
                 # if the ratio of fluxes is negative, this is also wrong, so require positive ratio on flux
