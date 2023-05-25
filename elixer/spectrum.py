@@ -232,7 +232,7 @@ def conf_interval(num_samples,sd,conf=0.95):
     return t * sd / np.sqrt(num_samples)
 
 
-def get_sdss_gmag(flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_SIZE, confidence=G.MC_PLAE_CONF_INTVL, ignore_global=False):
+def get_sdss_gmag(_flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_SIZE, confidence=G.MC_PLAE_CONF_INTVL, ignore_global=False):
     """
 
     :param flux_density: erg/s/cm2/AA  (*** reminder, HETDEX sumspec usually a flux erg/s/cm2 NOT flux denisty)
@@ -278,6 +278,7 @@ def get_sdss_gmag(flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_SIZ
 
 
         #sanity check flux_density
+        flux_density = copy.copy(_flux_density)
         sel = np.where(abs(flux_density) > 1e-5) #remember, these are e-17, so that is enormous
         if np.any(sel):
             msg = "Warning! Absurd flux density values: [%f,%f] (normal expected values e-15 to e-19 range)" %(min(flux_density[sel]),max(flux_density[sel]))
@@ -362,7 +363,7 @@ def get_sdss_gmag(flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_SIZ
 
 
 
-def get_hetdex_gmag(flux_density, wave, flux_density_err=None, ignore_global=False, log_iso_detid=None):
+def get_hetdex_gmag(_flux_density, wave, _flux_density_err=None, ignore_global=False, log_iso_detid=None):
     """
     Similar to get_sdss_gmag, but this uses ONLY the HETDEX spectrum and its errors
 
@@ -383,7 +384,7 @@ def get_hetdex_gmag(flux_density, wave, flux_density_err=None, ignore_global=Fal
 
     if not ignore_global:
         if not G.USE_HETDEX_SPEC_GMAG:
-            if flux_density_err is not None:
+            if _flux_density_err is not None:
                 return None, None, None, None
             else:
                 return None, None
@@ -407,14 +408,18 @@ def get_hetdex_gmag(flux_density, wave, flux_density_err=None, ignore_global=Fal
         mag_err = None
         cont_err = None
         no_errors = False
-        if (flux_density_err is None) or (len(flux_density_err) == 0):
+        if (_flux_density_err is None) or (len(_flux_density_err) == 0):
             flux_density_err = np.zeros(len(wave))
             no_errors = True
-        elif not np.any(flux_density_err):
+        elif not np.any(_flux_density_err):
             no_errors = True
+            flux_density_err = np.zeros(len(_flux_density))
+        else:
+            flux_density_err = copy.copy(_flux_density_err)
 
 
         #sanity check flux_density
+        flux_density = copy.copy(_flux_density)
         sel = np.where(abs(flux_density) > 1e-5) #remember, these are e-17, so that is enormous
         if np.any(sel):
             msg = "Warning! Absurd flux density values: [%f,%f] (normal expected values e-15 to e-19 range)" %(min(flux_density[sel]),max(flux_density[sel]))
