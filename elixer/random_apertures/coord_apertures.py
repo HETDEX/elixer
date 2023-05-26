@@ -165,7 +165,7 @@ survey_table=survey.return_astropy_table()
 aper_ct = 0
 write_every = 100
 
-T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int), ('ffsky',bool),
+T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
                  ('seeing',float),('response',float),('apcor',float),
                  ('f50_3800',float),('f50_5000',float),
                  ('dex_g',float),('dex_g_err',float),('dex_cont',float),('dex_cont_err',float),
@@ -173,7 +173,10 @@ T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int), ('ffsky',bool),
                  ('fluxd', (float, len(G.CALFIB_WAVEGRID))),
                  ('fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
                  ('fiber_weights',(float,32)),
-                 ('fiber_weights_norm',(float,32))])
+                 ('fiber_weights_norm',(float,32)),
+                 ('fluxd_zero', (float, len(G.CALFIB_WAVEGRID))),
+                 ('fluxd_zero_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ])
 
 sel = np.array(survey_table['shotid'] == shotid)
 seeing = float(survey_table['fwhm_virus'][sel])
@@ -246,6 +249,35 @@ for ra,dec,shotid in zip(coord_ra,coord_dec,coord_shot):
         fluxd_sum_wide = np.nansum(fluxd[65:966])
         fluxd_median = np.nanmedian(fluxd[215:966])
         fluxd_median_wide = np.nanmedian(fluxd[65:966])
+
+        try:
+            #sky_subtraction_residual = SU.fetch_universal_single_fiber_sky_subtraction_residual(
+            #    ffsky=ffsky, hdr="3")
+            #adjust_type  0 = default (none), 1 = multiply  2 = add, 3 = None
+            #fiber_flux_offset = -1 * SU.adjust_fiber_correction_by_seeing(sky_subtraction_residual, seeing, adjust_type=3)
+
+            sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
+                seeing, ffsky=ffsky, hdr="3")
+            fiber_flux_offset = -1 * sky_subtraction_residual
+
+            apt_offset = get_spectra(coord, survey=survey_name, shotid=shot,
+                                     ffsky=ffsky, multiprocess=True, rad=aper,
+                                     tpmin=0.0, fiberweights=True, loglevel="ERROR",
+                                     fiber_flux_offset=fiber_flux_offset)
+
+            fluxd_offset = np.array(apt_offset['spec'][0]) * 1e-17
+            fluxd_offset_err = np.array(apt_offset['spec_err'][0]) * 1e-17
+            #wavelength = np.array(apt['wavelength'][0])
+
+            if dust:
+                dust_corr = deredden_spectra(wavelength, coord)
+                fluxd_offset *= dust_corr
+                fluxd_offset_err *= dust_corr
+
+        except Exception as e:
+            print(e)
+            fluxd_offset = np.full(len(fluxd), np.nan)
+            fluxd_offset_err = np.full(len(fluxd),np.nan)
 
         T.add_row([ra, dec, shotid, ffsky, seeing, response, apcor[1], f50[0], f50[1],
                    dex_g, dex_g_err, dex_cont, dex_cont_err,

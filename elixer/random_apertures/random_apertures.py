@@ -327,11 +327,14 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
         outfile.flush()
 
         try:
-            sky_subtraction_residual = SU.fetch_universal_single_fiber_sky_subtraction_residual(
-                ffsky=ffsky, hdr="3")
-
+            #sky_subtraction_residual = SU.fetch_universal_single_fiber_sky_subtraction_residual(
+            #    ffsky=ffsky, hdr="3")
             #adjust_type  0 = default (none), 1 = multiply  2 = add, 3 = None
-            fiber_flux_offset = -1 * SU.adjust_fiber_correction_by_seeing(sky_subtraction_residual, seeing, adjust_type=3)
+            #fiber_flux_offset = -1 * SU.adjust_fiber_correction_by_seeing(sky_subtraction_residual, seeing, adjust_type=3)
+
+            sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
+                seeing, ffsky=ffsky, hdr="3")
+            fiber_flux_offset = -1 * sky_subtraction_residual
 
             apt_offset = get_spectra(coord, survey=survey_name, shotid=shot,
                                      ffsky=ffsky, multiprocess=True, rad=aper,
