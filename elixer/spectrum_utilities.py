@@ -3143,6 +3143,9 @@ def get_psf_fixed_side(shot_fwhm,ap_radius,side,scale=0.25,normalize=True):
 def fiber_to_psf(seeing_fwhm,box_size=10.5,step_arcsec=0.25,fiber_spec=None, fiber_err=None):
     """
     Assumes we are centered on the center most fiber in the center of an ideal IFU.
+    (Note: due to the extract and moffat build, this is a bit expenseive)
+    (if using in bulk, a lookup table for seeing fwhm 1.2" to 3.0" (with some 0.1" or even 0.01" steps)
+    would be much faster than repeatedly rebuilding these for similar seeing values).
 
     :return:
     """

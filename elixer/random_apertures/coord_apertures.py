@@ -279,10 +279,11 @@ for ra,dec,shotid in zip(coord_ra,coord_dec,coord_shot):
             fluxd_offset = np.full(len(fluxd), np.nan)
             fluxd_offset_err = np.full(len(fluxd),np.nan)
 
-        T.add_row([ra, dec, shotid, ffsky, seeing, response, apcor[1], f50[0], f50[1],
+
+        T.add_row([ra, dec, shotid, seeing, response, apcor[1], f50[0], f50[1],
                    dex_g, dex_g_err, dex_cont, dex_cont_err,
                    fluxd_sum,fluxd_sum_wide,fluxd_median,fluxd_median_wide,
-                   fluxd, fluxd_err,fiber_weights,norm_weights])
+                   fluxd, fluxd_err,fiber_weights,norm_weights,fluxd_offset, fluxd_offset_err])
 
         aper_ct += 1
 
