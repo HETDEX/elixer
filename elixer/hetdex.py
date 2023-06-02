@@ -12597,6 +12597,11 @@ class HETDEX:
                             detobj.fibers[len(detobj.fibers) - i - 1].cntr_flux_sum = np.nansum(image[cy - 2:cy + 3, cx - 2:cx + 3])
                             #detobj.fibers[len(detobj.fibers) - i - 1].cntr_flux_avg = np.nanmedian(image[cy-2:cy+3,cx-2:cx+3])
                             detobj.fibers[len(detobj.fibers) - i - 1].cntr_flux_err = np.sqrt(np.nansum(image_err[cy - 2:cy + 3, cx - 2:cx + 3]**2))
+
+                            detobj.fibers[len(detobj.fibers) - i - 1].wide_flux_med = np.nanmedian(image[cy - 2:cy + 3, :])
+                            detobj.fibers[len(detobj.fibers) - i - 1].wide_flux_sum = np.nansum(image[cy - 2:cy + 3, : ])
+                            detobj.fibers[len(detobj.fibers) - i - 1].wide_flux_err = np.sqrt(np.nansum(image_err[cy - 2:cy + 3, :] ** 2))
+
                             #detobj.fibers[len(detobj.fibers) - i - 1].cntr_flux_std = np.nanstd(image[cy - 2:cy + 3, cx - 2:cx + 3])
                             #cntr = pix_image[cy - 3:cy + 4, cx - 3:cx + 4]  # center 49
                             cntr = pix_image[cy - 1:cy + 2, cx - 1:cx + 2]  # center 9 (3x3)
@@ -12963,6 +12968,39 @@ class HETDEX:
 
         except:
             pass
+
+
+        #
+        # similar to above ... check for one fiber that is absurdly bright compared to the others?
+        # has to have minimum counts (above some level) and be maybe 5-10x brigher than adjacent fibers?
+        #
+
+        try:
+            check_flux = 1000.0 #minimum summed (flux - error) for highest and maximum (flux + error) for the second highest
+            mult_sum_with_err = 10.0 #(top-err)*weight > x * (second+error) * weight
+            mult_med = 25.0
+            med_flux = np.array([d.wide_flux_med for d in detobj.fibers[0:4]])
+            sum_flux = np.array([d.wide_flux_sum for d in detobj.fibers[0:4]])
+            err_flux = np.array([d.wide_flux_err for d in detobj.fibers[0:4]])
+            wgt_flux = np.array([d.relative_weight for d in detobj.fibers[0:4]])
+
+            sort_sum = np.argsort(sum_flux)[::-1]
+            sort_med = np.argsort(med_flux)[::-1]
+
+            #median and sum should agree and be above a minimum
+            one = sort_sum[0]
+            two = sort_sum[1]
+            if (sort_sum[0] == sort_med[0]) and ((sum_flux[one]-err_flux[one]) > check_flux) and \
+                    ((sum_flux[two]+err_flux[two]) < check_flux):
+                if ( (sum_flux[one]-err_flux[one])*wgt_flux[one] > mult_sum_with_err * (sum_flux[two]+err_flux[two]) * wgt_flux[two]) and \
+                     (med_flux[one] * wgt_flux[one] > mult_med * med_flux[two] * wgt_flux[two]):
+                    #very wrong
+                    log.info(f"[{detobj.id}] weighted #{one+1} fiber flux is much greater than next fiber (#{two+1}). "
+                             f"Setting questionable detection flag.")
+                    detobj.flags |= G.DETFLAG_QUESTIONABLE_DETECTION  # this would be a big problem
+        except:
+            pass
+
 
         buf = io.BytesIO()
        # plt.tight_layout()#pad=0.1, w_pad=0.5, h_pad=1.0)
