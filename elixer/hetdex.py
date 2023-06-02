@@ -13209,7 +13209,7 @@ class HETDEX:
         #end build_2d_image_1st_column_only
 
 
-    def charge_trap(self,image):
+    def charge_trap(self,image,sigma):
         """
         binarize the image, sum up in columns, check for contiguous columns above threshold near the
         center of the image
@@ -13222,13 +13222,17 @@ class HETDEX:
             #temp:
             #np.save("charge_trap",image)
 
+            if sigma > 2.4:
+                return False
+
             gray = copy(image)
             min_value = np.nanmin(gray)
             #shift up so all positive values, if necessary (typically is necessary)
             if min_value < 0:
                 gray += -1*min_value
 
-            max_value = np.nanmax(gray)*.66 #not the true max, but the value we want to base this on ... assuming the trap is hot
+            abs_max = np.nanmax(gray)
+            max_value = abs_max*.66 #not the true max, but the value we want to base this on ... assuming the trap is hot
             med_value = np.nanmedian(gray)
 
             if max_value/med_value < 1.67: #too close to trust?
@@ -13253,9 +13257,16 @@ class HETDEX:
             #the trap should be in one column in the center (or maybe one to the left or right of center)
             #and many should be high pixels, so sum up the columns
             col_sums = np.nansum(gray, axis=0)
-
             nrows, ncols = np.shape(gray)
-            sel = np.array(col_sums > nrows * max_value / col_divisor)
+
+            if np.nanmedian(col_sums) != 0: #the median really needs to be zero
+                #this catches larger (resloved) galaxies
+                #what about nebulae that cover large area but have no continuum?  (still has to be very narrow)
+                return False #can't use this method to detect
+
+
+            #sel = np.array(col_sums > nrows * max_value / col_divisor)
+            sel = np.array(col_sums > abs_max * col_divisor) #sums to more than (default 5 x absolute max value)
 
             midpoint = int(ncols / 2)
             midpoint = [midpoint - 1, midpoint, midpoint + 1] #middle of the image +/- one column
@@ -13306,10 +13317,10 @@ class HETDEX:
 
                 #also check here for charge_trap
                 try:
-                    if self.charge_trap(datakeep[key][ind[datakeep_idx]]):
-                        detobj = datakeep['detobj']
-                        log.info(
-                            f"[{detobj.id}] Possible charge trap.")
+                    detobj = datakeep['detobj']
+
+                    if self.charge_trap(datakeep[key][ind[datakeep_idx]],detobj.fwhm/2.355):
+                        log.info(f"[{detobj.id}] Possible charge trap.")
                         detobj.flags |= G.DETFLAG_QUESTIONABLE_DETECTION  # this would be a big proble
 
                 except:
