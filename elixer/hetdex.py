@@ -13220,7 +13220,7 @@ class HETDEX:
         """
         try:
             #temp:
-            np.save("charge_trap",image)
+            #np.save("charge_trap",image)
 
             gray = copy(image)
             min_value = np.nanmin(gray)
