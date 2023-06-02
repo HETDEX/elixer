@@ -12602,6 +12602,15 @@ class HETDEX:
                             detobj.fibers[len(detobj.fibers) - i - 1].wide_flux_sum = np.nansum(image[cy - 2:cy + 3, : ])
                             detobj.fibers[len(detobj.fibers) - i - 1].wide_flux_err = np.sqrt(np.nansum(image_err[cy - 2:cy + 3, :] ** 2))
 
+                            #looking for charge traps (full height, but 3 wide total)
+                            detobj.fibers[len(detobj.fibers) - i - 1].tall_flux_med = np.nanmedian(image[:, cx - 1:cx + 2])
+                            detobj.fibers[len(detobj.fibers) - i - 1].tall_flux_sum = np.nansum(image[:, cx - 1:cx + 2 ])
+                            detobj.fibers[len(detobj.fibers) - i - 1].tall_flux_err = np.sqrt(np.nansum(image_err[:, cx - 1:cx + 2] ** 2))
+
+                            # looking for charge traps (full height, but 3 wide total)
+                            #detobj.fibers[len(detobj.fibers) - i - 1].tall_flux_std = np.nanstd(image[:, cx])
+                            #detobj.fibers[len(detobj.fibers) - i - 1].tall_flux_stdw = np.nanstd(image[:, cx - 1:cx + 2])
+
                             #detobj.fibers[len(detobj.fibers) - i - 1].cntr_flux_std = np.nanstd(image[cy - 2:cy + 3, cx - 2:cx + 3])
                             #cntr = pix_image[cy - 3:cy + 4, cx - 3:cx + 4]  # center 49
                             cntr = pix_image[cy - 1:cy + 2, cx - 1:cx + 2]  # center 9 (3x3)
@@ -13002,6 +13011,25 @@ class HETDEX:
             pass
 
 
+        # # not working well ... mayb try on the tall image (sky subtracted cutouts)
+        # #check for charge trap?
+        # # 1) narrow sigma (2.4  < )
+        # # 2) appears in same place over all (or most) of the fibers?
+        # # 3) should be similar strength (so similar center flux)?
+        # try:
+        #     min_sigma = 2.4
+        #     if detobj.sigma <= min_sigma:
+        #         med_flux = np.array([d.tall_flux_med for d in detobj.fibers[0:4]])
+        #         sum_flux = np.array([d.tall_flux_sum for d in detobj.fibers[0:4]])
+        #         err_flux = np.array([d.tall_flux_err for d in detobj.fibers[0:4]])
+        #         std_flux = np.array([d.tall_flux_std for d in detobj.fibers[0:4]])
+        #         stdw_flux = np.array([d.tall_flux_stdw for d in detobj.fibers[0:4]])
+        #         #don't need the weight
+        #         #wgt_flux = np.array([d.relative_weight for d in detobj.fibers[0:4]])
+        #
+        # except:
+        #     pass
+
         buf = io.BytesIO()
        # plt.tight_layout()#pad=0.1, w_pad=0.5, h_pad=1.0)
         plt.savefig(buf, format='png', dpi=300)
@@ -13181,6 +13209,69 @@ class HETDEX:
         #end build_2d_image_1st_column_only
 
 
+    def charge_trap(self,image):
+        """
+        binarize the image, sum up in columns, check for contiguous columns above threshold near the
+        center of the image
+
+        :param image:
+        :param min_length_pixels:
+        :return:
+        """
+        try:
+            #temp:
+            np.save("charge_trap",image)
+
+            gray = copy(image)
+            min_value = np.nanmin(gray)
+            #shift up so all positive values, if necessary (typically is necessary)
+            if min_value < 0:
+                gray += -1*min_value
+
+            max_value = np.nanmax(gray)*.66 #not the true max, but the value we want to base this on ... assuming the trap is hot
+            med_value = np.nanmedian(gray)
+
+            if max_value/med_value < 1.67: #too close to trust?
+                return False
+
+            binarize_value = max_value
+            col_divisor = 5.0 #not all values will end up at the maximum just due to scatter
+                              #here, we are saying that if 1 in 5 are at the maximum in a column, it might be a trap
+
+
+            row_sums = np.nansum(gray, axis=1) #need this BEFORE we binarize
+            valid_rows = np.count_nonzero(row_sums)
+            if valid_rows < 100:
+                log.debug(f"Insufficient number of non-zero rows ({valid_rows}) in image to check for charge traps.")
+                del gray
+                return False
+
+            #now binarize
+            gray[gray < binarize_value] = 0
+            gray[gray >= binarize_value] = max_value
+
+            #the trap should be in one column in the center (or maybe one to the left or right of center)
+            #and many should be high pixels, so sum up the columns
+            col_sums = np.nansum(gray, axis=0)
+
+            nrows, ncols = np.shape(gray)
+            sel = np.array(col_sums > nrows * max_value / col_divisor)
+
+            midpoint = int(ncols / 2)
+            midpoint = [midpoint - 1, midpoint, midpoint + 1] #middle of the image +/- one column
+
+            #if any of three middle colums are "hot" columns are hot, call it a trap
+            del gray
+            if np.any([m in np.arange(ncols)[sel] for m in midpoint]):
+                log.warning("Possible charge trap.")
+                return True
+            else:
+                return False
+        except:
+            log.debug("Exception in charge_trap().",exc_info=True)
+            return False
+
+
     # +/- 3 fiber sizes on CCD (not spacially adjacent fibers)
     def build_scattered_light_image(self, datakeep, img_y = 3, key='scatter'):
 
@@ -13212,6 +13303,17 @@ class HETDEX:
                 vmin = datakeep['vmin2'][ind[datakeep_idx]]
                 vmax = datakeep['vmax2'][ind[datakeep_idx]]
                 title = "Clean Image"
+
+                #also check here for charge_trap
+                try:
+                    if self.charge_trap(datakeep[key][ind[datakeep_idx]]):
+                        detobj = datakeep['detobj']
+                        log.info(
+                            f"[{detobj.id}] Possible charge trap.")
+                        detobj.flags |= G.DETFLAG_QUESTIONABLE_DETECTION  # this would be a big proble
+
+                except:
+                    log.warning("Exception checking for charge traps.",exc_info=True)
 
             elif key == 'scatter_sky':
                 cmap = plt.get_cmap('gray_r')
@@ -13293,6 +13395,8 @@ class HETDEX:
 
             buf = io.BytesIO()
             plt.savefig(buf, format='png', dpi=300)
+
+
 
             if G.ZOO_CUTOUTS:
                 try:
