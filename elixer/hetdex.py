@@ -13266,7 +13266,7 @@ class HETDEX:
 
 
             #sel = np.array(col_sums > nrows * max_value / col_divisor)
-            sel = np.array(col_sums > abs_max * col_divisor) #sums to more than (default 5 x absolute max value)
+            sel = np.array(col_sums > abs_max * 10) #sums to more than (default 5 x absolute max value)
 
             midpoint = int(ncols / 2)
             midpoint = [midpoint - 1, midpoint, midpoint + 1] #middle of the image +/- one column
@@ -13322,6 +13322,7 @@ class HETDEX:
                     if self.charge_trap(datakeep[key][ind[datakeep_idx]],detobj.fwhm/2.355):
                         log.info(f"[{detobj.id}] Possible charge trap.")
                         detobj.flags |= G.DETFLAG_QUESTIONABLE_DETECTION  # this would be a big proble
+                        detobj.flags |= G.DETFLAG_BAD_PIXELS
 
                 except:
                     log.warning("Exception checking for charge traps.",exc_info=True)
