@@ -13239,7 +13239,7 @@ class HETDEX:
                 return False
 
             binarize_value = max_value
-            col_divisor = 5.0 #not all values will end up at the maximum just due to scatter
+           # col_divisor = 5.0 #not all values will end up at the maximum just due to scatter
                               #here, we are saying that if 1 in 5 are at the maximum in a column, it might be a trap
 
 
@@ -13257,6 +13257,7 @@ class HETDEX:
             #the trap should be in one column in the center (or maybe one to the left or right of center)
             #and many should be high pixels, so sum up the columns
             col_sums = np.nansum(gray, axis=0)
+            col_cts = np.count_nonzero(gray,axis=0) #number of "hot" pixels per column
             nrows, ncols = np.shape(gray)
 
             if np.nanmedian(col_sums) != 0: #the median really needs to be zero
@@ -13264,9 +13265,8 @@ class HETDEX:
                 #what about nebulae that cover large area but have no continuum?  (still has to be very narrow)
                 return False #can't use this method to detect
 
-
-            #sel = np.array(col_sums > nrows * max_value / col_divisor)
             sel = np.array(col_sums > abs_max * 10) #sums to more than (default 5 x absolute max value)
+            sel = sel & np.array(col_cts > valid_rows / 5.0) #at least 20% of pixels must trigger
 
             midpoint = int(ncols / 2)
             midpoint = [midpoint - 1, midpoint, midpoint + 1] #middle of the image +/- one column
