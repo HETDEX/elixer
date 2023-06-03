@@ -13256,17 +13256,17 @@ class HETDEX:
 
             #the trap should be in one column in the center (or maybe one to the left or right of center)
             #and many should be high pixels, so sum up the columns
-            col_sums = np.nansum(gray, axis=0)
+            #col_sums = np.nansum(gray, axis=0)
             col_cts = np.count_nonzero(gray,axis=0) #number of "hot" pixels per column
             nrows, ncols = np.shape(gray)
 
-            if np.nanmedian(col_sums) != 0: #the median really needs to be zero
+            if np.nanmedian(col_cts) != 0: #the median really needs to be zero
                 #this catches larger (resloved) galaxies
                 #what about nebulae that cover large area but have no continuum?  (still has to be very narrow)
                 return False #can't use this method to detect
 
-            sel = np.array(col_sums > abs_max * 10) #sums to more than (default 5 x absolute max value)
-            sel = sel & np.array(col_cts > valid_rows / 5.0) #at least 20% of pixels must trigger
+            #sel = np.array(col_sums > abs_max * 10) #sums to more than (default 5 x absolute max value)
+            sel = np.array(col_cts > valid_rows / 5.0) #at least 20% of pixels must trigger
 
             midpoint = int(ncols / 2)
             midpoint = [midpoint - 1, midpoint, midpoint + 1] #middle of the image +/- one column
