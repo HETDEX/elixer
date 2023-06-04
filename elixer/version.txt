@@ -4,7 +4,7 @@ changes to elixer by version
 * added check for brightest single fiber being massively brighter than the next brightest (as weighted). This is an
   indication of a problem.
 * added check for possible charge trap based on central column(s) of sky-subtracted (cleaned) image cutout
-* fixed bug in cat_cfhtls that was skipping cutout collection when the catalog matches were zero
+* fixed bug in cat_cfhtls, goods_n and egs that was skipping cutout collection when the catalog matches were zero
 
 1.20.0a3 [2023-05-24]
 * changed to interpolated models by PSF for per-fiber (zero point) correction
