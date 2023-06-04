@@ -285,7 +285,7 @@ class DECaLS(cat_base.Catalog):#DECaLS
             log.info("DECaLS query (%f,%f) at %f arcsec for band %s ..." % (ra, dec, query_radius, f))
 
             #build up the request URL
-            url = "http://legacysurvey.org/viewer/fits-cutout?ra=%f&dec=%f&layer=%s&bands=%s" %(ra,dec,"ls-dr9",f)
+            url = "http://legacysurvey.org/viewer/fits-cutout?ra=%f&dec=%f&layer=%s&bands=%s" %(ra,dec,"ls-dr10",f)
 
             #from http://legacysurvey.org/dr8/description/
             # The maximum size for cutouts( in number of pixels) is currently 512.
@@ -1018,7 +1018,7 @@ class DECaLS(cat_base.Catalog):#DECaLS
 
             log.info("DECaLS query (%f,%f) at %f arcsec for band %s ..." % (ra, dec, query_radius, filter))
             #build up the request URL
-            url = "http://legacysurvey.org/viewer/fits-cutout?ra=%f&dec=%f&layer=%s&bands=%s" %(ra,dec,"ls-dr9",filter)
+            url = "http://legacysurvey.org/viewer/fits-cutout?ra=%f&dec=%f&layer=%s&bands=%s" %(ra,dec,"ls-dr10",filter)
 
             try:
                 response = requests.get(url, allow_redirects=True,timeout=(10.0,120.0))
