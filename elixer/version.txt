@@ -8,6 +8,8 @@ changes to elixer by version
 * update decals call to use DR10
 * add waring to stdout, elixer.log, and to PDF report if --continuum flag not used with a continuum source or is
   used with an emission line source
+* added extra check for blank region in PNG conversion where the 2D fiber cutouts should be (this is usually a spot
+  where a PDF to PNG conversion can fail silently). Will retry conversion if that region is blank.
 
 1.20.0a3 [2023-05-24]
 * changed to interpolated models by PSF for per-fiber (zero point) correction

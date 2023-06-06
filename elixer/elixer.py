@@ -2045,12 +2045,19 @@ def convert_pdf(filename, resolution=150, jpeg=False, png=True):
                         break
                     elif size > 430000: #some are legit conversions though
                         log.debug(f"Conversion filesize ({size}) good for {image_name}.")
-                        retry = 99
-                        break
+                        avg_val = check_imagefile_blank_region(image_name)
+                        if (avg_val is not None and avg_val > 250):
+                            #this is a good sized image, but is blank where there should be data
+                            log.info(f"Blank fiber section in conversion for {image_name}. Will assume missing data and retry.")
+                            os.remove(image_name)
+                            time.sleep(1.0 * retry_ct)  # sleep in increasing chunks of 5 seconds to let memory clear
+                        else:
+                            retry = 99
+                            break
                     elif (retry_ct < max_retries):
-                        img_dim = check_imagefile_dimensions(image_name)
+                        img_dim  = check_imagefile_dimensions(image_name)
                         #check for none or height
-                        if img_dim is None or img_dim[1] > 1600 :
+                        if (img_dim is None or img_dim[1] > 1600):
                             #just the cutouts is a bit over 900
                             #the normal full size is ~ 1838 pix
                             # could still be okay, but we will retry anyway .. if retries are exhausted, it will stick
@@ -2090,9 +2097,33 @@ def check_imagefile_dimensions(fn):
                 chunk = f.read(2048)
                 count+=2048
             img_dim = ImPar.image.size
+        del ImPar
     except:
         log.debug("Unable to check image size from file.")
+
     return img_dim
+
+
+def check_imagefile_blank_region(fn):
+    """
+    Assumes normal elixer report as a PNG with RGB color
+    :param fn:
+    :return:
+    """
+    avg_value = None
+    try:
+        img = PIL_Image.open(fn)
+        y,x,c = np.shape(img)
+        if y > 500 and x > 1100:
+            box = (900, 85, 1080, 500) #roughly the 1st column of the 2D fiber cutouts (top center)
+            img_crop = img.crop(box)
+            avg_value = np.sum(img_crop.getdata()) / np.prod(np.shape(img_crop.getdata()))
+        #note: 255 is white space, so an average very near that is blank
+        del img
+    except:
+        log.debug("Unable to check image blank region (2D fiber cutouts) from file.")
+
+    return avg_value
 
 def run_convert_pdf(filename, resolution=150, jpeg=False, png=True,systemcall="pdftoppm"):
     """
