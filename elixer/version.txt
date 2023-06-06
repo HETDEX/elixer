@@ -1,11 +1,13 @@
 changes to elixer by version
 
-1.20.0a4 [2023-06-02]
+1.20.0a4 [2023-06-06]
 * added check for brightest single fiber being massively brighter than the next brightest (as weighted). This is an
   indication of a problem.
 * added check for possible charge trap based on central column(s) of sky-subtracted (cleaned) image cutout
 * fixed bug in cat_cfhtls, goods_n and egs that was skipping cutout collection when the catalog matches were zero
 * update decals call to use DR10
+* add waring to stdout, elixer.log, and to PDF report if --continuum flag not used with a continuum source or is
+  used with an emission line source
 
 1.20.0a3 [2023-05-24]
 * changed to interpolated models by PSF for per-fiber (zero point) correction

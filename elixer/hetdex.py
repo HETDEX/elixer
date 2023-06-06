@@ -9123,6 +9123,8 @@ class HETDEX:
             log.error("Cannot construct HETDEX object. No arguments provided.")
             return None
 
+        self.cli_args = args
+
         if args.annulus is not None:
             self.annulus = args.annulus
         else:
@@ -10158,6 +10160,18 @@ class HETDEX:
             except:
                 log.error(f"Skipping invalid detectid: {d}")
                 continue
+
+            try:
+                if str(d)[2] == '9' and not self.cli_args.continuum:
+                    print(f"**!!! [{d}] is a continuum source but --continuum NOT specified in command line. !!!**")
+                    log.error(f"**!!! [{d}] is a continuum source but --continuum NOT specified in command line. !!!**")
+                elif str(d)[2] != '9' and self.cli_args.continuum:
+                    print(f"**!!! [{d}] is NOT a continuum source but --continuum is specified in command line. !!!**")
+                    log.error(f"**!!! [{d}] is NOT a continuum source but --continuum is specified in command line. !!!**")
+            except:
+                pass
+
+
             #build an empty Detect Object and then populate
             e = DetObj(None, emission=True,basic_only=basic_only)
             if e is not None:
@@ -10698,7 +10712,10 @@ class HETDEX:
                 else:
                     title += " lo)"
         except:
-            log.debug("Exception building observation string.",exc_info=True)
+            if e is not None and e.fibers is not None and len(e.fibers) == 0:
+                log.warning("Cannot build observation string. No fibers loaded.")
+            else:
+                log.warning("Exception building observation string.",exc_info=True)
 
         #really pointless ... the id is plainly available above
         # if (e.entry_id is not None) and (e.id is not None):
@@ -10883,8 +10900,11 @@ class HETDEX:
 
         else:
             if not G.ZOO:
-                title += "\nPrimary Spec_Slot_IFU_AMP: %s_%s_%s_%s\n" % (e.fibers[0].specid, e.fibers[0].ifuslot,
+                try:
+                    title += "\nPrimary Spec_Slot_IFU_AMP: %s_%s_%s_%s\n" % (e.fibers[0].specid, e.fibers[0].ifuslot,
                                                                      e.fibers[0].ifuid,e.fibers[0].amp)
+                except:
+                    title += "\nPrimary Spec_Slot_IFU_AMP: ???_???_???_???\n"
 
                 if e.survey_fwhm > 3.0:
                     title += f"F=*{e.survey_fwhm:0.1f}\"*  "
@@ -10956,8 +10976,11 @@ class HETDEX:
             else: #this if for zooniverse, don't show RA and DEC or probabilities
 
                 #title += "\nPrimary IFU SpecID (%s) SlotID (%s)\n" % (e.fibers[0].specid, e.fibers[0].ifuslot)
-                title += "\nPrimary Spec_Slot_IFU_AMP: %s_%s_%s_%s\n" % (e.fibers[0].specid, e.fibers[0].ifuslot,
+                try:
+                    title += "\nPrimary Spec_Slot_IFU_AMP: %s_%s_%s_%s\n" % (e.fibers[0].specid, e.fibers[0].ifuslot,
                                                                          e.fibers[0].ifuid,e.fibers[0].amp)
+                except:
+                    title += "\nPrimary Spec_Slot_IFU_AMP: ???_???_???_???\n"
 
                 if e.survey_fwhm > 3.0:
                     title += f"F=*{e.survey_fwhm:0.1f}\"*  "
@@ -11337,7 +11360,17 @@ class HETDEX:
                 fig = plt.figure(figsize=(G.FIGURE_SZ_X, figure_sz_y))
                 plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
                 plt.gca().axis('off')
-                plt.text(0.5, 0.5, "Unable to locate or import reduced data (FITS)", ha='center', va='center', fontproperties=font)
+
+                try:
+                    if str(e.entry_id)[2] == '9' and not self.cli_args.continuum:
+                        extrastr = f"\n**!!! [{e.entry_id}] is a continuum source but --continuum NOT specified in command line. !!!**"
+                    elif str(e.entry_id)[2]  != '9' and self.cli_args.continuum:
+                        extrastr = f"\n**!!! [{e.entry_id}] is NOT a continuum source but --continuum is specified in command line. !!!**"
+                except:
+                    extrastr = ""
+
+
+                plt.text(0.5, 0.5, "Unable to locate or import reduced data (FITS)"+extrastr, ha='center', va='center', fontproperties=font)
                 pages.append(fig)  # append the second part to its own page to be merged later
                 plt.close()
         else:
@@ -11346,7 +11379,15 @@ class HETDEX:
             fig = plt.figure(figsize=(G.FIGURE_SZ_X, figure_sz_y))
             plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
             plt.gca().axis('off')
-            plt.text(0.5, 0.5, "Unable to locate or import reduced data (FITS)", ha='center', va='center',
+            try:
+                if str(e.entry_id)[2] == '9' and not self.cli_args.continuum:
+                    extrastr = f"\n**!!! [{e.entry_id}] is a continuum source but --continuum NOT specified in command line. !!!**"
+                elif str(e.entry_id)[2] != '9' and self.cli_args.continuum:
+                    extrastr = f"\n**!!! [{e.entry_id}] is NOT a continuum source but --continuum is specified in command line. !!!**"
+            except:
+                extrastr = ""
+
+            plt.text(0.5, 0.5, "Unable to locate or import reduced data (FITS)" + extrastr, ha='center', va='center',
                      fontproperties=font)
             pages.append(fig)  # append the second part to its own page to be merged later
             plt.close()
