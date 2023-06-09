@@ -38,6 +38,7 @@ if sys.byteorder == 'big':
 else:
     BIG_ENDIAN = False
 
+ELIXER_CODE_PATH = op.dirname(op.realpath(__file__))
 
 LAUNCH_PDF_VIEWER = None
 
@@ -457,9 +458,22 @@ def select_hdr_version(version):
         remote_imaging_basepath = hdr_imaging_basepath
 
         try:
-            if (hostname in LOCAL_DEV_HOSTNAMES) and op.exists("/media/dustin/Seagate8TB/hetdex/hdr2/imaging/"):
-                print("***** using /media/dustin/Seagate8TB/hetdex/hdr2/imaging/ for base imaging *****")
-                hdr_imaging_basepath = "/media/dustin/Seagate8TB/hetdex/hdr2/imaging/"
+            if (hostname in LOCAL_DEV_HOSTNAMES):
+                from glob import glob
+
+                drives = glob("/media/dustin/*")
+                if len(drives)==1:
+                    #there is exactly one drive attached
+                    usb_path = op.join(drives[0],"hetdex/hdr2/imaging/")
+                else:
+                    #assume the hardcoded drive
+                    # usb_drive = "Seagate8TB"
+                    usb_drive = "easystore"
+                    usb_path = op.join(usb_drive, "hetdex/hdr2/imaging/")
+
+                if op.exists(usb_path):
+                    print(f"***** using {usb_path} for base imaging *****")
+                    hdr_imaging_basepath = usb_path
         except:
             pass #do nothing
 
@@ -1315,3 +1329,5 @@ SKY_RESIDUAL_HDR3_ALL_LL_MODELS_FN = op.join(op.dirname(op.realpath(__file__)), 
 SKY_RESIDUAL_ALL_FF_MODELS = None
 SKY_RESIDUAL_HDR3_ALL_FF_MODELS_FN = op.join(op.dirname(op.realpath(__file__)), "sky_subtraction_residuals/hdr3_ff_sky_fiber_residual_model.txt")
 SKY_RESIDUAL_ALL_PSF = np.arange(1.2,3.1,0.1)
+
+

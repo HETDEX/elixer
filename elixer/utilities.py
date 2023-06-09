@@ -614,3 +614,21 @@ def getnearpos(array,value):
     return idx, lt, gt
 
 
+def simple_linear_interp(x1,y1,x2,y2,x):
+    """
+
+    :param x1:
+    :param y1:
+    :param x2:
+    :param y2:
+    :param x: the point you want to evaluate
+    :return:
+    """
+    try:
+        #y = m x + b
+        m = (y2-y1)/(x2-x1)
+        b = y1 - m * x1
+
+        return m * x + b
+    except:
+        return None

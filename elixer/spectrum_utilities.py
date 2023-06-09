@@ -51,6 +51,7 @@ from photutils import aperture_photometry
 from scipy.optimize import curve_fit
 from scipy.signal import medfilt
 from scipy.special import factorial
+from scipy.interpolate import interp1d
 
 import copy
 from mpl_toolkits.mplot3d import Axes3D
@@ -63,7 +64,12 @@ SU_H0 = 70. * U.km / U.s / U.Mpc
 SU_Omega_m0 = 0.3
 SU_T_CMB = 2.73
 
+SU_UVbg_waves = None
+SU_UVbg_z_array = None
+SU_UVbg_fsd = None #flux density surface density (erg/s/cm2/AA/arcsec2)
 
+SU_PSF_35_spec = None
+SU_PSF_35_fwhm = None
 #
 # #these are for the older peak finder (based on direction change)
 # MIN_FWHM = 2.0 #AA (must xlat to pixels) (really too small to be realistic, but is a floor)
@@ -2825,10 +2831,6 @@ def fetch_universal_single_fiber_sky_subtraction_residual(ffsky=False,hdr=G.HDR_
     return None
 
 
-
-
-
-
 def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=False,hdr=G.HDR_Version):
     """
 
@@ -2907,6 +2909,238 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
     log.error(f"No universal sky residual found.", exc_info=True)
     return None
 
+
+
+#############################
+# UV Background Stuff
+#############################
+
+
+def uvbg_read_file():
+    """
+    read in the UV background file from Laurle (based on Haardt and Madau)
+    return the rest-frame wavelength array, the array of redshifts, and the UV background curves at each redshiftt
+    :return:
+    """
+    from astropy.io import fits
+    try:
+
+        print("***** reading UVbg file ...")
+        uvfits = fits.open(op.join(G.ELIXER_CODE_PATH,'UVB_interpolated.fits'))
+
+        uvb_z = uvfits[1].data['z']
+
+        # clip to useful AA ... say 750AA to 2000AA rest ... that wll cover outside of z 1.8 past 3.6
+        uvb_waves = uvfits[3].data
+
+        l, *_ = getnearpos(uvb_waves, 750)
+        r, *_ = getnearpos(uvb_waves, 2000)
+
+        uvb_fsd = uvfits[2].data[:, l:r + 1]
+        uvb_waves = uvb_waves[l:r + 1]
+
+        uvfits.close()
+
+        return uvb_waves, uvb_z, uvb_fsd
+    except:
+        log.error("Unable to load UV Background data.",exc_info=True)
+        return None, None, None
+
+
+def uvbg_get_spectrum(z_target, z_array, uvb_array):
+    """
+    retrun the interpolated uv backround in at the given z
+
+    :param z_target:
+    :param z_array:
+    :param uvb_array:
+    :return:
+    """
+    try:
+        _, l, h = getnearpos(z_array, z_target)
+        step = z_array[h] - z_array[l]
+        if step == 0:
+            step = 1.0
+
+        wl = 1.0 - ((z_target - z_array[l]) / step)
+        wh = 1.0 - wl
+
+        return wl * uvb_array[l] + wh * uvb_array[h]
+
+    except:
+        log.error("Unable to interpolate UV Background.",exc_info=True)
+        return None
+
+
+
+def uvbg_shift_observed_frame(z, rest_waves, rest_fluxd_arcs):  # , rest_fluxd_arcs_err=None):
+    try:
+        # start simple
+        # waves (1+z) make sense
+        # fluxd_arcs (1+z)**4 .... 1 for ergs, 1 for secs, 2 for cm2
+        return (1 + z) * rest_waves, rest_fluxd_arcs / (1 + z) ** 2
+
+    except:
+        return None, None
+
+def uvbg_correct_for_lya_troughs(fluxd,fluxd_err,z,seeing_fwhm,ffsky=False,frac=1.0,
+                            rest_blue_wave=None, rest_red_wave=None):
+    """
+    Takes the observed frame flux density and error and the redshift
+    ASSUMES the object spectrum is from an LAE at the given redshift
+    Adds back in the ASSUMED oversubtraction by the HETDEX pipeline near LyA (just to the red and blue sides) due to
+      scattered UV at LyA resonance in the background of the object's restframe
+
+    Logically, this would be performed on the fluxdensity (erg/s/cm2/AA) version of the OBSERVED HETDEX data just PRIOR
+    to conversion to Luminosity
+
+    THIS SHOULD NOT IMPACT the average sky residual (which is assumed to be "empty" from detected emission lines and continua)
+
+    LIKEWISE THIS DOES NOT IMPACT the normal, per-fiber correction (that is a zero point correction)
+
+    However, if neighbors are in the projection of the LyA halos then this might have a small affect on the debledning?
+    No, it would not. Assuming these are mostly foreground neighbors, then they are at their own redshift and we are
+    not seeing LyA Halos around them. The UV background scattered at the higher-z LAE should be largely irrelvant and is
+    "healed" at the lower-z (excluding any photons lost to dust during the scattering, but we assume Haardt and Madau
+    already take care of this and this is statistical in nature anyway). Any neighbor local extra scattering would be a
+    the neighbor rest LyA wavelengths, which are not in the HETDEX window.
+
+
+    :param fluxd:
+    :param fluxd_err:
+    :param z:
+    :param seeing_fwhm: in arcsec
+    :param ffsky: there could be a different correction for ffsky vs local sky subtraction
+    :param frac: expected 0 to 1.0, scaled down the correction by this fraction, but could be negative (so subtract more)
+            or greater than 100%. Basically, this is "How much of the restframe UV (LyA resonance) light is scattered"?
+            So, 1.0 would be all of it and full saturation. 0.o would be none is scattered.
+    :poram rest_blue_wave: short to long wavelengths to which to apply the correction (in the restframe)
+    :poram rest_red_wave:  short to long wavelengths to which to apply the correction (in the restframe)
+    :return: updated fluxd and fluxd_err and the actual correction array (to be added in)
+    """
+
+    global SU_UVbg_waves, SU_UVbg_z_array, SU_UVbg_fsd
+
+    try:
+        if fluxd is None or len(fluxd) != len(G.CALFIB_WAVEGRID):
+            log.info("Invalid parameters passed to spectrum_utilties::correct_for_lya_troughs()")
+            return fluxd, fluxd_err, None
+
+        if SU_UVbg_waves is None:
+            SU_UVbg_waves, SU_UVbg_z_array, SU_UVbg_fsd = uvbg_read_file()
+            if SU_UVbg_waves is None:
+                log.error(f"Cannot perform UV background correction on LyA spec. Cannot read UV bacgkround file")
+                return fluxd, fluxd_err, None
+
+        if False: #split, configurable mask
+            #shift to obs bins
+            if rest_blue_wave is None:
+                rest_blue_wave = np.array([G.LyA_rest - 15.0, G.LyA_rest - 4.0])
+            if rest_red_wave is None:
+                rest_red_wave = np.array([G.LyA_rest + 4.0, G.LyA_rest + 15.0])
+
+            obs_blue_wave = rest_blue_wave * (1+z)
+            obs_red_wave = rest_red_wave * (1+z)
+
+            #the wavelength bin is "named" for its midpoint
+            #find the indicies
+            blue_li,*_  = getnearpos(G.CALFIB_WAVEGRID,obs_blue_wave[0])
+            blue_ri, *_ = getnearpos(G.CALFIB_WAVEGRID, obs_blue_wave[1])
+
+            red_li,*_  = getnearpos(G.CALFIB_WAVEGRID,obs_red_wave[0])
+            red_ri, *_ = getnearpos(G.CALFIB_WAVEGRID, obs_red_wave[1])
+
+            correction_mask = np.zeros(len(G.CALFIB_WAVEGRID))
+            correction_mask[blue_li:blue_ri+1] = 1.0
+            correction_mask[red_li:red_ri+1] = 1.0
+
+            # bluest blue and reddest red wavebins are partials (get between 0 and 1.0 of the correction)
+            correction_mask[blue_li] = (G.CALFIB_WAVEGRID[blue_li] - obs_blue_wave[0]) / 2.0 + 0.5
+            correction_mask[red_ri] = (obs_red_wave[1] - G.CALFIB_WAVEGRID[red_ri]) / 2.0 + 0.5
+        else: #fixed mask test
+            #run from 0 to 1, linearly from 1199.5 to 1204.5 then stay at 1 through 1227.0 then back to 0 at 1233.0
+            correction_mask = np.zeros(len(G.CALFIB_WAVEGRID))
+            lwave = 1199.5 * (1+z)
+            rwave = 1204.5 * (1+z)
+            interp = interp1d([lwave,rwave],[0,1])
+            li, *_ =  getnearpos(G.CALFIB_WAVEGRID,lwave)
+            ri, *_ = getnearpos(G.CALFIB_WAVEGRID,rwave)
+            if G.CALFIB_WAVEGRID[li] < lwave:
+                li += 1
+            if G.CALFIB_WAVEGRID[ri] > rwave:
+                correction_mask[ri] = 1.0
+                ri -= 1
+
+            correction_mask[li:ri + 1] = interp(G.CALFIB_WAVEGRID[li:ri+1])
+
+            #now all 1's until the next transition
+            lwave = 1227.0 * (1+z)
+            rwave = 1233.0 * (1+z)
+            interp = interp1d([lwave,rwave],[1,0])
+            li, *_ =  getnearpos(G.CALFIB_WAVEGRID,lwave)
+            if G.CALFIB_WAVEGRID[li] < lwave:
+                correction_mask[li] = 1.0
+                li += 1
+
+            #fill in from the last ri to the new li
+            correction_mask[ri+1:li] = 1.0
+
+            ri, *_ = getnearpos(G.CALFIB_WAVEGRID,rwave)
+
+
+            if G.CALFIB_WAVEGRID[ri] > rwave:
+                ri -= 1
+
+            correction_mask[li:ri + 1] = interp(G.CALFIB_WAVEGRID[li:ri + 1])
+
+
+
+
+        #todo: get the correction values based on the redshift and the Haardt and Madau paper (from Laurel)
+        # this might be a blue and red value or maybe a range of values that will go into correction
+
+        # make the correction (the UVbacground
+        # correction = np.zeros(len(G.CALFIB_WAVEGRID))
+        #correction_error = np.zeros(len(G.CALFIB_WAVEGRID)
+
+        # get the background
+        uvbg_rest = uvbg_get_spectrum(z, SU_UVbg_z_array, SU_UVbg_fsd)
+
+        # shift to obs frame
+        obs_waves, uvbg_obs = uvbg_shift_observed_frame(z, SU_UVbg_waves, uvbg_rest)
+
+        # interp onto CALFIB_WAVEGRID
+        interp_uvbg_obs, *_ = interpolate(uvbg_obs, obs_waves, G.CALFIB_WAVEGRID)
+
+        #this is assumed to be in the per arcsec2 level so need to multiply by fibersize (0.75**2 * np.pi)
+        correction = interp_uvbg_obs * 1.767146 #0.75**2 * np.pi
+        #correction_err *= 1.767146
+
+        #update the per fiber correction to the PSF weighted version using the (ideaized) seeing
+        #mul, correction, correction_error = fiber_to_psf(seeing_fwhm, fiber_spec=correction, fiber_err=None)
+        #todo: !! not really sure I need this extra correction as this is a sort of uniform backgroun
+        # just the fiber correction above is probably all that is needed
+
+        #temporary test
+        mul, correction  = fiber_to_psf(seeing_fwhm, fiber_spec=correction, fiber_err=None)
+
+        #apply the masked correction (add in flux)
+        correction = correction_mask * correction * frac
+
+        #todo: is there anything we can do for the errors? ... it would be a correction_mask * correction_error
+        #fluxd_err = fluxd_err + correction_mask * correction_err
+
+        #return fluxd + correction, fluxd_err + correction_err, correction
+        return fluxd + correction, fluxd_err, correction
+
+    except:
+        log.error(f"Exception! Exception in spectrum_utilties::correct_for_lya_troughs()",exc_info=True)
+        return fluxd, fluxd_err, None
+
+
+###########################
+# end UV background stuff
+##########################
 
 
 
@@ -3140,7 +3374,29 @@ def get_psf_fixed_side(shot_fwhm,ap_radius,side,scale=0.25,normalize=True):
     return psf
 
 
-def fiber_to_psf(seeing_fwhm,box_size=10.5,step_arcsec=0.25,fiber_spec=None, fiber_err=None):
+def read_psf_conv_file():
+    """
+    read in the PSF convolution file (fixed seeing FWHM intervals with per wavelength convolution of single fiber)
+
+    :return:
+    """
+
+    global SU_PSF_35_spec, SU_PSF_35_fwhm
+    try:
+        out = np.loadtxt(op.join(G.ELIXER_CODE_PATH,"psf_fiber_convolutions_radius_3.5.txt"),unpack=True)
+
+        SU_PSF_35_spec = out[1:] #the first column are the wavelengths (which are just CALFIB_WAVEGRID
+        SU_PSF_35_fwhm = np.arange(1.0,3.1,0.1) #have to keep this matched up with the file
+        return True
+    except:
+        log.error(f"Cannot read in psf convolution file.",exc_info=True)
+        SU_PSF_35_spec = None
+        SU_PSF_35_fwhm = None
+        return False
+
+
+
+def fiber_to_psf(seeing_fwhm,box_size=10.5,step_arcsec=0.25,fiber_spec=None, fiber_err=None, interp=True):
     """
     Assumes we are centered on the center most fiber in the center of an ideal IFU.
     (Note: due to the extract and moffat build, this is a bit expenseive)
@@ -3150,47 +3406,80 @@ def fiber_to_psf(seeing_fwhm,box_size=10.5,step_arcsec=0.25,fiber_spec=None, fib
     :return:
     """
 
+    global SU_PSF_35_spec, SU_PSF_35_fwhm
+
     try:
-        num_fibers = 22
-        if fiber_spec is None:
-            spec = np.full((num_fibers, 1036), 1.0)
-        else:
-            spec = np.tile(fiber_spec,(num_fibers,1))
-
-        if fiber_err is None:
-            err = np.full((num_fibers, 1036), 1.0)
-        else:
-            err = np.tile(fiber_err,(num_fibers,1))
-        mask = np.full((num_fibers, 1036), True)
-
-        ifux = [2.54, 0.00, -2.54, 1.27,
-                -1.27, 2.54, 0.00, -2.54,
-                1.27, -1.27, 2.54, 0.00,
-                -2.54, 1.27, -1.27, 1.27,
-                -1.27, 2.54, 0.00, -2.54,
-                1.27, -1.27]
-        ifuy = [2.20, 2.20, 2.20, 0.00,
-                0.00, -2.20, -2.20, -2.20,
-                2.93, 2.93, 0.73, 0.73,
-                0.73, -1.47, -1.47, 1.47,
-                1.47, -0.73, -0.73, -0.73,
-                -2.93, -2.93]
-        xc = 0
-        yc = 0
-
         spectrum_conv_psf = None
         error_conv_psf = None
 
-        E = Extract()
+        if SU_PSF_35_fwhm is None:
+            read_psf_conv_file()
 
-        # data = np.full(fiber_data.shape,spec)
-        # error = np.full(fiber_data.shape,err)
+        if (interp == False) or (SU_PSF_35_fwhm is None) or \
+            (seeing_fwhm < SU_PSF_35_fwhm[0]) or (seeing_fwhm > SU_PSF_35_fwhm[-1]):
 
-        moffat = E.moffat_psf(seeing_fwhm, box_size, step_arcsec)
-        weights = E.build_weights(xc, yc, ifux, ifuy, moffat)
-        result = E.get_spectrum(spec, err, mask, weights)
+            num_fibers = 22
 
-        spectrum_conv_psf, error_conv_psf = [res for res in result]
+            if fiber_spec is None:
+                spec = np.full((num_fibers, 1036), 1.0)
+            else:
+                spec = np.tile(fiber_spec, (num_fibers, 1))
+
+            if fiber_err is None:
+                err = np.full((num_fibers, 1036), 1.0)
+            else:
+                err = np.tile(fiber_err, (num_fibers, 1))
+            mask = np.full((num_fibers, 1036), True)
+
+            ifux = [2.54, 0.00, -2.54, 1.27,
+                    -1.27, 2.54, 0.00, -2.54,
+                    1.27, -1.27, 2.54, 0.00,
+                    -2.54, 1.27, -1.27, 1.27,
+                    -1.27, 2.54, 0.00, -2.54,
+                    1.27, -1.27]
+            ifuy = [2.20, 2.20, 2.20, 0.00,
+                    0.00, -2.20, -2.20, -2.20,
+                    2.93, 2.93, 0.73, 0.73,
+                    0.73, -1.47, -1.47, 1.47,
+                    1.47, -0.73, -0.73, -0.73,
+                    -2.93, -2.93]
+            xc = 0
+            yc = 0
+
+            E = Extract()
+
+            # data = np.full(fiber_data.shape,spec)
+            # error = np.full(fiber_data.shape,err)
+
+            moffat = E.moffat_psf(seeing_fwhm, box_size, step_arcsec)
+            weights = E.build_weights(xc, yc, ifux, ifuy, moffat)
+            result = E.get_spectrum(spec, err, mask, weights)
+
+            spectrum_conv_psf, error_conv_psf = [res for res in result]
+        else: #we have pre-computed key values
+            _, l, h = getnearpos(SU_PSF_35_fwhm, seeing_fwhm)
+            step = SU_PSF_35_fwhm[h] - SU_PSF_35_fwhm[l]
+            if step == 0: #e.g. they are an exact match for the l or h index
+                step = 1.0
+
+            wl = 1.0 - ((seeing_fwhm - SU_PSF_35_fwhm[l]) / step)
+            wh = 1.0 - wl
+
+            conv =  wl * SU_PSF_35_spec[l] + wh * SU_PSF_35_spec[h]
+
+            if fiber_spec is None:
+                spec = np.ones(1036)
+            else:
+                spec = fiber_spec
+
+            if fiber_err is None:
+                err = np.ones(1036)
+            else:
+                err = fiber_err
+
+            spectrum_conv_psf = conv * spec
+            error_conv_psf = conv * err
+
 
         if fiber_spec is None:
             if fiber_err is None:
