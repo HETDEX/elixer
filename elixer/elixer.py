@@ -543,9 +543,15 @@ def parse_commandline(auto_force=False):
     try:
         args = parser.parse_args()
     except:
-        log.critical("Exception! Excpetion parsing command line.",exc_info=True)
-        print('Check this common problem. If using --dec with a negative value as d:m:s, the value must be quoted and '
-              'there must be a space between the leading quote and the negative sign. e.g. --dec \" -8:20:55.6\"')
+        cli = list(map(str.lower, sys.argv))  # python3 map is no longer a list, so need to cast here
+
+        if "--help" in cli or "-h" in cli:
+            pass
+        else:
+            log.critical("Exception! Excpetion parsing command line.",exc_info=True)
+            print('Check this common problem. If using --dec with a negative value as d:m:s, the value must be quoted and '
+                  'there must be a space between the leading quote and the negative sign. e.g. --dec \" -8:20:55.6\"')
+
         args = None
         return
 
@@ -4659,10 +4665,21 @@ def main():
     try:
         args = parse_commandline()
         if args is None:
-            print("Unable to parse command line. Exiting...")
+            cli = list(map(str.lower, sys.argv))  # python3 map is no longer a list, so need to cast here
+
+            if "--help" in cli or "-h" in cli:
+                pass
+            else:
+                print("Unable to parse command line. Exiting...")
             exit(0)
     except:
-        log.critical("Exception in command line.",exc_info=True)
+        cli = list(map(str.lower, sys.argv))  # python3 map is no longer a list, so need to cast here
+
+        if "--help" in cli or "-h" in cli:
+            pass
+        else:
+            print("Invalid or incomplete command line. Exiting ...")
+            log.critical("Exception in command line.",exc_info=True)
         exit(0)
 
     elixer_spectrum.update_with_globals()
