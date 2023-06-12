@@ -2925,7 +2925,7 @@ def uvbg_read_file():
     from astropy.io import fits
     try:
 
-        print("***** reading UVbg file ...")
+        #print("***** reading UVbg file ...")
         uvfits = fits.open(op.join(G.ELIXER_CODE_PATH,'UVB_interpolated.fits'))
 
         uvb_z = uvfits[1].data['z']
@@ -2983,7 +2983,7 @@ def uvbg_shift_observed_frame(z, rest_waves, rest_fluxd_arcs):  # , rest_fluxd_a
     except:
         return None, None
 
-def uvbg_correct_for_lya_troughs(fluxd,fluxd_err,z,seeing_fwhm,ffsky=False,frac=1.0,
+def uvbg_correct_for_lya_troughs(fluxd,fluxd_err,z,seeing_fwhm,aperture=3.5,ffsky=False,frac=1.0,
                             rest_blue_wave=None, rest_red_wave=None):
     """
     Takes the observed frame flux density and error and the redshift
@@ -3010,6 +3010,7 @@ def uvbg_correct_for_lya_troughs(fluxd,fluxd_err,z,seeing_fwhm,ffsky=False,frac=
     :param fluxd_err:
     :param z:
     :param seeing_fwhm: in arcsec
+    :param aperture: in arcsec (HETDEX extracton aperture radius)
     :param ffsky: there could be a different correction for ffsky vs local sky subtraction
     :param frac: expected 0 to 1.0, scaled down the correction by this fraction, but could be negative (so subtract more)
             or greater than 100%. Basically, this is "How much of the restframe UV (LyA resonance) light is scattered"?
@@ -3122,7 +3123,7 @@ def uvbg_correct_for_lya_troughs(fluxd,fluxd_err,z,seeing_fwhm,ffsky=False,frac=
         # just the fiber correction above is probably all that is needed
 
         #temporary test
-        mul, correction  = fiber_to_psf(seeing_fwhm, fiber_spec=correction, fiber_err=None)
+        mul, correction  = fiber_to_psf(seeing_fwhm, aperture=aperture,fiber_spec=correction, fiber_err=None)
 
         #apply the masked correction (add in flux)
         correction = correction_mask * correction * frac
@@ -3386,7 +3387,11 @@ def read_psf_conv_file():
         out = np.loadtxt(op.join(G.ELIXER_CODE_PATH,"psf_fiber_convolutions_radius_3.5.txt"),unpack=True)
 
         SU_PSF_35_spec = out[1:] #the first column are the wavelengths (which are just CALFIB_WAVEGRID
-        SU_PSF_35_fwhm = np.arange(1.0,3.1,0.1) #have to keep this matched up with the file
+
+        width = 2.0 #2.0- since we are covering all 1.0 to 3.0 inclusive
+        step = 1.0/((len(out)-width)/width)
+        #SU_PSF_35_fwhm = np.arange(1.0,3.01,0.01) #have to keep this matched up with the file
+        SU_PSF_35_fwhm = np.arange(1.0, 3.0+step, step)  # have to keep this matched up with the file
         return True
     except:
         log.error(f"Cannot read in psf convolution file.",exc_info=True)
@@ -3396,7 +3401,7 @@ def read_psf_conv_file():
 
 
 
-def fiber_to_psf(seeing_fwhm,box_size=10.5,step_arcsec=0.25,fiber_spec=None, fiber_err=None, interp=True):
+def fiber_to_psf(seeing_fwhm,aperture=3.5,box_size=10.5,step_arcsec=0.25,fiber_spec=None, fiber_err=None, interp=True):
     """
     Assumes we are centered on the center most fiber in the center of an ideal IFU.
     (Note: due to the extract and moffat build, this is a bit expenseive)
@@ -3407,6 +3412,18 @@ def fiber_to_psf(seeing_fwhm,box_size=10.5,step_arcsec=0.25,fiber_spec=None, fib
     """
 
     global SU_PSF_35_spec, SU_PSF_35_fwhm
+
+    if aperture != 3.5:
+        log.error(f"Computing fiber to PSF weighted aperture multiplier only valid for 3.5\" aperture. {aperture} aperture requested.", exc_info=True)
+        if fiber_spec is None:
+            if fiber_err is None:
+                return None
+            else:
+                return None, None
+        elif fiber_err is None:
+            return None, None
+        else:
+            return None, None, None
 
     try:
         spectrum_conv_psf = None
