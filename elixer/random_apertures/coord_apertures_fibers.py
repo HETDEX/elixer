@@ -131,16 +131,16 @@ if op.exists(table_outname):
 #
 #                 #col is now an integer 0 to 999, though only certain integers have meaning
 #                 G.SKY_RESIDUAL_FITS_COL = f"{sky_label}_stack_{col:03}"
-if False:
-    if SKY_RESIDUAL_FITS_PATH is not None:
-        shot_sky_subtraction_residual = SU.fetch_per_shot_single_fiber_sky_subtraction_residual(SKY_RESIDUAL_FITS_PATH,
-                                                                                        shotid,
-                                                                                        SKY_RESIDUAL_FITS_COL,
-                                                                                        SKY_RESIDUAL_FITS_PREFIX)
-    else: #use the model
-        shot_sky_subtraction_residual = SU.fetch_universal_single_fiber_sky_subtraction_residual(
-                                                                                            ffsky=ffsky,
-                                                                                            hdr=G.HDR_Version)
+# if False:
+#     if SKY_RESIDUAL_FITS_PATH is not None:
+#         shot_sky_subtraction_residual = SU.fetch_per_shot_single_fiber_sky_subtraction_residual(SKY_RESIDUAL_FITS_PATH,
+#                                                                                         shotid,
+#                                                                                         SKY_RESIDUAL_FITS_COL,
+#                                                                                         SKY_RESIDUAL_FITS_PREFIX)
+#     else: #use the model
+#         shot_sky_subtraction_residual = SU.fetch_universal_single_fiber_sky_subtraction_residual(
+#                                                                                             ffsky=ffsky,
+#                                                                                             hdr=G.HDR_Version)
 
     if shot_sky_subtraction_residual is None:
         print("FAIL!!! No single fiber shot residual retrieved.")

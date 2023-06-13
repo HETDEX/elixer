@@ -1,6 +1,6 @@
 changes to elixer by version
 
-1.20.0a4 [2023-06-06] test
+1.20.0a4 [2023-06-12]
 * added check for brightest single fiber being massively brighter than the next brightest (as weighted). This is an
   indication of a problem.
 * added check for possible charge trap based on central column(s) of sky-subtracted (cleaned) image cutout
@@ -10,6 +10,7 @@ changes to elixer by version
   used with an emission line source
 * added extra check for blank region in PNG conversion where the 2D fiber cutouts should be (this is usually a spot
   where a PDF to PNG conversion can fail silently). Will retry conversion if that region is blank.
+* fiber to PSF correction for 3.5" apertures and seeing FWHM 1.0 to 3.0 interpolated based on pre-computed curves
 
 1.20.0a3 [2023-05-24]
 * changed to interpolated models by PSF for per-fiber (zero point) correction

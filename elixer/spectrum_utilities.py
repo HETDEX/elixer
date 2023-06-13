@@ -2784,51 +2784,53 @@ def fetch_per_shot_single_fiber_sky_subtraction_residual(path,shotid,column,pref
         return None
     return None
 
-def fetch_universal_single_fiber_sky_subtraction_residual(ffsky=False,hdr=G.HDR_Version,seeing=None):
-    """
 
-        This is applied with the call to HETDEX_API get_spectra() and, as such, this needs to be in:
-        erg/s/cm2/AA e-17 (not 2AA)
-    This should NOT be de-reddened or have any other such corrections as those are applied as part of get_spectra()
-
-
-    :param ffsky:
-    :param hdr:
-    :param seeing:  if present, adjust the fiber residual based on the seeing
-    :return:
-    """
-
-    try:
-        if G.APPLY_SKY_RESIDUAL_TYPE != 1:
-            return None
-
-        log.debug("Loading universal sky residual model...")
-        if G.SKY_RESIDUAL_USE_MODEL:
-            which_col = 1
-        else:
-            which_col = 2
-        if hdr == "3":
-            if ffsky:
-                if G.SKY_RESIDUAL_HDR3_FF_FLUXD is None:
-                    # try to load it
-                    G.SKY_RESIDUAL_HDR3_FF_FLUXD = np.loadtxt(G.SKY_RESIDUAL_HDR3_FF_FN, usecols=(which_col))
-
-                log.info(f"***** Returning ff sky subtraction residual ({which_col})")
-                return G.SKY_RESIDUAL_HDR3_FF_FLUXD
-            else: #local sky
-                if G.SKY_RESIDUAL_HDR3_LO_FLUXD is None:
-                    # try to load it
-                    G.SKY_RESIDUAL_HDR3_LO_FLUXD = np.loadtxt(G.SKY_RESIDUAL_HDR3_LO_FN, usecols=(which_col))
-
-                log.info(f"***** Returning local sky subtraction residual ({which_col})")
-                return G.SKY_RESIDUAL_HDR3_LO_FLUXD
-        else:
-            log.warning(f"Unknown HDR version ({hdr}). No sky residual available.")
-    except:
-        log.error(f"Exception! Exception loading universal sky residual.", exc_info=True)
-        return None
-    log.error(f"No universal sky residual found.", exc_info=True)
-    return None
+# #DEFUNCT
+# def fetch_universal_single_fiber_sky_subtraction_residual(ffsky=False,hdr=G.HDR_Version,seeing=None):
+#     """
+#
+#         This is applied with the call to HETDEX_API get_spectra() and, as such, this needs to be in:
+#         erg/s/cm2/AA e-17 (not 2AA)
+#     This should NOT be de-reddened or have any other such corrections as those are applied as part of get_spectra()
+#
+#
+#     :param ffsky:
+#     :param hdr:
+#     :param seeing:  if present, adjust the fiber residual based on the seeing
+#     :return:
+#     """
+#
+#     try:
+#         if G.APPLY_SKY_RESIDUAL_TYPE != 1:
+#             return None
+#
+#         log.debug("Loading universal sky residual model...")
+#         if G.SKY_RESIDUAL_USE_MODEL:
+#             which_col = 1
+#         else:
+#             which_col = 2
+#         if hdr == "3":
+#             if ffsky:
+#                 if G.SKY_RESIDUAL_HDR3_FF_FLUXD is None:
+#                     # try to load it
+#                     G.SKY_RESIDUAL_HDR3_FF_FLUXD = np.loadtxt(G.SKY_RESIDUAL_HDR3_FF_FN, usecols=(which_col))
+#
+#                 log.info(f"***** Returning ff sky subtraction residual ({which_col})")
+#                 return G.SKY_RESIDUAL_HDR3_FF_FLUXD
+#             else: #local sky
+#                 if G.SKY_RESIDUAL_HDR3_LO_FLUXD is None:
+#                     # try to load it
+#                     G.SKY_RESIDUAL_HDR3_LO_FLUXD = np.loadtxt(G.SKY_RESIDUAL_HDR3_LO_FN, usecols=(which_col))
+#
+#                 log.info(f"***** Returning local sky subtraction residual ({which_col})")
+#                 return G.SKY_RESIDUAL_HDR3_LO_FLUXD
+#         else:
+#             log.warning(f"Unknown HDR version ({hdr}). No sky residual available.")
+#     except:
+#         log.error(f"Exception! Exception loading universal sky residual.", exc_info=True)
+#         return None
+#     log.error(f"No universal sky residual found.", exc_info=True)
+#     return None
 
 
 def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=False,hdr=G.HDR_Version):
@@ -2984,7 +2986,7 @@ def uvbg_shift_observed_frame(z, rest_waves, rest_fluxd_arcs):  # , rest_fluxd_a
         return None, None
 
 def uvbg_correct_for_lya_troughs(fluxd,fluxd_err,z,seeing_fwhm,aperture=3.5,ffsky=False,frac=1.0,
-                            rest_blue_wave=None, rest_red_wave=None):
+                            rest_blue_wave=None, rest_red_wave=None, blue_boost=0.35/0.2):
     """
     Takes the observed frame flux density and error and the redshift
     ASSUMES the object spectrum is from an LAE at the given redshift
@@ -3085,16 +3087,35 @@ def uvbg_correct_for_lya_troughs(fluxd,fluxd_err,z,seeing_fwhm,aperture=3.5,ffsk
 
             #fill in from the last ri to the new li
             correction_mask[ri+1:li] = 1.0
-
             ri, *_ = getnearpos(G.CALFIB_WAVEGRID,rwave)
-
-
             if G.CALFIB_WAVEGRID[ri] > rwave:
                 ri -= 1
 
             correction_mask[li:ri + 1] = interp(G.CALFIB_WAVEGRID[li:ri + 1])
 
 
+
+
+            if blue_boost != 1.0:
+                #apply blue side boost
+                #currently either at 0 (outside LyA region), 1 (fully inside LyA) or linear transtion at the edges
+                rwave = G.LyA_rest * (1+z)
+                #rwave = (G.LyA_rest + 2.0) * (1+z)
+                #interp = interp1d([lwave, rwave], [1.0*blue_boost, 1.0])
+
+                #get the blue side up to LyA
+                #li, *_ = getnearpos(G.CALFIB_WAVEGRID, lwave)
+                ri, *_ = getnearpos(G.CALFIB_WAVEGRID,rwave)
+                #if G.CALFIB_WAVEGRID[li] < lwave:
+                #    li += 1
+                if G.CALFIB_WAVEGRID[ri] > rwave:
+                #    correction_mask[ri] = 1.0
+                     ri -= 1
+
+                #get the transition across LyA
+                correction_mask[0:ri+1] *= blue_boost #ones * boost upto G.LyA_rest (in obs frame)
+                #boost[li:ri+1] = interp(G.CALFIB_WAVEGRID[li:ri + 1])
+                #rest are ones
 
 
         #todo: get the correction values based on the redshift and the Haardt and Madau paper (from Laurel)
