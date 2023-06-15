@@ -11,6 +11,8 @@ changes to elixer by version
 * added extra check for blank region in PNG conversion where the 2D fiber cutouts should be (this is usually a spot
   where a PDF to PNG conversion can fail silently). Will retry conversion if that region is blank.
 * fiber to PSF correction for 3.5" apertures and seeing FWHM 1.0 to 3.0 interpolated based on pre-computed curves
+* added supoprt for --ffsky for zero point correction models
+* added runtime configuration --zeropoint to toggle the per-fiber zeropoint correction
 
 1.20.0a3 [2023-05-24]
 * changed to interpolated models by PSF for per-fiber (zero point) correction

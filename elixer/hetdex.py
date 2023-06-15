@@ -6873,15 +6873,17 @@ class DetObj:
                 get_spectra_loglevel = "ERROR"
 
             if self.sky_subtraction_residual is None:
-                if G.SKY_RESIDUAL_PER_SHOT:
-                    self.sky_subtraction_residual = SU.fetch_per_shot_single_fiber_sky_subtraction_residual(G.SKY_RESIDUAL_FITS_PATH,
-                                                                                   self.survey_shotid,
-                                                                                   G.SKY_RESIDUAL_FITS_COL)
-                else:
-                    # self.sky_subtraction_residual = SU.fetch_universal_single_fiber_sky_subtraction_residual(ffsky=self.extraction_ffsky,
-                    #                                                                                          hdr=G.HDR_Version)
-                    self.sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
-                        self.survey_fwhm,ffsky=self.extraction_ffsky,hdr=G.HDR_Version)
+                self.sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
+                                                self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version)
+                # if G.SKY_RESIDUAL_PER_SHOT:
+                #     self.sky_subtraction_residual = SU.fetch_per_shot_single_fiber_sky_subtraction_residual(G.SKY_RESIDUAL_FITS_PATH,
+                #                                                                    self.survey_shotid,
+                #                                                                    G.SKY_RESIDUAL_FITS_COL)
+                # else:
+                #     # self.sky_subtraction_residual = SU.fetch_universal_single_fiber_sky_subtraction_residual(ffsky=self.extraction_ffsky,
+                #     #                                                                                          hdr=G.HDR_Version)
+                #     self.sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
+                #         self.survey_fwhm,ffsky=self.extraction_ffsky,hdr=G.HDR_Version)
             if self.sky_subtraction_residual is None:
                 fiber_flux_offset = None
             else:
@@ -6968,17 +6970,20 @@ class DetObj:
                 get_spectra_loglevel = "ERROR"
 
             if self.sky_subtraction_residual is None:
-                if G.SKY_RESIDUAL_PER_SHOT:
-                    self.sky_subtraction_residual = SU.fetch_per_shot_single_fiber_sky_subtraction_residual(
-                                                                               G.SKY_RESIDUAL_FITS_PATH,
-                                                                               self.survey_shotid,
-                                                                               G.SKY_RESIDUAL_FITS_COL)
-                else:
+                self.sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
+                                                self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version)
+
+                # if G.SKY_RESIDUAL_PER_SHOT:
+                #     self.sky_subtraction_residual = SU.fetch_per_shot_single_fiber_sky_subtraction_residual(
+                #                                                                G.SKY_RESIDUAL_FITS_PATH,
+                #                                                                self.survey_shotid,
+                #                                                                G.SKY_RESIDUAL_FITS_COL)
+                # else:
                     #self.sky_subtraction_residual = SU.fetch_universal_single_fiber_sky_subtraction_residual(
                     #                                                                   ffsky=self.extraction_ffsky,
                     #                                                                    hdr=G.HDR_Version)
-                    self.sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
-                        self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version)
+                    # self.sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
+                    #     self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version)
 
             if self.sky_subtraction_residual is None:
                 fiber_flux_offset = None

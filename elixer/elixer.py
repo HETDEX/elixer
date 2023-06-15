@@ -537,6 +537,10 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--missing', help='Launch the check for missing reports.', required=False,
                             action='store_true', default=False)
 
+    parser.add_argument('--zeropoint', help="[Optional] Override the default zero point correction state. 0 = off, "
+                                            "1 = ON (global models)\n***notice: only applies to re-extractions",
+                        required=False, type=int,default=None)
+
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
 
@@ -588,6 +592,24 @@ def parse_commandline(auto_force=False):
 
     except:
         pass
+
+    try:
+        if args.zeropoint is None:
+            pass
+        elif args.zeropoint == 0:
+            G.APPLY_SKY_RESIDUAL_TYPE = 0 #turn it off, explicitly
+        elif args.zeropoint == 1:
+            G.APPLY_SKY_RESIDUAL_TYPE = 1  #turn it ON, explicitly, for the models
+            G.SKY_RESIDUAL_PER_SHOT = False
+        # elif args.zeropoint == 2:
+        #     G.APPLY_SKY_RESIDUAL_TYPE = 1  # turn it ON, explicitly, for the per shot
+        #     G.SKY_RESIDUAL_PER_SHOT = True
+        else:
+            print("Invalid --zeropoint provided.", e)
+            exit(0)
+    except:
+        print("Invalid --zeropoint provided.",e)
+        exit(0)
 
     try:
         if args.cluster: #turn off all z-checks (only clustering is used)
