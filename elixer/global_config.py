@@ -1330,10 +1330,14 @@ APPLY_SKY_RESIDUAL_TYPE = 1 #0 = No, off, do not use:   1 = per fiber, 2 = per 3
 # SKY_RESIDUAL_HDR3_FF_FN = op.join(op.dirname(op.realpath(__file__)), "sky_subtraction_residuals/hdr3_ff_sky_fiber_residual_model.txt")
 
 
-SKY_RESIDUAL_ALL_LL_MODELS = None
-SKY_RESIDUAL_HDR3_ALL_LL_MODELS_FN = op.join(op.dirname(op.realpath(__file__)), "sky_subtraction_residuals/hdr3_local_sky_fiber_residual_models_by_psf.txt")
-SKY_RESIDUAL_ALL_FF_MODELS = None
-SKY_RESIDUAL_HDR3_ALL_FF_MODELS_FN = op.join(op.dirname(op.realpath(__file__)), "sky_subtraction_residuals/hdr3_ff_sky_fiber_residual_models_by_psf.txt")
+#HDR3 and HDR4 use same correction
 SKY_RESIDUAL_ALL_PSF = np.arange(1.2,3.1,0.1)
+SKY_RESIDUAL_ALL_LL_MODELS = None
+SKY_RESIDUAL_ALL_FF_MODELS = None
+SKY_RESIDUAL_HDR3_ALL_LL_MODELS_FN = op.join(op.dirname(op.realpath(__file__)),
+                                             "sky_subtraction_residuals/hdr3_local_sky_fiber_residual_models_by_psf.txt")
+SKY_RESIDUAL_HDR3_ALL_FF_MODELS_FN = op.join(op.dirname(op.realpath(__file__)),
+                                             "sky_subtraction_residuals/hdr3_ff_sky_fiber_residual_models_by_psf.txt")
+
 
 

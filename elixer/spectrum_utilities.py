@@ -2864,6 +2864,13 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
         if G.APPLY_SKY_RESIDUAL_TYPE != 1:
             return None
 
+        #we have models for HDR3 (samae as HDR4)
+        if hdr[0] in ['3','4']:
+            pass #all good
+        else:
+            log.warning(f"Invalid HDR version for interpolate_universal_single_fiber_sky_subtraction_residual(): {hdr}")
+            return None
+
         log.debug("Loading universal sky residual model...")
 
         if ffsky:
