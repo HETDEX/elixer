@@ -422,7 +422,14 @@ def select_hdr_version(version):
                     PIXFLT_LOC = HETDEX_API_CONFIG.pixflat_dir
                 else:
                     common = op.commonpath([HDF5_CONTINUUM_FN,HDF5_SURVEY_FN,HDF5_REDUCTION_DIR])
-                    PIXFLT_LOC = op.join(common,"/lib_calib/lib_pflat")
+                    PIXFLT_LOC = op.join(common,"lib_calib/lib_pflat")
+                    if not op.exists(PIXFLT_LOC):
+                        #one more try, go up one level
+                        PIXFLT_LOC = op.join(common, "../lib_calib/lib_pflat")
+
+                    if not op.exists(PIXFLT_LOC):
+                        print("Warning! Cannot find pixel flats. Path(s) do not exist.")
+                        log.warning("Warning! Cannot find pixel flats. Path(s) do not exist.")
             except:
                 common = op.commonpath([HDF5_CONTINUUM_FN,HDF5_SURVEY_FN,HDF5_REDUCTION_DIR])
                 PIXFLT_LOC = op.join(common,"/lib_calib/lib_pflat")
