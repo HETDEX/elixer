@@ -2872,6 +2872,7 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
             return None
 
         log.debug("Loading universal sky residual model...")
+        zeropoint_shift = 0.0
 
         if ffsky:
             if G.SKY_RESIDUAL_ALL_FF_MODELS is None:
@@ -2886,6 +2887,7 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
                 G.SKY_RESIDUAL_ALL_FF_MODELS = G.SKY_RESIDUAL_ALL_FF_MODELS[1:]
 
             which_models = G.SKY_RESIDUAL_ALL_FF_MODELS
+            zeropoint_shift = G.ZEROPOINT_SHIFT_FF
         else:
             if G.SKY_RESIDUAL_ALL_LL_MODELS is None:
                 # right now all HDRx are the same ... if this changes, need to load different files
@@ -2899,6 +2901,7 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
                 G.SKY_RESIDUAL_ALL_LL_MODELS = G.SKY_RESIDUAL_ALL_LL_MODELS[1:]
 
             which_models = G.SKY_RESIDUAL_ALL_LL_MODELS
+            zeropoint_shift = G.ZEROPOINT_SHIFT_LL
 
         #get the two flanking models
         _, l, h = getnearpos(G.SKY_RESIDUAL_ALL_PSF, seeing)
@@ -2910,7 +2913,7 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
         elif h is None:
             return which_models[l]
         else:
-            return rl*which_models[l] + rh*which_models[h]
+            return rl*which_models[l] + rh*which_models[h]  + zeropoint_shift
 
     except:
         log.error(f"Exception! Exception in interpolate_universal_single_fiber_sky_subtraction_residual.", exc_info=True)

@@ -538,8 +538,13 @@ def parse_commandline(auto_force=False):
                             action='store_true', default=False)
 
     parser.add_argument('--zeropoint', help="[Optional] Override the default zero point correction state. 0 = off, "
-                                            "1 = ON (global models)\n***notice: only applies to re-extractions",
+                                            "1 = ON (global models)\n***notice: only applies to re-extractions  (--aperture must be set)",
                         required=False, type=int,default=None)
+
+    parser.add_argument('--zeropoint_shift', help="[Optional] extra zeropoint offset additive shift. Wavelength independent. "
+                                                  "Units e-17 erg/s/cm2/AA. If set, implies --zerpoint 1."
+                                                  "\n***notice: only applies to re-extractions (--aperture must be set)",
+                        required=False, type=float,default=None)
 
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
@@ -592,6 +597,21 @@ def parse_commandline(auto_force=False):
 
     except:
         pass
+
+    try:
+        if args.zeropoint_shift is not None:
+            if isinstance(args.zeropoint_shift,float) or isinstance(args.zeropoint_shift,int):
+                #set both to the same, the value of args.ffsky sets which models to use later
+                G.ZEROPOINT_SHIFT_FF = args.zeropoint_shift
+                G.ZEROPOINT_SHIFT_LL = args.zeropoint_shift
+                args.zeropoint = 1
+            else:
+                print(f"Invalid --zeropoint_shift provided: {args.zeropoint_shift}", e)
+                exit(0)
+    except:
+        print(f"Invalid --zeropoint_shift provided: {args.zeropoint_shift}",e)
+        exit(0)
+
 
     try:
         if args.zeropoint is None:

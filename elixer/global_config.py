@@ -22,7 +22,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.20.0a4'
+__version__ = '1.20.0a5'
 #Logging
 GLOBAL_LOGGING = False #set to True in top elixer calls so we do not normally log from package imports
 LOG_TO_STDOUT = False #only kicks in if GLOBAL_LOGGING is False
@@ -1346,5 +1346,5 @@ SKY_RESIDUAL_HDR3_ALL_LL_MODELS_FN = op.join(op.dirname(op.realpath(__file__)),
 SKY_RESIDUAL_HDR3_ALL_FF_MODELS_FN = op.join(op.dirname(op.realpath(__file__)),
                                              "sky_subtraction_residuals/hdr3_ff_sky_fiber_residual_models_by_psf.txt")
 
-
-
+ZEROPOINT_SHIFT_LL = 0 #in e-17 erg/s/cm2/AA an extra flat shift applied to Local SKy subtraction models (additive)
+ZEROPOINT_SHIFT_FF = 0 #in e-17 erg/s/cm2/AA an extra flat shift applied to Local SKy subtraction models (additive)

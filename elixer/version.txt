@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.20.0a5 [2023-06-24]
+* testing optional additional local sky and ffsky wavelength independent zeropoint offset shift
+
 1.20.0a4 [2023-06-12]
 * added check for brightest single fiber being massively brighter than the next brightest (as weighted). This is an
   indication of a problem.

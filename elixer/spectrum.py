@@ -6396,7 +6396,7 @@ class Spectrum:
                         score = 0.25 * snr/8.0
                 #this could be an AGN and then the continuum measure from the band pass can be way too high, and then
                 #the EW too low, so give it some room, if the continuum is a little high and the line is at least a little broad
-                elif (ew > 15.0) or (ew+ew_err) > 20.0 or self.fwhm > 16.0:
+                elif (ew > 15.0) or (ew+ew_err) > 20.0 or (self.fwhm is not None and self.fwhm > 16.0):
                     if  (line_flux[lya_idx] > 5e-17) and \
                         (lya_idx == np.argmax(line_flux)) and \
                         (SU.cgs2mag(continuum,line_obs_waves[lya_idx]) < 24.0) and \
