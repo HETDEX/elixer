@@ -2923,6 +2923,45 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
 
 
 
+
+
+def interpolate_zeropoint_correction(seeing,ffsky=False,hdr=G.HDR_Version):
+    """
+
+    this has a similar interface to the per-fiber sky residual correction
+
+    at this time (2023-06-27) do not know if this should have a wavelength and/or a seeing dependency
+
+
+    :param seeing:
+    :param ffsky:
+    :param hdr:
+    :return:
+    """
+
+    try:
+        if G.APPLY_ZEROPOINT_TYPE != 1:
+            return None
+
+        #we have models for HDR3 (samae as HDR4)
+        if hdr[0] in ['3','4']:
+            pass #all good
+        else:
+            log.warning(f"Invalid HDR version for interpolate_zeropoint_correction(): {hdr}")
+            return None
+
+        if ffsky:
+            return 0.70
+        else: #local sky
+            return 0.80
+
+
+    except:
+        log.error(f"Exception! Exception in interpolate_zeropoint_correction.", exc_info=True)
+        return None
+    log.error(f"No universal zeropoint correction found.", exc_info=True)
+    return None
+
 #############################
 # UV Background Stuff
 #############################
@@ -4949,7 +4988,7 @@ def make_grid_max_length(all_waves):
     #return the grid
     return np.arange(mn, mx + step, step)
 
-def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="weighted_biweight",straight_error=False):
+def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="weighted_biweight",straight_error=False,std=False):
     """
         Assumes all spectra are in the same frame (ie. all in restframe) and ignores the flux type, but
         assumes all in the same units and scale (for flux, flux err and wave).
@@ -4961,6 +5000,7 @@ def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="weighted_biweight
     :param waves:  should be unitless values
     :param avg_type:
     :param straight_error:
+    :param std: if true, also return the std of the stack (per wavebin)
     :return:
     """
 
@@ -4968,7 +5008,10 @@ def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="weighted_biweight
 
     if (np.shape(flux_errs) != np.shape(waves)) or (np.shape(flux_errs) != data_shape):
         log.error("Inconsistent data shape for fluxes, flux_errs, and waves")
-        return None,None,None,None
+        if std:
+            return None, None, None, None,None
+        else:
+            return None,None,None,None
 
     if grid is None or len(grid) == 0:
         grid = make_grid_max_length(waves) #full width grid of absolute maximum spread in wavelengths
@@ -4982,6 +5025,7 @@ def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="weighted_biweight
 
     stack_flux = np.full(len(grid),np.nan)
     stack_flux_err = np.full(len(grid),np.nan)
+    stack_flux_std = np.full(len(grid),np.nan)
     #stack_wave # this is just the grid
 
     #resample all input fluxes onto the same grid
@@ -5026,22 +5070,27 @@ def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="weighted_biweight
         if len(wslice) == 0:
             stack_flux[i] = np.nan
             stack_flux_err[i] = np.nan
+            stack_flux_std[i] = np.nan
         elif len(wslice) == 1:
             try:
                 stack_flux[i] = wslice[0]
                 stack_flux_err[i] = 0
+                stack_flux_std[i] = 0
             except Exception as e:
                 print(e)
                 stack_flux[i] = 0
                 stack_flux_err[i] = 0
+                stack_flux_std[i] = 0
         elif len(wslice) == 2:
             try:
                 stack_flux[i] = np.nanmean(wslice)
                 stack_flux_err[i] = np.nanstd(wslice)
+                stack_flux_std[i] =np.nanstd(wslice)
             except Exception as e:
                 print(e)
                 stack_flux[i] = 0
                 stack_flux_err[i] = 0
+                stack_flux_std[i] = 0
         else: #3 or more
             if straight_error or (avg_type == 'mean_95'):
                 try:
@@ -5051,11 +5100,15 @@ def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="weighted_biweight
                     stack_flux[i] = mean_cntr[0]
                     #an average error
                     stack_flux_err[i] = 0.5 * (abs(mean_cntr[0]-mean_cntr[1][0]) + abs(mean_cntr[0]-mean_cntr[1][1]))
+                    if std:
+                        stack_flux_std[i] = np.nanstd(wslice)
                 except Exception as e:
                     log.error("Straight Error failed (iter=%d,wave=%f). Switching to biweight at 2 sigma  ..." %(i,grid[i]),e)
                     try:
                         stack_flux[i] = biweight.biweight_location(wslice)
                         stack_flux_err[i] = biweight.biweight_scale(wslice) #* 2. #2 sigma ~ 95%
+                        if std:
+                            stack_flux_std[i] = np.nanstd(wslice)
                     except Exception as e:
                         log.error(e)
             elif straight_error or (avg_type == 'mean_68'):
@@ -5067,6 +5120,8 @@ def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="weighted_biweight
                     # an average error
                     stack_flux_err[i] = 0.5 * (
                             abs(mean_cntr[0] - mean_cntr[1][0]) + abs(mean_cntr[0] - mean_cntr[1][1]))
+                    if std:
+                        stack_flux_std[i] = np.nanstd(wslice)
                 except Exception as e:
                     log.error("Straight Error failed (iter=%d,wave=%f). Switching to biweight at 2 sigma  ..." % (
                         i, grid[i]), e)
@@ -5074,6 +5129,8 @@ def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="weighted_biweight
                     try:
                         stack_flux[i] = biweight.biweight_location(wslice)
                         stack_flux_err[i] = biweight.biweight_scale(wslice)   # * 2. #2 sigma ~ 95%
+                        if std:
+                            stack_flux_std[i] = np.nanstd(wslice)
                     except Exception as e:
                         log.error(e)
             elif (avg_type == 'mean_std'):
@@ -5081,11 +5138,15 @@ def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="weighted_biweight
                     stack_flux[i] = np.nanmean(wslice)
                     # an average error
                     stack_flux_err[i] = np.nanstd(wslice) / np.sqrt(len(wslice))
+                    if std:
+                        stack_flux_std[i] = np.nanstd(wslice)
                 except Exception as e:
                     log.error("Straight Error failed (iter=%d,wave=%f). Switching to biweight at 2 sigma  ..." %(i,grid[i]),e)
                     try:
                         stack_flux[i] = biweight.biweight_location(wslice)
                         stack_flux_err[i] = biweight.biweight_scale(wslice) #* 2. #2 sigma ~ 95%
+                        if std:
+                            stack_flux_std[i] = np.nanstd(wslice)
                     except Exception as e:
                         log.error(e)
 
@@ -5094,12 +5155,16 @@ def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="weighted_biweight
                     stack_flux[i] = np.nanmedian(wslice)
                     #an average error
                     stack_flux_err[i] =np.nanstd(wslice)/np.sqrt(len(wslice))
+                    if std:
+                        stack_flux_std[i] = np.nanstd(wslice)
                 except Exception as e:
                     log.error("Straight Error failed (iter=%d,wave=%f). Switching to biweight at 2 sigma  ..." %(i,grid[i]),e)
 
                     try:
                         stack_flux[i] = biweight.biweight_location(wslice)
                         stack_flux_err[i] = biweight.biweight_scale(wslice)#* 2. #2 sigma ~ 95%
+                        if std:
+                            stack_flux_std[i] = np.nanstd(wslice)
                     except Exception as e:
                         log.error(e)
 
@@ -5107,11 +5172,15 @@ def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="weighted_biweight
                 try:
                     stack_flux[i] = biweight.biweight_location(wslice)
                     stack_flux_err[i] = biweight.biweight_scale(wslice) / np.sqrt(len(wslice))
+                    if std:
+                        stack_flux_std[i] = np.nanstd(wslice)
                 except Exception as e:
                     log.error("Straight Error failed (iter=%d,wave=%f). Switching to biweight at 2 sigma  ..." %(i,grid[i]),e)
                     try:
                         stack_flux[i] = biweight.biweight_location(wslice)
                         stack_flux_err[i] = biweight/biweight_scale(wslice) #* 2. #2 sigma ~ 95%
+                        if std:
+                            stack_flux_std[i] = np.nanstd(wslice)
                     except Exception as e:
                         log.error(e)
             else: #weighted_biweight
@@ -5120,14 +5189,21 @@ def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="weighted_biweight
                 try:
                     stack_flux[i] = weighted_biweight.biweight_location_errors(wslice, errors=wslice_err)
                     stack_flux_err[i] = weighted_biweight.biweight_scale(wslice) / np.sqrt(len(wslice))
+                    if std:
+                        stack_flux_std[i] = np.nanstd(wslice)
                 except Exception as e:
                     log.error(e)
                     stack_flux[i] = biweight.biweight_location(wslice)
                     stack_flux_err[i] = biweight.biweight_scale(wslice) / np.sqrt(len(wslice))
+                    if std:
+                        stack_flux_std[i] = np.nanstd(wslice)
 
         #end loop
 
-    return stack_flux,stack_flux_err,grid,contrib_count
+    if std:
+        return stack_flux,stack_flux_err,grid,contrib_count,stack_flux_std
+    else:
+        return stack_flux,stack_flux_err,grid,contrib_count
 
 
 #

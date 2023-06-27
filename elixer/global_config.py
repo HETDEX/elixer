@@ -1345,6 +1345,9 @@ SKY_RESIDUAL_HDR3_ALL_LL_MODELS_FN = op.join(op.dirname(op.realpath(__file__)),
                                              "sky_subtraction_residuals/hdr3_local_sky_fiber_residual_models_by_psf.txt")
 SKY_RESIDUAL_HDR3_ALL_FF_MODELS_FN = op.join(op.dirname(op.realpath(__file__)),
                                              "sky_subtraction_residuals/hdr3_ff_sky_fiber_residual_models_by_psf.txt")
-
+#temporary
 ZEROPOINT_SHIFT_LL = 0 #in e-17 erg/s/cm2/AA an extra flat shift applied to Local SKy subtraction models (additive)
 ZEROPOINT_SHIFT_FF = 0 #in e-17 erg/s/cm2/AA an extra flat shift applied to Local SKy subtraction models (additive)
+
+
+APPLY_ZEROPOINT_TYPE = 0

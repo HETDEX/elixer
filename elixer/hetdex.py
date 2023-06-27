@@ -6935,6 +6935,12 @@ class DetObj:
                     except:
                         log.warning("Exception. Unable to apply galatic exintction correction to neighbor.", exc_info=True)
 
+                if G.APPLY_ZEROPOINT_TYPE:
+                    zp_mul = SU.interpolate_zeropoint_correction(self.survey_fwhm, ffsky=self.extraction_ffsky,
+                                                                 hdr=G.HDR_Version)
+                    self.sumspec_flux *= zp_mul
+                    self.sumspec_fluxerr *= zp_mul
+
                 sep_obj['dex_g_mag'], _, sep_obj['dex_g_mag_err'], _ = \
                     elixer_spectrum.get_sdss_gmag(sep_obj['flux'] / G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS,
                                                   G.CALFIB_WAVEGRID,
@@ -7037,6 +7043,11 @@ class DetObj:
                     log.warning("Exception. Unable to apply galatic exintction correction.",exc_info=True)
 
 
+            if G.APPLY_ZEROPOINT_TYPE:
+                zp_mul = SU.interpolate_zeropoint_correction(self.survey_fwhm, ffsky=self.extraction_ffsky,
+                                                             hdr=G.HDR_Version)
+                self.sumspec_flux *= zp_mul
+                self.sumspec_fluxerr *= zp_mul
 
             try: #name change in HDR3
                 self.sumspec_apcor =  np.array(apt['apcor'][0]) #this is the apcor ... the fiber_weights are the PSF weights
