@@ -2972,9 +2972,9 @@ def interpolate_zeropoint_correction(seeing,ffsky=False,hdr=G.HDR_Version):
             return None
 
         if ffsky:
-            return 0.9571
+            return 0.9 #0.9571
         else: #local sky
-            return 0.9714
+            return 0.95 #0.9714
 
 
     except:
