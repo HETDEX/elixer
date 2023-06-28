@@ -27,6 +27,7 @@ from hetdex_api.shot import get_fibers_table
 from hetdex_api.survey import Survey,FiberIndex
 from hetdex_tools.get_spec import get_spectra
 from hetdex_api.extinction import *  #includes deredden_spectra
+from hetdex_api.extract import Extract
 
 from elixer import spectrum as elixer_spectrum
 from elixer import spectrum_utilities as SU
@@ -60,7 +61,12 @@ else:
     print("using local sky subtraction")
     ffsky = False
 
-
+if "--fiber_corr" in args:
+    print("Apply per fiber residual correction")
+    per_fiber_corr = True
+else:
+    print("Do Not apply per fiber residual correction")
+    per_fiber_corr = False
 
 if "--dust" in args:
     print("applying dust correction")
@@ -92,23 +98,42 @@ if "--minmag" in args:
         print("bad --minmag specified")
         exit(-1)
 else:
-    print("using default 24.5 bright limit on mag.")
-    min_gmag = 24.5  # 3.5" aperture
+    print("using Seeing based minimum mag estimate.")
+    min_gmag = None #24.5  # 3.5" aperture
+
+
+if "--mag_adjust" in args:
+    i = args.index("--mag_adjust")
+    try:
+        mag_adjust = float(sys.argv[i + 1])
+        print(f"using specified {mag_adjust} magnitude adjustment.")
+    except:
+        print("bad --mag_adjust specified")
+        exit(-1)
+else:
+    print("using no magnitude limit adjustment.")
+    mag_adjust = 0  # 24.5  # 3.5" aperture
 
 
 outfile = open("random_apertures_"+str(shotid)+".coord", "w+")  # 3500-3800 avg +/- 0.04
 table_outname = "random_apertures_"+str(shotid) + ".fits"
-
+table_outname2 = "random_apertures_"+str(shotid) + "_fibers.fits"
 
 #maybe this one was already done?
-if op.exists(table_outname ):
+if op.exists(table_outname ) or op.exists(table_outname2 ):
+    print("One or more outputs already exists. Exiting.")
     exit(0)
+
+
 
 survey_name = "hdr3" #"hdr2.1"
 hetdex_api_config = HDRconfig(survey_name)
 survey = Survey(survey_name)
+print("Reading survey table ...")
 survey_table=survey.return_astropy_table()
+print("Getting FiberIndex ...")
 FibIndex = FiberIndex(survey_name)
+print("Reading amp flags table ...")
 ampflag_table = Table.read(hetdex_api_config.badamp)
 
 ########################
@@ -126,11 +151,16 @@ negative_flux_limit = -0.4e-17  # erg/s/cm2/AA ... more negative than this, assu
 hetdex_nearest_detection = 2.0 #in arcsec
 
 wave_continuum_chunks_idx = [np.arange(15, 166, 1),  # 3500-3800
+                             np.arange(215, 616, 1),  # 3900-4700
+                             np.arange(615, 966, 1),  # 4700-5400
                              ]
-# array of tuples that set the minimum and maximum average flux density value (e-17) that are okay.
+# array of tuples that set the minimum and maximum average flux density value (e-17) that are loosely okay.
+# these are not based on seeing FWHM.
 # aligns with wave_continuum_chunks_idx
-acceptable_fluxd = [(-0.04, 0.04),
-                    ]
+#aperture values: note 0.1e-17 is about 24.2 at 4700AA
+acceptable_fluxd = [(-0.1, 0.5), #swing in the blue ... really should never be negative, roughly 5-10x is maybe okay
+                    (-0.1, 0.1),
+                    (-0.1, 0.1),]
 
 
 
@@ -141,6 +171,7 @@ acceptable_fluxd = [(-0.04, 0.04),
 sel = (ampflag_table['shotid'] == shotid) & (ampflag_table['flag'] == 0)  # here, 0 is bad , 1 is good
 #bad_amp_list = ampflag_table['multiframe'][sel] #using the fiber index values which includes the bad amp flag
 
+print("Building super table of fiberIDs ...")
 idx = FibIndex.hdfile.root.FiberIndex.get_where_list("shotid==shot")
 if idx is None or len(idx) < 20000:
     fi_shotids = FibIndex.hdfile.root.FiberIndex.read(field="shotid")
@@ -167,8 +198,9 @@ super_tab = join(fibers_table, mask_table, "fiber_id")
 ## iterate over the random fibers, verify is NOT on a bad amp, nudge the coordinate and extract
 ##
 aper_ct = 0
-write_every = 100
+write_every = 1
 
+#aperture
 T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
                  ('seeing',float),('response',float),('apcor',float),
                  ('f50_3800',float),('f50_5000',float),
@@ -182,6 +214,17 @@ T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
                  ('fluxd_zero_err', (float, len(G.CALFIB_WAVEGRID))),
                  ])
 
+#individual fibers
+T2 = Table(dtype=[('ra', float), ('dec', float), ('fiber_ra', float), ('fiber_dec', float),
+                 ('shotid', int),
+                 ('seeing',float),
+                 ('fluxd', (float, len(G.CALFIB_WAVEGRID))),
+                 ('fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ])
+
+E = Extract()
+E.load_shot(shotid)
+
 sel = np.array(survey_table['shotid'] == shotid)
 seeing = float(survey_table['fwhm_virus'][sel])
 response = float(survey_table['response_4540'][sel])
@@ -193,6 +236,10 @@ dex_ra = elix_h5.root.Detections.read(field='ra')
 dex_dec = elix_h5.root.Detections.read(field='dec')
 elix_h5.close()
 
+if min_gmag is None:
+    min_gmag = SU.estimated_depth(seeing)
+
+min_gmag += mag_adjust
 
 for f in super_tab: #these fibers are in a random order so just iterating over them is random
                     #though it is possible to get two apertures at the same location (adjacent fibers and random
@@ -259,7 +306,7 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
 
         if g is None or np.isnan(g):
             dex_g = 99.0
-            deg_g_err = 0
+            dex_g_err = 0
         else:
             dex_g = g
             dex_g_err = ge
@@ -279,7 +326,7 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
         if fail:
             continue
 
-        # check for any emission lines ... simple scan? or should we user elixer's method?
+        # check for any emission lines ... simple scan? or should we use elixer's method?
         #2022-12-09 should re-run and use this with fluxd*2.0 since that is how it is calibrated
         pos, status = elixer_spectrum.sn_peakdet_no_fit(wavelength, fluxd*2.0, fluxd_err*2.0, dx=3, dv=3, dvmx=4.0,
                                                         absorber=False,
@@ -326,48 +373,71 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
         outfile.write(f"{ra}  {dec}  {shot}\n")
         outfile.flush()
 
-        try:
-            #sky_subtraction_residual = SU.fetch_universal_single_fiber_sky_subtraction_residual(
-            #    ffsky=ffsky, hdr="3")
-            #adjust_type  0 = default (none), 1 = multiply  2 = add, 3 = None
-            #fiber_flux_offset = -1 * SU.adjust_fiber_correction_by_seeing(sky_subtraction_residual, seeing, adjust_type=3)
+        if per_fiber_corr:
+            try:
+                #sky_subtraction_residual = SU.fetch_universal_single_fiber_sky_subtraction_residual(
+                #    ffsky=ffsky, hdr="3")
+                #adjust_type  0 = default (none), 1 = multiply  2 = add, 3 = None
+                #fiber_flux_offset = -1 * SU.adjust_fiber_correction_by_seeing(sky_subtraction_residual, seeing, adjust_type=3)
 
-            sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
-                seeing, ffsky=ffsky, hdr="3")
-            fiber_flux_offset = -1 * sky_subtraction_residual
+                sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
+                    seeing, ffsky=ffsky, hdr="3")
+                fiber_flux_offset = -1 * sky_subtraction_residual
 
-            apt_offset = get_spectra(coord, survey=survey_name, shotid=shot,
-                                     ffsky=ffsky, multiprocess=True, rad=aper,
-                                     tpmin=0.0, fiberweights=True, loglevel="ERROR",
-                                     fiber_flux_offset=fiber_flux_offset)
+                apt_offset = get_spectra(coord, survey=survey_name, shotid=shot,
+                                         ffsky=ffsky, multiprocess=True, rad=aper,
+                                         tpmin=0.0, fiberweights=True, loglevel="ERROR",
+                                         fiber_flux_offset=fiber_flux_offset)
 
-            fluxd_offset = np.array(apt_offset['spec'][0]) * 1e-17
-            fluxd_offset_err = np.array(apt_offset['spec_err'][0]) * 1e-17
-            #wavelength = np.array(apt['wavelength'][0])
+                fluxd_offset = np.array(apt_offset['spec'][0]) * 1e-17
+                fluxd_offset_err = np.array(apt_offset['spec_err'][0]) * 1e-17
+                #wavelength = np.array(apt['wavelength'][0])
 
-            if dust:
-                dust_corr = deredden_spectra(wavelength, coord)
-                fluxd_offset *= dust_corr
-                fluxd_offset_err *= dust_corr
+                if dust:
+                    dust_corr = deredden_spectra(wavelength, coord)
+                    fluxd_offset *= dust_corr
+                    fluxd_offset_err *= dust_corr
 
-        except Exception as e:
-            print(e)
+            except Exception as e:
+                print(e)
+                fluxd_offset = np.full(len(fluxd), np.nan)
+                fluxd_offset_err = np.full(len(fluxd),np.nan)
+        else:
             fluxd_offset = np.full(len(fluxd), np.nan)
-            fluxd_offset_err = np.full(len(fluxd),np.nan)
+            fluxd_offset_err = np.full(len(fluxd), np.nan)
 
-
-
+        #aperture level
         T.add_row([ra, dec, shotid, seeing, response, apcor[1], f50[0], f50[1],
                    dex_g, dex_g_err, dex_cont, dex_cont_err,
                    fluxd_sum,fluxd_sum_wide,fluxd_median,fluxd_median_wide,
                    fluxd, fluxd_err,fiber_weights,norm_weights,fluxd_offset, fluxd_offset_err])
 
+
+        try:
+             #fiber level
+            #get the fibers at the coord for the aperture size
+            _, _, _, _, fiber_ra, fiber_dec, spec, spece, _, _, _ = E.get_fiberinfo_for_coord(coord,
+                                                    radius=aper,ffsky=ffsky,return_fiber_info=True,
+                                                    fiber_lower_limit=3, verbose=False, fiber_flux_offset=None)
+
+            for i in range(len(fiber_ra)):
+                T2.add_row([ra,dec,fiber_ra[i], fiber_dec[i],shotid,seeing,spec[i],spece[i]])
+        except Exception as e:
+            print("Exception (1b) !", e)
+            continue
+
         aper_ct += 1
+
+
+        if aper_ct % write_every == 0:
+            T.write(table_outname, format='fits', overwrite=True)
+            T2.write(table_outname2, format='fits', overwrite=True)
 
     except Exception as e:
         print("Exception (2) !", e)
         continue
 
 T.write(table_outname, format='fits', overwrite=True)
+T2.write(table_outname2, format='fits', overwrite=True)
 
 

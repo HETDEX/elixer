@@ -2675,6 +2675,25 @@ def combo_fit_wave(peak_func,values,errors,wavelengths,central,wave_slop_kms=500
     return return_dict
 
 
+
+def estimated_depth(seeing):
+    """
+    Return the estimated g-band limit (depth) for HETDEX at the given seeing FWHM for point-source detections.
+    See the notebooks/hdr303_depth_vs_seeing for source of the poly 3 model
+        basically a 3-degree polynomial fit to median depths in seeing bins over HETDEX data where
+        the depth was estimated from the detections in elixer
+    Assumes effective wavelenght of 4726AA
+
+    :param seeing:
+    :return:
+    """
+
+    poly3_model = [-0.33105551, 2.2871651, -5.56681813, 29.34075907]
+    return np.polyval(poly3_model, seeing) #gband magnitude
+
+#
+# Defunct? 2023-06-01
+#
 def adjust_fiber_correction_by_seeing(fiber_fluxd, seeing, adjust_type = 0):
     """
     returns the updated fiber fluxd spectrum
@@ -2706,8 +2725,10 @@ def adjust_fiber_correction_by_seeing(fiber_fluxd, seeing, adjust_type = 0):
 
         return 10**(0.4 * baseline_slope * (baseline_seeing - seeing) )
 
-    def adj_model_poly(seeing,model=poly3):
-        return 10**(0.4  * (np.polyval(model,baseline_seeing)- np.polyval(model,seeing)))
+    #def adj_model_poly(seeing,model=poly3):
+    #    return 10 ** (0.4 * (np.polyval(model, baseline_seeing) - np.polyval(model, seeing)))
+    def adj_model_poly(seeing):
+        return 10**(0.4  * (estimated_depth(baseline_seeing)- estimated_depth(seeing)))
 
     try:
         if seeing is None:
@@ -3141,9 +3162,6 @@ def uvbg_correct_for_lya_troughs(fluxd,fluxd_err,z,seeing_fwhm,aperture=3.5,ffsk
                 ri -= 1
 
             correction_mask[li:ri + 1] = interp(G.CALFIB_WAVEGRID[li:ri + 1])
-
-
-
 
             if blue_boost != 1.0:
                 #apply blue side boost
