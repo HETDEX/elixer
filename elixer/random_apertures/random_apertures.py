@@ -198,7 +198,7 @@ super_tab = join(fibers_table, mask_table, "fiber_id")
 ## iterate over the random fibers, verify is NOT on a bad amp, nudge the coordinate and extract
 ##
 aper_ct = 0
-write_every = 1
+write_every = 50
 
 #aperture
 T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
@@ -226,6 +226,11 @@ E = Extract()
 E.load_shot(shotid)
 
 sel = np.array(survey_table['shotid'] == shotid)
+
+if np.count_nonzero(sel) != 1:
+    print(f"problem: {shotid} has {np.count_nonzero(sel)} hits")
+    exit(0)
+
 seeing = float(survey_table['fwhm_virus'][sel])
 response = float(survey_table['response_4540'][sel])
 

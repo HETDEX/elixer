@@ -21,14 +21,33 @@ else:
 table_outname = prefix
 
 files = glob.glob(table_outname +"*.fits")
-T = Table.read(files[0],format="fits")
+#T = Table.read(files[0],format="fits")
+T = None
+T2 = None
 write_every = 100
 for i,f in enumerate(files[1:]):
     print(i+1,f)
-    t = Table.read(f,format="fits")
-    T = vstack([T,t])
+    t = Table.read(f, format="fits")
+
+    if "_fibers.fits" in f:
+        if T2 is None:
+            T2 = Table.read(f,format="fits")
+        else:
+            T2 = vstack([T2, t])
+    else:
+        if T is None:
+            T = Table.read(f, format="fits")
+        else:
+            T = vstack([T,t])
 
     if (i+1) % write_every == 0:
-        T.write(table_outname+"_all.fits",format='fits',overwrite=True)
+        if T is not None:
+            T.write(table_outname+"_all.fits",format='fits',overwrite=True)
+        if T2 is not None:
+            T2.write(table_outname+"_fibers_all.fits",format='fits',overwrite=True)
 
-T.write(table_outname+"_all.fits",format='fits',overwrite=True)
+if T is not None:
+    T.write(table_outname+"_all.fits",format='fits',overwrite=True)
+
+if T2 is not None:
+    T2.write(table_outname + "_all_fibers.fits", format='fits', overwrite=True)
