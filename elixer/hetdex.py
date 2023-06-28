@@ -12742,6 +12742,10 @@ class HETDEX:
                         #plot_label += "\n"+ r"$\chi^2$" + "%0.1f " % max_chi2
                         if max_chi2 > 10.0:
                             plot_label += "\n" + "%0.1f " % max_chi2
+
+                            #set questionable detection flag when it is this severe
+                            #maybe should also check for it being kind of narrow (say sigma < 3 or so?)
+                            detobj.flags |= G.DETFLAG_QUESTIONABLE_DETECTION
                         else:
                             plot_label += "\n" + "%0.2f " % max_chi2
                     except:

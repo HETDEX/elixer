@@ -4,6 +4,7 @@ changes to elixer by version
 * testing optional additional local sky and ffsky wavelength independent zeropoint offset shift
 * testing separation of zeropoint correction (multiplicative) and sky residual
   + for this version, it is ncessary to add in fixed zeropoint correction on the command line (--zeropoint_shift)
+* if the chi2 fiber fit for any of the top 4 fibers is > 10, set DETFLAG_QUESTIONABLE_DETECTION
 
 1.20.0a4 [2023-06-12]
 * added check for brightest single fiber being massively brighter than the next brightest (as weighted). This is an
