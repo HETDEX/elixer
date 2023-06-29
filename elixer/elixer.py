@@ -631,7 +631,7 @@ def parse_commandline(auto_force=False):
             pass
         elif args.skyres == 0:
             G.APPLY_SKY_RESIDUAL_TYPE = 0 #turn it off, explicitly
-        elif args.zeropoint == 1:
+        elif args.skyres == 1:
             G.APPLY_SKY_RESIDUAL_TYPE = 1  #turn it ON, explicitly, for the models
             G.SKY_RESIDUAL_PER_SHOT = False
         else:
