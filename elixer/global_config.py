@@ -22,7 +22,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.20.0a5'
+__version__ = '1.20.0a6'
 #Logging
 GLOBAL_LOGGING = False #set to True in top elixer calls so we do not normally log from package imports
 LOG_TO_STDOUT = False #only kicks in if GLOBAL_LOGGING is False
@@ -1257,6 +1257,8 @@ DETFLAG_NO_DUST_CORRECTION          = 0x02000000    #dust correction was request
 DETFLAG_BAD_PIXELS                  = 0x04000000    #hot column, maybe bad sky subtraction, etc ... possible false detection
 DETFLAG_BAD_EMISSION_LINE           = 0x08000000    #emission line is questionable, could be continuum between absorbers
 
+DETFLAG_NO_ZEROPOINT                = 0x10000000    #may be temporary ... no zeropoint correction could be made
+
 
 DETFLAG_CORRUPT_DATA                = 0x80000000    #some nontrivial portion of the data may be corrupt, though it may not be significant
 #todo: low SNR, weighted position is between fibers (i.e. distances from blue fiber center > 0.74 or 0.75 and SNR < 5.2 or so)
@@ -1346,8 +1348,12 @@ SKY_RESIDUAL_HDR3_ALL_LL_MODELS_FN = op.join(op.dirname(op.realpath(__file__)),
 SKY_RESIDUAL_HDR3_ALL_FF_MODELS_FN = op.join(op.dirname(op.realpath(__file__)),
                                              "sky_subtraction_residuals/hdr3_ff_sky_fiber_residual_models_by_psf.txt")
 #temporary
-ZEROPOINT_SHIFT_LL = 0 #in e-17 erg/s/cm2/AA an extra flat shift applied to Local SKy subtraction models (additive)
-ZEROPOINT_SHIFT_FF = 0 #in e-17 erg/s/cm2/AA an extra flat shift applied to Local SKy subtraction models (additive)
+#ZEROPOINT_SHIFT_LL = 0 #in e-17 erg/s/cm2/AA an extra flat shift applied to Local SKy subtraction models (additive)
+#ZEROPOINT_SHIFT_FF = 0 #in e-17 erg/s/cm2/AA an extra flat shift applied to Local SKy subtraction models (additive)
 
+#2023-06-29 ... just a guess at the moment ... need to calibrate
+ZEROPOINT_BASE_LL = 0.2 #default mutiplicative zeropoint correction on flux assuming effective wave of 4726AA
+ZEROPOINT_BASE_FF = 0.3
+ZEROPOINT_FRAC    = 1.0 #fraction of the above correction that is applied
+                        #can be adjusted on command line as another fraction of this value
 
-APPLY_ZEROPOINT_TYPE = 0

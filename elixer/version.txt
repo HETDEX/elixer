@@ -1,5 +1,11 @@
 changes to elixer by version
 
+1.20.0a6 [2023-06-29]
+* fully split zeropoint correction and sky residual correction
+    + updated use of --zeropoint
+* added --skyres to toggle on/off change sky residual subtraction mode
+
+
 1.20.0a5 [2023-06-24]
 * testing optional additional local sky and ffsky wavelength independent zeropoint offset shift
 * testing separation of zeropoint correction (multiplicative) and sky residual

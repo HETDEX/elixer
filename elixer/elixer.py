@@ -499,10 +499,6 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--mcmc', help='Always perform MCMC fit on LSQ pre-fit possible lines.', required=False,
                         action='store_true', default=False)
 
-    # parser.add_argument('--sky_residual', help='Toggle [ON] shot-specific sky residual subtraction for forced-extracions.',
-    #                     required=False, action='store_true', default=False)
-
-
     parser.add_argument('--viewer', help='Launch the global_config.py set PDF viewer on completion', required=False,
                             action='store_true', default=False)
 
@@ -538,13 +534,20 @@ def parse_commandline(auto_force=False):
                             action='store_true', default=False)
 
     parser.add_argument('--zeropoint', help="[Optional] Override the default zero point correction state. 0 = off, "
-                                            "1 = ON (global models)\n***notice: only applies to re-extractions  (--aperture must be set)",
+                                            "Any other value is a fraction of the application. e.g. 1.0 = full correction,"
+                                            "0.5 = 1/2 correction, 2.0 = twice correction. Negatives are allowed.",
+                        required=False, type=float,default=None)
+
+    parser.add_argument('--skyres', help="",
                         required=False, type=int,default=None)
 
-    parser.add_argument('--zeropoint_shift', help="[Optional] extra zeropoint offset additive shift. Wavelength independent. "
-                                                  "Units e-17 erg/s/cm2/AA. If set, implies --zerpoint 1."
-                                                  "\n***notice: only applies to re-extractions (--aperture must be set)",
-                        required=False, type=float,default=None)
+    # parser.add_argument('--sky_residual', help='Toggle [ON] shot-specific sky residual subtraction for forced-extracions.',
+    #                     required=False, action='store_true', default=False)
+
+    # parser.add_argument('--zeropoint_shift', help="[Optional] extra zeropoint offset additive shift. Wavelength independent. "
+    #                                               "Units e-17 erg/s/cm2/AA. If set, implies --zerpoint 1."
+    #                                               "\n***notice: only applies to re-extractions (--aperture must be set)",
+    #                     required=False, type=float,default=None)
 
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
@@ -598,39 +601,44 @@ def parse_commandline(auto_force=False):
     except:
         pass
 
-    try:
-        if args.zeropoint_shift is not None:
-            if isinstance(args.zeropoint_shift,float) or isinstance(args.zeropoint_shift,int):
-                #set both to the same, the value of args.ffsky sets which models to use later
-                G.ZEROPOINT_SHIFT_FF = args.zeropoint_shift
-                G.ZEROPOINT_SHIFT_LL = args.zeropoint_shift
-                args.zeropoint = 1
-            else:
-                print(f"Invalid --zeropoint_shift provided: {args.zeropoint_shift}", e)
-                exit(0)
-    except:
-        print(f"Invalid --zeropoint_shift provided: {args.zeropoint_shift}",e)
-        exit(0)
+    # try:
+    #     if args.zeropoint_shift is not None:
+    #         if isinstance(args.zeropoint_shift,float) or isinstance(args.zeropoint_shift,int):
+    #             #set both to the same, the value of args.ffsky sets which models to use later
+    #             G.ZEROPOINT_SHIFT_FF = args.zeropoint_shift
+    #             G.ZEROPOINT_SHIFT_LL = args.zeropoint_shift
+    #             args.zeropoint = 1
+    #         else:
+    #             print(f"Invalid --zeropoint_shift provided: {args.zeropoint_shift}", e)
+    #             exit(0)
+    # except:
+    #     print(f"Invalid --zeropoint_shift provided: {args.zeropoint_shift}",e)
+    #     exit(0)
+
 
 
     try:
         if args.zeropoint is None:
             pass
-        elif args.zeropoint == 0:
+        else:
+            G.ZEROPOINT_FRAC = args.zeropoint
+    except:
+        print("Invalid --zeropoint provided.",e)
+        exit(0)
+
+    try:
+        if args.skyres is None:
+            pass
+        elif args.skyres == 0:
             G.APPLY_SKY_RESIDUAL_TYPE = 0 #turn it off, explicitly
-            G.APPLY_ZEROPOINT_TYPE = 0
         elif args.zeropoint == 1:
             G.APPLY_SKY_RESIDUAL_TYPE = 1  #turn it ON, explicitly, for the models
             G.SKY_RESIDUAL_PER_SHOT = False
-            G.APPLY_ZEROPOINT_TYPE = 1
-        # elif args.zeropoint == 2:
-        #     G.APPLY_SKY_RESIDUAL_TYPE = 1  # turn it ON, explicitly, for the per shot
-        #     G.SKY_RESIDUAL_PER_SHOT = True
         else:
-            print("Invalid --zeropoint provided.", e)
+            print(f"Invalid --skyres provided. {args.skyres}")
             exit(0)
-    except:
-        print("Invalid --zeropoint provided.",e)
+    except Exception as e:
+        print("Invalid --skyres provided.",e)
         exit(0)
 
     try:
