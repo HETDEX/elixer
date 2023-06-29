@@ -1315,7 +1315,7 @@ VOTE_EW_PLAE_POII_CORRECTION    = 0x00000800
 # testing sky residuals
 ###################################
 
-APPLY_SKY_RESIDUAL_TYPE = 1 #0 = No, off, do not use:   1 = per fiber, 2 = per 3.5" aperture [no longer supported]
+APPLY_SKY_RESIDUAL_TYPE = 0 #0 = No, off, do not use:   1 = per fiber, 2 = per 3.5" aperture [no longer supported]
 #Note: there are many issues in ELiXer and post-ELiXer for the aperture version, so it has been removed
 
 #Defunct ... not longer supported as of 2023-06-15
@@ -1354,6 +1354,6 @@ SKY_RESIDUAL_HDR3_ALL_FF_MODELS_FN = op.join(op.dirname(op.realpath(__file__)),
 #2023-06-29 ... just a guess at the moment ... need to calibrate
 ZEROPOINT_BASE_LL = 0.2 #default mutiplicative zeropoint correction on flux assuming effective wave of 4726AA
 ZEROPOINT_BASE_FF = 0.3
-ZEROPOINT_FRAC    = 1.0 #fraction of the above correction that is applied
+ZEROPOINT_FRAC    = 0.0 #fraction of the above correction that is applied
                         #can be adjusted on command line as another fraction of this value
 
