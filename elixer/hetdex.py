@@ -611,6 +611,7 @@ class DetObj:
 
         self.sky_subtraction_residual = None
         self.aperture_sky_subtraction_residual = None
+        self.sky_subtraction_residual_flat = 0
 
         self.phot_z_votes = []
         self.cluster_parent = 0 #detectid of anohter HETDEX source that is the cluster (specifically, redshift) for this object
@@ -6873,8 +6874,15 @@ class DetObj:
                 get_spectra_loglevel = "ERROR"
 
             if self.sky_subtraction_residual is None:
-                self.sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
-                                                self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version)
+                if G.ZEROFLAT:
+                    self.sky_subtraction_residual, self.sky_subtraction_residual_flat = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
+                                                self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
+                                                zeroflat=True)
+                else:
+                    self.sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
+                                                self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
+                                                zeroflat=False)
+
                 # if G.SKY_RESIDUAL_PER_SHOT:
                 #     self.sky_subtraction_residual = SU.fetch_per_shot_single_fiber_sky_subtraction_residual(G.SKY_RESIDUAL_FITS_PATH,
                 #                                                                    self.survey_shotid,
@@ -6982,8 +6990,14 @@ class DetObj:
                 get_spectra_loglevel = "ERROR"
 
             if self.sky_subtraction_residual is None:
-                self.sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
-                                                self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version)
+                if G.ZEROFLAT:
+                    self.sky_subtraction_residual, self.sky_subtraction_residual_flat = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
+                                                self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
+                                                zeroflat=True)
+                else:
+                    self.sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
+                                                self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
+                                                zeroflat=False)
 
                 # if G.SKY_RESIDUAL_PER_SHOT:
                 #     self.sky_subtraction_residual = SU.fetch_per_shot_single_fiber_sky_subtraction_residual(

@@ -1357,3 +1357,5 @@ ZEROPOINT_BASE_FF = 0.3
 ZEROPOINT_FRAC    = 0.0 #fraction of the above correction that is applied
                         #can be adjusted on command line as another fraction of this value
 
+ZEROFLAT = False #if TRUE, the sky residual is shifted such that the average flux in the flat part (3900-5400AA) is zero
+                   #the idea here is that the blue is artificailly enhanced and the flat is the true average background

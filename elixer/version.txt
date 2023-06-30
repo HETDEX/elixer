@@ -1,10 +1,14 @@
 changes to elixer by version
 
-1.20.0a6 [2023-06-29]
+1.20.0a6 [2023-06-30]
 * fully split zeropoint correction and sky residual correction
     + updated use of --zeropoint
 * added --skyres to toggle on/off change sky residual subtraction mode
-
+* added --zeroflat If set on commandline, will turn ON a correction on the sky residual model s|t the flat part (3900-
+  -5400AA) is near zero by shifting the model down by the average (median) over that range. The assumption here is that
+  the flat part is the true average background residual where the blue (< 3900AA) is artificial. If turned on, the per
+  fiber correction then just fixes the blue part but leaves the average background in place. Can be useful for stacking
+  very faint objects that are near the background level.
 
 1.20.0a5 [2023-06-24]
 * testing optional additional local sky and ffsky wavelength independent zeropoint offset shift

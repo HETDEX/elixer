@@ -3330,7 +3330,7 @@ def fetch_per_shot_single_fiber_sky_subtraction_residual(path,shotid,column,pref
 #     return None
 
 
-def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=False,hdr=G.HDR_Version):
+def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=False,hdr=G.HDR_Version,zeroflat=False):
     """
 
         This is applied with the call to HETDEX_API get_spectra() and, as such, this needs to be in:
@@ -3342,9 +3342,15 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
     :param seeing:
     :param ffsky:
     :param hdr:
-    :return:
+    :param zeroflat: if TRUE, shift down s|t the average flux or fluxdensity in the flat part (3900-5400AA) is zero
+                     The idea here is that that region is the actual average sky residual background where the blue
+                     end is artificially inflated.
+    :return: the per-fiber model, the average flat background IF zeroflat == True
     """
 
+    def avg_flat(fluxd):
+        #average from 3900-5400 in whatever units we're using
+        return np.nanmedian(fluxd[215:966])
 
     def low_high_rats(seeing,low,high):
         #assumes we have 1.2" to 3.0" in steps of 0.1"
@@ -3361,17 +3367,23 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
 
     try:
         if G.APPLY_SKY_RESIDUAL_TYPE != 1:
-            return None
+            if zeroflat:
+                return None, None
+            else:
+                return None
 
         #we have models for HDR3 (samae as HDR4)
         if hdr[0] in ['3','4']:
             pass #all good
         else:
             log.warning(f"Invalid HDR version for interpolate_universal_single_fiber_sky_subtraction_residual(): {hdr}")
-            return None
+            if zeroflat:
+                return None, None
+            else:
+                return None
 
         log.debug("Loading universal sky residual model...")
-        zeropoint_shift = 0.0
+        #zeropoint_shift = 0.0
 
         if ffsky:
             if G.SKY_RESIDUAL_ALL_FF_MODELS is None:
@@ -3408,17 +3420,30 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
         rl,rh = low_high_rats(seeing, G.SKY_RESIDUAL_ALL_PSF[l], G.SKY_RESIDUAL_ALL_PSF[h])
 
         if l is None:
-            return which_models[h]
+            model =  which_models[h]
         elif h is None:
-            return which_models[l]
+            model =  which_models[l]
         else:
-            return rl*which_models[l] + rh*which_models[h]  #+ zeropoint_shift
+            model =  rl*which_models[l] + rh*which_models[h]  #+ zeropoint_shift
+
+        if zeroflat:
+            flat = avg_flat(model)
+            return model-flat,flat
+        else:
+            return model
+
 
     except:
         log.error(f"Exception! Exception in interpolate_universal_single_fiber_sky_subtraction_residual.", exc_info=True)
-        return None
+        if zeroflat:
+            return None, None
+        else:
+            return None
     log.error(f"No universal sky residual found.", exc_info=True)
-    return None
+    if zeroflat:
+        return None, None
+    else:
+        return None
 
 
 

@@ -538,7 +538,11 @@ def parse_commandline(auto_force=False):
                                             "0.5 = 1/2 correction, 2.0 = twice correction. Negatives are allowed.",
                         required=False, type=float,default=None)
 
-    parser.add_argument('--skyres', help="",
+    parser.add_argument('--zeroflat', help="Set the sky subtraction residual correction to just correct for the blue (1)."
+                                           "Or include the flat as well (0).",
+                        required=False, type=int,default=None)
+
+    parser.add_argument('--skyres', help="Set the sky residual subtraction residual correction OFF (0), or ON (1). Otherwise use default.",
                         required=False, type=int,default=None)
 
     # parser.add_argument('--sky_residual', help='Toggle [ON] shot-specific sky residual subtraction for forced-extracions.',
@@ -624,6 +628,20 @@ def parse_commandline(auto_force=False):
             G.ZEROPOINT_FRAC = args.zeropoint
     except:
         print("Invalid --zeropoint provided.",e)
+        exit(0)
+
+    try:
+        if args.zeroflat is None:
+            pass
+        elif args.zeroflat == 0:
+            G.ZEROFLAT = False # turn it off, explicitly
+        elif args.zeroflat == 1:
+            G.ZEROFLAT = True  # turn it ON, explicitly, for the models
+        else:
+            print(f"Invalid --zeroflat provided. {args.zeroflat}")
+            exit(0)
+    except Exception as e:
+        print("Invalid --zeroflat provided.", e)
         exit(0)
 
     try:
