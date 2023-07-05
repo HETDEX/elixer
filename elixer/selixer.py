@@ -46,6 +46,7 @@ HOST_UNKNOWN = 0
 HOST_MAVERICK = 1
 HOST_WRANGLER = 2
 HOST_STAMPEDE2 = 3
+HOST_LONESTAR6 = 4
 
 host = HOST_UNKNOWN
 
@@ -416,13 +417,96 @@ elif hostname == "stampede2":
             if MERGE:
                 MAX_TASKS = 100
                 MAX_NODES = 2
-                MAX_TASKS_PER_NODE = 50 #memory can be a problem, even for merge
+                MAX_TASKS_PER_NODE = 48 #memory can be a problem, even for merge
             else:
                 MAX_TASKS = 10000
                 MAX_NODES = 100
                 MAX_TASKS_PER_NODE = 20
             #MAX_TASKS = MAX_NODES * MAX_TASKS_PER_NODE  # 2000
+elif hostname == "lonestar6" or hostname == 'ls6':
+    if queue is None:
+        queue = "normal"  # SKX  ... the KNL nodes seem really slow
+    # https://docs.tacc.utexas.edu/hpc/lonestar6/
+    # standard compute node: num =  560 each with 128 cores, 256 GB RAM and 144GB disk on /tmp
+    # vm-small
+    # GPU nodes
+    # /scratch purge after minimum of 10days
+    # QUEUES:
+       #
+       #        Name       MinNode       MaxNode     MaxWall     MaxNodePU MaxJobsPU MaxSubmit
+       #    gpu-a100                          16  2-00:00:00            32         8        40
+       #       large            65           256  2-00:00:00           256         1        20
+       #      normal             1            64  2-00:00:00           128        20       200
+       #       debug                         576  2-00:00:00           576        30        60
+       # development                           4    02:00:00             6         1         3
 
+    print("preparing SLURM for lonestar6 ...")
+    host = HOST_LONESTAR6  # defaulting to skx-normal
+
+    python_cmd = "mpiexec.hydra -np 1 " + python_cmd
+
+    if queue == "normal":  # (192GB per node)
+        MAX_DETECTS_PER_CPU = 100
+        cores_per_node = 128
+        if recover_mode:
+            if neighborhood_only:
+                MAX_TIME_PER_TASK = 0.25
+            elif neighborhood == 0:
+                MAX_TIME_PER_TASK = 1.0  # 0.9 ver 1.18+ with hetdex_api is slower than HDF5 direct
+            else:
+                MAX_TIME_PER_TASK = 1.3  # 1.2  # in recover mode, can bit more agressive in timing (easier to continue if timeout)
+        else:
+            if neighborhood_only:
+                MAX_TIME_PER_TASK = 0.5
+            elif neighborhood == 0:
+                MAX_TIME_PER_TASK = 2.0
+            else:
+                MAX_TIME_PER_TASK = 3.0  # MINUTES max
+
+        if PYTHON_MAJOR_VERSION < 3:
+            print("Python < 3 No longer supported")
+            exit(-1)
+        else:
+            FILL_CPU_TASKS = 10
+            if MERGE:
+                MAX_TASKS = 128
+                MAX_NODES = 2
+                MAX_TASKS_PER_NODE = 128
+            else:
+                MAX_TASKS = 10000
+                MAX_NODES = 128
+                MAX_TASKS_PER_NODE = cores_per_node  # still some memory issues ... this gives us a little more room
+            # MAX_TASKS = MAX_NODES * MAX_TASKS_PER_NODE #800
+    elif queue == 'vm-small':  #much smaller, less memory, just a guess at this time
+        cores_per_node = 16
+        if recover_mode:
+            if neighborhood_only:
+                MAX_TIME_PER_TASK = 0.5
+            elif neighborhood == 0:
+                MAX_TIME_PER_TASK = 4.0
+            else:
+                MAX_TIME_PER_TASK = 5.0  # in recover mode, can bit more agressive in timing (easier to continue if timeout)
+        else:
+            if neighborhood_only:
+                MAX_TIME_PER_TASK = 1.5
+            elif neighborhood == 0:
+                MAX_TIME_PER_TASK = 4.5
+            else:
+                MAX_TIME_PER_TASK = 6.0  # MINUTES max
+
+        if PYTHON_MAJOR_VERSION < 3:
+            print("Python < 3 No longer supported")
+            exit(-1)
+        else:
+            if MERGE:
+                MAX_TASKS = 100
+                MAX_NODES = 2
+                MAX_TASKS_PER_NODE = 50  # memory can be a problem, even for merge
+            else:
+                MAX_TASKS = 10000
+                MAX_NODES = 100
+                MAX_TASKS_PER_NODE = 2
+            # MAX_TASKS = MAX_NODES * MAX_TASKS_PER_NODE  # 2000
     TIME_OVERHEAD = 4.0  # MINUTES of overhead to get started (per task call ... just a safety)
 
     time = "00:59:59"
@@ -753,7 +837,26 @@ else: # multiple tasks
                         nodes = min(target_nodes,MAX_NODES)
                         ntasks_per_node = min(target_tasks,MAX_TASKS_PER_NODE)
                         tasks = min(target_tasks,MAX_TASKS)
+            elif host == HOST_LONESTAR6:
 
+                if PYTHON_MAJOR_VERSION < 3:
+                    print("Python < 3 not supported.")
+                    exit(-1)
+                else: #python 3 or better
+
+                    if tasks < MAX_TASKS_PER_NODE:
+                        nodes = 1
+                        ntasks_per_node = tasks
+                    else:
+                        #nodes = min(tasks // MAX_TASKS_PER_NODE, MAX_NODES)
+                        #ntasks_per_node = tasks // nodes
+
+                        target_nodes = max(1,int(len(subdirs)/(FILL_CPU_TASKS * MAX_TASKS_PER_NODE)))
+                        target_tasks = min(tasks,target_nodes * MAX_TASKS_PER_NODE) #target_nodes * MAX_TASKS_PER_NODE
+
+                        nodes = min(target_nodes,MAX_NODES)
+                        ntasks_per_node = min(target_tasks,MAX_TASKS_PER_NODE)
+                        tasks = min(target_tasks,MAX_TASKS)
             else:
                 ntasks_per_node = tasks
                 nodes = 1
@@ -1018,7 +1121,53 @@ elif host == HOST_STAMPEDE2:
 
 
     launch_str = "$TACC_LAUNCHER_DIR/paramrun\n"
+elif host == HOST_LONESTAR6:
 
+    slurm = "#!/bin/bash \n"
+    slurm += "#SBATCH -J ELiXer              # Job name\n"
+    #slurm += "#SBATCH -n " + str(tasks) + "                  # Total number of tasks\n"
+    slurm += "#SBATCH -N " + str(nodes) + "                  # Total number of nodes requested\n"
+    slurm += "#SBATCH --ntasks-per-node " + str(ntasks_per_node) + "       #Tasks per node\n"
+
+    #if PYTHON_MAJOR_VERSION < 3:
+    #    slurm += "#SBATCH --ntasks-per-node " + str(ntasks_per_node) + "       #Tasks per node\n"
+    # else:
+    #     slurm += "#SBATCH -n " + str(tasks) + "       #Total Tasks\n"
+
+    slurm += "#SBATCH -p " + queue + "                 # Queue name\n"
+    slurm += "#SBATCH -o ELIXER.o%j          # Name of stdout output file (%j expands to jobid)\n"
+    slurm += "#SBATCH -t " + time + "            # Run time (hh:mm:ss)\n"
+    slurm += "#SBATCH -A Hobby-Eberly-Telesco\n"
+    slurm += email + "\n"
+
+    #assume ooops not for LoneStar6
+    # if ooops_mode:
+    #
+    #     #updated 01-23-2020
+    #     slurm += "module use " + workbasedir + "/01255/siliu/stampede2/ooops/modulefiles/ \n"
+    #     slurm += "module load ooops \n" #"/1.0 \n"
+    #     slurm += "export IO_LIMIT_CONFIG=" + workbasedir + "/01255/siliu/stampede2/ooops/1.0/conf/config_low \n"
+    #     slurm += "set_io_param 0 low\n"
+    #     #slurm += "/work/01255/siliu/stampede2/ooops/1.0/bin/set_io_param 0 low \n"
+
+    #slurm += "module unload xalt \n"
+    slurm += "module load launcher\n"
+    slurm += "export LAUNCHER_PLUGIN_DIR=$TACC_LAUNCHER_DIR/plugins\n"
+    slurm += "export LAUNCHER_RMI=SLURM\n"
+    slurm += "export LAUNCHER_WORKDIR=$(pwd)\n"
+    if MERGE:
+        slurm += "export LAUNCHER_JOB_FILE=elixer_merge.run\n"
+    else:
+        slurm += "export LAUNCHER_JOB_FILE=elixer.run\n"
+    #slurm += "export LAUNCHER_JOB_FILE=elixer.run\n"
+    # just so the bottom part work as is and print w/o error
+    slurm += "WORKDIR=$LAUNCHER_WORKDIR\n"
+    slurm += "CONTROL_FILE=$LAUNCHER_JOB_FILE\n"
+
+    slurm += "export LAUNCHER_SCHED=interleaved\n"
+
+
+    launch_str = "$TACC_LAUNCHER_DIR/paramrun\n"
 elif host == HOST_LOCAL:
     slurm = "HOST_LOCAL ignored"
     launch_str = "nothing to launch"

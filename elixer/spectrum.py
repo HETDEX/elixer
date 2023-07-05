@@ -232,598 +232,612 @@ def conf_interval(num_samples,sd,conf=0.95):
     return t * sd / np.sqrt(num_samples)
 
 
-def get_sdss_gmag(_flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_SIZE, confidence=G.MC_PLAE_CONF_INTVL, ignore_global=False):
-    """
+def get_sdss_gmag(_flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_SIZE, confidence=G.MC_PLAE_CONF_INTVL,
+                  ignore_global=False):
+    return SU.get_sdss_gmag(_flux_density, wave, flux_err, num_mc, confidence, ignore_global)
 
-    :param flux_density: erg/s/cm2/AA  (*** reminder, HETDEX sumspec usually a flux erg/s/cm2 NOT flux denisty)
-    :param wave: in AA
-    :param flux_err: error array for flux_density (if None, then no error is computed)
-    :param num_mc: number of MC samples to run
-    :param confidence:  confidence interval to report
-    :return: AB mag in g-band and continuum estimate (erg/s/cm2/AA)
-            if flux_err is specified then also returns error on mag and error on the flux (continuum)
-    """
-
-    #log.debug("++++  #todo: in caller or here, enfore a limit based on the 1-sigma flux limits at the CCD position and the seeing FWHM")
-
-    if not ignore_global:
-        if not G.USE_SDSS_SPEC_GMAG:
-            if flux_err is not None:
-                return None, None, None, None
-            else:
-                return None, None
-
-    try:
-        mag = None
-        cont = None
-        mag_err = None
-        cont_err = None
-        no_error = False
-        if flux_err is None or len(flux_err) == 0 or not np.any(flux_err):
-            no_error = True
-
-
-        # num_mc = G.MC_PLAE_SAMPLE_SIZE #good enough for this (just use the same as the MC for the PLAE/POII
-        # confidence = G.MC_PLAE_CONF_INTVL
-
-        filter_name = 'sdss2010-g'
-        #filter_name = 'hsc2017-g'
-        sdss_filter = speclite_filters.load_filters(filter_name)
-        # not quite correct ... but can't find the actual f_iso freq. and f_iso lambda != f_iso freq, but
-        # we should not be terribly far off (and there are larger sources of error here anyway since this is
-        # padded HETDEX data passed through an SDSS-g filter (approximately)
-        #iso_f = 3e18 / sdss_filter.effective_wavelengths[0].value
-        iso_lam = sdss_filter.effective_wavelengths[0].value
-        #HSC-2017-g (4843.7) sdss-2010-g (4726.1), other reports SDSS as 4770 or 4640;
-
-
-        #sanity check flux_density
-        flux_density = copy.copy(_flux_density)
-        sel = np.where(abs(flux_density) > 1e-5) #remember, these are e-17, so that is enormous
-        if np.any(sel):
-            msg = "Warning! Absurd flux density values: [%f,%f] (normal expected values e-15 to e-19 range)" %(min(flux_density[sel]),max(flux_density[sel]))
-            print(msg)
-            log.warning(msg)
-            flux_density[sel] = 0.0
-
-        #if flux_err is specified, assume it is Gaussian and sample, repeatedly building up spectra
-        if flux_err is not None and not no_error:
-            try:
-                flux_err = np.array(flux_err)
-                flux_density = np.array(flux_density)
-
-                mag_list = []
-                cont_list = []
-                sel = ~np.isnan(flux_err) & np.array(flux_err!=0)
-
-                #trim off the ends (only use 3600-5400)
-                #SDSS g drops shaprly below 3900 or 4000 AA, but this call should already handle it
-                #but will use our defined values for consistency
-                sel = sel & np.array(wave > G.SDSS_G_FILTER_BLUE) & np.array(wave < G.SDSS_G_FILTER_RED)
-
-                if not np.any(sel):
-                    log.info("Invalid spectrum or error in get_sdds_gma.")
-                    if flux_err is not None: #even if this failed, the caller expects the extra two returns
-                        return mag, cont, mag_err, cont_err
-                    else:
-                        return mag, cont
-
-                for i in range(num_mc):
-                    flux_sample = np.random.normal(flux_density[sel], flux_err[sel])
-
-                    flux, wlen = sdss_filter.pad_spectrum(
-                        flux_sample * (units.erg / units.s / units.cm ** 2 / units.Angstrom), wave[sel] * units.Angstrom)
-                    mag = sdss_filter.get_ab_magnitudes(flux, wlen)[0][0]
-                    #cont = 3631.0 * 10 ** (-0.4 * mag) * 1e-23 * iso_f / (wlen[-1] - wlen[0]).value  # (5549.26 - 3782.54) #that is the approximate bandpass
-
-                    cont = 3631.0 * 10 ** (-0.4 * mag) * 1e-23 * 3e18 / (iso_lam * iso_lam)
-
-                    mag_list.append(mag)
-                    cont_list.append(cont)
-
-                mag_list = np.array(mag_list)
-                cont_list = np.array(cont_list)
-
-                #clean the nans
-                mag_list  = mag_list[~np.isnan(mag_list)]
-                cont_list = cont_list[~np.isnan(cont_list)]
-
-                loc = biweight.biweight_location(mag_list)  # the "average"
-                scale = biweight.biweight_scale(mag_list)
-                ci = conf_interval(len(mag_list), scale * np.sqrt(num_mc), conf=confidence)
-                mag = loc
-                mag_err = ci
-
-                loc = biweight.biweight_location(cont_list)  # the "average"
-                scale = biweight.biweight_scale(cont_list)
-                ci = conf_interval(len(cont_list), scale * np.sqrt(num_mc), conf=confidence)
-                cont = loc
-                cont_err = ci
-
-                no_error = False
-            except:
-                log.info("Exception in spectrum::get_sdss_gmag()",exc_info=True)
-                no_error = True
-
-        if no_error: #if we cannot compute the error, the just call once (no MC sampling)
-            sel = np.array(wave > G.SDSS_G_FILTER_BLUE) & np.array(wave < G.SDSS_G_FILTER_RED)
-            flux, wlen = sdss_filter.pad_spectrum(flux_density[sel]* (units.erg / units.s /units.cm**2/units.Angstrom),wave[sel]* units.Angstrom)
-            mag = sdss_filter.get_ab_magnitudes(flux , wlen )[0][0]
-            #cont = 3631.0 * 10**(-0.4*mag) * 1e-23 * iso_f / (wlen[-1] - wlen[0]).value
-            cont = 3631.0 * 10 ** (-0.4 * mag) * 1e-23 * 3e18 / (iso_lam * iso_lam)#(5549.26 - 3782.54) #that is the approximate bandpass
-            mag_err = None
-            cont_err = None
-    except:
-        log.warning("Exception! in spectrum::get_sdss_gmag.",exc_info=True)
-
-    if flux_err is not None: #even if this failed, the caller expects the extra two returns
-        return mag, cont, mag_err, cont_err
-    else:
-        return mag, cont
-
-
+# moved to spectrum utilities
+# def get_sdss_gmag(_flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_SIZE, confidence=G.MC_PLAE_CONF_INTVL, ignore_global=False):
+#     """
+#
+#     :param flux_density: erg/s/cm2/AA  (*** reminder, HETDEX sumspec usually a flux erg/s/cm2 NOT flux denisty)
+#     :param wave: in AA
+#     :param flux_err: error array for flux_density (if None, then no error is computed)
+#     :param num_mc: number of MC samples to run
+#     :param confidence:  confidence interval to report
+#     :return: AB mag in g-band and continuum estimate (erg/s/cm2/AA)
+#             if flux_err is specified then also returns error on mag and error on the flux (continuum)
+#     """
+#
+#     #log.debug("++++  #todo: in caller or here, enfore a limit based on the 1-sigma flux limits at the CCD position and the seeing FWHM")
+#
+#     if not ignore_global:
+#         if not G.USE_SDSS_SPEC_GMAG:
+#             if flux_err is not None:
+#                 return None, None, None, None
+#             else:
+#                 return None, None
+#
+#     try:
+#         mag = None
+#         cont = None
+#         mag_err = None
+#         cont_err = None
+#         no_error = False
+#         if flux_err is None or len(flux_err) == 0 or not np.any(flux_err):
+#             no_error = True
+#
+#
+#         # num_mc = G.MC_PLAE_SAMPLE_SIZE #good enough for this (just use the same as the MC for the PLAE/POII
+#         # confidence = G.MC_PLAE_CONF_INTVL
+#
+#         filter_name = 'sdss2010-g'
+#         #filter_name = 'hsc2017-g'
+#         sdss_filter = speclite_filters.load_filters(filter_name)
+#         # not quite correct ... but can't find the actual f_iso freq. and f_iso lambda != f_iso freq, but
+#         # we should not be terribly far off (and there are larger sources of error here anyway since this is
+#         # padded HETDEX data passed through an SDSS-g filter (approximately)
+#         #iso_f = 3e18 / sdss_filter.effective_wavelengths[0].value
+#         iso_lam = sdss_filter.effective_wavelengths[0].value
+#         #HSC-2017-g (4843.7) sdss-2010-g (4726.1), other reports SDSS as 4770 or 4640;
+#
+#
+#         #sanity check flux_density
+#         flux_density = copy.copy(_flux_density)
+#         sel = np.where(abs(flux_density) > 1e-5) #remember, these are e-17, so that is enormous
+#         if np.any(sel):
+#             msg = "Warning! Absurd flux density values: [%f,%f] (normal expected values e-15 to e-19 range)" %(min(flux_density[sel]),max(flux_density[sel]))
+#             print(msg)
+#             log.warning(msg)
+#             flux_density[sel] = 0.0
+#
+#         #if flux_err is specified, assume it is Gaussian and sample, repeatedly building up spectra
+#         if flux_err is not None and not no_error:
+#             try:
+#                 flux_err = np.array(flux_err)
+#                 flux_density = np.array(flux_density)
+#
+#                 mag_list = []
+#                 cont_list = []
+#                 sel = ~np.isnan(flux_err) & np.array(flux_err!=0)
+#
+#                 #trim off the ends (only use 3600-5400)
+#                 #SDSS g drops shaprly below 3900 or 4000 AA, but this call should already handle it
+#                 #but will use our defined values for consistency
+#                 sel = sel & np.array(wave > G.SDSS_G_FILTER_BLUE) & np.array(wave < G.SDSS_G_FILTER_RED)
+#
+#                 if not np.any(sel):
+#                     log.info("Invalid spectrum or error in get_sdds_gma.")
+#                     if flux_err is not None: #even if this failed, the caller expects the extra two returns
+#                         return mag, cont, mag_err, cont_err
+#                     else:
+#                         return mag, cont
+#
+#                 for i in range(num_mc):
+#                     flux_sample = np.random.normal(flux_density[sel], flux_err[sel])
+#
+#                     flux, wlen = sdss_filter.pad_spectrum(
+#                         flux_sample * (units.erg / units.s / units.cm ** 2 / units.Angstrom), wave[sel] * units.Angstrom)
+#                     mag = sdss_filter.get_ab_magnitudes(flux, wlen)[0][0]
+#                     #cont = 3631.0 * 10 ** (-0.4 * mag) * 1e-23 * iso_f / (wlen[-1] - wlen[0]).value  # (5549.26 - 3782.54) #that is the approximate bandpass
+#
+#                     cont = 3631.0 * 10 ** (-0.4 * mag) * 1e-23 * 3e18 / (iso_lam * iso_lam)
+#
+#                     mag_list.append(mag)
+#                     cont_list.append(cont)
+#
+#                 mag_list = np.array(mag_list)
+#                 cont_list = np.array(cont_list)
+#
+#                 #clean the nans
+#                 mag_list  = mag_list[~np.isnan(mag_list)]
+#                 cont_list = cont_list[~np.isnan(cont_list)]
+#
+#                 loc = biweight.biweight_location(mag_list)  # the "average"
+#                 scale = biweight.biweight_scale(mag_list)
+#                 ci = conf_interval(len(mag_list), scale * np.sqrt(num_mc), conf=confidence)
+#                 mag = loc
+#                 mag_err = ci
+#
+#                 loc = biweight.biweight_location(cont_list)  # the "average"
+#                 scale = biweight.biweight_scale(cont_list)
+#                 ci = conf_interval(len(cont_list), scale * np.sqrt(num_mc), conf=confidence)
+#                 cont = loc
+#                 cont_err = ci
+#
+#                 no_error = False
+#             except:
+#                 log.info("Exception in spectrum::get_sdss_gmag()",exc_info=True)
+#                 no_error = True
+#
+#         if no_error: #if we cannot compute the error, the just call once (no MC sampling)
+#             sel = np.array(wave > G.SDSS_G_FILTER_BLUE) & np.array(wave < G.SDSS_G_FILTER_RED)
+#             flux, wlen = sdss_filter.pad_spectrum(flux_density[sel]* (units.erg / units.s /units.cm**2/units.Angstrom),wave[sel]* units.Angstrom)
+#             mag = sdss_filter.get_ab_magnitudes(flux , wlen )[0][0]
+#             #cont = 3631.0 * 10**(-0.4*mag) * 1e-23 * iso_f / (wlen[-1] - wlen[0]).value
+#             cont = 3631.0 * 10 ** (-0.4 * mag) * 1e-23 * 3e18 / (iso_lam * iso_lam)#(5549.26 - 3782.54) #that is the approximate bandpass
+#             mag_err = None
+#             cont_err = None
+#     except:
+#         log.warning("Exception! in spectrum::get_sdss_gmag.",exc_info=True)
+#
+#     if flux_err is not None: #even if this failed, the caller expects the extra two returns
+#         return mag, cont, mag_err, cont_err
+#     else:
+#         return mag, cont
+#
+#
 
 def get_hetdex_gmag(_flux_density, wave, _flux_density_err=None, ignore_global=False, log_iso_detid=None):
-    """
-    Similar to get_sdss_gmag, but this uses ONLY the HETDEX spectrum and its errors
+    return SU.get_hetdex_gmag(_flux_density, wave, _flux_density_err, ignore_global, log_iso_detid)
 
-    Simple mean over spectrum ... should use something else? Median or Biweight?
-
-    UPDATE: this version (vs the _old version) converts to fnu first THEN takes the aveage and feeds that to the magnitude
-    as opposed to averaging the flam flux and then converting to fnu
-
-    :param flux_density: erg/s/cm2/AA  (*** reminder, HETDEX sumspec usually a flux erg/s/cm2 NOT flux denisty)
-    :param wave: in AA
-    :param flux_err: error array for flux_density (if None, then no error is computed)
-    :return: AB mag in g-band and continuum estimate (erg/s/cm2/AA)
-            if flux_err is specified then also returns error on mag and error on the flux (continuum)
-    """
-
-    #in caller or here, enfore a limit based on the 1-sigma flux limits at the CCD position and the seeing FWHM
-    #log.debug("++++  #todo: in caller or here, enfore a limit based on the 1-sigma flux limits at the CCD position and the seeing FWHM")
-
-    if not ignore_global:
-        if not G.USE_HETDEX_SPEC_GMAG:
-            if _flux_density_err is not None:
-                return None, None, None, None
-            else:
-                return None, None
-
-
-    method = 2 #1 = mean, 2 = weighted mean, 3 = weighted biweight
-    try:
-        #use the SDSS-g wavelength if can as would be used by the get_sdss_gmag() above
-        filter_name = 'sdss2010-g'
-        #filter_name = 'hsc2017-g'
-        f_lam_iso = speclite_filters.load_filters(filter_name).effective_wavelengths[0].value
-        # HSC-2017-g (4843.7) sdss-2010-g (4726.1), other reports SDSS as 4770 or 4640;
-    except:
-        #f_lam_iso = 4726.1 #should be about this value anyway
-        f_lam_iso = G.DEX_G_EFF_LAM
-
-    try:
-        #f_lam_iso = 4500.0  # middle of the range #not really the "true" f_lam_iso, but prob. intrudces small error compared to others
-        mag = None
-        cont = None
-        mag_err = None
-        cont_err = None
-        no_errors = False
-        if (_flux_density_err is None) or (len(_flux_density_err) == 0):
-            flux_density_err = np.zeros(len(wave))
-            no_errors = True
-        elif not np.any(_flux_density_err):
-            no_errors = True
-            flux_density_err = np.zeros(len(_flux_density))
-        else:
-            flux_density_err = copy.copy(_flux_density_err)
-
-
-        #sanity check flux_density
-        flux_density = copy.copy(_flux_density)
-        sel = np.where(abs(flux_density) > 1e-5) #remember, these are e-17, so that is enormous
-        if np.any(sel):
-            msg = "Warning! Absurd flux density values: [%f,%f] (normal expected values e-15 to e-19 range)" %(min(flux_density[sel]),max(flux_density[sel]))
-            print(msg)
-            log.warning(msg)
-            flux_density[sel] = 0.0
-
-
-        #trim off the ends (only use 3600-5400)
-        #idx_3600,*_ = SU.getnearpos(wave,3600.)
-        #idx_5400,*_ = SU.getnearpos(wave,5400.)
-
-        # fluxbins = np.array(flux_density[idx_3600:idx_5400+1]) * G.FLUX_WAVEBIN_WIDTH
-        # fluxerrs = np.array(flux_density_err[idx_3600:idx_5400+1]) * G.FLUX_WAVEBIN_WIDTH
-
-        sel = np.array(wave > G.SDSS_G_FILTER_BLUE) & np.array(wave < G.SDSS_G_FILTER_RED)
-        if not no_errors and flux_density_err is not None and np.any(flux_density_err):
-            sel = sel & ~np.isnan(flux_density_err) & np.array(flux_density_err != 0)
-
-        if np.count_nonzero(sel) < 100:
-            log.info("Invalid spectrum or error in get_hetdex_gmag.")
-            if flux_density_err is not None: #even if this failed, the caller expects the extra two returns
-                return mag, cont, mag_err, cont_err
-            else:
-                return mag, cont
-
-        fnu = SU.flam2fnu(flux_density[sel],wave[sel])*1e30
-        fnu_errs = SU.flam2fnu(flux_density_err[sel],wave[sel])*1e30
-
-        if method == 1:
-            band_avg_fnu = np.nanmean(fnu)
-            if no_errors:
-                band_avg_err = 0
-            else:
-                band_avg_err = np.sqrt(np.sum(fnu_errs*fnu_errs))/np.count_nonzero(sel)
-        elif method == 2: #makes a small improvement in matching to HSC-g faint mags
-            if no_errors:
-                band_avg_fnu = np.nanmean(fnu)
-                band_avg_err = 0
-            else:
-                band_avg_fnu = utils.weighted_mean(fnu,1.0/(fnu_errs**2))
-                band_avg_err = np.sqrt(np.sum(fnu_errs*fnu_errs))/np.count_nonzero(sel)
-        elif method == 3: #makes no real difference, some small scatter
-            if no_errors:
-                band_avg_fnu = biweight.biweight_location(fnu)#,errors=fnu_errs)
-                band_avg_err = biweight.biweight_scale(fnu)/np.sqrt(np.count_nonzero(sel))
-            else:
-                band_avg_fnu = weighted_biweight.biweight_location_errors(fnu,errors=fnu_errs)
-                band_avg_err = biweight.biweight_scale(fnu)/np.sqrt(np.count_nonzero(sel))
-
-        band_avg_fnu  /= 1e30
-        band_avg_err /= 1e30
-
-        #the old way, but also for the continuum as flux density erg/s/cm2/AA ... un-weighted
-        fluxbins = np.array(flux_density)[sel] #* G.FLUX_WAVEBIN_WIDTH
-        fluxerrs = np.array(flux_density_err)[sel] #* G.FLUX_WAVEBIN_WIDTH
-
-        if method == 1:
-            band_flux_density = np.nanmean(fluxbins)
-            if no_errors:
-                banband_flux_density_errd_avg_err = 0
-            else:
-                banband_flux_density_errd_avg_err = np.sqrt(np.sum(fluxerrs*fluxerrs))/np.count_nonzero(sel)
-        elif method == 2: #makes a small improvement in matching to HSC-g faint mags
-            if no_errors:
-                band_flux_density = np.nanmean(fluxbins) #/ (fluxerrs ** 2))
-                band_flux_density_err = 0
-            else:
-                band_flux_density = utils.weighted_mean(fluxbins,1.0/(fluxerrs**2))
-                band_flux_density_err = np.sqrt(np.sum(fluxerrs*fluxerrs))/np.count_nonzero(sel)
-        elif method == 3: #makes no real difference, some small scatter
-            if no_errors:
-                band_flux_density = biweight.biweight_location(fluxbins)#, errors=fluxerrs)
-                band_flux_density_err = biweight.biweight_scale(fnu) / np.sqrt(np.count_nonzero(sel))
-            else:
-                band_flux_density = weighted_biweight.biweight_location_errors(fluxbins,errors=fluxerrs)
-                band_flux_density_err = biweight.biweight_scale(fnu)/np.sqrt(np.count_nonzero(sel))
-
-        #integrated_flux = np.sum(fluxbins)
-        #integrated_errs = np.sqrt(np.sum(fluxerrs*fluxerrs))
-        #band_flux_density = integrated_flux/(np.count_nonzero(sel)) #*G.FLUX_WAVEBIN_WIDTH)
-        #band_flux_density_err = integrated_errs/(np.count_nonzero(sel)) #*G.FLUX_WAVEBIN_WIDTH)
-
-        if band_flux_density > 0:
-            mag_flam = SU.cgs2mag(band_flux_density, f_lam_iso)
-            mag_flam_bright = SU.cgs2mag(band_flux_density + band_flux_density_err, f_lam_iso)
-            mag_flam_faint = SU.cgs2mag(band_flux_density - band_flux_density_err, f_lam_iso)
-            if np.isnan(mag_flam_faint):
-                log.debug("Warning. HETDEX full spectrum mag estimate is invalid on the faint end.")
-                mag_flam_err = mag_flam - mag_flam_bright
-            else:
-                mag_flam_err = 0.5 * (mag_flam_faint - mag_flam_bright)  # not symmetric, but this is roughly close enough
-        else:
-            mag_flam = None
-            mag_flam_err = None
-
-            # log.info(
-            #     f"HETDEX full width gmag, continuum estimate ({band_flux_density:0.3g}) below flux limit. Setting mag to None.")
-            # if flux_density_err is not None:
-            #     return None, band_flux_density, None, band_flux_density_err
-            # else:
-            #     return None, band_flux_density
-
-        if band_avg_fnu > 0:
-            mag_fnu = SU.fnu2mag(band_avg_fnu)
-            mag_fnu_bright = SU.fnu2mag((band_avg_fnu+band_avg_err))
-            mag_fnu_faint = SU.fnu2mag((band_avg_fnu-band_avg_err))
-            if np.isnan(mag_fnu_faint):
-                log.debug("Warning. HETDEX full spectrum mag estimate is invalid on the faint end.")
-                mag_fnu_err = mag_fnu - mag_fnu_bright
-            else:
-                mag_fnu_err = 0.5 * (mag_fnu_faint-mag_fnu_bright) #not symmetric, but this is roughly close enough
-        else:
-            mag_fnu = None
-            mag_fnu_err = None
-
-            # log.info(f"HETDEX full width gmag, continuum estimate ({band_flux_density:0.3g}) below flux limit. Setting mag to None.")
-            # if flux_density_err is not None:
-            #     return None, band_flux_density, None, band_flux_density_err
-            # else:
-            #     return None, band_flux_density
-
-
-        if True: #prefer mag_flam over mag_fnu
-            if mag_flam is not None:
-                mag = mag_flam
-                mag_err = mag_flam_err
-            else:
-                mag = mag_fnu
-                mag_err = mag_fnu_err
-        else:
-            if mag_fnu is not None:
-                mag = mag_fnu
-                mag_err = mag_fnu_err
-            else:
-                mag = mag_flam
-                mag_err = mag_flam_err
-
-        # what is the HETDEX iso wavelength ???
-        if log_iso_detid is not None:
-            log.info(
-                f"{log_iso_detid} COMPUTED ISO WAVELENGTH: {np.sqrt(band_avg_fnu / band_flux_density * 2.99792458e+18)} "
-                f"Defined ISO wavelength: {f_lam_iso} mag flam: {mag_flam} +/- {mag_flam_err} mag fnu: {mag_fnu} +/- {mag_fnu_err}")
-
-        #todo: technically, should remove the emission lines to better fit actual contiuum, rather than just use band_flux_density
-        # but I think this is okay and appropriate and matches the other uses as the "band-pass" continuum
-        if flux_density_err is not None:
-            return mag, band_flux_density, mag_err, band_flux_density_err
-        else:
-            return mag, band_flux_density
-
-    except:
-        log.warning("Exception! in spectrum::get_hetdex_gmag.",exc_info=True)
-        if flux_density_err is not None:
-            return None, None, None, None
-        else:
-            return None, None
-
-
-def get_hetdex_gmag_old(flux_density, wave, flux_density_err=None, ignore_global=False):
-    """
-    Similar to get_sdss_gmag, but this uses ONLY the HETDEX spectrum and its errors
-
-    Simple mean over spectrum ... should use something else? Median or Biweight?
-
-    :param flux_density: erg/s/cm2/AA  (*** reminder, HETDEX sumspec usually a flux erg/s/cm2 NOT flux denisty)
-    :param wave: in AA
-    :param flux_err: error array for flux_density (if None, then no error is computed)
-    :return: AB mag in g-band and continuum estimate (erg/s/cm2/AA)
-            if flux_err is specified then also returns error on mag and error on the flux (continuum)
-    """
-
-    #in caller or here, enfore a limit based on the 1-sigma flux limits at the CCD position and the seeing FWHM
-    #log.debug("++++  #todo: in caller or here, enfore a limit based on the 1-sigma flux limits at the CCD position and the seeing FWHM")
-
-    if not ignore_global:
-        if not G.USE_HETDEX_SPEC_GMAG:
-            if flux_density_err is not None:
-                return None, None, None, None
-            else:
-                return None, None
-
-    try:
-        #use the SDSS-g wavelength if can as would be used by the get_sdss_gmag() above
-        filter_name = 'sdss2010-g'
-        #filter_name = 'hsc2017-g'
-        f_lam_iso = speclite_filters.load_filters(filter_name).effective_wavelengths[0].value
-        # HSC-2017-g (4843.7) sdss-2010-g (4726.1), other reports SDSS as 4770 or 4640;
-    except:
-        #f_lam_iso = 4726.1 #should be about this value anyway
-        f_lam_iso = G.DEX_G_EFF_LAM
-
-    try:
-        #f_lam_iso = 4500.0  # middle of the range #not really the "true" f_lam_iso, but prob. intrudces small error compared to others
-        mag = None
-        cont = None
-        mag_err = None
-        cont_err = None
-        if (flux_density_err is None) or (len(flux_density_err) == 0):
-            flux_density_err = np.zeros(len(wave))
-
-
-        #sanity check flux_density
-        sel = np.where(abs(flux_density) > 1e-5) #remember, these are e-17, so that is enormous
-        if np.any(sel):
-            msg = "Warning! Absurd flux density values: [%f,%f] (normal expected values e-15 to e-19 range)" %(min(flux_density[sel]),max(flux_density[sel]))
-            print(msg)
-            log.warning(msg)
-            flux_density[sel] = 0.0
-
-
-        #trim off the ends (only use 3600-5400)
-        #idx_3600,*_ = SU.getnearpos(wave,3600.)
-        #idx_5400,*_ = SU.getnearpos(wave,5400.)
-
-        # fluxbins = np.array(flux_density[idx_3600:idx_5400+1]) * G.FLUX_WAVEBIN_WIDTH
-        # fluxerrs = np.array(flux_density_err[idx_3600:idx_5400+1]) * G.FLUX_WAVEBIN_WIDTH
-
-        sel = np.array(wave > G.SDSS_G_FILTER_BLUE) & np.array(wave < G.SDSS_G_FILTER_RED)
-        fluxbins = np.array(flux_density)[sel] * G.FLUX_WAVEBIN_WIDTH
-        fluxerrs = np.array(flux_density_err)[sel] * G.FLUX_WAVEBIN_WIDTH
-
-        sel = ~np.isnan(fluxerrs) & np.array(fluxerrs!=0)
-
-        if not np.any(sel):
-            log.info("Invalid spectrum or error in get_hetdex_gmag.")
-            if flux_density_err is not None: #even if this failed, the caller expects the extra two returns
-                return mag, cont, mag_err, cont_err
-            else:
-                return mag, cont
-
-
-        integrated_flux = np.sum(fluxbins[sel])
-        integrated_errs = np.sqrt(np.sum(fluxerrs[sel]*fluxerrs[sel]))
-
-        #This already been thoughput adjusted? (Yes? I think)
-        #so there is no need to adjust for transmission
-        # remeber to add one more bin (bin 2 - bin 1 != 1 bin it is 2 bins, not 1 as both bins are included)
-        band_flux_density = integrated_flux/(np.sum(sel) *G.FLUX_WAVEBIN_WIDTH)
-        band_flux_density_err = integrated_errs/(np.sum(sel) *G.FLUX_WAVEBIN_WIDTH)
-
-
-        if band_flux_density > 0:
-            mag = SU.cgs2mag(band_flux_density,f_lam_iso)
-            mag_bright = SU.cgs2mag(band_flux_density+band_flux_density_err, f_lam_iso)
-            mag_faint = SU.cgs2mag(band_flux_density-band_flux_density_err, f_lam_iso)
-            if np.isnan(mag_faint):
-                log.debug("Warning. HETDEX full spectrum mag estimate is invalid on the faint end.")
-                mag_err = mag - mag_bright
-            else:
-                mag_err = 0.5 * (mag_faint-mag_bright) #not symmetric, but this is roughly close enough
-        else:
-            log.info(f"HETDEX full width gmag, continuum estimate ({band_flux_density:0.3g}) below flux limit. Setting mag to None.")
-            if flux_density_err is not None:
-                return None, band_flux_density, None, band_flux_density_err
-            else:
-                return None, band_flux_density
-
-
-        #todo: technically, should remove the emission lines to better fit actual contiuum, rather than just use band_flux_density
-        # but I think this is okay and appropriate and matches the other uses as the "band-pass" continuum
-        if flux_density_err is not None:
-            return mag, band_flux_density, mag_err, band_flux_density_err
-        else:
-            return mag, band_flux_density
-
-    except:
-        log.warning("Exception! in spectrum::get_hetdex_gmag.",exc_info=True)
-        if flux_density_err is not None:
-            return None, None, None, None
-        else:
-            return None, None
-
-
+# moved to spectrum utilities
+# def get_hetdex_gmag(_flux_density, wave, _flux_density_err=None, ignore_global=False, log_iso_detid=None):
+#     """
+#     Similar to get_sdss_gmag, but this uses ONLY the HETDEX spectrum and its errors
+#
+#     Simple mean over spectrum ... should use something else? Median or Biweight?
+#
+#     UPDATE: this version (vs the _old version) converts to fnu first THEN takes the aveage and feeds that to the magnitude
+#     as opposed to averaging the flam flux and then converting to fnu
+#
+#     :param flux_density: erg/s/cm2/AA  (*** reminder, HETDEX sumspec usually a flux erg/s/cm2 NOT flux denisty)
+#     :param wave: in AA
+#     :param flux_err: error array for flux_density (if None, then no error is computed)
+#     :return: AB mag in g-band and continuum estimate (erg/s/cm2/AA)
+#             if flux_err is specified then also returns error on mag and error on the flux (continuum)
+#     """
+#
+#     #in caller or here, enfore a limit based on the 1-sigma flux limits at the CCD position and the seeing FWHM
+#     #log.debug("++++  #todo: in caller or here, enfore a limit based on the 1-sigma flux limits at the CCD position and the seeing FWHM")
+#
+#     if not ignore_global:
+#         if not G.USE_HETDEX_SPEC_GMAG:
+#             if _flux_density_err is not None:
+#                 return None, None, None, None
+#             else:
+#                 return None, None
+#
+#
+#     method = 2 #1 = mean, 2 = weighted mean, 3 = weighted biweight
+#     try:
+#         #use the SDSS-g wavelength if can as would be used by the get_sdss_gmag() above
+#         filter_name = 'sdss2010-g'
+#         #filter_name = 'hsc2017-g'
+#         f_lam_iso = speclite_filters.load_filters(filter_name).effective_wavelengths[0].value
+#         # HSC-2017-g (4843.7) sdss-2010-g (4726.1), other reports SDSS as 4770 or 4640;
+#     except:
+#         #f_lam_iso = 4726.1 #should be about this value anyway
+#         f_lam_iso = G.DEX_G_EFF_LAM
+#
+#     try:
+#         #f_lam_iso = 4500.0  # middle of the range #not really the "true" f_lam_iso, but prob. intrudces small error compared to others
+#         mag = None
+#         cont = None
+#         mag_err = None
+#         cont_err = None
+#         no_errors = False
+#         if (_flux_density_err is None) or (len(_flux_density_err) == 0):
+#             flux_density_err = np.zeros(len(wave))
+#             no_errors = True
+#         elif not np.any(_flux_density_err):
+#             no_errors = True
+#             flux_density_err = np.zeros(len(_flux_density))
+#         else:
+#             flux_density_err = copy.copy(_flux_density_err)
+#
+#
+#         #sanity check flux_density
+#         flux_density = copy.copy(_flux_density)
+#         sel = np.where(abs(flux_density) > 1e-5) #remember, these are e-17, so that is enormous
+#         if np.any(sel):
+#             msg = "Warning! Absurd flux density values: [%f,%f] (normal expected values e-15 to e-19 range)" %(min(flux_density[sel]),max(flux_density[sel]))
+#             print(msg)
+#             log.warning(msg)
+#             flux_density[sel] = 0.0
+#
+#
+#         #trim off the ends (only use 3600-5400)
+#         #idx_3600,*_ = SU.getnearpos(wave,3600.)
+#         #idx_5400,*_ = SU.getnearpos(wave,5400.)
+#
+#         # fluxbins = np.array(flux_density[idx_3600:idx_5400+1]) * G.FLUX_WAVEBIN_WIDTH
+#         # fluxerrs = np.array(flux_density_err[idx_3600:idx_5400+1]) * G.FLUX_WAVEBIN_WIDTH
+#
+#         sel = np.array(wave > G.SDSS_G_FILTER_BLUE) & np.array(wave < G.SDSS_G_FILTER_RED)
+#         if not no_errors and flux_density_err is not None and np.any(flux_density_err):
+#             sel = sel & ~np.isnan(flux_density_err) & np.array(flux_density_err != 0)
+#
+#         if np.count_nonzero(sel) < 100:
+#             log.info("Invalid spectrum or error in get_hetdex_gmag.")
+#             if flux_density_err is not None: #even if this failed, the caller expects the extra two returns
+#                 return mag, cont, mag_err, cont_err
+#             else:
+#                 return mag, cont
+#
+#         fnu = SU.flam2fnu(flux_density[sel],wave[sel])*1e30
+#         fnu_errs = SU.flam2fnu(flux_density_err[sel],wave[sel])*1e30
+#
+#         if method == 1:
+#             band_avg_fnu = np.nanmean(fnu)
+#             if no_errors:
+#                 band_avg_err = 0
+#             else:
+#                 band_avg_err = np.sqrt(np.sum(fnu_errs*fnu_errs))/np.count_nonzero(sel)
+#         elif method == 2: #makes a small improvement in matching to HSC-g faint mags
+#             if no_errors:
+#                 band_avg_fnu = np.nanmean(fnu)
+#                 band_avg_err = 0
+#             else:
+#                 band_avg_fnu = utils.weighted_mean(fnu,1.0/(fnu_errs**2))
+#                 band_avg_err = np.sqrt(np.sum(fnu_errs*fnu_errs))/np.count_nonzero(sel)
+#         elif method == 3: #makes no real difference, some small scatter
+#             if no_errors:
+#                 band_avg_fnu = biweight.biweight_location(fnu)#,errors=fnu_errs)
+#                 band_avg_err = biweight.biweight_scale(fnu)/np.sqrt(np.count_nonzero(sel))
+#             else:
+#                 band_avg_fnu = weighted_biweight.biweight_location_errors(fnu,errors=fnu_errs)
+#                 band_avg_err = biweight.biweight_scale(fnu)/np.sqrt(np.count_nonzero(sel))
+#
+#         band_avg_fnu  /= 1e30
+#         band_avg_err /= 1e30
+#
+#         #the old way, but also for the continuum as flux density erg/s/cm2/AA ... un-weighted
+#         fluxbins = np.array(flux_density)[sel] #* G.FLUX_WAVEBIN_WIDTH
+#         fluxerrs = np.array(flux_density_err)[sel] #* G.FLUX_WAVEBIN_WIDTH
+#
+#         if method == 1:
+#             band_flux_density = np.nanmean(fluxbins)
+#             if no_errors:
+#                 banband_flux_density_errd_avg_err = 0
+#             else:
+#                 banband_flux_density_errd_avg_err = np.sqrt(np.sum(fluxerrs*fluxerrs))/np.count_nonzero(sel)
+#         elif method == 2: #makes a small improvement in matching to HSC-g faint mags
+#             if no_errors:
+#                 band_flux_density = np.nanmean(fluxbins) #/ (fluxerrs ** 2))
+#                 band_flux_density_err = 0
+#             else:
+#                 band_flux_density = utils.weighted_mean(fluxbins,1.0/(fluxerrs**2))
+#                 band_flux_density_err = np.sqrt(np.sum(fluxerrs*fluxerrs))/np.count_nonzero(sel)
+#         elif method == 3: #makes no real difference, some small scatter
+#             if no_errors:
+#                 band_flux_density = biweight.biweight_location(fluxbins)#, errors=fluxerrs)
+#                 band_flux_density_err = biweight.biweight_scale(fnu) / np.sqrt(np.count_nonzero(sel))
+#             else:
+#                 band_flux_density = weighted_biweight.biweight_location_errors(fluxbins,errors=fluxerrs)
+#                 band_flux_density_err = biweight.biweight_scale(fnu)/np.sqrt(np.count_nonzero(sel))
+#
+#         #integrated_flux = np.sum(fluxbins)
+#         #integrated_errs = np.sqrt(np.sum(fluxerrs*fluxerrs))
+#         #band_flux_density = integrated_flux/(np.count_nonzero(sel)) #*G.FLUX_WAVEBIN_WIDTH)
+#         #band_flux_density_err = integrated_errs/(np.count_nonzero(sel)) #*G.FLUX_WAVEBIN_WIDTH)
+#
+#         if band_flux_density > 0:
+#             mag_flam = SU.cgs2mag(band_flux_density, f_lam_iso)
+#             mag_flam_bright = SU.cgs2mag(band_flux_density + band_flux_density_err, f_lam_iso)
+#             mag_flam_faint = SU.cgs2mag(band_flux_density - band_flux_density_err, f_lam_iso)
+#             if np.isnan(mag_flam_faint):
+#                 log.debug("Warning. HETDEX full spectrum mag estimate is invalid on the faint end.")
+#                 mag_flam_err = mag_flam - mag_flam_bright
+#             else:
+#                 mag_flam_err = 0.5 * (mag_flam_faint - mag_flam_bright)  # not symmetric, but this is roughly close enough
+#         else:
+#             mag_flam = None
+#             mag_flam_err = None
+#
+#             # log.info(
+#             #     f"HETDEX full width gmag, continuum estimate ({band_flux_density:0.3g}) below flux limit. Setting mag to None.")
+#             # if flux_density_err is not None:
+#             #     return None, band_flux_density, None, band_flux_density_err
+#             # else:
+#             #     return None, band_flux_density
+#
+#         if band_avg_fnu > 0:
+#             mag_fnu = SU.fnu2mag(band_avg_fnu)
+#             mag_fnu_bright = SU.fnu2mag((band_avg_fnu+band_avg_err))
+#             mag_fnu_faint = SU.fnu2mag((band_avg_fnu-band_avg_err))
+#             if np.isnan(mag_fnu_faint):
+#                 log.debug("Warning. HETDEX full spectrum mag estimate is invalid on the faint end.")
+#                 mag_fnu_err = mag_fnu - mag_fnu_bright
+#             else:
+#                 mag_fnu_err = 0.5 * (mag_fnu_faint-mag_fnu_bright) #not symmetric, but this is roughly close enough
+#         else:
+#             mag_fnu = None
+#             mag_fnu_err = None
+#
+#             # log.info(f"HETDEX full width gmag, continuum estimate ({band_flux_density:0.3g}) below flux limit. Setting mag to None.")
+#             # if flux_density_err is not None:
+#             #     return None, band_flux_density, None, band_flux_density_err
+#             # else:
+#             #     return None, band_flux_density
+#
+#
+#         if True: #prefer mag_flam over mag_fnu
+#             if mag_flam is not None:
+#                 mag = mag_flam
+#                 mag_err = mag_flam_err
+#             else:
+#                 mag = mag_fnu
+#                 mag_err = mag_fnu_err
+#         else:
+#             if mag_fnu is not None:
+#                 mag = mag_fnu
+#                 mag_err = mag_fnu_err
+#             else:
+#                 mag = mag_flam
+#                 mag_err = mag_flam_err
+#
+#         # what is the HETDEX iso wavelength ???
+#         if log_iso_detid is not None:
+#             log.info(
+#                 f"{log_iso_detid} COMPUTED ISO WAVELENGTH: {np.sqrt(band_avg_fnu / band_flux_density * 2.99792458e+18)} "
+#                 f"Defined ISO wavelength: {f_lam_iso} mag flam: {mag_flam} +/- {mag_flam_err} mag fnu: {mag_fnu} +/- {mag_fnu_err}")
+#
+#         #todo: technically, should remove the emission lines to better fit actual contiuum, rather than just use band_flux_density
+#         # but I think this is okay and appropriate and matches the other uses as the "band-pass" continuum
+#         if flux_density_err is not None:
+#             return mag, band_flux_density, mag_err, band_flux_density_err
+#         else:
+#             return mag, band_flux_density
+#
+#     except:
+#         log.warning("Exception! in spectrum::get_hetdex_gmag.",exc_info=True)
+#         if flux_density_err is not None:
+#             return None, None, None, None
+#         else:
+#             return None, None
+#
+#
+# def get_hetdex_gmag_old(flux_density, wave, flux_density_err=None, ignore_global=False):
+#     """
+#     Similar to get_sdss_gmag, but this uses ONLY the HETDEX spectrum and its errors
+#
+#     Simple mean over spectrum ... should use something else? Median or Biweight?
+#
+#     :param flux_density: erg/s/cm2/AA  (*** reminder, HETDEX sumspec usually a flux erg/s/cm2 NOT flux denisty)
+#     :param wave: in AA
+#     :param flux_err: error array for flux_density (if None, then no error is computed)
+#     :return: AB mag in g-band and continuum estimate (erg/s/cm2/AA)
+#             if flux_err is specified then also returns error on mag and error on the flux (continuum)
+#     """
+#
+#     #in caller or here, enfore a limit based on the 1-sigma flux limits at the CCD position and the seeing FWHM
+#     #log.debug("++++  #todo: in caller or here, enfore a limit based on the 1-sigma flux limits at the CCD position and the seeing FWHM")
+#
+#     if not ignore_global:
+#         if not G.USE_HETDEX_SPEC_GMAG:
+#             if flux_density_err is not None:
+#                 return None, None, None, None
+#             else:
+#                 return None, None
+#
+#     try:
+#         #use the SDSS-g wavelength if can as would be used by the get_sdss_gmag() above
+#         filter_name = 'sdss2010-g'
+#         #filter_name = 'hsc2017-g'
+#         f_lam_iso = speclite_filters.load_filters(filter_name).effective_wavelengths[0].value
+#         # HSC-2017-g (4843.7) sdss-2010-g (4726.1), other reports SDSS as 4770 or 4640;
+#     except:
+#         #f_lam_iso = 4726.1 #should be about this value anyway
+#         f_lam_iso = G.DEX_G_EFF_LAM
+#
+#     try:
+#         #f_lam_iso = 4500.0  # middle of the range #not really the "true" f_lam_iso, but prob. intrudces small error compared to others
+#         mag = None
+#         cont = None
+#         mag_err = None
+#         cont_err = None
+#         if (flux_density_err is None) or (len(flux_density_err) == 0):
+#             flux_density_err = np.zeros(len(wave))
+#
+#
+#         #sanity check flux_density
+#         sel = np.where(abs(flux_density) > 1e-5) #remember, these are e-17, so that is enormous
+#         if np.any(sel):
+#             msg = "Warning! Absurd flux density values: [%f,%f] (normal expected values e-15 to e-19 range)" %(min(flux_density[sel]),max(flux_density[sel]))
+#             print(msg)
+#             log.warning(msg)
+#             flux_density[sel] = 0.0
+#
+#
+#         #trim off the ends (only use 3600-5400)
+#         #idx_3600,*_ = SU.getnearpos(wave,3600.)
+#         #idx_5400,*_ = SU.getnearpos(wave,5400.)
+#
+#         # fluxbins = np.array(flux_density[idx_3600:idx_5400+1]) * G.FLUX_WAVEBIN_WIDTH
+#         # fluxerrs = np.array(flux_density_err[idx_3600:idx_5400+1]) * G.FLUX_WAVEBIN_WIDTH
+#
+#         sel = np.array(wave > G.SDSS_G_FILTER_BLUE) & np.array(wave < G.SDSS_G_FILTER_RED)
+#         fluxbins = np.array(flux_density)[sel] * G.FLUX_WAVEBIN_WIDTH
+#         fluxerrs = np.array(flux_density_err)[sel] * G.FLUX_WAVEBIN_WIDTH
+#
+#         sel = ~np.isnan(fluxerrs) & np.array(fluxerrs!=0)
+#
+#         if not np.any(sel):
+#             log.info("Invalid spectrum or error in get_hetdex_gmag.")
+#             if flux_density_err is not None: #even if this failed, the caller expects the extra two returns
+#                 return mag, cont, mag_err, cont_err
+#             else:
+#                 return mag, cont
+#
+#
+#         integrated_flux = np.sum(fluxbins[sel])
+#         integrated_errs = np.sqrt(np.sum(fluxerrs[sel]*fluxerrs[sel]))
+#
+#         #This already been thoughput adjusted? (Yes? I think)
+#         #so there is no need to adjust for transmission
+#         # remeber to add one more bin (bin 2 - bin 1 != 1 bin it is 2 bins, not 1 as both bins are included)
+#         band_flux_density = integrated_flux/(np.sum(sel) *G.FLUX_WAVEBIN_WIDTH)
+#         band_flux_density_err = integrated_errs/(np.sum(sel) *G.FLUX_WAVEBIN_WIDTH)
+#
+#
+#         if band_flux_density > 0:
+#             mag = SU.cgs2mag(band_flux_density,f_lam_iso)
+#             mag_bright = SU.cgs2mag(band_flux_density+band_flux_density_err, f_lam_iso)
+#             mag_faint = SU.cgs2mag(band_flux_density-band_flux_density_err, f_lam_iso)
+#             if np.isnan(mag_faint):
+#                 log.debug("Warning. HETDEX full spectrum mag estimate is invalid on the faint end.")
+#                 mag_err = mag - mag_bright
+#             else:
+#                 mag_err = 0.5 * (mag_faint-mag_bright) #not symmetric, but this is roughly close enough
+#         else:
+#             log.info(f"HETDEX full width gmag, continuum estimate ({band_flux_density:0.3g}) below flux limit. Setting mag to None.")
+#             if flux_density_err is not None:
+#                 return None, band_flux_density, None, band_flux_density_err
+#             else:
+#                 return None, band_flux_density
+#
+#
+#         #todo: technically, should remove the emission lines to better fit actual contiuum, rather than just use band_flux_density
+#         # but I think this is okay and appropriate and matches the other uses as the "band-pass" continuum
+#         if flux_density_err is not None:
+#             return mag, band_flux_density, mag_err, band_flux_density_err
+#         else:
+#             return mag, band_flux_density
+#
+#     except:
+#         log.warning("Exception! in spectrum::get_hetdex_gmag.",exc_info=True)
+#         if flux_density_err is not None:
+#             return None, None, None, None
+#         else:
+#             return None, None
+#
+#
 
 def get_best_gmag(flux_density, flux_density_err, wavelengths):
-    """
+    return SU.get_best_gmag(lux_density, flux_density_err, wavelengths)
 
-    :param flux_density: as erg/s/cm2/AA
-    :param flux_density_err: ditto
-    :param wavelengths: in AA
-    :return:  best_gmag, best_gmag_unc, best_gmag_cgs_cont, best_gmag_cgs_cont_unc
-    """
-    sdss_okay = 0
-    hetdex_okay = 0
-    best_gmag = None
-    best_gmag_unc = None
-    best_gmag_cgs_cont = None
-    best_gmag_cgs_cont_unc = None
-
-    # sum over entire HETDEX spectrum to estimate g-band magnitude
-    try:
-        hetdex_gmag, hetdex_gmag_cgs_cont, hetdex_gmag_unc, hetdex_gmag_cgs_cont_unc = get_hetdex_gmag(flux_density,
-                                                                                        wavelengths,
-                                                                                        flux_density_err)
-
-        log.debug(f"HETDEX spectrum gmag {hetdex_gmag} +/- {hetdex_gmag_unc}")
-        log.debug(f"HETDEX spectrum cont {hetdex_gmag_cgs_cont} +/- {hetdex_gmag_cgs_cont_unc}")
-
-        if (hetdex_gmag_cgs_cont is not None) and (hetdex_gmag_cgs_cont != 0) and not np.isnan(hetdex_gmag_cgs_cont):
-            if (hetdex_gmag_cgs_cont_unc is None) or np.isnan(hetdex_gmag_cgs_cont_unc):
-                hetdex_gmag_cgs_cont_unc = 0.0
-                hetdex_okay = 1
-            else:
-                hetdex_okay = 2
-        if (hetdex_gmag is None) or np.isnan(hetdex_gmag):
-            hetdex_okay = 0
-    except:
-        hetdex_okay = 0
-        log.error("Exception computing HETDEX spectrum gmag", exc_info=True)
-
-    # feed HETDEX spectrum through SDSS gband filter
-    try:
-        # reminder needs erg/s/cm2/AA and sumspec_flux in ergs/s/cm2 so divied by 2AA bin width
-        #                self.sdss_gmag, self.cont_cgs = elixer_spectrum.get_sdss_gmag(self.sumspec_flux/2.0*1e-17,self.sumspec_wavelength)
-        sdss_gmag, sdss_cgs_cont, sdss_gmag_unc, sdss_cgs_cont_unc = get_sdss_gmag(flux_density,
-                                                                                   wavelengths,
-                                                                                   flux_density_err)
-
-        log.debug(f"SDSS spectrum gmag {sdss_gmag} +/- {sdss_gmag_unc}")
-        log.debug(f"SDSS spectrum cont {sdss_cgs_cont} +/- {sdss_cgs_cont_unc}")
-
-        if (sdss_cgs_cont is not None) and (sdss_cgs_cont != 0) and not np.isnan(sdss_cgs_cont):
-            if (sdss_cgs_cont_unc is None) or np.isnan(sdss_cgs_cont_unc):
-                sdss_cgs_cont_unc = 0.0
-                sdss_okay = 1
-            else:
-                sdss_okay = 2
-
-        if (sdss_gmag is None) or np.isnan(sdss_gmag):
-            sdss_okay = 0
-
-    except:
-        sdss_okay = 0
-        log.error("Exception computing SDSS g-mag", exc_info=True)
-
-    # choose the best
-    # even IF okay == 0, still record the probably bogus value (when
-    # actually using the values elsewhere they are compared to a limit and the limit is used if needed
-
-    try:
-        if (hetdex_okay == sdss_okay) and (hetdex_gmag is not None) and (sdss_gmag is not None) and \
-                abs(hetdex_gmag - sdss_gmag) < 1.0:  # use both as an average? what if they are very different?
-            # make the average
-            avg_cont = 0.5 * (hetdex_gmag_cgs_cont + sdss_cgs_cont)
-            avg_cont_unc = np.sqrt((0.5 * hetdex_gmag_cgs_cont_unc)**2 + (0.5 * sdss_cgs_cont_unc) ** 2)
-
-            #best_gmag_selected = 'mean'
-            # HSC-2017-g (4843.7) sdss-2010-g (4726.1), other reports SDSS as 4770 or 4640;
-            filter_name = 'sdss2010-g'
-            # filter_name = 'hsc2017-g'
-            try:
-                f_lam_iso = speclite_filters.load_filters(filter_name).effective_wavelengths[0].value
-            except:
-                f_lam_iso = G.DEX_G_EFF_LAM
-
-            best_gmag = -2.5 * np.log10(SU.cgs2ujy(avg_cont, f_lam_iso) / 1e6 / 3631.)
-            mag_faint = -2.5 * np.log10(SU.cgs2ujy(avg_cont - avg_cont_unc, f_lam_iso) / 1e6 / 3631.)
-            if np.isnan(mag_faint):
-                msg_faint = best_gmag + 0.75  # about 50% error to the faint
-            mag_bright = -2.5 * np.log10(SU.cgs2ujy(avg_cont + avg_cont_unc, f_lam_iso) / 1e6 / 3631.)
-            best_gmag_unc = 0.5 * (mag_faint - mag_bright)
-
-            best_gmag_cgs_cont = avg_cont
-            best_gmag_cgs_cont_unc = avg_cont_unc
-
-            log.debug(f"Mean spectrum gmag {best_gmag:0.2f} +/- {best_gmag_unc:0.3f}; cont {best_gmag_cgs_cont} +/- {best_gmag_cgs_cont_unc}")
-
-        elif (hetdex_okay >= sdss_okay) and (hetdex_okay > 0) and not np.isnan(hetdex_gmag_cgs_cont) and (hetdex_gmag_cgs_cont is not None):
-            #best_gmag_selected = 'hetdex'
-            best_gmag = hetdex_gmag
-            best_gmag_unc = hetdex_gmag_unc
-            best_gmag_cgs_cont = hetdex_gmag_cgs_cont
-            best_gmag_cgs_cont_unc = hetdex_gmag_cgs_cont_unc
-
-            log.debug("Using HETDEX full width gmag over SDSS gmag.")
-        elif sdss_okay > 0 and not np.isnan(sdss_cgs_cont) and (sdss_cgs_cont is not None):
-            #best_gmag_selected = 'sdss'
-            best_gmag = sdss_gmag
-            best_gmag_unc = sdss_gmag_unc
-            best_gmag_cgs_cont = sdss_cgs_cont
-            best_gmag_cgs_cont_unc = sdss_cgs_cont_unc
-
-            log.debug("Using SDSS gmag over HETDEX full width gmag")
-        else:  # something catastrophically bad
-            log.debug("No full width spectrum g-mag estimate is valid.")
-            #best_gmag_selected = 'limit'
-            best_gmag = -999  # G.HETDEX_CONTINUUM_MAG_LIMIT
-            best_gmag_unc = 0
-            #hetdex gmag might still have a flux value, though it is probably negative
-            if hetdex_gmag_cgs_cont is not None and not np.isnan(hetdex_gmag_cgs_cont):
-                best_gmag_cgs_cont = hetdex_gmag_cgs_cont
-                best_gmag_cgs_cont_unc = hetdex_gmag_cgs_cont_unc
-            else:
-                best_gmag_cgs_cont = -999
-                hetdex_gmag_cgs_cont_unc = 0
-    except:
-        best_gmag = -999
-        best_gmag_unc = 0
-        best_gmag_cgs_cont = -999
-        best_gmag_cgs_cont_unc = 0
-        log.error("Exception selecting best g-mag from spectrum", exc_info=True)
-
-    return best_gmag, best_gmag_unc, best_gmag_cgs_cont, best_gmag_cgs_cont_unc
+# #moved to spectrum utilities
+# def get_best_gmag(flux_density, flux_density_err, wavelengths):
+#     """
+#
+#     :param flux_density: as erg/s/cm2/AA
+#     :param flux_density_err: ditto
+#     :param wavelengths: in AA
+#     :return:  best_gmag, best_gmag_unc, best_gmag_cgs_cont, best_gmag_cgs_cont_unc
+#     """
+#     sdss_okay = 0
+#     hetdex_okay = 0
+#     best_gmag = None
+#     best_gmag_unc = None
+#     best_gmag_cgs_cont = None
+#     best_gmag_cgs_cont_unc = None
+#
+#     # sum over entire HETDEX spectrum to estimate g-band magnitude
+#     try:
+#         hetdex_gmag, hetdex_gmag_cgs_cont, hetdex_gmag_unc, hetdex_gmag_cgs_cont_unc = get_hetdex_gmag(flux_density,
+#                                                                                         wavelengths,
+#                                                                                         flux_density_err)
+#
+#         log.debug(f"HETDEX spectrum gmag {hetdex_gmag} +/- {hetdex_gmag_unc}")
+#         log.debug(f"HETDEX spectrum cont {hetdex_gmag_cgs_cont} +/- {hetdex_gmag_cgs_cont_unc}")
+#
+#         if (hetdex_gmag_cgs_cont is not None) and (hetdex_gmag_cgs_cont != 0) and not np.isnan(hetdex_gmag_cgs_cont):
+#             if (hetdex_gmag_cgs_cont_unc is None) or np.isnan(hetdex_gmag_cgs_cont_unc):
+#                 hetdex_gmag_cgs_cont_unc = 0.0
+#                 hetdex_okay = 1
+#             else:
+#                 hetdex_okay = 2
+#         if (hetdex_gmag is None) or np.isnan(hetdex_gmag):
+#             hetdex_okay = 0
+#     except:
+#         hetdex_okay = 0
+#         log.error("Exception computing HETDEX spectrum gmag", exc_info=True)
+#
+#     # feed HETDEX spectrum through SDSS gband filter
+#     try:
+#         # reminder needs erg/s/cm2/AA and sumspec_flux in ergs/s/cm2 so divied by 2AA bin width
+#         #                self.sdss_gmag, self.cont_cgs = elixer_spectrum.get_sdss_gmag(self.sumspec_flux/2.0*1e-17,self.sumspec_wavelength)
+#         sdss_gmag, sdss_cgs_cont, sdss_gmag_unc, sdss_cgs_cont_unc = get_sdss_gmag(flux_density,
+#                                                                                    wavelengths,
+#                                                                                    flux_density_err)
+#
+#         log.debug(f"SDSS spectrum gmag {sdss_gmag} +/- {sdss_gmag_unc}")
+#         log.debug(f"SDSS spectrum cont {sdss_cgs_cont} +/- {sdss_cgs_cont_unc}")
+#
+#         if (sdss_cgs_cont is not None) and (sdss_cgs_cont != 0) and not np.isnan(sdss_cgs_cont):
+#             if (sdss_cgs_cont_unc is None) or np.isnan(sdss_cgs_cont_unc):
+#                 sdss_cgs_cont_unc = 0.0
+#                 sdss_okay = 1
+#             else:
+#                 sdss_okay = 2
+#
+#         if (sdss_gmag is None) or np.isnan(sdss_gmag):
+#             sdss_okay = 0
+#
+#     except:
+#         sdss_okay = 0
+#         log.error("Exception computing SDSS g-mag", exc_info=True)
+#
+#     # choose the best
+#     # even IF okay == 0, still record the probably bogus value (when
+#     # actually using the values elsewhere they are compared to a limit and the limit is used if needed
+#
+#     try:
+#         if (hetdex_okay == sdss_okay) and (hetdex_gmag is not None) and (sdss_gmag is not None) and \
+#                 abs(hetdex_gmag - sdss_gmag) < 1.0:  # use both as an average? what if they are very different?
+#             # make the average
+#             avg_cont = 0.5 * (hetdex_gmag_cgs_cont + sdss_cgs_cont)
+#             avg_cont_unc = np.sqrt((0.5 * hetdex_gmag_cgs_cont_unc)**2 + (0.5 * sdss_cgs_cont_unc) ** 2)
+#
+#             #best_gmag_selected = 'mean'
+#             # HSC-2017-g (4843.7) sdss-2010-g (4726.1), other reports SDSS as 4770 or 4640;
+#             filter_name = 'sdss2010-g'
+#             # filter_name = 'hsc2017-g'
+#             try:
+#                 f_lam_iso = speclite_filters.load_filters(filter_name).effective_wavelengths[0].value
+#             except:
+#                 f_lam_iso = G.DEX_G_EFF_LAM
+#
+#             best_gmag = -2.5 * np.log10(SU.cgs2ujy(avg_cont, f_lam_iso) / 1e6 / 3631.)
+#             mag_faint = -2.5 * np.log10(SU.cgs2ujy(avg_cont - avg_cont_unc, f_lam_iso) / 1e6 / 3631.)
+#             if np.isnan(mag_faint):
+#                 msg_faint = best_gmag + 0.75  # about 50% error to the faint
+#             mag_bright = -2.5 * np.log10(SU.cgs2ujy(avg_cont + avg_cont_unc, f_lam_iso) / 1e6 / 3631.)
+#             best_gmag_unc = 0.5 * (mag_faint - mag_bright)
+#
+#             best_gmag_cgs_cont = avg_cont
+#             best_gmag_cgs_cont_unc = avg_cont_unc
+#
+#             log.debug(f"Mean spectrum gmag {best_gmag:0.2f} +/- {best_gmag_unc:0.3f}; cont {best_gmag_cgs_cont} +/- {best_gmag_cgs_cont_unc}")
+#
+#         elif (hetdex_okay >= sdss_okay) and (hetdex_okay > 0) and not np.isnan(hetdex_gmag_cgs_cont) and (hetdex_gmag_cgs_cont is not None):
+#             #best_gmag_selected = 'hetdex'
+#             best_gmag = hetdex_gmag
+#             best_gmag_unc = hetdex_gmag_unc
+#             best_gmag_cgs_cont = hetdex_gmag_cgs_cont
+#             best_gmag_cgs_cont_unc = hetdex_gmag_cgs_cont_unc
+#
+#             log.debug("Using HETDEX full width gmag over SDSS gmag.")
+#         elif sdss_okay > 0 and not np.isnan(sdss_cgs_cont) and (sdss_cgs_cont is not None):
+#             #best_gmag_selected = 'sdss'
+#             best_gmag = sdss_gmag
+#             best_gmag_unc = sdss_gmag_unc
+#             best_gmag_cgs_cont = sdss_cgs_cont
+#             best_gmag_cgs_cont_unc = sdss_cgs_cont_unc
+#
+#             log.debug("Using SDSS gmag over HETDEX full width gmag")
+#         else:  # something catastrophically bad
+#             log.debug("No full width spectrum g-mag estimate is valid.")
+#             #best_gmag_selected = 'limit'
+#             best_gmag = -999  # G.HETDEX_CONTINUUM_MAG_LIMIT
+#             best_gmag_unc = 0
+#             #hetdex gmag might still have a flux value, though it is probably negative
+#             if hetdex_gmag_cgs_cont is not None and not np.isnan(hetdex_gmag_cgs_cont):
+#                 best_gmag_cgs_cont = hetdex_gmag_cgs_cont
+#                 best_gmag_cgs_cont_unc = hetdex_gmag_cgs_cont_unc
+#             else:
+#                 best_gmag_cgs_cont = -999
+#                 hetdex_gmag_cgs_cont_unc = 0
+#     except:
+#         best_gmag = -999
+#         best_gmag_unc = 0
+#         best_gmag_cgs_cont = -999
+#         best_gmag_cgs_cont_unc = 0
+#         log.error("Exception selecting best g-mag from spectrum", exc_info=True)
+#
+#     return best_gmag, best_gmag_unc, best_gmag_cgs_cont, best_gmag_cgs_cont_unc
+#
 
 #moved to spectrum utilities
 # def fit_line(wavelengths,values,errors=None,trim = False, emission_lines=None, absorption_lines=None):

@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.20.0a7 [2023-07-05]
+* working on support for Lonestar6
+
 1.20.0a6 [2023-06-30]
 * fully split zeropoint correction and sky residual correction
     + updated use of --zeropoint
