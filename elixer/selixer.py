@@ -1137,7 +1137,7 @@ elif host == HOST_LONESTAR6:
     slurm += "#SBATCH -p " + queue + "                 # Queue name\n"
     slurm += "#SBATCH -o ELIXER.o%j          # Name of stdout output file (%j expands to jobid)\n"
     slurm += "#SBATCH -t " + time + "            # Run time (hh:mm:ss)\n"
-    slurm += "#SBATCH -A Hobby-Eberly-Telesco\n"
+    slurm += "#SBATCH -A AST23008\n"
     slurm += email + "\n"
 
     #assume ooops not for LoneStar6
