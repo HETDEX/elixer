@@ -229,7 +229,7 @@ def get_sdss_gmag(_flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_SI
                     flux_sample = np.random.normal(flux_density[sel], flux_err[sel])
 
                     flux, wlen = sdss_filter.pad_spectrum(
-                        flux_sample * (units.erg / units.s / units.cm ** 2 / units.Angstrom), wave[sel] * units.Angstrom)
+                        flux_sample * (U.erg / U.s / U.cm ** 2 / U.Angstrom), wave[sel] * U.Angstrom)
                     mag = sdss_filter.get_ab_magnitudes(flux, wlen)[0][0]
                     #cont = 3631.0 * 10 ** (-0.4 * mag) * 1e-23 * iso_f / (wlen[-1] - wlen[0]).value  # (5549.26 - 3782.54) #that is the approximate bandpass
 
@@ -264,7 +264,7 @@ def get_sdss_gmag(_flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_SI
 
         if no_error: #if we cannot compute the error, the just call once (no MC sampling)
             sel = np.array(wave > G.SDSS_G_FILTER_BLUE) & np.array(wave < G.SDSS_G_FILTER_RED)
-            flux, wlen = sdss_filter.pad_spectrum(flux_density[sel]* (units.erg / units.s /units.cm**2/units.Angstrom),wave[sel]* units.Angstrom)
+            flux, wlen = sdss_filter.pad_spectrum(flux_density[sel]* (U.erg / U.s /U.cm**2/U.Angstrom),wave[sel]* U.Angstrom)
             mag = sdss_filter.get_ab_magnitudes(flux , wlen )[0][0]
             #cont = 3631.0 * 10**(-0.4*mag) * 1e-23 * iso_f / (wlen[-1] - wlen[0]).value
             cont = 3631.0 * 10 ** (-0.4 * mag) * 1e-23 * 3e18 / (iso_lam * iso_lam)#(5549.26 - 3782.54) #that is the approximate bandpass
