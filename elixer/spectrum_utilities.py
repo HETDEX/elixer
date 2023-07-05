@@ -49,6 +49,7 @@ import astropy.cosmology as Cosmo
 import astropy.stats.biweight as biweight
 from photutils import CircularAperture #pixel coords
 from photutils import aperture_photometry
+from speclite import filters as speclite_filters
 
 from scipy.optimize import curve_fit
 from scipy.signal import medfilt

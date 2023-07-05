@@ -469,10 +469,10 @@ elif hostname == "lonestar6" or hostname == 'ls6':
             exit(-1)
         else:
             FILL_CPU_TASKS = 10
-            if MERGE:
+            if MERGE: #use same tasks limit as full run
                 MAX_TASKS = 128
                 MAX_NODES = 2
-                MAX_TASKS_PER_NODE = 128
+                MAX_TASKS_PER_NODE = 64  #need usually around 4GB per core, 256GB/ (4GB/task) = 64 tasks
             else:
                 MAX_TASKS = 10000
                 MAX_NODES = 128
