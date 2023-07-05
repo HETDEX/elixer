@@ -443,7 +443,7 @@ elif hostname == "lonestar6" or hostname == 'ls6':
     print("preparing SLURM for lonestar6 ...")
     host = HOST_LONESTAR6  # defaulting to skx-normal
 
-    python_cmd = "mpiexec.hydra -np 1 " + python_cmd
+    python_cmd = "ibrun -np 1 " + python_cmd
 
     if queue == "normal":  # (192GB per node)
         MAX_DETECTS_PER_CPU = 100
