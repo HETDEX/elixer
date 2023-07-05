@@ -204,32 +204,34 @@ def in_same_family(a,e):#are the emission lines different species of the same el
 
     return same
 
-
 def conf_interval(num_samples,sd,conf=0.95):
-    """
-    mean +/- error  ... this is the +/- error part as 95% (or other) confidence interval (assuming normal distro)
-
-    :param num_samples:
-    :param sd: standard deviation
-    :param conf:
-    :return:
-    """
-
-    if num_samples < 30:
-        return None
-
-    #todo: put in other values
-    if conf == 0.68:
-        t = 1.0
-    elif conf == 0.95:
-        t = 1.96
-    elif conf == 0.99:
-        t = 2.576
-    else:
-        log.debug("todo: need to handle other confidence intervals: ", conf)
-        return None
-
-    return t * sd / np.sqrt(num_samples)
+    return SU.conf_interval(num_samples,sd,conf)
+# moved to spectrum utilities
+# def conf_interval(num_samples,sd,conf=0.95):
+#     """
+#     mean +/- error  ... this is the +/- error part as 95% (or other) confidence interval (assuming normal distro)
+#
+#     :param num_samples:
+#     :param sd: standard deviation
+#     :param conf:
+#     :return:
+#     """
+#
+#     if num_samples < 30:
+#         return None
+#
+#     #todo: put in other values
+#     if conf == 0.68:
+#         t = 1.0
+#     elif conf == 0.95:
+#         t = 1.96
+#     elif conf == 0.99:
+#         t = 2.576
+#     else:
+#         log.debug("todo: need to handle other confidence intervals: ", conf)
+#         return None
+#
+#     return t * sd / np.sqrt(num_samples)
 
 
 def get_sdss_gmag(_flux_density, wave, flux_err=None, num_mc=G.MC_PLAE_SAMPLE_SIZE, confidence=G.MC_PLAE_CONF_INTVL,
