@@ -443,7 +443,8 @@ elif hostname == "lonestar6" or hostname == 'ls6':
     print("preparing SLURM for lonestar6 ...")
     host = HOST_LONESTAR6  # defaulting to skx-normal
 
-    python_cmd = "ibrun -np 1 " + python_cmd
+    #lonestar6 does not use ibrun or mpiexec here
+    #python_cmd = "ibrun -np 1 " + python_cmd
 
     if queue == "normal":  # (192GB per node)
         MAX_DETECTS_PER_CPU = 100
@@ -1118,9 +1119,10 @@ elif host == HOST_STAMPEDE2:
     slurm += "CONTROL_FILE=$LAUNCHER_JOB_FILE\n"
 
     slurm += "export LAUNCHER_SCHED=interleaved\n"
-
+    slurm += "export LD_PRELOAD=" + workbasedir + "/00410/huang/share/patch/myopen.so \n"
 
     launch_str = "$TACC_LAUNCHER_DIR/paramrun\n"
+
 elif host == HOST_LONESTAR6:
 
     slurm = "#!/bin/bash \n"
@@ -1136,6 +1138,7 @@ elif host == HOST_LONESTAR6:
 
     slurm += "#SBATCH -p " + queue + "                 # Queue name\n"
     slurm += "#SBATCH -o ELIXER.o%j          # Name of stdout output file (%j expands to jobid)\n"
+    slurm += "#SBATCH -e ELIXER.e%j          # Name of stderr output file (%j expands to jobid)\n"
     slurm += "#SBATCH -t " + time + "            # Run time (hh:mm:ss)\n"
     slurm += "#SBATCH -A AST23008\n"
     slurm += email + "\n"
@@ -1173,7 +1176,7 @@ elif host == HOST_LOCAL:
     launch_str = "nothing to launch"
 
 #added per https://portal.tacc.utexas.edu/tutorials/managingio#ooops
-slurm += "export LD_PRELOAD=" + workbasedir +"/00410/huang/share/patch/myopen.so \n"
+#slurm += "export LD_PRELOAD=" + workbasedir +"/00410/huang/share/patch/myopen.so \n"
 
 #add the common logging/basic error checking to the end
 slurm += "\
