@@ -535,14 +535,17 @@ def parse_commandline(auto_force=False):
 
     parser.add_argument('--zeropoint', help="[Optional] Override the default zero point correction state. 0 = off, "
                                             "Any other value is a fraction of the application. e.g. 1.0 = full correction,"
-                                            "0.5 = 1/2 correction, 2.0 = twice correction. Negatives are allowed.",
+                                            "0.5 = 1/2 correction, 2.0 = twice correction. Negatives are allowed. "
+                                            "See also --zeroflat and --skyres",
                         required=False, type=float,default=None)
 
-    parser.add_argument('--zeroflat', help="Set the sky subtraction residual correction to just correct for the blue (1)."
-                                           "Or include the flat as well (0).",
+    parser.add_argument('--zeroflat', help="IF (1) set the flat part (3900AA+) of the sky residual model correction to "
+                                           "an average of zero. IF (0) do not alter the sky residual model. See also: "
+                                           "--zeropoint and --skyres",
                         required=False, type=int,default=None)
 
-    parser.add_argument('--skyres', help="Set the sky residual subtraction residual correction OFF (0), or ON (1). Otherwise use default.",
+    parser.add_argument('--skyres', help="Set the sky residual subtraction residual correction OFF (0), or ON (1). "
+                                         "Otherwise use default. See also --zeroflat and --zeropoint",
                         required=False, type=int,default=None)
 
     # parser.add_argument('--sky_residual', help='Toggle [ON] shot-specific sky residual subtraction for forced-extracions.',

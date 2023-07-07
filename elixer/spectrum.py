@@ -4969,8 +4969,8 @@ class Spectrum:
 
             EmissionLine("NeIII".ljust(w), G.NeIII_3869, "deeppink", solution=False,display=False,rank=4),
             EmissionLine("NeIII".ljust(w), G.NeIII_3967, "deeppink", solution=False,display=False,rank=4),  #very close to CaII(3970)
-            EmissionLine("NeV".ljust(w), G.NeV_3347, "deeppink", solution=False,display=False,rank=4),
-            EmissionLine("NeVI".ljust(w), G.NeVI_3427, "deeppink", solution=False, display=False,rank=4),
+            EmissionLine("NeV".ljust(w), G.NeV_3347, "deeppink", solution=False,display=False,rank=5),
+            EmissionLine("NeVI".ljust(w), G.NeVI_3427, "deeppink", solution=False, display=False,rank=5),
 
             EmissionLine("NaI".ljust(w),G.NaI_4980,"lightcoral",solution=False, display=False,rank=4),  #4978.5 + 4982.8
             EmissionLine("NaI".ljust(w),G.NaI_5153,"lightcoral",solution=False, display=False,rank=4),  #5148.8 + 5153.4

@@ -1354,7 +1354,7 @@ SKY_RESIDUAL_HDR3_ALL_FF_MODELS_FN = op.join(op.dirname(op.realpath(__file__)),
 #2023-06-29 ... just a guess at the moment ... need to calibrate
 ZEROPOINT_BASE_LL = 0.2 #default mutiplicative zeropoint correction on flux assuming effective wave of 4726AA
 ZEROPOINT_BASE_FF = 0.3
-ZEROPOINT_FRAC    = 0.0 #fraction of the above correction that is applied
+ZEROPOINT_FRAC    = 0.0 #fraction of the above correction that is applied (default is 0.0 = not applied at all)
                         #can be adjusted on command line as another fraction of this value
 
 ZEROFLAT = False #if TRUE, the sky residual is shifted such that the average flux in the flat part (3900-5400AA) is zero

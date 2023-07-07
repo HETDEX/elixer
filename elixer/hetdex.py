@@ -2192,14 +2192,25 @@ class DetObj:
                 #     p = min(p,0.4)
 
                 try:
+
+
                     if multiline_top_scale_score > 0.5 and multiline_top_frac_score > 0.6 and self.fwhm > 15:
                         #this is not terrible and may be better than an OII guess
-                        z = self.spec_obj.solutions[0].z
-                        if base_p < 0.1: #all we have is the P(LyA) p and it is near the mid-point, so highly uncertain
-                            p = 0.1
-                        else:
-                            p = min(p,0.1)
-                        log.info(f"Q(z): weak multiline solution. P(LyA) favors LyA, but set to z:{z} with Q(z): {p}")
+                        #assumes this could be CIII, CIV maybe MgII, so need to exclude OII
+                        if multiline_top_scale_score < 0.8 and (multiline_top_rest==G.OII_rest): #not likely OII
+                            log.info(
+                                f"Q(z): weak multiline solution ({multiline_top_scale_score:0.2f}) favors OII, "
+                                f"but P(LyA) strongly favors LyA. Keeping LyA z:{z} with Q(z): {p}")
+
+                        elif np.max([x.rank for x in self.spec_obj.solutions[0].lines]) <= 3:
+                            #the driving line(s) for this solution must be of strong rank
+                            #can still be OII if the lines support it
+                            z = self.spec_obj.solutions[0].z
+                            if base_p < 0.1: #all we have is the P(LyA) p and it is near the mid-point, so highly uncertain
+                                p = 0.1
+                            else:
+                                p = min(p,0.1)
+                            log.info(f"Q(z): weak multiline solution ({multiline_top_scale_score:0.2f}). P(LyA) favors LyA, but set to z:{z} with Q(z): {p}")
                     else:
                         log.info(f"Q(z): no multiline solutions. P(LyA) favors LyA. Set to LyA z:{z} with Q(z): {p}")
                 except:
@@ -8015,7 +8026,7 @@ class DetObj:
                     #!!!! we normally want to use rawh5=FALSE even though we get erg/s/cm2/AA instead of x2AA
                     #!!! since we also get the HETDEX_API post h5 run corrections applied to the spectra
                     #!!! WE DO TURN OFF deredden though, since we explicitly apply that later !!!
-                    hda_spec['spec1d'] *= G.FLUX_WAVEBIN_WIDTH
+                    hda_spec['spec1d'] *= G.FLUX_WAVEBIN_WIDTH #change to integrated flux over 2AA for consistency
                     hda_spec['spec1d_err'] *= G.FLUX_WAVEBIN_WIDTH
 
                     self.sumspec_wavelength = np.array(hda_spec['wave1d'])
@@ -8047,6 +8058,26 @@ class DetObj:
 
                 self.sumspec_apcor = row['apcor'] #aperture correction
 
+            #Optional Sky residual corection (before dust correction)
+            # HERE this is done to the PSF Weighted Aperture POST extraction, so a bit different than the forced_extraction path
+            if G.APPLY_SKY_RESIDUAL_TYPE > 0 and self.sky_subtraction_residual is None:
+                #note: 1 = per fiber, 2 = per aperture however, here we can only apply per aperture so any positive value
+                #triggers this logic
+                if G.ZEROFLAT:
+                    self.sky_subtraction_residual, self.sky_subtraction_residual_flat = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
+                                                self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
+                                                zeroflat=True)
+                else:
+                    self.sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
+                                                self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
+                                                zeroflat=False)
+
+            if self.sky_subtraction_residual is not None:
+                #the sky residual model for correction is PER FIBER, so we have to convolve with the seeing and
+                #aperteure size. Note: the aperture size is not specified here so it is the HETDEX default (3.5")
+                _, aperture_flux_offset =  SU.fiber_to_psf(self.survey_fwhm,fiber_spec=self.sky_subtraction_residual)
+                self.sumspec_flux  -= aperture_flux_offset * G.FLUX_WAVEBIN_WIDTH
+
             if G.APPLY_GALACTIC_DUST_CORRECTION:
                 try:
                     self.dust_corr = deredden_spectra(self.sumspec_wavelength, SkyCoord(self.wra,self.wdec,unit='deg'))
@@ -8056,6 +8087,16 @@ class DetObj:
                     self.flags |= G.DETFLAG_NO_DUST_CORRECTION
                     log.warning("Exception. Unable to apply galatic exintction correction.", exc_info=True)
 
+            if G.ZEROPOINT_FRAC:
+                zp_corr = SU.zeropoint_correction(self.sumspec_flux *G.HETDEX_FLUX_BASE_CGS / G.FLUX_WAVEBIN_WIDTH,
+                                               self.sumspec_fluxerr *G.HETDEX_FLUX_BASE_CGS / G.FLUX_WAVEBIN_WIDTH,
+                                               eff_fluxd=None,
+                                               ffsky=self.extraction_ffsky, seeing=self.survey_fwhm,
+                                               hdr=G.HDR_Version)
+                if zp_corr is None:
+                    self.flags |= G.DETFLAG_NO_ZEROPOINT
+                else:
+                    self.sumspec_flux += zp_corr * G.FLUX_WAVEBIN_WIDTH / G.HETDEX_FLUX_BASE_CGS
             # # #test:
             # print("!!!!!!!!!!!!!!!!!!!!!!! TEST: REMOVE ME !!!!!!!!!!!!!!!!!!!!!")
             # self.sumspec_flux = self.sumspec_flux * 2.0  / self.sumspec_apcor /  self.sumspec_apcor

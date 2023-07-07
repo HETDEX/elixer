@@ -1,7 +1,11 @@
 changes to elixer by version
 
-1.20.0a7 [2023-07-05]
+1.20.0a7 [2023-07-07]
 * working on support for Lonestar6
+* allow --skyres, --zeroflat, and --zeropoint on "normal" non-re-extraced HETDEX reports. The correction is made at the
+  aperture level rather than the fiber level. Fefaults are all OFF and must be explicitly turned ON.
+* corrected/tweak OII override of LyA redshift for very weak multiline solution where the supporting line(s) are of
+  poor rank. Only triggered when emission line is broader than 15AA FWHM and was inteded to look for MgII, OIII, OIV
 
 1.20.0a6 [2023-06-30]
 * fully split zeropoint correction and sky residual correction
