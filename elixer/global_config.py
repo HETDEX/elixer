@@ -1359,3 +1359,5 @@ ZEROPOINT_FRAC    = 0.0 #fraction of the above correction that is applied (defau
 
 ZEROFLAT = False #if TRUE, the sky residual is shifted such that the average flux in the flat part (3900-5400AA) is zero
                    #the idea here is that the blue is artificailly enhanced and the flat is the true average background
+ZEROFLAT_BLUE = 4000.0 #bluest wavelength to compute the "flat"
+ZEROFLAT_RED = 5000.0

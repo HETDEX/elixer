@@ -3375,7 +3375,10 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
 
     def avg_flat(fluxd):
         #average from 3900-5400 in whatever units we're using
-        return np.nanmedian(fluxd[215:966])
+        idx1,*_ = getnearpos(G.CALFIB_WAVEGRID,G.ZEROFLAT_BLUE)
+        idx2, *_ = getnearpos(G.CALFIB_WAVEGRID, G.ZEROFLAT_RED)
+
+        return np.nanmedian(fluxd[idx1:idx2+1])
 
     def low_high_rats(seeing,low,high):
         #assumes we have 1.2" to 3.0" in steps of 0.1"
