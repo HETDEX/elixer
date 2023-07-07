@@ -423,6 +423,14 @@ elif hostname == "stampede2":
                 MAX_NODES = 100
                 MAX_TASKS_PER_NODE = 20
             #MAX_TASKS = MAX_NODES * MAX_TASKS_PER_NODE  # 2000
+
+    TIME_OVERHEAD = 4.0  # MINUTES of overhead to get started (per task call ... just a safety)
+
+    time = "00:59:59"
+    time_set = False
+    email = "##SBATCH --mail-user\n##SBATCH --mail-type all"
+
+    tasks = 0
 elif hostname == "lonestar6" or hostname == 'ls6':
     if queue is None:
         queue = "normal"  # SKX  ... the KNL nodes seem really slow
