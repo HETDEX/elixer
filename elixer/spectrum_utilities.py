@@ -3458,8 +3458,8 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
         blue_idx,*_ = getnearpos(G.CALFIB_WAVEGRID,3505)
         red_idx,*_ = getnearpos(G.CALFIB_WAVEGRID,5495)
 
-        model[0:blue_idx] = model[blue_idx]
-        model[red_idx:] = model[red_idx]
+        model[0:blue_idx] = 0 #model[blue_idx]
+        model[red_idx:] = 0 #model[red_idx]
 
         if zeroflat:
             flat = avg_flat(model)
