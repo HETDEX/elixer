@@ -64,6 +64,7 @@ else:
 if "--fiber_corr" in args:
     print("Apply per fiber residual correction")
     per_fiber_corr = True
+    G.APPLY_SKY_RESIDUAL_TYPE = 1
 else:
     print("Do Not apply per fiber residual correction")
     per_fiber_corr = False
