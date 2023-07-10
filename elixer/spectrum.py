@@ -6026,6 +6026,10 @@ class Spectrum:
             sel = np.where(np.array([l.absorber for l in solution.lines])==False)[0]
             sol_lines = np.array(solution.lines)[sel]
             line_waves = [solution.central_rest] + [l.w_rest for l in sol_lines]
+            try:
+                line_raw_line_score = [self.central_eli.raw_line_score] + [l.raw_line_score for l in sol_lines]
+            except:
+                line_raw_line_score = [-1] + [l.raw_line_score for l in sol_lines]
             #line_ew = [self.eqw_obs/(1+solution.z)] + [l.eqw_rest for l in sol_lines]
             # line_flux is maybe more reliable ... the continuum estimates for line_ew can go wrong and give horrible results
             line_flux = [self.estflux] + [l.flux for l in sol_lines]
@@ -6136,6 +6140,11 @@ class Spectrum:
             # REMINDER: line_idx[i] indexes based on the overlap (should see only with line_xxx[] lists)
             #           rest_idx[i] indexes based on the fixed list of rest_wavelengths (maps overlap to rest)
             for i in range(len(overlap)):
+                # add 0.5 for each of LyA, OVI, CIV, CIII in list if they are broad (> 1200 km/s; 18AA at 4500 is roughly match)
+                if overlap[i] in [G.LyA_rest, G.OVI_1035, G.NV_1241,G.CIV_1549, G.HeII_1640, G.CIII_1909, G.CII_2326]:
+                    if line_fwhm[i] > 18.0 and line_broad[i] and line_raw_line_score[i] > 50.0:
+                        score += 0.5
+
                 for j in range(i+1,len(overlap)):
                     if (line_flux[line_idx[i]] != 0):
                         if (min_ratios[rest_idx[i]] != 0) and (min_ratios[rest_idx[j]] != 0) and \
@@ -6210,6 +6219,7 @@ class Spectrum:
             # like spectral slope?
             #if score > 0:
             #    self.add_classification_label("AGN")
+
             return score
 
         except:
