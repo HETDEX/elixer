@@ -655,6 +655,9 @@ def parse_commandline(auto_force=False):
         elif args.skyres == 1:
             G.APPLY_SKY_RESIDUAL_TYPE = 1  #turn it ON, explicitly, for the models
             G.SKY_RESIDUAL_PER_SHOT = False
+        elif args.skyres == 2:
+            G.APPLY_SKY_RESIDUAL_TYPE = 2  #turn it ON, explicitly, for the models
+            G.SKY_RESIDUAL_PER_SHOT = False
         else:
             print(f"Invalid --skyres provided. {args.skyres}")
             exit(0)
