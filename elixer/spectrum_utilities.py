@@ -3411,36 +3411,36 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
             else:
                 return None
 
-        log.debug("Loading universal sky residual model...")
+        log.debug("Loading universal sky single fiber residual model...")
         #zeropoint_shift = 0.0
 
         if ffsky:
-            if G.SKY_RESIDUAL_ALL_FF_MODELS is None:
+            if G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS is None:
 
                 #right now all HDRx are the same ... if this changes, need to load different files
                 #this is because HDR2 does not use it
                 #and HDR3 and HDR4 are the same
 
                 #load the LL models
-                G.SKY_RESIDUAL_ALL_FF_MODELS  = np.loadtxt(G.SKY_RESIDUAL_HDR3_ALL_FF_MODELS_FN, unpack=True)
+                G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS  = np.loadtxt(G.SKY_FIBER_RESIDUAL_HDR3_ALL_FF_MODELS_FN, unpack=True)
                 # 1st column  [idx 0] is the wavelength, cut that off
-                G.SKY_RESIDUAL_ALL_FF_MODELS = G.SKY_RESIDUAL_ALL_FF_MODELS[1:]
+                G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS = G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS[1:]
 
-            which_models = G.SKY_RESIDUAL_ALL_FF_MODELS
+            which_models = G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS
             #zeropoint_shift = G.ZEROPOINT_SHIFT_FF
         else:
-            if G.SKY_RESIDUAL_ALL_LL_MODELS is None:
+            if G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS is None:
                 # right now all HDRx are the same ... if this changes, need to load different files
                 # this is because HDR2 does not use it
                 # and HDR3 and HDR4 are the same
 
 
                 #load the LL models
-                G.SKY_RESIDUAL_ALL_LL_MODELS  = np.loadtxt(G.SKY_RESIDUAL_HDR3_ALL_LL_MODELS_FN, unpack=True)
+                G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS  = np.loadtxt(G.SKY_FIBER_RESIDUAL_HDR3_ALL_LL_MODELS_FN, unpack=True)
                 # 1st column  [idx 0] is the wavelength, cut that off
-                G.SKY_RESIDUAL_ALL_LL_MODELS = G.SKY_RESIDUAL_ALL_LL_MODELS[1:]
+                G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS = G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS[1:]
 
-            which_models = G.SKY_RESIDUAL_ALL_LL_MODELS
+            which_models = G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS
             #zeropoint_shift = G.ZEROPOINT_SHIFT_LL
 
         #get the two flanking models
@@ -3475,7 +3475,7 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
             return None, None
         else:
             return None
-    log.error(f"No universal sky residual found.", exc_info=True)
+    log.error(f"No universal sky single fiber residual found.", exc_info=True)
     if zeroflat:
         return None, None
     else:
@@ -3484,9 +3484,146 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
 
 
 
+def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsky=False,hdr=G.HDR_Version,zeroflat=False):
+    """
+        Very similar to interpolate_universal_single_fiber_sky_subtraction_residual() above, but is for
+        the full 3.5" aperture model rather than a single fiber
+
+        This is applied with the call to HETDEX_API get_spectra() and, as such, this needs to be in:
+        erg/s/cm2/AA e-17 (not 2AA)
+        This should NOT be de-reddened or have any other such corrections as those are applied as part of get_spectra()
+
+        Independent of any zeropoint offset correction and should be applied BEFORE a zeropoint offset correctio is made
+
+    :param seeing:
+    :param ffsky:
+    :param hdr:
+    :param zeroflat: if TRUE, shift down s|t the average flux or fluxdensity in the flat part (3900-5400AA) is zero
+                     The idea here is that that region is the actual average sky residual background where the blue
+                     end is artificially inflated.
+    :return: the per-fiber model, the average flat background IF zeroflat == True
+    """
+
+    def avg_flat(fluxd):
+        #average from 3900-5400 in whatever units we're using
+        idx1,*_ = getnearpos(G.CALFIB_WAVEGRID,G.ZEROFLAT_BLUE)
+        idx2, *_ = getnearpos(G.CALFIB_WAVEGRID, G.ZEROFLAT_RED)
+
+        return np.nanmedian(fluxd[idx1:idx2+1])
+
+    def low_high_rats(seeing,low,high):
+        #assumes we have 1.2" to 3.0" in steps of 0.1"
+        step = 0.1
+        deci = 2 #2 decimals is plenty
+        if seeing < 1.2:
+            return 1.0,0
+        elif seeing > 3.0:
+            return 0,1.0
+        elif low == high:
+            return 1.0, 0
+        else:
+            return np.round(1.0-(abs(seeing-low)/step),deci), np.round(1.0-(abs(high-seeing)/step),deci)
+
+    try:
+        #now has to be checked by the caller
+        # if G.APPLY_SKY_RESIDUAL_TYPE != 1:
+        #     if zeroflat:
+        #         return None, None
+        #     else:
+        #         return None
+
+        if aper != 3.5:
+            log.warning(f"Invalid aperture size {aper}. Only valid for 3.5\" ")
+            if zeroflat:
+                return None, None
+            else:
+                return None
+
+        #we have models for HDR3 (samae as HDR4)
+        if hdr[0] in ['3','4']:
+            pass #all good
+        else:
+            log.warning(f"Invalid HDR version for interpolate_universal_aperture_sky_subtraction_residual(): {hdr}")
+            if zeroflat:
+                return None, None
+            else:
+                return None
+
+        log.debug("Loading universal sky aperture residual models ...")
+        #zeropoint_shift = 0.0
+
+        if ffsky:
+            if G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS is None:
+
+                #right now all HDRx are the same ... if this changes, need to load different files
+                #this is because HDR2 does not use it
+                #and HDR3 and HDR4 are the same
+
+                #load the LL models
+                G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS  = np.loadtxt(G.SKY_FIBER_RESIDUAL_HDR3_ALL_FF_MODELS_FN, unpack=True)
+                # 1st column  [idx 0] is the wavelength, cut that off
+                G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS = G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS[1:]
+
+            which_models = G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS
+            #zeropoint_shift = G.ZEROPOINT_SHIFT_FF
+        else:
+            if G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS is None:
+                # right now all HDRx are the same ... if this changes, need to load different files
+                # this is because HDR2 does not use it
+                # and HDR3 and HDR4 are the same
+
+
+                #load the LL models
+                G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS  = np.loadtxt(G.SKY_FIBER_RESIDUAL_HDR3_ALL_LL_MODELS_FN, unpack=True)
+                # 1st column  [idx 0] is the wavelength, cut that off
+                G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS = G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS[1:]
+
+            which_models = G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS
+            #zeropoint_shift = G.ZEROPOINT_SHIFT_LL
+
+        #get the two flanking models
+        _, l, h = getnearpos(G.SKY_RESIDUAL_ALL_PSF, seeing)
+
+        rl,rh = low_high_rats(seeing, G.SKY_RESIDUAL_ALL_PSF[l], G.SKY_RESIDUAL_ALL_PSF[h])
+
+        if l is None:
+            model =  which_models[h]
+        elif h is None:
+            model =  which_models[l]
+        else:
+            model =  rl*which_models[l] + rh*which_models[h]  #+ zeropoint_shift
+
+        #to avoid over subtraction at the edges, fix the values blue of 3505 and red of 5495
+        blue_idx,*_ = getnearpos(G.CALFIB_WAVEGRID,3505)
+        red_idx,*_ = getnearpos(G.CALFIB_WAVEGRID,5495)
+
+        model[0:blue_idx] = 0.5 * model[blue_idx] #pretty good, still a bit spikey but not too bad
+        model[red_idx:] = 0.5 * model[red_idx]
+
+        if zeroflat:
+            flat = avg_flat(model)
+            return model-flat,flat
+        else:
+            return model
+
+
+    except:
+        log.error(f"Exception! Exception in interpolate_universal_aperture_sky_subtraction_residual.", exc_info=True)
+        if zeroflat:
+            return None, None
+        else:
+            return None
+    log.error(f"No universal sky aperture residual found.", exc_info=True)
+    if zeroflat:
+        return None, None
+    else:
+        return None
+
 
 def zeropoint_correction(fluxd=None,fluxd_err=None,eff_fluxd=None,ffsky=False,seeing=None,hdr=G.HDR_Version):
     """
+    Applied at the PSF Weighted aperture level NOT PER FIBER
+
     Apply a multiplicative correction, assuming g-bandpass effective wavelength near 4726AA
     The correction is applied to fluxd as an additive, but is computed as a multiplicative like
       the usual magnitude (additive in logspace).

@@ -609,9 +609,10 @@ class DetObj:
         self.nei_mini_buf = None #image holder for neighborhood
         self.line_mini_buf = None
 
-        self.sky_subtraction_residual = None
+        self.fiber_sky_subtraction_residual = None
+        self.fiber_sky_subtraction_residual_flat = 0
         self.aperture_sky_subtraction_residual = None
-        self.sky_subtraction_residual_flat = 0
+        self.aperture_sky_subtraction_residual_flat = None
 
         self.phot_z_votes = []
         self.cluster_parent = 0 #detectid of anohter HETDEX source that is the cluster (specifically, redshift) for this object
@@ -6884,30 +6885,30 @@ class DetObj:
             else:
                 get_spectra_loglevel = "ERROR"
 
-            if self.sky_subtraction_residual is None and G.APPLY_SKY_RESIDUAL_TYPE > 0:
+            if self.fiber_sky_subtraction_residual is None and G.APPLY_SKY_RESIDUAL_TYPE > 0:
                 if G.ZEROFLAT:
-                    self.sky_subtraction_residual, self.sky_subtraction_residual_flat = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
+                    self.fiber_sky_subtraction_residual, self.fiber_sky_subtraction_residual_flat = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
                                                 self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
                                                 zeroflat=True)
                 else:
-                    self.sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
+                    self.fiber_sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
                                                 self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
                                                 zeroflat=False)
 
                 # if G.SKY_RESIDUAL_PER_SHOT:
-                #     self.sky_subtraction_residual = SU.fetch_per_shot_single_fiber_sky_subtraction_residual(G.SKY_RESIDUAL_FITS_PATH,
+                #     self.fiber_sky_subtraction_residual = SU.fetch_per_shot_single_fiber_sky_subtraction_residual(G.SKY_RESIDUAL_FITS_PATH,
                 #                                                                    self.survey_shotid,
                 #                                                                    G.SKY_RESIDUAL_FITS_COL)
                 # else:
-                #     # self.sky_subtraction_residual = SU.fetch_universal_single_fiber_sky_subtraction_residual(ffsky=self.extraction_ffsky,
+                #     # self.fiber_sky_subtraction_residual = SU.fetch_universal_single_fiber_sky_subtraction_residual(ffsky=self.extraction_ffsky,
                 #     #                                                                                          hdr=G.HDR_Version)
-                #     self.sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
+                #     self.fiber_sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
                 #         self.survey_fwhm,ffsky=self.extraction_ffsky,hdr=G.HDR_Version)
-            if self.sky_subtraction_residual is None:
+            if self.fiber_sky_subtraction_residual is None:
                 fiber_flux_offset = None
             elif G.APPLY_SKY_RESIDUAL_TYPE == 1: #per fiber
-                #fiber_flux_offset = -1 * SU.adjust_fiber_correction_by_seeing(self.sky_subtraction_residual,self.survey_fwhm)
-                fiber_flux_offset = -1 * self.sky_subtraction_residual
+                #fiber_flux_offset = -1 * SU.adjust_fiber_correction_by_seeing(self.fiber_sky_subtraction_residual,self.survey_fwhm)
+                fiber_flux_offset = -1 * self.fiber_sky_subtraction_residual
             else:
                 fiber_flux_offset = None
 
@@ -6951,25 +6952,25 @@ class DetObj:
                 # Optional Sky residual corection (before dust correction)
                 # HERE this is done to the PSF Weighted Aperture POST extraction, so a bit different than the forced_extraction path
                 # if G.APPLY_SKY_RESIDUAL_TYPE == 1, this is per fiber and was already applied
-                if G.APPLY_SKY_RESIDUAL_TYPE == 2:
+                if G.APPLY_SKY_RESIDUAL_TYPE == 2: #per 3.5" aperture
                     # note: 1 = per fiber, 2 = per aperture however, here we can only apply per aperture so any positive value
                     # triggers this logic
-                    if self.sky_subtraction_residual is None:
+                    if self.aperture_sky_subtraction_residual is None:
                         if G.ZEROFLAT:
-                            self.sky_subtraction_residual, self.sky_subtraction_residual_flat = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
-                                self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
+                            self.aperture_sky_subtraction_residual, self.aperture_sky_subtraction_residual_flat = SU.inter(
+                                self.survey_fwhm, aper=self.extraction_aperture,ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
                                 zeroflat=True)
                         else:
-                            self.sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
-                                self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
+                            self.aperture_sky_subtraction_residual = SU.interpolate_universal_aperture_sky_subtraction_residual(
+                                self.survey_fwhm, aper=self.extraction_aperture,ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
                                     zeroflat=False)
 
-                    if self.sky_subtraction_residual is not None:
+                    if self.aperture_sky_subtraction_residual is not None:
                         # the sky residual model for correction is PER FIBER, so we have to convolve with the seeing and
                         # aperteure size. Note: the aperture size is not specified here so it is the HETDEX default (3.5")
-                        _, aperture_flux_offset = SU.fiber_to_psf(self.survey_fwhm,
-                                                                  fiber_spec=self.sky_subtraction_residual)
-                        self.sumspec_flux -= aperture_flux_offset * G.FLUX_WAVEBIN_WIDTH
+                        # _, aperture_flux_offset = SU.fiber_to_psf(self.survey_fwhm,
+                        #                                           fiber_spec=self.fiber_sky_subtraction_residual)
+                        self.sumspec_flux -= self.aperture_sky_subtraction_residual * G.FLUX_WAVEBIN_WIDTH
 
                 if G.APPLY_GALACTIC_DUST_CORRECTION:
                     try:
@@ -7025,33 +7026,33 @@ class DetObj:
             else:
                 get_spectra_loglevel = "ERROR"
 
-            if self.sky_subtraction_residual is None and G.APPLY_SKY_RESIDUAL_TYPE > 0:
+            if self.fiber_sky_subtraction_residual is None and G.APPLY_SKY_RESIDUAL_TYPE > 0:
                 if G.ZEROFLAT:
-                    self.sky_subtraction_residual, self.sky_subtraction_residual_flat = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
+                    self.fiber_sky_subtraction_residual, self.fiber_sky_subtraction_residual_flat = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
                                                 self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
                                                 zeroflat=True)
                 else:
-                    self.sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
+                    self.fiber_sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
                                                 self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
                                                 zeroflat=False)
 
                 # if G.SKY_RESIDUAL_PER_SHOT:
-                #     self.sky_subtraction_residual = SU.fetch_per_shot_single_fiber_sky_subtraction_residual(
+                #     self.fiber_sky_subtraction_residual = SU.fetch_per_shot_single_fiber_sky_subtraction_residual(
                 #                                                                G.SKY_RESIDUAL_FITS_PATH,
                 #                                                                self.survey_shotid,
                 #                                                                G.SKY_RESIDUAL_FITS_COL)
                 # else:
-                    #self.sky_subtraction_residual = SU.fetch_universal_single_fiber_sky_subtraction_residual(
+                    #self.fiber_sky_subtraction_residual = SU.fetch_universal_single_fiber_sky_subtraction_residual(
                     #                                                                   ffsky=self.extraction_ffsky,
                     #                                                                    hdr=G.HDR_Version)
-                    # self.sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
+                    # self.fiber_sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
                     #     self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version)
 
-            if self.sky_subtraction_residual is None:
+            if self.fiber_sky_subtraction_residual is None:
                 fiber_flux_offset = None
             elif G.APPLY_SKY_RESIDUAL_TYPE == 1: #per fiber
-                # fiber_flux_offset = -1 * SU.adjust_fiber_correction_by_seeing(self.sky_subtraction_residual,self.survey_fwhm)
-                fiber_flux_offset = -1 * self.sky_subtraction_residual
+                # fiber_flux_offset = -1 * SU.adjust_fiber_correction_by_seeing(self.fiber_sky_subtraction_residual,self.survey_fwhm)
+                fiber_flux_offset = -1 * self.fiber_sky_subtraction_residual
             else:
                 fiber_flux_offset = None
 
@@ -7059,7 +7060,7 @@ class DetObj:
             #     if G.ELIXER_SPECIAL & 2:
             #         fiber_flux_offset = None
             #     else:
-            #         fiber_flux_offset = -1 * self.sky_subtraction_residual
+            #         fiber_flux_offset = -1 * self.fiber_sky_subtraction_residual
 
             apt = hda_get_spectra(coord, survey=f"hdr{G.HDR_Version}", shotid=self.survey_shotid,
                                   ffsky=self.extraction_ffsky, multiprocess=G.GET_SPECTRA_MULTIPROCESS, rad=self.extraction_aperture,
@@ -7080,7 +7081,7 @@ class DetObj:
             # if G.ELIXER_SPECIAL & 2:
             #     #perform sky residual correction here instead with PSF Weighting
             #     #3rd value in each is the weight
-            #     psf_sky  = np.sum([self.sky_subtraction_residual * w for w in apt['fiber_weights'][0][:,2]],axis=1)
+            #     psf_sky  = np.sum([self.fiber_sky_subtraction_residual * w for w in apt['fiber_weights'][0][:,2]],axis=1)
             #     norm_psf = np.sum(apt['fiber_weights'][0][:,2])
             #     psf_sky /= norm_psf
             #     apt['spec'][0] = np.nan_to_num(apt['spec'][0]) - psf_sky
@@ -7094,25 +7095,25 @@ class DetObj:
             # Optional Sky residual corection (before dust correction)
             # HERE this is done to the PSF Weighted Aperture POST extraction, so a bit different than the forced_extraction path
             # if G.APPLY_SKY_RESIDUAL_TYPE == 1, this is per fiber and was already applied
-            if G.APPLY_SKY_RESIDUAL_TYPE == 2:
+            if G.APPLY_SKY_RESIDUAL_TYPE == 2: #per 3.5" aperture
                 # note: 1 = per fiber, 2 = per aperture however, here we can only apply per aperture so any positive value
                 # triggers this logic
-                if self.sky_subtraction_residual is None:
+                if self.fiber_sky_subtraction_residual is None:
                     if G.ZEROFLAT:
-                        self.sky_subtraction_residual, self.sky_subtraction_residual_flat = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
-                        self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
+                        self.aperture_sky_subtraction_residual, self.aperture_sky_subtraction_residual_flat = SU.interpolate_universal_aperture_sky_subtraction_residual(
+                        self.survey_fwhm, aper=self.extraction_aperture,ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
                         zeroflat=True)
                     else:
-                        self.sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
-                            self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
+                        self.aperture_sky_subtraction_residual = SU.interpolate_universal_aperture_sky_subtraction_residual(
+                            self.survey_fwhm, aper=self.extraction_aperture,ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
                             zeroflat=False)
 
-                if self.sky_subtraction_residual is not None:
+                if self.aperture_sky_subtraction_residual is not None:
                     # the sky residual model for correction is PER FIBER, so we have to convolve with the seeing and
                     # aperteure size. Note: the aperture size is not specified here so it is the HETDEX default (3.5")
-                    _, aperture_flux_offset = SU.fiber_to_psf(self.survey_fwhm,
-                                                              fiber_spec=self.sky_subtraction_residual)
-                    self.sumspec_flux -= aperture_flux_offset * G.FLUX_WAVEBIN_WIDTH
+                    # _, aperture_flux_offset = SU.fiber_to_psf(self.survey_fwhm,
+                    #                                           fiber_spec=self.fiber_sky_subtraction_residual)
+                    self.sumspec_flux -= self.aperture_sky_subtraction_residual * G.FLUX_WAVEBIN_WIDTH
 
             if G.APPLY_GALACTIC_DUST_CORRECTION:
                 try:
@@ -8110,23 +8111,23 @@ class DetObj:
 
             #Optional Sky residual corection (before dust correction)
             # HERE this is done to the PSF Weighted Aperture POST extraction, so a bit different than the forced_extraction path
-            if G.APPLY_SKY_RESIDUAL_TYPE > 0 and self.sky_subtraction_residual is None:
+            if G.APPLY_SKY_RESIDUAL_TYPE > 0 and self.fiber_sky_subtraction_residual is None:
                 #note: 1 = per fiber, 2 = per aperture however, here we can only apply per aperture so any positive value
                 #triggers this logic
                 if G.ZEROFLAT:
-                    self.sky_subtraction_residual, self.sky_subtraction_residual_flat = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
-                                                self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
+                    self.aperture_sky_subtraction_residual, self.aperture_sky_subtraction_residual_flat = SU.interpolate_universal_aperture_sky_subtraction_residual(
+                                                self.survey_fwhm, aper=self.extraction_aperture,ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
                                                 zeroflat=True)
                 else:
-                    self.sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
-                                                self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
+                    self.aperture_sky_subtraction_residual = SU.interpolate_universal_aperture_sky_subtraction_residual(
+                                                self.survey_fwhm, aper=self.extraction_aperture, ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
                                                 zeroflat=False)
 
-            if self.sky_subtraction_residual is not None:
+            if self.aperture_sky_subtraction_residual is not None:
                 #the sky residual model for correction is PER FIBER, so we have to convolve with the seeing and
                 #aperteure size. Note: the aperture size is not specified here so it is the HETDEX default (3.5")
-                _, aperture_flux_offset =  SU.fiber_to_psf(self.survey_fwhm,fiber_spec=self.sky_subtraction_residual)
-                self.sumspec_flux  -= aperture_flux_offset * G.FLUX_WAVEBIN_WIDTH
+                #_, aperture_flux_offset =  SU.fiber_to_psf(self.survey_fwhm,fiber_spec=self.fiber_sky_subtraction_residual)
+                self.sumspec_flux  -= self.aperture_sky_subtraction_residual * G.FLUX_WAVEBIN_WIDTH
 
             if G.APPLY_GALACTIC_DUST_CORRECTION:
                 try:

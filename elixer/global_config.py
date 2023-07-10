@@ -1315,7 +1315,7 @@ VOTE_EW_PLAE_POII_CORRECTION    = 0x00000800
 # testing sky residuals
 ###################################
 
-APPLY_SKY_RESIDUAL_TYPE = 0 #0 = No, off, do not use:   1 = per fiber, 2 = per dynamic aperture
+APPLY_SKY_RESIDUAL_TYPE = 0 #0 = No, off, do not use:   1 = per fiber, 2 = per 3.5" aperture, specifically
 #Note: there are many issues in ELiXer and post-ELiXer for the aperture version, so it has been removed
 
 #Defunct ... not longer supported as of 2023-06-15
@@ -1341,12 +1341,19 @@ APPLY_SKY_RESIDUAL_TYPE = 0 #0 = No, off, do not use:   1 = per fiber, 2 = per d
 
 #HDR3 and HDR4 use same correction
 SKY_RESIDUAL_ALL_PSF = np.arange(1.2,3.1,0.1)
-SKY_RESIDUAL_ALL_LL_MODELS = None
-SKY_RESIDUAL_ALL_FF_MODELS = None
-SKY_RESIDUAL_HDR3_ALL_LL_MODELS_FN = op.join(op.dirname(op.realpath(__file__)),
+SKY_FIBER_RESIDUAL_ALL_LL_MODELS = None
+SKY_FIBER_RESIDUAL_ALL_FF_MODELS = None
+SKY_FIBER_RESIDUAL_HDR3_ALL_LL_MODELS_FN = op.join(op.dirname(op.realpath(__file__)),
                                              "sky_subtraction_residuals/hdr3_local_sky_fiber_residual_models_by_psf.txt")
-SKY_RESIDUAL_HDR3_ALL_FF_MODELS_FN = op.join(op.dirname(op.realpath(__file__)),
+SKY_FIBER_RESIDUAL_HDR3_ALL_FF_MODELS_FN = op.join(op.dirname(op.realpath(__file__)),
                                              "sky_subtraction_residuals/hdr3_ff_sky_fiber_residual_models_by_psf.txt")
+SKY_APERTURE_RESIDUAL_ALL_LL_MODELS = None
+SKY_APERTURE_RESIDUAL_ALL_FF_MODELS = None
+SKY_APERTURE_RESIDUAL_HDR3_ALL_LL_MODELS_FN = op.join(op.dirname(op.realpath(__file__)),
+                                             "sky_subtraction_residuals/hdr3_local_sky_aperture_residual_models_by_psf.txt")
+SKY_APERTURE_RESIDUAL_HDR3_ALL_FF_MODELS_FN = op.join(op.dirname(op.realpath(__file__)),
+                                             "sky_subtraction_residuals/hdr3_ff_sky_aperture_residual_models_by_psf.txt")
+
 #temporary
 #ZEROPOINT_SHIFT_LL = 0 #in e-17 erg/s/cm2/AA an extra flat shift applied to Local SKy subtraction models (additive)
 #ZEROPOINT_SHIFT_FF = 0 #in e-17 erg/s/cm2/AA an extra flat shift applied to Local SKy subtraction models (additive)

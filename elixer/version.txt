@@ -4,6 +4,7 @@ changes to elixer by version
 * small tweaks to sky residual correction in progress (extreme blue and red ends, slight variation in model and selection)
 * working on support for Lonestar6
 * allow Aperture level sky residual model correction (--skyres 2)
+  + dedicated aperture level models
 * spectrum_utilities interpolate_universal_single_fiber_sky_subtraction_residual() no longer enforces the configuration
   that --skyres is non zero. The caller must enforce.
 * tweak constency with AGN check() to also consider just the presence of significantly detected common AGN lines even
