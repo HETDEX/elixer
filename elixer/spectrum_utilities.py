@@ -3394,11 +3394,12 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
             return np.round(1.0-(abs(seeing-low)/step),deci), np.round(1.0-(abs(high-seeing)/step),deci)
 
     try:
-        if G.APPLY_SKY_RESIDUAL_TYPE != 1:
-            if zeroflat:
-                return None, None
-            else:
-                return None
+        #now has to be checked by the caller
+        # if G.APPLY_SKY_RESIDUAL_TYPE != 1:
+        #     if zeroflat:
+        #         return None, None
+        #     else:
+        #         return None
 
         #we have models for HDR3 (samae as HDR4)
         if hdr[0] in ['3','4']:

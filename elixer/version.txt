@@ -1,5 +1,12 @@
 changes to elixer by version
 
+1.20.0a8 [2023-07-10]
+* small tweaks to sky residual correction in progress (extreme blue and red ends, slight variation in model and selection)
+* working on support for Lonestar6
+* allow Aperture level sky residual model correction (--skyres 2)
+* spectrum_utilities interpolate_universal_single_fiber_sky_subtraction_residual() no longer enforces the configuration
+  that --skyres is non zero. The caller must enforce.
+
 1.20.0a7 [2023-07-07]
 * working on support for Lonestar6
 * allow --skyres, --zeroflat, and --zeropoint on "normal" non-re-extraced HETDEX reports. The correction is made at the
