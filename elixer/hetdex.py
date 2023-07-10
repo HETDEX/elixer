@@ -6885,7 +6885,7 @@ class DetObj:
             else:
                 get_spectra_loglevel = "ERROR"
 
-            if self.fiber_sky_subtraction_residual is None and G.APPLY_SKY_RESIDUAL_TYPE > 0:
+            if self.fiber_sky_subtraction_residual is None and G.APPLY_SKY_RESIDUAL_TYPE == 1:
                 if G.ZEROFLAT:
                     self.fiber_sky_subtraction_residual, self.fiber_sky_subtraction_residual_flat = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
                                                 self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
@@ -7026,7 +7026,7 @@ class DetObj:
             else:
                 get_spectra_loglevel = "ERROR"
 
-            if self.fiber_sky_subtraction_residual is None and G.APPLY_SKY_RESIDUAL_TYPE > 0:
+            if self.fiber_sky_subtraction_residual is None and G.APPLY_SKY_RESIDUAL_TYPE == 1:
                 if G.ZEROFLAT:
                     self.fiber_sky_subtraction_residual, self.fiber_sky_subtraction_residual_flat = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
                                                 self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
@@ -8111,7 +8111,7 @@ class DetObj:
 
             #Optional Sky residual corection (before dust correction)
             # HERE this is done to the PSF Weighted Aperture POST extraction, so a bit different than the forced_extraction path
-            if G.APPLY_SKY_RESIDUAL_TYPE > 0 and self.fiber_sky_subtraction_residual is None:
+            if G.APPLY_SKY_RESIDUAL_TYPE == 2 and self.aperture_sky_subtraction_residual is None:
                 #note: 1 = per fiber, 2 = per aperture however, here we can only apply per aperture so any positive value
                 #triggers this logic
                 if G.ZEROFLAT:
