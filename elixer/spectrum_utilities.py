@@ -3532,7 +3532,8 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
         #     else:
         #         return None
 
-        if aper != 3.5:
+        if aper is not None and not (3.0 <= aper <= 3.5):
+            #if aper is None ... assume this is a HETDEX extraction and is valid
             log.warning(f"Invalid aperture size {aper}. Only valid for 3.5\" ")
             if zeroflat:
                 return None, None
@@ -3594,11 +3595,11 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
             model =  rl*which_models[l] + rh*which_models[h]  #+ zeropoint_shift
 
         #to avoid over subtraction at the edges, fix the values blue of 3505 and red of 5495
-        blue_idx,*_ = getnearpos(G.CALFIB_WAVEGRID,3505)
-        red_idx,*_ = getnearpos(G.CALFIB_WAVEGRID,5495)
-
-        model[0:blue_idx] = 0.5 * model[blue_idx] #pretty good, still a bit spikey but not too bad
-        model[red_idx:] = 0.5 * model[red_idx]
+        # blue_idx,*_ = getnearpos(G.CALFIB_WAVEGRID,3505)
+        # red_idx,*_ = getnearpos(G.CALFIB_WAVEGRID,5495)
+        #
+        # model[0:blue_idx] = 0.5 * model[blue_idx] #pretty good, still a bit spikey but not too bad
+        # model[red_idx:] = 0.5 * model[red_idx]
 
         if zeroflat:
             flat = avg_flat(model)
