@@ -6945,14 +6945,16 @@ class DetObj:
                 #have to put in zeros, SDSS gmag does not handle NaNs
                 #and the MC calls generate bad data if error is set to a huge value, so leave NaNs to 0 flux, 0 error
                 #and just understand that if there are many of them, the magnitude can be off
-                sep_obj['flux'] = np.nan_to_num(apt['spec'][0]) * G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)
-                sep_obj['flux_err'] = np.nan_to_num(apt['spec_err'][0]) * G.FLUX_WAVEBIN_WIDTH
-                sep_obj['flux_err'][sel_nan] = 0 #flux error gets a zero where it was NaN or where flux was NaN
+
+                sep_obj['flux'] = np.array(apt['spec'][0])   #in 1e-17 units (like HDF5 read)
+                sep_obj['flux_err'] = np.array(apt['spec_err'][0])
+
 
                 # Optional Sky residual corection (before dust correction)
                 # HERE this is done to the PSF Weighted Aperture POST extraction, so a bit different than the forced_extraction path
                 # if G.APPLY_SKY_RESIDUAL_TYPE == 1, this is per fiber and was already applied
                 if G.APPLY_SKY_RESIDUAL_TYPE == 2: #per 3.5" aperture
+                    # everything is still with NaNs and is per 1AA
                     # note: 1 = per fiber, 2 = per aperture however, here we can only apply per aperture so any positive value
                     # triggers this logic
                     if self.aperture_sky_subtraction_residual is None:
@@ -6970,9 +6972,9 @@ class DetObj:
                         # aperteure size. Note: the aperture size is not specified here so it is the HETDEX default (3.5")
                         # _, aperture_flux_offset = SU.fiber_to_psf(self.survey_fwhm,
                         #                                           fiber_spec=self.fiber_sky_subtraction_residual)
-                        self.sumspec_flux -= self.aperture_sky_subtraction_residual * G.FLUX_WAVEBIN_WIDTH
+                        sep_obj['flux'] -= self.aperture_sky_subtraction_residual
 
-                if G.APPLY_GALACTIC_DUST_CORRECTION:
+                if G.APPLY_GALACTIC_DUST_CORRECTION: #everything is still with NaNs and is per 1AA
                     try:
                         dust_corr = deredden_spectra(G.CALFIB_WAVEGRID, coord)
                         sep_obj['flux'] *= dust_corr
@@ -6981,16 +6983,20 @@ class DetObj:
                         log.warning("Exception. Unable to apply galatic exintction correction to neighbor.", exc_info=True)
 
                 if G.ZEROPOINT_FRAC:
-
-                    zp_corr = SU.zeropoint_correction(self.sumspec_flux *G.HETDEX_FLUX_BASE_CGS / G.FLUX_WAVEBIN_WIDTH,
-                                                   self.sumspec_fluxerr *G.HETDEX_FLUX_BASE_CGS / G.FLUX_WAVEBIN_WIDTH,
+                    zp_corr = SU.zeropoint_correction(sep_obj['flux']*G.HETDEX_FLUX_BASE_CGS ,
+                                                   sep_obj['flux_err'] *G.HETDEX_FLUX_BASE_CGS ,
                                                    eff_fluxd=None,
                                                    ffsky=self.extraction_ffsky, seeing=self.survey_fwhm,
                                                    hdr=G.HDR_Version)
                     if zp_corr is None:
                         self.flags |= G.DETFLAG_NO_ZEROPOINT
                     else:
-                        self.sumspec_flux += zp_corr * G.FLUX_WAVEBIN_WIDTH / G.HETDEX_FLUX_BASE_CGS
+                        sep_obj['flux'] += zp_corr  / G.HETDEX_FLUX_BASE_CGS
+
+                # NOW get rid of NaN's and put in per 2AA bins
+                sep_obj['flux'] = np.nan_to_num(sep_obj['flux']) * G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)
+                sep_obj['flux_err'] = np.nan_to_num(sep_obj['flux_err']) * G.FLUX_WAVEBIN_WIDTH
+                sep_obj['flux_err'][sel_nan] = 0 #flux error gets a zero where it was NaN or where flux was NaN
 
                 sep_obj['dex_g_mag'], _, sep_obj['dex_g_mag_err'], _ = \
                     elixer_spectrum.get_sdss_gmag(sep_obj['flux'] / G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS,
@@ -7088,8 +7094,13 @@ class DetObj:
             #     #leave the error as is for now
 
             # returned from get_spectra as flux density (per AA), so multiply by wavebin width to match the HDF5 reads
-            self.sumspec_flux = np.nan_to_num(apt['spec'][0]) * G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)
-            self.sumspec_fluxerr = np.nan_to_num(apt['spec_err'][0]) * G.FLUX_WAVEBIN_WIDTH
+            # self.sumspec_flux = np.nan_to_num(apt['spec'][0]) * G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)
+            # self.sumspec_fluxerr = np.nan_to_num(apt['spec_err'][0]) * G.FLUX_WAVEBIN_WIDTH
+            # self.sumspec_wavelength = np.array(apt['wavelength'][0])
+
+            #still has NaNs and is still per 1AA
+            self.sumspec_flux = np.array(apt['spec'][0])  #in 1e-17 units (like HDF5 read)
+            self.sumspec_fluxerr = np.array(apt['spec_err'][0])
             self.sumspec_wavelength = np.array(apt['wavelength'][0])
 
             # Optional Sky residual corection (before dust correction)
@@ -7098,6 +7109,7 @@ class DetObj:
             if G.APPLY_SKY_RESIDUAL_TYPE == 2: #per 3.5" aperture
                 # note: 1 = per fiber, 2 = per aperture however, here we can only apply per aperture so any positive value
                 # triggers this logic
+                # everything is still with NaNs and is per 1AA
                 if self.fiber_sky_subtraction_residual is None:
                     if G.ZEROFLAT:
                         self.aperture_sky_subtraction_residual, self.aperture_sky_subtraction_residual_flat = SU.interpolate_universal_aperture_sky_subtraction_residual(
@@ -7108,14 +7120,15 @@ class DetObj:
                             self.survey_fwhm, aper=self.extraction_aperture,ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
                             zeroflat=False)
 
+                # everything is still with NaNs and is per 1AA
                 if self.aperture_sky_subtraction_residual is not None:
                     # the sky residual model for correction is PER FIBER, so we have to convolve with the seeing and
                     # aperteure size. Note: the aperture size is not specified here so it is the HETDEX default (3.5")
                     # _, aperture_flux_offset = SU.fiber_to_psf(self.survey_fwhm,
                     #                                           fiber_spec=self.fiber_sky_subtraction_residual)
-                    self.sumspec_flux -= self.aperture_sky_subtraction_residual * G.FLUX_WAVEBIN_WIDTH
+                    self.sumspec_flux -= self.aperture_sky_subtraction_residual
 
-            if G.APPLY_GALACTIC_DUST_CORRECTION:
+            if G.APPLY_GALACTIC_DUST_CORRECTION:  #everything is still with NaNs and is per 1AA
                 try:
                     self.dust_corr = deredden_spectra(self.sumspec_wavelength,coord)
                     self.sumspec_flux *= self.dust_corr
@@ -7125,17 +7138,20 @@ class DetObj:
                     log.warning("Exception. Unable to apply galatic exintction correction.",exc_info=True)
 
 
-            if G.ZEROPOINT_FRAC:
-
-                zp_corr = SU.zeropoint_correction(self.sumspec_flux*G.HETDEX_FLUX_BASE_CGS/G.FLUX_WAVEBIN_WIDTH,
-                                               self.sumspec_fluxerr*G.HETDEX_FLUX_BASE_CGS/G.FLUX_WAVEBIN_WIDTH,
+            if G.ZEROPOINT_FRAC: #everything is still with NaNs and is per 1AA
+                zp_corr = SU.zeropoint_correction(self.sumspec_flux*G.HETDEX_FLUX_BASE_CGS,
+                                               self.sumspec_fluxerr*G.HETDEX_FLUX_BASE_CGS,
                                                eff_fluxd=None,
                                                ffsky=self.extraction_ffsky, seeing=self.survey_fwhm,
                                                hdr=G.HDR_Version)
                 if zp_corr is None:
                     self.flags |= G.DETFLAG_NO_ZEROPOINT
                 else:
-                    self.sumspec_flux += zp_corr * G.FLUX_WAVEBIN_WIDTH / G.HETDEX_FLUX_BASE_CGS
+                    self.sumspec_flux += zp_corr  / G.HETDEX_FLUX_BASE_CGS
+
+            #NOW get rid of NaN's and put in per 2AA bins
+            self.sumspec_flux = np.nan_to_num(self.sumspec_flux) * G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)
+            self.sumspec_fluxerr = np.nan_to_num(self.sumspec_fluxerr) * G.FLUX_WAVEBIN_WIDTH
 
             try: #name change in HDR3
                 self.sumspec_apcor =  np.array(apt['apcor'][0]) #this is the apcor ... the fiber_weights are the PSF weights
@@ -8109,6 +8125,10 @@ class DetObj:
 
                 self.sumspec_apcor = row['apcor'] #aperture correction
 
+
+            #
+            # !!! NOTICE: unlike the forced extraction code, here the spectra is per 2AA so we have to work in that binning !!!
+            #
             #Optional Sky residual corection (before dust correction)
             # HERE this is done to the PSF Weighted Aperture POST extraction, so a bit different than the forced_extraction path
             if G.APPLY_SKY_RESIDUAL_TYPE == 2 and self.aperture_sky_subtraction_residual is None:
