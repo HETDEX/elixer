@@ -3456,11 +3456,11 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
             model =  rl*which_models[l] + rh*which_models[h]  #+ zeropoint_shift
 
         #to avoid over subtraction at the edges, fix the values blue of 3505 and red of 5495
-        blue_idx,*_ = getnearpos(G.CALFIB_WAVEGRID,3505)
-        red_idx,*_ = getnearpos(G.CALFIB_WAVEGRID,5495)
-
-        model[0:blue_idx] = 0.5 * model[blue_idx] #pretty good, still a bit spikey but not too bad
-        model[red_idx:] = 0.5 * model[red_idx]
+        # blue_idx,*_ = getnearpos(G.CALFIB_WAVEGRID,3505)
+        # red_idx,*_ = getnearpos(G.CALFIB_WAVEGRID,5495)
+        #
+        # model[0:blue_idx] = 0.5 * model[blue_idx] #pretty good, still a bit spikey but not too bad
+        # model[red_idx:] = 0.5 * model[red_idx]
 
         if zeroflat:
             flat = avg_flat(model)
@@ -3525,6 +3525,11 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
             return np.round(1.0-(abs(seeing-low)/step),deci), np.round(1.0-(abs(high-seeing)/step),deci)
 
     try:
+
+        print("****** TESTING: FORCE 1.7\" aperture ***********")
+        seeing = 1.7
+
+
         #now has to be checked by the caller
         # if G.APPLY_SKY_RESIDUAL_TYPE != 1:
         #     if zeroflat:
@@ -3593,9 +3598,9 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
             model =  which_models[l]
         else:
             model =  rl*which_models[l] + rh*which_models[h]  #+ zeropoint_shift
-
-        log.warning("***************** Testing 50% **************")
-        model *= 0.5
+        #
+        # log.warning("***************** Testing 50% **************")
+        # model *= 0.5
 
         #to avoid over subtraction at the edges, fix the values blue of 3505 and red of 5495
         # blue_idx,*_ = getnearpos(G.CALFIB_WAVEGRID,3505)
