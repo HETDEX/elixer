@@ -707,7 +707,7 @@ def get_hetdex_gmag(_flux_density, wave, _flux_density_err=None, ignore_global=F
 #
 
 def get_best_gmag(flux_density, flux_density_err, wavelengths):
-    return SU.get_best_gmag(lux_density, flux_density_err, wavelengths)
+    return SU.get_best_gmag(flux_density, flux_density_err, wavelengths)
 
 # #moved to spectrum utilities
 # def get_best_gmag(flux_density, flux_density_err, wavelengths):
