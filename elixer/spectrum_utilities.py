@@ -3594,6 +3594,9 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
         else:
             model =  rl*which_models[l] + rh*which_models[h]  #+ zeropoint_shift
 
+        log.warning("***************** Testing 50% **************")
+        model *= 0.5
+
         #to avoid over subtraction at the edges, fix the values blue of 3505 and red of 5495
         # blue_idx,*_ = getnearpos(G.CALFIB_WAVEGRID,3505)
         # red_idx,*_ = getnearpos(G.CALFIB_WAVEGRID,5495)
