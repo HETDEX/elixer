@@ -6941,7 +6941,6 @@ class DetObj:
 
             else:
                 # returned from get_spectra as flux density (per AA), so multiply by wavebin width to match the HDF5 reads
-                sel_nan = np.isnan(apt['spec'][0]) #where the flux is NaN
                 #have to put in zeros, SDSS gmag does not handle NaNs
                 #and the MC calls generate bad data if error is set to a huge value, so leave NaNs to 0 flux, 0 error
                 #and just understand that if there are many of them, the magnitude can be off
@@ -6993,10 +6992,17 @@ class DetObj:
                     else:
                         sep_obj['flux'] += zp_corr  / G.HETDEX_FLUX_BASE_CGS
 
-                # NOW get rid of NaN's and put in per 2AA bins
-                sep_obj['flux'] = np.nan_to_num(sep_obj['flux']) * G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)
-                sep_obj['flux_err'] = np.nan_to_num(sep_obj['flux_err']) * G.FLUX_WAVEBIN_WIDTH
+                # leave the nans in there ...., but set their errors to zero
+                sel_nan = np.isnan(sep_obj['flux']) #where the flux is NaN
+                sep_obj['flux'] *= G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)
+                sep_obj['flux_err'] *= G.FLUX_WAVEBIN_WIDTH
                 sep_obj['flux_err'][sel_nan] = 0 #flux error gets a zero where it was NaN or where flux was NaN
+
+                # NOW get rid of NaN's and put in per 2AA bins
+                # sel_nan = np.isnan(sep_obj['flux']) #where the flux is NaN
+                # sep_obj['flux'] = np.nan_to_num(sep_obj['flux']) * G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)
+                # sep_obj['flux_err'] = np.nan_to_num(sep_obj['flux_err']) * G.FLUX_WAVEBIN_WIDTH
+                # sep_obj['flux_err'][sel_nan] = 0 #flux error gets a zero where it was NaN or where flux was NaN
 
                 sep_obj['dex_g_mag'], _, sep_obj['dex_g_mag_err'], _ = \
                     elixer_spectrum.get_sdss_gmag(sep_obj['flux'] / G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS,
@@ -7149,9 +7155,15 @@ class DetObj:
                 else:
                     self.sumspec_flux += zp_corr  / G.HETDEX_FLUX_BASE_CGS
 
-            #NOW get rid of NaN's and put in per 2AA bins
-            self.sumspec_flux = np.nan_to_num(self.sumspec_flux) * G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)
-            self.sumspec_fluxerr = np.nan_to_num(self.sumspec_fluxerr) * G.FLUX_WAVEBIN_WIDTH
+            # NOW get rid of NaN's and put in per 2AA bins
+            self.sumspec_flux *= G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)
+            self.sumspec_fluxerr *= G.FLUX_WAVEBIN_WIDTH
+            self.sumspec_fluxerr[np.isnan(self.sumspec_flux)] = 0
+
+            # NOW get rid of NaN's and put in per 2AA bins
+            #self.sumspec_flux = np.nan_to_num(self.sumspec_flux) * G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)
+            #self.sumspec_fluxerr = np.nan_to_num(self.sumspec_fluxerr) * G.FLUX_WAVEBIN_WIDTH
+
 
             try: #name change in HDR3
                 self.sumspec_apcor =  np.array(apt['apcor'][0]) #this is the apcor ... the fiber_weights are the PSF weights
