@@ -10,6 +10,9 @@ changes to elixer by version
 * tweak constency with AGN check() to also consider just the presence of significantly detected common AGN lines even
   if their flux ratios are out of predefined range. (note: if the flux ratios are in the inconsitent range, the penalty
   cancels the bonus just for their existence).
+* fix bug that was applying neighbor corrections to the anchor spectra instead of to the neighbor spectra
+* leave np.nan in place in spectra
+* slightly tune sigma width vote when equivalent width is low
 
 1.20.0a7 [2023-07-07]
 * working on support for Lonestar6

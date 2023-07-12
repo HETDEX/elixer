@@ -4397,14 +4397,27 @@ class DetObj:
                 #              f": lk({likelihood[-1]}) weight({weight[-1]})")
                 #if (vote_line_sigma - vote_line_sigma_unc) > G.LINEWIDTH_SIGMA_TRANSITION: #unlikely OII (FHWM 16.5)
                 if vote_line_sigma > G.LINEWIDTH_SIGMA_TRANSITION: #unlikely OII (FHWM 16.5)
+                    #check the rest EW if LyA. If low, then reduce the vote weight
+
                     likelihood.append(1) #vote kind of FOR LyA (though could be CIV, MgII, other)
 
                     if (vote_line_sigma - vote_line_sigma_unc)  >= G.LINEWIDTH_SIGMA_MAX_OII:
-                        weight.append(1 * line_vote_weight_mul)
+                        w = 1 * line_vote_weight_mul
                     else:
-                        weight.append(min(vote_line_sigma / G.LINEWIDTH_SIGMA_TRANSITION - 1.0, 1.0) * line_vote_weight_mul) #limit to 1.0 max
+                        w = min(vote_line_sigma / G.LINEWIDTH_SIGMA_TRANSITION - 1.0, 1.0) * line_vote_weight_mul #limit to 1.0 max
+
+                    try:
+                        ew = self.best_eqw_gmag_obs / ( 1 + self.w / G.LyA_rest)
+                        if ew < 15.0:
+                            if ew < 0:
+                                w = 0
+                            else:
+                                w *= ew/15.0
+                    except:
+                        log.info(f"{self.entry_id}: Warning! Unable to check equivalent width for line sigma vote.")
 
                     var.append(1)
+                    weight.append(w)
                     prior.append(base_assumption)
                     vote_info['line_sigma_vote'] = likelihood[-1]
                     vote_info['line_sigma_weight'] = weight[-1]
