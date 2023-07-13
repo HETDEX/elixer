@@ -3895,7 +3895,10 @@ class DetObj:
                 vote_info['bright_continuum_vote'] = -1
                 vote_info['bright_continuum_weight'] = 0
 
-                if (self.best_gmag is not None and self.best_gmag < 21 and self.spec_obj is not None):
+                ew = self.best_eqw_gmag_obs / (1 + self.w / G.LyA_rest)
+                ew_err = self.best_eqw_gmag_obs_unc / (1 + self.w / G.LyA_rest)
+
+                if (self.best_gmag is not None and self.best_gmag < 21.5 and self.spec_obj is not None):
                     all_emis = 0
                     all_absb = 0
 
@@ -3926,6 +3929,21 @@ class DetObj:
                         except:
                             log.debug(
                                 f"{self.entry_id} Aggregate Classification: Bright continuumm, exception -- no vote")
+
+                    #want to separate out say stars where we may have the line being false, but between absorption or just
+                    #a noisy wiggle from an poossible AGN with a super broad emission that we just did not fit well
+                    elif ew < 5.0 or (ew + ew_err) < 10:
+
+                        var.append(1)
+                        likelihood.append(0)
+                        weight.append(0.2)
+                        prior.append(base_assumption)
+                        log.info(
+                            f"{self.entry_id} Aggregate Classification: Bright continuum, weak or false emission; not LyA likely: lk({likelihood[-1]}) weight({weight[-1]})")
+
+                        vote_info['bright_continuum_vote'] = likelihood[-1]
+                        vote_info['bright_continuum_weight'] = weight[-1]
+
                     else:
                         log.debug(
                             f"{self.entry_id} Aggregate Classification: Bright continuum, but too few lines found so  -- no vote")
