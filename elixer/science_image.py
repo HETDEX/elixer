@@ -371,7 +371,8 @@ class science_image():
 
     def __init__(self, wcs_manual=False, image_location=None,frame=None, wcs_idx=0, hdulist=None):
         self.image_location = None
-        self.image_name = None
+        #self.image_name = None
+        self.compressed = False
         self.catalog_name = None
         self.filter_name = None
         self.wavelength_aa_min = 0
@@ -469,9 +470,20 @@ class science_image():
         try:
             log.info("Loading fits %s ..." % self.image_location)
             self.hdulist = fits.open(self.image_location,memmap=True,lazy_load_hdus=True)
-        except:
-            log.error("Unable to open science image file: %s" %self.image_location)
-            return -1
+        except:# Exception as E1:
+            #could be a compressed version
+            try:
+                if self.image_location[-3:] != ".fz":
+                    self.hdulist = fits.open(self.image_location+".fz", memmap=True, lazy_load_hdus=True)
+                    self.image_location += ".fz"
+                    self.compressed = True
+                    log.info(f"Found fits as compressed {self.image_location} ..." )
+            except:
+                pass
+
+            if self.hdulist is None:
+                log.error("Unable to open science image file: %s" %self.image_location)
+                return -1
 
         self.headers = []
         for i in range(len(self.hdulist)):
@@ -485,6 +497,11 @@ class science_image():
                 if (self.wcs_idx is not None) and (self.wcs_idx > 0):
                     f = fits.open(self.image_location)
                     self.wcs = WCS(f[self.wcs_idx].header,relax = astropy.wcs.WCSHDR_CD00i00j | astropy.wcs.WCSHDR_PC00i00j)
+                    f.close()
+                elif self.image_location[-3:] == ".fz" and (self.wcs_idx == 0):
+                    self.wcs_idx += 1
+                    f = fits.open(self.image_location)
+                    self.wcs = WCS(f[self.wcs_idx ].header,relax = astropy.wcs.WCSHDR_CD00i00j | astropy.wcs.WCSHDR_PC00i00j)
                     f.close()
                 else:
                     #self.wcs = WCS(header=self.hdulist[self.wcs_idx].header,fobj=self.image_location)
@@ -1130,7 +1147,7 @@ class science_image():
 
 
         if (error is None or error == 0) and (window is None or window == 0):
-            log.info("inavlid error box and window box")
+            log.info("inavlid error box and/or window box")
             if return_details:
                 return cutout, counts, mag, radius, details
             else:

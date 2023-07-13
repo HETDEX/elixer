@@ -2120,13 +2120,24 @@ class DetObj:
                         use_multi = True
                         log.info(f"Q(z): Multiline solution is weak and inconsistent (loc 2), but nothing better. "
                                  f"P(LyA) favors OII {scaled_plae_classification}. Set to multiline z:{z} with Q(z): {p}")
-                    elif multiline_top_scale_score > 0.5 and multiline_top_frac_score > 0.6 and self.fwhm > 12:
-                        #this is not terrible and may be better than an OII guess
+                    # elif multiline_top_scale_score > 0.8 and multiline_top_frac_score > 0.6 and self.fwhm > 12:
+                    #     #this is not terrible and may be better than an OII guess
+                    #     z = multiline_top_z
+                    #     if base_p < 0.1: #all we have is the P(LyA) p and it is near the mid-point, so highly uncertain
+                    #         p = 0.1
+                    #     else:
+                    #         p = min(p,0.1)
+                    #     use_multi = True
+                    #     log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. Set to z:{z} with Q(z): {p}")
+                    elif multiline_top_scale_score > 0.5 and multiline_top_frac_score > 0.6 and self.fwhm > 12 and \
+                            multiline_top_rest != G.LyA_rest:
+                        # this is not terrible and may be better than an OII guess
+                        # BUT THIS cannnot be LyA w/o a high score)
                         z = multiline_top_z
-                        if base_p < 0.1: #all we have is the P(LyA) p and it is near the mid-point, so highly uncertain
+                        if base_p < 0.1:  # all we have is the P(LyA) p and it is near the mid-point, so highly uncertain
                             p = 0.1
                         else:
-                            p = min(p,0.1)
+                            p = min(p, 0.1)
                         use_multi = True
                         log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. Set to z:{z} with Q(z): {p}")
                 except:
@@ -4408,11 +4419,11 @@ class DetObj:
 
                     try:
                         ew = self.best_eqw_gmag_obs / ( 1 + self.w / G.LyA_rest)
-                        if ew < 15.0:
-                            if ew < 0:
-                                w = 0
-                            else:
-                                w *= ew/15.0
+                        ew_err = self.best_eqw_gmag_obs_unc / ( 1 + self.w / G.LyA_rest)
+                        if ew + ew_err < 10.0 or ew < 5.0:
+                            w = 0
+                        elif ew < 15.0:
+                            w *= ew/15.0
                     except:
                         log.info(f"{self.entry_id}: Warning! Unable to check equivalent width for line sigma vote.")
 
