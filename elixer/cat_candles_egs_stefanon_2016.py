@@ -80,8 +80,12 @@ def acs_wfc_f606w_count_to_mag(count,cutout=None,headers=None):
         #if cutout is not None:
         #get the conversion factor, each tile is different
         try:
-            photoflam = float(headers[0]['PHOTFLAM']) #inverse sensitivity, ergs / cm2 / Ang / electron
-            photozero = float(headers[0]['PHOTZPT']) #/ ST magnitude zero point
+
+            for h in headers:
+                if 'PHOTFLAM' in h:
+                    photoflam = float(h['PHOTFLAM']) #inverse sensitivity, ergs / cm2 / Ang / electron
+                    photozero = float(h['PHOTZPT']) #/ ST magnitude zero point
+                    break
 
             if not isinstance(count, float):
                 count = count.value

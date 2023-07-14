@@ -85,10 +85,19 @@ def cfhtls_count_to_mag(count,cutout=None,sci_image=None):
         if sci_image:
             try:
                 #try to read the zero point MZP_AB, but they are all 30.0
-                if 'MZP_AB' in sci_image[0]:
-                    zero_point = float(headers[0]['MZP_AB'])
-                elif "PHOTZP" in sci_image[0]: #this is in the deep "D3" imaging
-                    zero_point = float(headers[0]['PHOTZP'])
+
+                for h in sci_image: #headers
+                    if 'MZP_AB' in h:
+                        zero_point = float(h['MZP_AB'])
+                        break
+                    elif "PHOTZP" in h:  # this is in the deep "D3" imaging
+                        zero_point = float(h['PHOTZP'])
+                        break
+
+                # if 'MZP_AB' in sci_image[0]:
+                #     zero_point = float(headers[0]['MZP_AB'])
+                # elif "PHOTZP" in sci_image[0]: #this is in the deep "D3" imaging
+                #     zero_point = float(headers[0]['PHOTZP'])
             except:
                 pass
 

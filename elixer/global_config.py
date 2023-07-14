@@ -22,7 +22,7 @@ import socket
 hostname = socket.gethostname()
 
 #version
-__version__ = '1.20.0a8'
+__version__ = '1.20.0a9'
 #Logging
 GLOBAL_LOGGING = False #set to True in top elixer calls so we do not normally log from package imports
 LOG_TO_STDOUT = False #only kicks in if GLOBAL_LOGGING is False
@@ -1368,3 +1368,7 @@ ZEROFLAT = False #if TRUE, the sky residual is shifted such that the average flu
                    #the idea here is that the blue is artificailly enhanced and the flat is the true average background
 ZEROFLAT_BLUE = 4000.0 #bluest wavelength to compute the "flat"
 ZEROFLAT_RED = 5000.0
+
+
+
+fz = False #temporary; if True prefer the compressed fits over the uncompressed fits

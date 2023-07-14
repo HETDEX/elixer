@@ -56,8 +56,14 @@ pd.options.mode.chained_assignment = None  #turn off warning about setting the d
 def kpno_count_to_mag(count,cutout=None,headers=None):
     magzero = None
     try:
-        if 'MAGZERO' in headers[0]:
-            magzero = float(headers[0]['MAGZERO'])
+        #this can come from a compressed .fz fits which may have added a new header at [0]
+        for h in headers:
+            if 'MAGZERO' in h:
+                magzero = float(h['MAGZERO'])
+                break
+        #
+        # if 'MAGZERO' in headers[0]:
+        #     magzero = float(headers[0]['MAGZERO'])
     except:
         magzero = None
 

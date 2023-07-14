@@ -70,9 +70,15 @@ def cosmos_count_to_mag(count,cutout=None,headers=None):
     if count is not None:
 
         try:
+
+            for h in headers:
+                if 'MAGZERO' in h:
+                    magzero = float(h['MAGZERO'])
+                    break
+
             # gain = float(sci_image[0].header['GAIN'])
             #nanofact = float(sci_image[0].header['NANOFACT'])
-            magzero = float(headers[0]['MAGZERO'])
+            #magzero = float(headers[0]['MAGZERO'])
             #exptime = float(sci_image[0].header['EXPTIME'])
         except:
             # gain = 1.0

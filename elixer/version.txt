@@ -1,5 +1,10 @@
 changes to elixer by version
 
+1.20.0a9 [2023-07-14]
+* adding catalog support for fpack
+  + optional (temporary) force use of fpack with --fz; this will compress and save the fits if the compressed version
+    is not already found IF ON LOCAL TEST HOST
+
 1.20.0a8 [2023-07-10]
 * small tweaks to sky residual correction in progress (extreme blue and red ends, slight variation in model and selection)
 * working on support for Lonestar6

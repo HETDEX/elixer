@@ -559,6 +559,10 @@ def parse_commandline(auto_force=False):
     #parser.add_argument('--here',help="Do not create a subdirectory. All output goes in the current working directory.",
     #                    required=False, action='store_true', default=False)
 
+
+    parser.add_argument('--fz', help='Temporary and Testing ONLY. Use compressed fits instead of uncompressed.', required=False,
+                            action='store_true', default=False)
+
     try:
         args = parser.parse_args()
     except:
@@ -622,6 +626,11 @@ def parse_commandline(auto_force=False):
     #     print(f"Invalid --zeropoint_shift provided: {args.zeropoint_shift}",e)
     #     exit(0)
 
+    try:
+        if args.fz is not None:
+            G.fz = args.fz
+    except:
+        pass
 
 
     try:

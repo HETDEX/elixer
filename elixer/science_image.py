@@ -467,23 +467,62 @@ class science_image():
         if self.headers is not None:
             del self.headers[:]
 
-        try:
-            log.info("Loading fits %s ..." % self.image_location)
-            self.hdulist = fits.open(self.image_location,memmap=True,lazy_load_hdus=True)
-        except:# Exception as E1:
-            #could be a compressed version
+        #temporary ... try compressed first
+        do_normal = True
+        if G.fz:
             try:
                 if self.image_location[-3:] != ".fz":
-                    self.hdulist = fits.open(self.image_location+".fz", memmap=True, lazy_load_hdus=True)
+                    self.hdulist = fits.open(self.image_location + ".fz", memmap=True, lazy_load_hdus=True)
                     self.image_location += ".fz"
                     self.compressed = True
-                    log.info(f"Found fits as compressed {self.image_location} ..." )
+                    log.info(f"Found fits as compressed {self.image_location} ...")
+                    do_normal = False
+                    if self.wcs_idx is not None:
+                        self.wcs_idx += 1
             except:
-                pass
 
-            if self.hdulist is None:
-                log.error("Unable to open science image file: %s" %self.image_location)
-                return -1
+                #Lets compress it now
+                if G.hostname == 'dg5' and self.image_location[0:14] =="/media/dustin/":
+                    print(f"***** compressing {self.image_location}")
+                    import subprocess
+
+                    #-w compresses whole image as one tile rather than break into tiles
+                    cmdlist = [f"/home/dustin/anaconda3/bin/fpack  {self.image_location}"]
+                    sp = subprocess.Popen(cmdlist,shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                    rc = sp.wait()
+                    print(f"***** {rc}")
+                    if self.image_location[-3:] != ".fz":
+                        self.image_location += ".fz"
+                    self.hdulist = fits.open(self.image_location, memmap=True, lazy_load_hdus=True)
+                    self.compressed = True
+                    if self.wcs_idx is not None:
+                        self.wcs_idx += 1
+                    log.info(f"Found fits as compressed {self.image_location} ...")
+                    do_normal = False
+                else:
+                    do_normal = True
+
+        if do_normal: #THIS is the actual main path
+
+            try:
+                log.info("Loading fits %s ..." % self.image_location)
+                self.hdulist = fits.open(self.image_location,memmap=True,lazy_load_hdus=True)
+            except:# Exception as E1:
+                #could be a compressed version
+                try:
+                    if self.image_location[-3:] != ".fz":
+                        self.hdulist = fits.open(self.image_location+".fz", memmap=True, lazy_load_hdus=True)
+                        self.image_location += ".fz"
+                        self.compressed = True
+                        if self.wcs_idx is not None:
+                            self.wcs_idx += 1
+                        log.info(f"Found fits as compressed {self.image_location} ..." )
+                except:
+                    pass
+
+                if self.hdulist is None:
+                    log.error("Unable to open science image file: %s" %self.image_location)
+                    return -1
 
         self.headers = []
         for i in range(len(self.hdulist)):
@@ -494,12 +533,21 @@ class science_image():
             self.build_wcs_manually()
         else:
             try:
-                if (self.wcs_idx is not None) and (self.wcs_idx > 0):
+                if self.compressed:
+                    if (self.wcs_idx == 0):
+                        self.wcs_idx += 1 #just in case, this is normally set in load_image for .fz
+                        f = fits.open(self.image_location)
+                        self.wcs = WCS(f[self.wcs_idx ].header,relax = astropy.wcs.WCSHDR_CD00i00j | astropy.wcs.WCSHDR_PC00i00j)
+                        f.close()
+                    else:
+                        self.wcs = WCS(self.image_location,
+                                       relax=astropy.wcs.WCSHDR_CD00i00j | astropy.wcs.WCSHDR_PC00i00j)
+                elif (self.wcs_idx is not None) and (self.wcs_idx > 0):
                     f = fits.open(self.image_location)
                     self.wcs = WCS(f[self.wcs_idx].header,relax = astropy.wcs.WCSHDR_CD00i00j | astropy.wcs.WCSHDR_PC00i00j)
                     f.close()
                 elif self.image_location[-3:] == ".fz" and (self.wcs_idx == 0):
-                    self.wcs_idx += 1
+                    self.wcs_idx += 1 #just in case, this is normally set in load_image for .fz
                     f = fits.open(self.image_location)
                     self.wcs = WCS(f[self.wcs_idx ].header,relax = astropy.wcs.WCSHDR_CD00i00j | astropy.wcs.WCSHDR_PC00i00j)
                     f.close()

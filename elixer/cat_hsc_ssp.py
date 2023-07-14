@@ -77,8 +77,13 @@ def hsc_count_to_mag(count,cutout=None,headers=None):
 
     fluxmag0 = None
     try:
-        if 'FLUXMAG0' in headers[0]:
-            fluxmag0 = float(headers[0]['FLUXMAG0'])
+        # if 'FLUXMAG0' in headers[0]:
+        #     fluxmag0 = float(headers[0]['FLUXMAG0'])
+        #this can come from a compressed .fz fits which may have added a new header at [0]
+        for h in headers:
+            if 'FLUXMAG0' in h:
+                fluxmag0 = float(h['FLUXMAG0'])
+                break
     except:
         fluxmag0 = None
 
@@ -497,7 +502,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
             #now get the fits image cutout (don't use get_cutout as that is strictly for images)
             mask_image = science_image.science_image(wcs_manual=self.WCS_Manual,wcs_idx=0, image_location=path)
 
-            mask_cutout = mask_image.get_mask_cutout(ra,dec,error,path)
+            mask_cutout = mask_image.get_mask_cutout(ra,dec,error,mask_image.image_location)
 
         except:
             log.info(f"Could not get mask cutout for tile ({tile})",exc_info=True)

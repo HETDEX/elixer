@@ -54,7 +54,12 @@ def shela_count_to_mag(count,cutout=None,headers=None):
         try:
             #gain = float(sci_image[0].header['GAIN'])
             #nanofact = float(sci_image[0].header['NANOFACT'])
-            magzero = float(headers[0]['MAGZERO'])
+            for h in headers:
+                if 'MAGZERO' in h:
+                    magzero = float(h['MAGZERO'])
+                    break
+
+            #magzero = float(headers[0]['MAGZERO'])
         except:
             #gain = 1.0
             nanofact = 0.0
