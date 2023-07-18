@@ -3769,8 +3769,12 @@ def uvbg_shift_observed_frame(z, rest_waves, rest_fluxd_arcs):  # , rest_fluxd_a
     try:
         # start simple
         # waves (1+z) make sense
-        # fluxd_arcs (1+z)**4 .... 1 for ergs, 1 for secs, 2 for cm2
-        return (1 + z) * rest_waves, rest_fluxd_arcs / (1 + z) ** 2
+        # fluxd_arcs erg/s/cm2/AA/arcsec2  .... seems tha arcsec (surface flux desnity) part we leave alone
+        # so we just have the usual 3 factors of (1+z) for erg, s, AA
+        # NOTE: a 1.77x to get rid of the per arcsec2 (1.77 arcsec2 is area of fiber) is applied LATER
+        #     in uvbg_correct_for_lya_troughs()
+
+        return (1 + z) * rest_waves, rest_fluxd_arcs / (1 + z) ** 3
 
     except:
         return None, None
@@ -3927,7 +3931,7 @@ def uvbg_correct_for_lya_troughs(fluxd,fluxd_err,z,seeing_fwhm,aperture=3.5,ffsk
 
         #update the per fiber correction to the PSF weighted version using the (ideaized) seeing
         #mul, correction, correction_error = fiber_to_psf(seeing_fwhm, fiber_spec=correction, fiber_err=None)
-        #todo: !! not really sure I need this extra correction as this is a sort of uniform backgroun
+        #todo: !! not really sure I need this extra correction as this is a sort of uniform background
         # just the fiber correction above is probably all that is needed
 
         #temporary test
@@ -5726,7 +5730,8 @@ def make_grid_max_length(all_waves):
     #return the grid
     return np.arange(mn, mx + step, step)
 
-def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="weighted_biweight",straight_error=False,std=False):
+def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="weighted_biweight",straight_error=False,std=False,
+                  allow_zero_valued_errs = False):
     """
         Assumes all spectra are in the same frame (ie. all in restframe) and ignores the flux type, but
         assumes all in the same units and scale (for flux, flux err and wave).
@@ -5739,6 +5744,9 @@ def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="weighted_biweight
     :param avg_type:
     :param straight_error:
     :param std: if true, also return the std of the stack (per wavebin)
+    :param allow_zero_valued_errs: if False, flux_errs with a value of zero are made into NaNs and the corresponding
+                                   fluxes bin is NOT included in the stack. If true, zero values are taken to mean
+                                   a litteral zero uncertainty and the corresponding fluxes ARE included.
     :return:
     """
 
@@ -5757,9 +5765,6 @@ def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="weighted_biweight
     resampled_fluxes = []
     resampled_flux_errs = []
     contrib_count = np.zeros(len(grid)) #number of spectra contributing to this wavelength bin
-
-
-
 
     stack_flux = np.full(len(grid),np.nan)
     stack_flux_err = np.full(len(grid),np.nan)
@@ -5799,9 +5804,22 @@ def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="weighted_biweight
         wslice_err = wslice_err[np.where(wslice==wslice)]  # so same as wslice, since these need to line up
         wslice = wslice[np.where(wslice==wslice)]  # git rid of the out of range interp values
 
+        #do not accept errors == 0
+        if not allow_zero_valued_errs:
+            l1 = len(wslice_err)
+            wslice_err[weighted_biweight==0] = np.nan
+            l2 = len(wslice_err)
+            if l1 != l2:
+                log.debug(f"Stacking: removed {l1-l2} zero valued flux_errs.")
+
         # git rid of any nans
         wslice_err = wslice_err[~np.isnan(wslice)] #err first so the wslice is not modified
         wslice = wslice[~np.isnan(wslice)]
+
+        #now the otherway
+        wslice = wslice[~np.isnan(wslice_err)]
+        wslice_err = wslice_err[~np.isnan(wslice_err)] #err first so the wslice is not modified
+
 
         contrib_count[i] = len(wslice)
 

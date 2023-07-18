@@ -41,6 +41,7 @@ except:
     import spectrum as elixer_spectrum
 
 from hetdex_api import survey as hda_survey
+from hetdex_api.detections import Detections
 
 plt.style.use('default') #restore to classic if hetdex api changes style
 import argparse
@@ -3666,7 +3667,8 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
 
 
 def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=None, distance=None, cwave=None,
-                           fname=None,original_distance=None,this_detection=None,broad_hdf5=None,primary_shotid=None,wave_range=None):
+                           fname=None,original_distance=None,this_detection=None,broad_hdf5=None,primary_shotid=None,
+                           wave_range=None,ffsky=False):
     """
 
     :param hdf5:
@@ -3706,6 +3708,9 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     param_broad_hdf5 = broad_hdf5
     param_cont_hdf5 = cont_hdf5
 
+    use_hdf5 = False #old way, reading H5 Files
+
+    #still get the h5 file paths as we still want them for possible limited use
     if G.HETDEX_API_CONFIG:
         try:
             hdf5 = G.HETDEX_API_CONFIG.detecth5
@@ -3743,6 +3748,8 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     except:
         pass
 
+
+    #this is THIS detection, so load it as usual if neceessary to get the RA, Dec
     if (detectid is not None) and (ra is None):
         try:
             with tables.open_file(hdf5, mode="r") as h5_detect:
@@ -3762,54 +3769,115 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             return None, None, None
 
     total_detectids = 0
+
     if not just_mini_cutout:
         neighbor_color = "red"
-        detectids, ras, decs, dists = get_hdf5_detectids_by_coord(hdf5, ra=ra, dec=dec, error=error, shotid=None,
-                                                                  wave=None,sort=True)
 
-        all_ras = ras[:]
-        all_decs = decs[:]
+        if use_hdf5:
+            detectids, ras, decs, dists = get_hdf5_detectids_by_coord(hdf5, ra=ra, dec=dec, error=error, shotid=None,
+                                                                      wave=None,sort=True)
 
-        if detectids is not None:
-            total_detectids += len(detectids)
+            all_ras = ras[:]
+            all_decs = decs[:]
 
-        ###########################
-        #Broadline sources
-        ###########################
-        broad_detectids = []
-        broad_ras = []
-        broad_decs = []
-        broad_dists = []
-        if broad_hdf5 is not None:
-            broad_detectids, broad_ras, broad_decs, broad_dists = get_hdf5_detectids_by_coord(broad_hdf5,ra=ra, dec=dec,
-                                                                                          error=error, shotid=None,
-                                                                                          wave=None,sort=True)
+            if detectids is not None:
+                total_detectids += len(detectids)
 
-            if (broad_ras is not None) and (broad_decs is not None):
-                np.concatenate((all_ras,broad_ras))
-                np.concatenate((all_decs,broad_decs))
+            ###########################
+            #Broadline sources
+            ###########################
+            broad_detectids = []
+            broad_ras = []
+            broad_decs = []
+            broad_dists = []
+            if broad_hdf5 is not None:
+                broad_detectids, broad_ras, broad_decs, broad_dists = get_hdf5_detectids_by_coord(broad_hdf5,ra=ra, dec=dec,
+                                                                                              error=error, shotid=None,
+                                                                                              wave=None,sort=True)
 
-            if broad_detectids is not None:
-                total_detectids += len(broad_detectids)
+                if (broad_ras is not None) and (broad_decs is not None):
+                    np.concatenate((all_ras,broad_ras))
+                    np.concatenate((all_decs,broad_decs))
 
-        ##########################
-        # Continuum sources
-        ##########################
-        cont_detectids = []
-        cont_ras = []
-        cont_decs = []
-        cont_dists = []
-        if cont_hdf5 is not None:
-            cont_detectids, cont_ras, cont_decs, cont_dists = get_hdf5_detectids_by_coord(cont_hdf5, ra=ra, dec=dec,
-                                                                                          error=error,shotid=None,
-                                                                                          wave=None,sort=True)
+                if broad_detectids is not None:
+                    total_detectids += len(broad_detectids)
 
-            if (cont_ras is not None) and (cont_decs is not None):
-                np.concatenate((all_ras,cont_ras))
-                np.concatenate((all_decs,cont_decs))
+            ##########################
+            # Continuum sources
+            ##########################
+            cont_detectids = []
+            cont_ras = []
+            cont_decs = []
+            cont_dists = []
+            cont_survey_name = []
+            if cont_hdf5 is not None:
+                cont_detectids, cont_ras, cont_decs, cont_dists = get_hdf5_detectids_by_coord(cont_hdf5, ra=ra, dec=dec,
+                                                                                              error=error,shotid=None,
+                                                                                              wave=None,sort=True)
 
-            if cont_detectids is not None:
-                total_detectids += len(cont_detectids)
+                if (cont_ras is not None) and (cont_decs is not None):
+                    np.concatenate((all_ras,cont_ras))
+                    np.concatenate((all_decs,cont_decs))
+
+                if cont_detectids is not None:
+                    total_detectids += len(cont_detectids)
+        else: #query method from Detections, not hdf5 files
+            detectids = []
+            ras = []
+            decs = []
+            dists = []
+            survey_name = []
+            emis_line_wave = []
+
+            broad_detectids = []#need this also for backward compatibility
+            broad_ras = []
+            broad_decs = []
+            broad_dists = []
+            broad_emis_line_wave =[]
+            broad_survey_name = []
+
+            cont_detectids = []
+            cont_ras = []
+            cont_decs = []
+            cont_dists = []
+            cont_survey_name = []
+
+            DetsIdx = Detections(catalog_type='index', survey=f"hdr{G.HDR_Version}")
+            try:
+                NeiTab = DetsIdx.query_by_coord(SkyCoord(ra=ra * U.deg, dec=dec * U.deg), radius=(error + 1/3600.) * U.deg, astropy=True)
+                NeiTab.sort('separation')
+
+                #linesources
+                src_sel = NeiTab['det_type'] == 'line'
+                if np.count_nonzero(src_sel) > 0:
+                    detectids = NeiTab['detectid'][src_sel]
+                    ras = NeiTab['ra'][src_sel]
+                    decs = NeiTab['dec'][src_sel]
+                    dists = NeiTab['separation'][src_sel]/3600.0 # want in degrees
+                    emis_line_wave = NeiTab['wave'][src_sel]
+                    survey_name = NeiTab['survey'][src_sel]
+                    total_detectids += np.count_nonzero(src_sel)
+                    all_ras = ras[:]
+                    all_decs = decs[:]
+
+                #continuum
+                src_sel = NeiTab['det_type'] == 'cont'
+                if np.count_nonzero(src_sel) > 0:
+                    cont_detectids = NeiTab['detectid'][src_sel]
+                    cont_ras = NeiTab['ra'][src_sel]
+                    cont_decs = NeiTab['dec'][src_sel]
+                    cont_dists = NeiTab['separation'][src_sel]/3600.0 # want in degrees
+                    cont_survey_name = NeiTab['survey'][src_sel]
+                    total_detectids += np.count_nonzero(src_sel)
+
+                    np.concatenate((all_ras,cont_ras))
+                    np.concatenate((all_decs,cont_decs))
+
+                del DetsIdx
+
+            except:
+                log.warning("Exception loading neighbors from HETDEX_API.",exc_info=True)
+
 
 
 
@@ -3841,6 +3909,8 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             ras = ras[:G.MAX_NEIGHBORS_IN_MAP]
             decs = decs[:G.MAX_NEIGHBORS_IN_MAP]
             dists = dists[:G.MAX_NEIGHBORS_IN_MAP]
+            emis_line_wave = emis_line_wave[:G.MAX_NEIGHBORS_IN_MAP]
+            survey_name = survey_name[:G.MAX_NEIGHBORS_IN_MAP]
 
         if len(cont_detectids) > G.MAX_NEIGHBORS_IN_MAP:
             msg = "Maximum number of reportable (continuum) neighbors exceeded (%d). Will truncate to nearest %d." % (len(detectids),
@@ -3852,6 +3922,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             cont_ras = cont_ras[:G.MAX_NEIGHBORS_IN_MAP]
             cont_decs = cont_decs[:G.MAX_NEIGHBORS_IN_MAP]
             cont_dists = cont_dists[:G.MAX_NEIGHBORS_IN_MAP]
+            cont_survey_name = cont_survey_name[:G.MAX_NEIGHBORS_IN_MAP]
 
         if len(broad_detectids) > G.MAX_NEIGHBORS_IN_MAP:
             msg = "Maximum number of reportable (broad) neighbors exceeded (%d). Will truncate to nearest %d." % (len(detectids),
@@ -4176,63 +4247,116 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     wave = []
     emis = []
     shot = []
-    try:
-        with tables.open_file(hdf5, mode="r") as h5_detect:
-            stb = h5_detect.root.Spectra
-            dtb = h5_detect.root.Detections
-            for d in detectids:
-                rows = stb.read_where("detectid==d")
 
-                if rows.size == 1:
-                    spec.append(rows['spec1d'][0])
-                    wave.append(rows['wave1d'][0])
-
-                    drows = dtb.read_where("detectid==d")
-                    if drows.size == 1:
-                        emis.append(drows['wave'][0])
-                        shot.append(drows['shotid'][0])
-                    else:
-                        emis.append(-1.0)
-                        shot.append(0)
-
-                else:
-                    #there's a problem
-                    spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
-                    wave.append(G.CALFIB_WAVEGRID)
-                    emis.append(-1.0)
-                    shot.append(0)
-    except Exception as e: #file might not exist
-        if 'does not exist' in str(e):
-            log.debug(f"Detection h5 does not exist: {hdf5} ")
-
-
-
-    #now add the continuum sources if any
-    if len(cont_detectids) > 0:
+    if use_hdf5:
         try:
-            with tables.open_file(cont_hdf5, mode="r") as h5_detect:
+            with tables.open_file(hdf5, mode="r") as h5_detect:
                 stb = h5_detect.root.Spectra
                 dtb = h5_detect.root.Detections
-                for d in cont_detectids:
+                for d in detectids:
                     rows = stb.read_where("detectid==d")
+
                     if rows.size == 1:
                         spec.append(rows['spec1d'][0])
                         wave.append(rows['wave1d'][0])
-                        emis.append(-1.0)
+
+                        drows = dtb.read_where("detectid==d")
+                        if drows.size == 1:
+                            emis.append(drows['wave'][0])
+                            shot.append(drows['shotid'][0])
+                        else:
+                            emis.append(-1.0)
+                            shot.append(0)
+
                     else:
                         #there's a problem
                         spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
                         wave.append(G.CALFIB_WAVEGRID)
                         emis.append(-1.0)
-
-                    drows = dtb.read_where("detectid==d")
-                    if drows.size == 1:
-                        shot.append(drows['shotid'][0])
-                    else:
                         shot.append(0)
-        except:
-            pass
+        except Exception as e: #file might not exist
+            if 'does not exist' in str(e):
+                log.debug(f"Detection h5 does not exist: {hdf5} ")
 
+
+
+        #now add the continuum sources if any
+        if len(cont_detectids) > 0:
+            try:
+                with tables.open_file(cont_hdf5, mode="r") as h5_detect:
+                    stb = h5_detect.root.Spectra
+                    dtb = h5_detect.root.Detections
+                    for d in cont_detectids:
+                        rows = stb.read_where("detectid==d")
+                        if rows.size == 1:
+                            spec.append(rows['spec1d'][0])
+                            wave.append(rows['wave1d'][0])
+                            emis.append(-1.0)
+                        else:
+                            #there's a problem
+                            spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
+                            wave.append(G.CALFIB_WAVEGRID)
+                            emis.append(-1.0)
+
+                        drows = dtb.read_where("detectid==d")
+                        if drows.size == 1:
+                            shot.append(drows['shotid'][0])
+                        else:
+                            shot.append(0)
+            except:
+                pass
+    else: # we are using the Detection (NeiTab)
+
+        try:
+            #iterate over the surveys and types
+            DetDict = {}
+            for survey in np.unique(NeiTab['survey']):
+                DetDict[f"{survey}_line"] = Detections(survey=survey,catalog_type='lines',loadtable=False, searchable=False)
+                DetDict[f"{survey}_cont"] = Detections(survey=survey,catalog_type='continuum',loadtable=False, searchable=False)
+
+            #first the line detections
+            for d,w,s in zip(detectids,emis_line_wave,survey_name):
+                try:
+                    key = f"{s}_line"
+                    dT = DetDict[key].get_spectrum(detectid_i=d,deredden=True,ffsky=ffsky,rawh5=False)
+                    #get back a table with wave1d, spec1d, spec1d_err
+                    if dT is not None and len(dT) == len(G.CALFIB_WAVEGRID):
+                        spec.append(dT['spec1d']) #already as flux in 2AA bins
+                        wave.append(dT['wave1d'])
+                        emis.append(w)
+                        shot.append(s)
+                    else:
+                        spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
+                        wave.append(G.CALFIB_WAVEGRID)
+                        emis.append(-1.0)
+                        shot.append(0)
+                    del dT
+                except:
+                    log.warning(f"Unable to load specific neighbor spectra {d} from HETDEX_API.", exc_info=True)
+
+            #then the continuum
+            for d,s in zip(cont_detectids,cont_survey_name):
+                try:
+                    key = f"{s}_line"
+                    dT = DetDict[key].get_spectrum(detectid_i=d, deredden=True, ffsky=ffsky, rawh5=False)
+                    # get back a table with wave1d, spec1d, spec1d_err
+                    if dT is not None and len(dT) == len(G.CALFIB_WAVEGRID):
+                        spec.append(dT['spec1d'])  # already as flux in 2AA bins
+                        wave.append(dT['wave1d'])
+                        emis.append(-1.0)
+                        shot.append(s)
+                    else:
+                        spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
+                        wave.append(G.CALFIB_WAVEGRID)
+                        emis.append(-1.0)
+                        shot.append(0)
+                    del dT
+                except:
+                    log.warning(f"Unable to load specific neighbor spectra {d} from HETDEX_API.", exc_info=True)
+
+            del DetDict
+        except:
+            log.warning(f"Unable to load neighbor spectra from HETDEX_API.",exc_info=True)
 
     num_rows = len(detectids) + len(cont_detectids)
     #need to join continuum rows to emission line detectrows now
@@ -4246,32 +4370,32 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     dists = np.concatenate((dists,cont_dists))
 
 
+    if use_hdf5:
+        #now add the BROAD LINE sources if any
+        if len(broad_detectids) > 0:
+            try:
+                with tables.open_file(broad_hdf5, mode="r") as h5_detect:
+                    stb = h5_detect.root.Spectra
+                    dtb = h5_detect.root.Detections
+                    for d in broad_detectids:
+                        rows = stb.read_where("detectid==d")
+                        if rows.size == 1:
+                            spec.append(rows['spec1d'][0])
+                            wave.append(rows['wave1d'][0])
+                            emis.append(-1.0)
+                        else:
+                            #there's a problem
+                            spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
+                            wave.append(G.CALFIB_WAVEGRID)
+                            emis.append(-1.0)
 
-    #now add the BROAD LINE sources if any
-    if len(broad_detectids) > 0:
-        try:
-            with tables.open_file(broad_hdf5, mode="r") as h5_detect:
-                stb = h5_detect.root.Spectra
-                dtb = h5_detect.root.Detections
-                for d in broad_detectids:
-                    rows = stb.read_where("detectid==d")
-                    if rows.size == 1:
-                        spec.append(rows['spec1d'][0])
-                        wave.append(rows['wave1d'][0])
-                        emis.append(-1.0)
-                    else:
-                        #there's a problem
-                        spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
-                        wave.append(G.CALFIB_WAVEGRID)
-                        emis.append(-1.0)
-
-                    drows = dtb.read_where("detectid==d")
-                    if drows.size == 1:
-                        shot.append(drows['shotid'][0])
-                    else:
-                        shot.append(0)
-        except:
-            pass
+                        drows = dtb.read_where("detectid==d")
+                        if drows.size == 1:
+                            shot.append(drows['shotid'][0])
+                        else:
+                            shot.append(0)
+            except:
+                pass
 
     num_rows = len(detectids) + len(broad_detectids)
     #need to join continuum rows to emission line detectrows now
@@ -6328,7 +6452,8 @@ def main():
                                            this_detection=e if explicit_extraction else None,
                                            broad_hdf5=G.HDF5_BROAD_DETECT_FN,
                                            primary_shotid=e.survey_shotid,
-                                           wave_range=wave_range)
+                                           wave_range=wave_range,
+                                           ffsky=args.ffsky)
 
                         e.nei_mini_buf = nei_mini_buf
                         e.line_mini_buf = line_mini_buf
@@ -6344,7 +6469,7 @@ def main():
                                            fname=os.path.join(args.name, args.name + "_nei.png"),
                                            original_distance=args.error,
                                            this_detection=None,
-                                           broad_hdf5=G.HDF5_BROAD_DETECT_FN)
+                                           broad_hdf5=G.HDF5_BROAD_DETECT_FN,ffsky=args.ffsky)
                     except:
                         log.warning("Exception calling build_neighborhood_map.",exc_info=True)
 
