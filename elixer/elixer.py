@@ -3668,7 +3668,7 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
 
 def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=None, distance=None, cwave=None,
                            fname=None,original_distance=None,this_detection=None,broad_hdf5=None,primary_shotid=None,
-                           wave_range=None,ffsky=False):
+                           wave_range=None,ffsky=False,use_hdf5=False):
     """
 
     :param hdf5:
@@ -3678,6 +3678,8 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     :param cwave:
     :param fname:
     :param original_distance: e.g. args.error ... the normal cutout window size
+    :param use_hdf5: if True, use the "old" way of directly accessing HDF5 files for the neighbors, if False, use the
+                     HETDEX_API index
     :return: PNG of the figure
     """
 
@@ -3707,8 +3709,6 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     param_hdf5 = hdf5
     param_broad_hdf5 = broad_hdf5
     param_cont_hdf5 = cont_hdf5
-
-    use_hdf5 = False #old way, reading H5 Files
 
     #still get the h5 file paths as we still want them for possible limited use
     if G.HETDEX_API_CONFIG:
@@ -3853,10 +3853,11 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
 
             #always load the latest data release, regardless of which one this elixer run was using
-            DetsIdx = Detections(catalog_type='index', survey=G.HDR_Latest_Str)
+            if G.the_DetectionsIndex is None:
+                G.the_DetectionsIndex = Detections(catalog_type='index', survey=G.HDR_Latest_Str)
             # DetsIdx = Detections(catalog_type='index', survey=f"hdr{G.HDR_Version}")
             try:
-                NeiTab = DetsIdx.query_by_coord(SkyCoord(ra=ra * U.deg, dec=dec * U.deg), radius=(error + 1/3600.) * U.deg, astropy=True)
+                NeiTab = G.the_DetectionsIndex.query_by_coord(SkyCoord(ra=ra * U.deg, dec=dec * U.deg), radius=(error + 1/3600.) * U.deg, astropy=True)
                 NeiTab.sort('separation')
 
                 unique_surveys = np.unique(np.array(NeiTab['survey']))
@@ -3902,7 +3903,6 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                     np.concatenate((all_ras,cont_ras))
                     np.concatenate((all_decs,cont_decs))
 
-                del DetsIdx
                 del NeiTab
 
             except:
@@ -4914,6 +4914,57 @@ def check_package_versions():
     """
     pass
 
+def check_hdr_version_vs_detectids(hdr,dets):
+    """
+
+    :param hdr: single value, integer
+    :param dets: array of dets
+    :return:
+    """
+
+    try:
+        hdr_int = int(hdr)
+        lead_char = np.unique([int(str(x)[0]) for x in dets])
+        if len(lead_char) != 1:
+            # have mixed HDR Versions
+            print(f"***** Error! Detections from different HDR versions is not allowed. Versions found: {lead_char}")
+            exit(-1)
+        elif len(lead_char) == 1:
+            if lead_char[0] != hdr_int:
+                print(
+                    f"***** Error! DetectID HDR version: ({lead_char[0]}) does not match configured HDR version: ({G.HDR_Version})")
+                exit(-1)
+    except Exception as e:
+        print(f"Warning! Failure to check detections against HDR version.")
+        print(e)
+
+def check_continuum_version_vs_detectids(continuum,dets):
+    """
+
+    :param continuum: bool, true if
+    :param dets: array of dets
+    :return:
+    """
+
+    try:
+        cont_char = np.unique([int(str(x)[2]) for x in dets]) #the third character
+        if len(cont_char) != 1:
+            # have mixed continuum and emission line values
+            print(f"***** Error! Detections from continuum and line catalogs not allowed in the same call.")
+            exit(-1)
+        elif len(cont_char) == 1:
+            if cont_char[0] == 9 and not continuum:
+                print(
+                    f"***** Error! DetectID continuum type ({cont_char[0]}) and catalog mismatch. --continuum missing from commandline.")
+                exit(-1)
+            elif cont_char[0] != 9 and continuum:
+                print(
+                    f"***** Error! DetectID continuum type ({cont_char[0]}) and catalog mismatch. --continuum on commandline.")
+                exit(-1)
+    except Exception as e:
+        print(f"Warning! Failure to check detections against HDR version.")
+        print(e)
+
 def main():
 
     global G_PDF_FILE_NUM, OS_PNG_ONLY
@@ -5026,6 +5077,9 @@ def main():
         explicit_extraction = True
     elif args.fcsdir is not None:
         fcsdir_list = get_fcsdir_subdirs_to_process(args) #list of rsp1 style directories to process (each represents one detection)
+        check_hdr_version_vs_detectids(int(G.HDR_Version), fcsdir_list)
+        check_continuum_version_vs_detectids(args.continuum, fcsdir_list)
+
         if fcsdir_list is not None:
             log.info("Processing %d entries in FCSDIR" %(len(fcsdir_list)))
             print("Processing %d entries in FCSDIR" %(len(fcsdir_list)))
@@ -5036,11 +5090,15 @@ def main():
             print("Explicit extraction ...") #list of explicit extractions
 
         hdf5_detectid_list = get_hdf5_detectids_to_process(args)
+        check_hdr_version_vs_detectids(int(G.HDR_Version), hdf5_detectid_list)
+        check_continuum_version_vs_detectids(args.continuum, hdf5_detectid_list)
         if hdf5_detectid_list is not None:
             log.info("Processing %d entries in HDF5" %(len(hdf5_detectid_list)))
             print("Processing %d entries in HDF5" %(len(hdf5_detectid_list)))
     else: #still even if neighborhood_only, may want neighborhood around detection
         hdf5_detectid_list = get_hdf5_detectids_to_process(args)
+        check_hdr_version_vs_detectids(int(G.HDR_Version), hdf5_detectid_list)
+        check_continuum_version_vs_detectids(args.continuum, hdf5_detectid_list)
     #add as a payload to args so can easily check later
     args.explicit_extraction = explicit_extraction
 
@@ -6634,6 +6692,20 @@ def main():
 
     #end for master_loop_idx in range(master_loop_length):
 
+    try:
+        if G.the_Survey is not None:
+            del G.the_Survey
+
+        if G.the_DetectionsIndex is not None:
+            del G.the_DetectionsIndex
+
+        if G.HETDEX_API_CONFIG is not None:
+            del G.HETDEX_API_CONFIG
+
+        if G.HETDEX_API_Detections is not None:
+            del G.HETDEX_API_Detections
+    except:
+        pass
 
     if (G.LAUNCH_PDF_VIEWER is not None) and args.viewer and (len(viewer_file_list) > 0) \
             and not args.neighborhood_only and not already_launched_viewer:

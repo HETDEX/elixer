@@ -130,6 +130,8 @@ SDSS_CAT_PATH = None
 HETDEX_API_CONFIG = None
 
 the_Survey = None #HETDEX API Survey object ... common to be used in elixer
+the_DetectionsIndex = None #data release all detections index
+HETDEX_API_Detections = None #per detections query object
 
 LOCAL_DEV_HOSTNAMES = ["z50","dg5"]
 

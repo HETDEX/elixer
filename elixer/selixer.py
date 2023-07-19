@@ -121,6 +121,13 @@ if "--merge" in args:
     #     exit(0)
 
 
+
+#used in the next two checks
+if "--dets" in args or "--hdr" in args:
+    dets = np.loadtxt(det_file_name,dtype=int,usecols=0)#,max_rows=1)
+else:
+    dets = None
+
 #Continuum sanity check
 #for a sanity check later:
 continuum_mode = False
@@ -134,13 +141,13 @@ if "--dets" in args:
 
                 #check the top and bottom for possible continuum objects
                 #for simplicity, just read the whole column and read as int for size
-                dets = np.loadtxt(det_file_name,dtype=int,usecols=0)#,max_rows=1)
+                #dets = np.loadtxt(det_file_name,dtype=int,usecols=0)#,max_rows=1)
 
                 #look for 3rd character as 9
                 if str(dets[0])[2] == '9' or str(dets[-1])[2] == '9':
                     has_continuum_id = True
 
-                del dets
+                #del dets
 
                 if "--continuum" in args:
                     continuum_mode = True
@@ -166,10 +173,38 @@ if "--dets" in args:
             pass
 
 
+if --hdr in args:
+    i = args.index("--hdr")
+    if i != -1:
+        try:
+            hdr_int = int(sys.argv[i + 1])
+            lead_char = np.unique([int(x[0]) for x in dets])
+            if len(lead_char) != 1:
+                #have mixed HDR Versions
+                print(f"***** Error! Detections from different HDR versions is not allowed. Versions found: {lead_char}")
+                exit(-1)
+            elif len(lead_char) == 1:
+                if lead_char[0] != hdr_int:
+                    print(f"***** Error! DetectID HDR version {lead_char[0]} does not match command line: --hdr {sys.argv[i + 1]}")
+                    exit(-1)
+            else:
+                #problem, can't be zero
+                pass
+
+        except:
+            pass
+
 if "--ooops" in args:
     ooops_mode = True
 else:
     ooops_mode = False
+
+
+if dets is not None:
+    try:
+        del dets
+    except:
+        pass
 
 #--recover is now the default unless --no_recover is set
 if "--no_recover" in args:
