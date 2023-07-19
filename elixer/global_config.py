@@ -47,6 +47,9 @@ valid_HDR_Versions = [1,2,2.1,3,3.0,4,4.0]
 HDR_Version = "3" #"2.1"
 HDR_Version_float = 3.0
 
+HDR_Latest_Str = "hdr4" #latest available, not necessarily the default or what is being used
+HDR_Latest_Float = 4.0
+
 WORK_BASEPATH = "/work"
 try:
     WORK_BASEPATH = getenv("WORK_BASEPATH")

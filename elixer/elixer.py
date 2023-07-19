@@ -3779,6 +3779,10 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
             all_ras = ras[:]
             all_decs = decs[:]
+            shotids = []
+            emis_line_wave = []
+            survey_names = []
+
 
             if detectids is not None:
                 total_detectids += len(detectids)
@@ -3809,7 +3813,8 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             cont_ras = []
             cont_decs = []
             cont_dists = []
-            cont_survey_name = []
+            cont_survey_names = []
+            cont_shotids = []
             if cont_hdf5 is not None:
                 cont_detectids, cont_ras, cont_decs, cont_dists = get_hdf5_detectids_by_coord(cont_hdf5, ra=ra, dec=dec,
                                                                                               error=error,shotid=None,
@@ -3826,36 +3831,55 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             ras = []
             decs = []
             dists = []
-            survey_name = []
+            survey_names = []
             emis_line_wave = []
+            shotids = []
 
             broad_detectids = []#need this also for backward compatibility
             broad_ras = []
             broad_decs = []
             broad_dists = []
             broad_emis_line_wave =[]
-            broad_survey_name = []
+            broad_survey_names = []
 
             cont_detectids = []
             cont_ras = []
             cont_decs = []
             cont_dists = []
-            cont_survey_name = []
+            cont_survey_names = []
+            cont_shotids = []
 
-            DetsIdx = Detections(catalog_type='index', survey=f"hdr{G.HDR_Version}")
+            all_surveys = []
+
+
+            #always load the latest data release, regardless of which one this elixer run was using
+            DetsIdx = Detections(catalog_type='index', survey=G.HDR_Latest_Str)
+            # DetsIdx = Detections(catalog_type='index', survey=f"hdr{G.HDR_Version}")
             try:
                 NeiTab = DetsIdx.query_by_coord(SkyCoord(ra=ra * U.deg, dec=dec * U.deg), radius=(error + 1/3600.) * U.deg, astropy=True)
                 NeiTab.sort('separation')
 
+                unique_surveys = np.unique(np.array(NeiTab['survey']))
+
+                try:
+                    unique_surveys = np.array([x.decode() for x in unique_surveys])
+                except:
+                    pass
+
                 #linesources
                 src_sel = NeiTab['det_type'] == 'line'
                 if np.count_nonzero(src_sel) > 0:
-                    detectids = NeiTab['detectid'][src_sel]
-                    ras = NeiTab['ra'][src_sel]
-                    decs = NeiTab['dec'][src_sel]
-                    dists = NeiTab['separation'][src_sel]/3600.0 # want in degrees
-                    emis_line_wave = NeiTab['wave'][src_sel]
-                    survey_name = NeiTab['survey'][src_sel]
+                    detectids = np.array(NeiTab['detectid'][src_sel])
+                    shotids = np.array(NeiTab['shotid'][src_sel])
+                    ras = np.array(NeiTab['ra'][src_sel])
+                    decs = np.array(NeiTab['dec'][src_sel])
+                    dists = np.array(NeiTab['separation'][src_sel]) # keep in arcsec
+                    emis_line_wave = np.array(NeiTab['wave'][src_sel])
+                    survey_names = np.array(NeiTab['survey'][src_sel])
+                    try:
+                        survey_names = np.array([x.decode() for x in survey_names])
+                    except:
+                        pass
                     total_detectids += np.count_nonzero(src_sel)
                     all_ras = ras[:]
                     all_decs = decs[:]
@@ -3863,17 +3887,23 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                 #continuum
                 src_sel = NeiTab['det_type'] == 'cont'
                 if np.count_nonzero(src_sel) > 0:
-                    cont_detectids = NeiTab['detectid'][src_sel]
-                    cont_ras = NeiTab['ra'][src_sel]
-                    cont_decs = NeiTab['dec'][src_sel]
-                    cont_dists = NeiTab['separation'][src_sel]/3600.0 # want in degrees
-                    cont_survey_name = NeiTab['survey'][src_sel]
+                    cont_detectids = np.array(NeiTab['detectid'][src_sel])
+                    cont_shotids = np.array(NeiTab['shotid'][src_sel])
+                    cont_ras = np.array(NeiTab['ra'][src_sel])
+                    cont_decs = np.array(NeiTab['dec'][src_sel])
+                    cont_dists = np.array(NeiTab['separation'][src_sel]) # keep in arcsec
+                    cont_survey_names = np.array(NeiTab['survey'][src_sel])
+                    try:
+                        cont_survey_names = np.array([x.decode() for x in cont_survey_names])
+                    except:
+                        pass
                     total_detectids += np.count_nonzero(src_sel)
 
                     np.concatenate((all_ras,cont_ras))
                     np.concatenate((all_decs,cont_decs))
 
                 del DetsIdx
+                del NeiTab
 
             except:
                 log.warning("Exception loading neighbors from HETDEX_API.",exc_info=True)
@@ -3910,7 +3940,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             decs = decs[:G.MAX_NEIGHBORS_IN_MAP]
             dists = dists[:G.MAX_NEIGHBORS_IN_MAP]
             emis_line_wave = emis_line_wave[:G.MAX_NEIGHBORS_IN_MAP]
-            survey_name = survey_name[:G.MAX_NEIGHBORS_IN_MAP]
+            survey_names = survey_names[:G.MAX_NEIGHBORS_IN_MAP]
 
         if len(cont_detectids) > G.MAX_NEIGHBORS_IN_MAP:
             msg = "Maximum number of reportable (continuum) neighbors exceeded (%d). Will truncate to nearest %d." % (len(detectids),
@@ -3922,7 +3952,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             cont_ras = cont_ras[:G.MAX_NEIGHBORS_IN_MAP]
             cont_decs = cont_decs[:G.MAX_NEIGHBORS_IN_MAP]
             cont_dists = cont_dists[:G.MAX_NEIGHBORS_IN_MAP]
-            cont_survey_name = cont_survey_name[:G.MAX_NEIGHBORS_IN_MAP]
+            cont_survey_names = cont_survey_names[:G.MAX_NEIGHBORS_IN_MAP]
 
         if len(broad_detectids) > G.MAX_NEIGHBORS_IN_MAP:
             msg = "Maximum number of reportable (broad) neighbors exceeded (%d). Will truncate to nearest %d." % (len(detectids),
@@ -4306,52 +4336,74 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             except:
                 pass
     else: # we are using the Detection (NeiTab)
-
+        log.debug(f"Loading neighbor {len(detectids)+len(cont_detectids)} spectra ...")
         try:
             #iterate over the surveys and types
             DetDict = {}
-            for survey in np.unique(NeiTab['survey']):
+            for survey in unique_surveys:
                 DetDict[f"{survey}_line"] = Detections(survey=survey,catalog_type='lines',loadtable=False, searchable=False)
                 DetDict[f"{survey}_cont"] = Detections(survey=survey,catalog_type='continuum',loadtable=False, searchable=False)
 
+
+            use_rawh5 = True
             #first the line detections
-            for d,w,s in zip(detectids,emis_line_wave,survey_name):
+            for d,w,s,st in zip(detectids,emis_line_wave,survey_names,shotids):
                 try:
                     key = f"{s}_line"
-                    dT = DetDict[key].get_spectrum(detectid_i=d,deredden=True,ffsky=ffsky,rawh5=False)
+                    dT = DetDict[key].get_spectrum(detectid_i=d,deredden=True,ffsky=ffsky,rawh5=use_rawh5)
                     #get back a table with wave1d, spec1d, spec1d_err
                     if dT is not None and len(dT) == len(G.CALFIB_WAVEGRID):
-                        spec.append(dT['spec1d']) #already as flux in 2AA bins
+                        if use_rawh5:
+                            spec.append(dT['spec1d'])  # *G.FLUX_WAVEBIN_WIDTH)  # already as flux in 2AA bins
+                        else:
+                            spec.append(dT['spec1d'] * G.FLUX_WAVEBIN_WIDTH)  # comes in as per AA, so mult by 2
                         wave.append(dT['wave1d'])
                         emis.append(w)
-                        shot.append(s)
+                        shot.append(st)
                     else:
                         spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
                         wave.append(G.CALFIB_WAVEGRID)
                         emis.append(-1.0)
                         shot.append(0)
-                    del dT
+                    try:
+                        del dT
+                    except:
+                        pass
                 except:
+                    spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
+                    wave.append(G.CALFIB_WAVEGRID)
+                    emis.append(-1.0)
+                    shot.append(0)
                     log.warning(f"Unable to load specific neighbor spectra {d} from HETDEX_API.", exc_info=True)
 
             #then the continuum
-            for d,s in zip(cont_detectids,cont_survey_name):
+            for d,s,st in zip(cont_detectids,cont_survey_names,cont_shotids):
                 try:
-                    key = f"{s}_line"
-                    dT = DetDict[key].get_spectrum(detectid_i=d, deredden=True, ffsky=ffsky, rawh5=False)
+                    key = f"{s}_cont"
+                    dT = DetDict[key].get_spectrum(detectid_i=d, deredden=True, ffsky=ffsky, rawh5=use_rawh5)
                     # get back a table with wave1d, spec1d, spec1d_err
                     if dT is not None and len(dT) == len(G.CALFIB_WAVEGRID):
-                        spec.append(dT['spec1d'])  # already as flux in 2AA bins
+                        if use_rawh5:
+                            spec.append(dT['spec1d'])#*G.FLUX_WAVEBIN_WIDTH)  # already as flux in 2AA bins
+                        else:
+                            spec.append(dT['spec1d']*G.FLUX_WAVEBIN_WIDTH)  # comes in as per AA, so mult by 2
                         wave.append(dT['wave1d'])
                         emis.append(-1.0)
-                        shot.append(s)
+                        shot.append(st)
                     else:
                         spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
                         wave.append(G.CALFIB_WAVEGRID)
                         emis.append(-1.0)
                         shot.append(0)
-                    del dT
+                    try:
+                        del dT
+                    except:
+                        pass
                 except:
+                    spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
+                    wave.append(G.CALFIB_WAVEGRID)
+                    emis.append(-1.0)
+                    shot.append(0)
                     log.warning(f"Unable to load specific neighbor spectra {d} from HETDEX_API.", exc_info=True)
 
             del DetDict
