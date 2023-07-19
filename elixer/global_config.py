@@ -131,7 +131,8 @@ HETDEX_API_CONFIG = None
 
 the_Survey = None #HETDEX API Survey object ... common to be used in elixer
 the_DetectionsIndex = None #data release all detections index
-HETDEX_API_Detections = None #per detections query object
+the_DetectionsDict = None #dictionary of neighbors detections query objects (separate from HETDEX_API_Detections)
+HETDEX_API_Detections = None #per detections query object; bound to a single HDR version and line vs continuum
 
 LOCAL_DEV_HOSTNAMES = ["z50","dg5"]
 

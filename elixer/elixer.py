@@ -4339,18 +4339,22 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         log.debug(f"Loading neighbor {len(detectids)+len(cont_detectids)} spectra ...")
         try:
             #iterate over the surveys and types
-            DetDict = {}
-            for survey in unique_surveys:
-                DetDict[f"{survey}_line"] = Detections(survey=survey,catalog_type='lines',loadtable=False, searchable=False)
-                DetDict[f"{survey}_cont"] = Detections(survey=survey,catalog_type='continuum',loadtable=False, searchable=False)
+            if G.the_DetectionsDict is None:
+                G.the_DetectionsDict = {}
 
+            for survey in unique_surveys:
+                if f"{survey}_line" not in G.the_DetectionsDict.keys():
+                    G.the_DetectionsDict[f"{survey}_line"] = Detections(survey=survey,catalog_type='lines',loadtable=False, searchable=False)
+
+                if "{survey}_cont" not in G.the_DetectionsDict.keys():
+                    G.the_DetectionsDict[f"{survey}_cont"] = Detections(survey=survey,catalog_type='continuum',loadtable=False, searchable=False)
 
             use_rawh5 = True
             #first the line detections
             for d,w,s,st in zip(detectids,emis_line_wave,survey_names,shotids):
                 try:
                     key = f"{s}_line"
-                    dT = DetDict[key].get_spectrum(detectid_i=d,deredden=True,ffsky=ffsky,rawh5=use_rawh5)
+                    dT = G.the_DetectionsDict[key].get_spectrum(detectid_i=d,deredden=True,ffsky=ffsky,rawh5=use_rawh5)
                     #get back a table with wave1d, spec1d, spec1d_err
                     if dT is not None and len(dT) == len(G.CALFIB_WAVEGRID):
                         if use_rawh5:
@@ -4380,7 +4384,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             for d,s,st in zip(cont_detectids,cont_survey_names,cont_shotids):
                 try:
                     key = f"{s}_cont"
-                    dT = DetDict[key].get_spectrum(detectid_i=d, deredden=True, ffsky=ffsky, rawh5=use_rawh5)
+                    dT = G.the_DetectionsDict[key].get_spectrum(detectid_i=d, deredden=True, ffsky=ffsky, rawh5=use_rawh5)
                     # get back a table with wave1d, spec1d, spec1d_err
                     if dT is not None and len(dT) == len(G.CALFIB_WAVEGRID):
                         if use_rawh5:
@@ -4405,8 +4409,6 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                     emis.append(-1.0)
                     shot.append(0)
                     log.warning(f"Unable to load specific neighbor spectra {d} from HETDEX_API.", exc_info=True)
-
-            del DetDict
         except:
             log.warning(f"Unable to load neighbor spectra from HETDEX_API.",exc_info=True)
 
@@ -6704,6 +6706,9 @@ def main():
 
         if G.HETDEX_API_Detections is not None:
             del G.HETDEX_API_Detections
+
+        if G.the_DetectionsDict is not None:
+            del G.the_DetectionsDict
     except:
         pass
 
