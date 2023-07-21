@@ -3393,6 +3393,10 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
         else:
             return np.round(1.0-(abs(seeing-low)/step),deci), np.round(1.0-(abs(high-seeing)/step),deci)
 
+    def correct_per_lamdba(residual):
+        #correct the residual per lambda to deal with flam intrinsic blue bias vs fnu
+        return residual / (G.CALFIB_WAVEGRID/G.DEX_G_EFF_LAM)**2
+
     try:
         #now has to be checked by the caller
         # if G.APPLY_SKY_RESIDUAL_TYPE != 1:
@@ -3454,6 +3458,9 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
             model =  which_models[l]
         else:
             model =  rl*which_models[l] + rh*which_models[h]  #+ zeropoint_shift
+
+        if model is not None:
+            model = correct_per_lamdba(model)
 
         #to avoid over subtraction at the edges, fix the values blue of 3505 and red of 5495
         # blue_idx,*_ = getnearpos(G.CALFIB_WAVEGRID,3505)
