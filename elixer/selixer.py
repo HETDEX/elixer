@@ -183,7 +183,7 @@ if dets is not None:
     except Exception as e:
         pass
 
-
+hdr_int = None
 if "--hdr" in args:
     i = args.index("--hdr")
     if i != -1:
@@ -333,9 +333,13 @@ if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
 FILL_CPU_TASKS = 10 #don't add another node until each CPU on the current node(s) hit this number
+                    #e.g. roughly the number of detections per CPU (or row in the run.h5 filer), +/- 1 detection
+                    # or the detectios per dispatch_xxxx
+                    #this is changed based on the server and CPU type below
 MAX_DETECTS_PER_CPU = 9999999 #do not execute this job of the dispatch_xxxx list count exceeds this value
 MAX_TASKS_PER_NODE =1 #default (local machine)
 MAX_NODES=1
+
 
 #note MAX_TASKS is the maximum number of dispatchs to create
 #     MAX_TASKS_PER_NODE is effectively the number of CORES to use per node
@@ -1035,6 +1039,7 @@ if not time_set: #update time
 
         # set a minimum time ... always AT LEAST 5 or 10 minutes requested?
         minutes = int(TIME_OVERHEAD + MAX_TIME_PER_TASK * mx * mult * base_time_multiplier * timex)
+
         if continuum_mode:
             minutes = int(minutes * 1.05) #small boost since continuum objects have extra processing
         time = str(timedelta(minutes=max(minutes,10.0)))
