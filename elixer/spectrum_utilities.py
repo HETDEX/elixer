@@ -3395,7 +3395,8 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
 
     def correct_per_lamdba(residual):
         #correct the residual per lambda to deal with flam intrinsic blue bias vs fnu
-        return residual / (G.CALFIB_WAVEGRID/G.DEX_G_EFF_LAM)**2
+        pivot = 4505. #G.DEX_G_EFF_LAM
+        return residual / (G.CALFIB_WAVEGRID/pivot)**2
 
     try:
         #now has to be checked by the caller
@@ -3531,6 +3532,10 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
         else:
             return np.round(1.0-(abs(seeing-low)/step),deci), np.round(1.0-(abs(high-seeing)/step),deci)
 
+    def correct_per_lamdba(residual):
+        #correct the residual per lambda to deal with flam intrinsic blue bias vs fnu
+        pivot = 4505. #G.DEX_G_EFF_LAM
+        return residual / (G.CALFIB_WAVEGRID/pivot)**2
     try:
 
         print("****** TESTING: FORCE 1.7\" aperture ***********")
