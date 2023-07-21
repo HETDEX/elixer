@@ -3395,7 +3395,7 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
 
     def correct_per_lamdba(residual):
         #correct the residual per lambda to deal with flam intrinsic blue bias vs fnu
-        pivot = 4505. #G.DEX_G_EFF_LAM
+        pivot = 4000. #4505. #G.DEX_G_EFF_LAM
         return residual / (G.CALFIB_WAVEGRID/pivot)**2
 
     try:
@@ -3534,7 +3534,7 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
 
     def correct_per_lamdba(residual):
         #correct the residual per lambda to deal with flam intrinsic blue bias vs fnu
-        pivot = 4505. #G.DEX_G_EFF_LAM
+        pivot = 4000. #4505. #G.DEX_G_EFF_LAM
         return residual / (G.CALFIB_WAVEGRID/pivot)**2
     try:
 
