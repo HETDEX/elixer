@@ -3605,6 +3605,10 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
             model =  which_models[l]
         else:
             model =  rl*which_models[l] + rh*which_models[h]  #+ zeropoint_shift
+
+        if model is not None:
+            model = correct_per_lamdba(model)
+
         #
         # log.warning("***************** Testing 50% **************")
         # model *= 0.5
