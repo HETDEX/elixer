@@ -173,7 +173,7 @@ if "--dets" in args:
             pass
 
 
-if --hdr in args:
+if "--hdr" in args:
     i = args.index("--hdr")
     if i != -1:
         try:
@@ -416,7 +416,7 @@ elif hostname == "stampede2":
             MAX_NODES = 3 #right now, pointless to go beyond 2 nodes
             MAX_TASKS_PER_NODE = 22 #actually, variable, encoded later
         else:
-            FILL_CPU_TASKS = 10
+            FILL_CPU_TASKS = 20
             if MERGE:
                 MAX_TASKS = 100
                 MAX_NODES = 2
@@ -511,7 +511,7 @@ elif hostname == "lonestar6" or hostname == 'ls6':
             print("Python < 3 No longer supported")
             exit(-1)
         else:
-            FILL_CPU_TASKS = 10
+            FILL_CPU_TASKS = 20
             if MERGE: #use same tasks limit as full run
                 MAX_TASKS = 128
                 MAX_NODES = 2
