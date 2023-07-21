@@ -123,54 +123,65 @@ if "--merge" in args:
 
 
 #used in the next two checks
-if "--dets" in args or "--hdr" in args:
-    dets = np.loadtxt(det_file_name,dtype=int,usecols=0)#,max_rows=1)
-else:
+dets = None
+try:
+    if "--dets" in args:# or "--hdr" in args:
+        det_file_name = sys.argv[i + 1]
+        if os.path.isfile(det_file_name):
+            dets = np.loadtxt(det_file_name,dtype=int,usecols=0)#,max_rows=1)
+        else:
+            #could be a list
+            dets = args.dets.replace(', ', ',').split(',')  # allow comma or comma-space separation
+    else:
+        dets = None
+except:
     dets = None
 
 #Continuum sanity check
 #for a sanity check later:
 continuum_mode = False
-if "--dets" in args:
-    i = args.index("--dets")
-    if i != -1:
-        try:
-            det_file_name = sys.argv[i + 1]
-            if os.path.isfile(det_file_name):
-                has_continuum_id = False
+#if "--dets" in args:
+    # i = args.index("--dets")
+    # if i != -1:
+if dets is not None:
+    try:
+        # det_file_name = sys.argv[i + 1]
+        # if os.path.isfile(det_file_name):
+        if dets is not None:
+            has_continuum_id = False
 
-                #check the top and bottom for possible continuum objects
-                #for simplicity, just read the whole column and read as int for size
-                #dets = np.loadtxt(det_file_name,dtype=int,usecols=0)#,max_rows=1)
+            #check the top and bottom for possible continuum objects
+            #for simplicity, just read the whole column and read as int for size
+            #dets = np.loadtxt(det_file_name,dtype=int,usecols=0)#,max_rows=1)
 
-                #look for 3rd character as 9
-                if str(dets[0])[2] == '9' or str(dets[-1])[2] == '9':
-                    has_continuum_id = True
+            #look for 3rd character as 9
+            if str(dets[0])[2] == '9' or str(dets[-1])[2] == '9':
+                has_continuum_id = True
 
-                #del dets
+            #del dets
 
-                if "--continuum" in args:
-                    continuum_mode = True
+            if "--continuum" in args:
+                continuum_mode = True
+            else:
+                continuum_mode = False
+
+            prompt = None
+            if has_continuum_id and not continuum_mode:
+                prompt = "Apparent continuum detectIDs in --dets file, but --continuum not specified. Continue anyway? (y/n)"
+            elif not has_continuum_id and continuum_mode:
+                prompt = "No apparent continuum detectIDs in --dets file, but --continuum IS specified. Continue anyway? (y/n)"
+            #else all is okay
+
+            if prompt is not None:
+                r = input(prompt) #assumes Python3 or greater
+                print()
+                if len(r) > 0 and r.upper() !=  "Y":
+                    print ("Cancelled.\n")
+                    exit(0)
                 else:
-                    continuum_mode = False
-
-                prompt = None
-                if has_continuum_id and not continuum_mode:
-                    prompt = "Apparent continuum detectIDs in --dets file, but --continuum not specified. Continue anyway? (y/n)"
-                elif not has_continuum_id and continuum_mode:
-                    prompt = "No apparent continuum detectIDs in --dets file, but --continuum IS specified. Continue anyway? (y/n)"
-                #else all is okay
-
-                if prompt is not None:
-                    r = input(prompt) #assumes Python3 or greater
-                    print()
-                    if len(r) > 0 and r.upper() !=  "Y":
-                        print ("Cancelled.\n")
-                        exit(0)
-                    else:
-                        print("Continuing ... \n")
-        except Exception as e:
-            pass
+                    print("Continuing ... \n")
+    except Exception as e:
+        pass
 
 
 if "--hdr" in args:
@@ -178,21 +189,28 @@ if "--hdr" in args:
     if i != -1:
         try:
             hdr_int = int(sys.argv[i + 1])
-            lead_char = np.unique([int(x[0]) for x in dets])
-            if len(lead_char) != 1:
-                #have mixed HDR Versions
-                print(f"***** Error! Detections from different HDR versions is not allowed. Versions found: {lead_char}")
-                exit(-1)
-            elif len(lead_char) == 1:
-                if lead_char[0] != hdr_int:
-                    print(f"***** Error! DetectID HDR version {lead_char[0]} does not match command line: --hdr {sys.argv[i + 1]}")
-                    exit(-1)
-            else:
-                #problem, can't be zero
-                pass
-
         except:
+            hdr_int = None
+
+
+if hdr_int is not None and dets is not None:
+    try:
+        lead_char = np.unique([int(x[0]) for x in dets])
+        if len(lead_char) != 1:
+            #have mixed HDR Versions
+            print(f"***** Error! Detections from different HDR versions is not allowed. Versions found: {lead_char}")
+            exit(-1)
+        elif len(lead_char) == 1:
+            if lead_char[0] != hdr_int:
+                print(f"***** Error! DetectID HDR version {lead_char[0]} does not match command line: --hdr {sys.argv[i + 1]}")
+                exit(-1)
+        else:
+            #problem, can't be zero
             pass
+
+    except:
+        pass
+
 
 if "--ooops" in args:
     ooops_mode = True
