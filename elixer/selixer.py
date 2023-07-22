@@ -438,7 +438,7 @@ elif hostname == "stampede2":
             MAX_NODES = 3 #right now, pointless to go beyond 2 nodes
             MAX_TASKS_PER_NODE = 22 #actually, variable, encoded later
         else:
-            FILL_CPU_TASKS = 20
+            FILL_CPU_TASKS = 30
             if MERGE:
                 MAX_TASKS = 100
                 MAX_NODES = 2
