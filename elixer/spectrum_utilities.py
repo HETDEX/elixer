@@ -3459,9 +3459,9 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
             model =  which_models[l]
         else:
             model =  rl*which_models[l] + rh*which_models[h]  #+ zeropoint_shift
-
-        if model is not None:
-            model = correct_per_lamdba(model)
+        #
+        # if model is not None:
+        #     model = correct_per_lamdba(model)
 
         #to avoid over subtraction at the edges, fix the values blue of 3505 and red of 5495
         # blue_idx,*_ = getnearpos(G.CALFIB_WAVEGRID,3505)
@@ -3536,6 +3536,8 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
         #correct the residual per lambda to deal with flam intrinsic blue bias vs fnu
         pivot = 4505. #G.DEX_G_EFF_LAM
         return residual / (G.CALFIB_WAVEGRID/pivot)**2
+
+
     try:
 
         print("****** TESTING: FORCE 1.7\" aperture ***********")
@@ -3611,8 +3613,8 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
         else:
             model =  rl*which_models[l] + rh*which_models[h]  #+ zeropoint_shift
 
-        if model is not None:
-            model = correct_per_lamdba(model)
+        # if model is not None:
+        #     model = correct_per_lamdba(model)
 
         #
         # log.warning("***************** Testing 50% **************")
@@ -3645,7 +3647,7 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
         return None
 
 
-def zeropoint_correction(fluxd=None,fluxd_err=None,eff_fluxd=None,ffsky=False,seeing=None,hdr=G.HDR_Version):
+def zeropoint_add_correction(fluxd=None,fluxd_err=None,eff_fluxd=None,ffsky=False,seeing=None,hdr=G.HDR_Version):
     """
     Applied at the PSF Weighted aperture level NOT PER FIBER
 
@@ -3711,6 +3713,58 @@ def zeropoint_correction(fluxd=None,fluxd_err=None,eff_fluxd=None,ffsky=False,se
 
         if fluxd_corr > 0: #technically allowed?
             log.warning(f"Unexpected, but allowed, zeropoint correction increasing flux:  +{fluxd_corr}")
+
+        return fluxd_corr
+
+    except:
+        log.error(f"Exception! Exception in interpolate_zeropoint_correction.", exc_info=True)
+        return None
+
+
+def zeropoint_mul_correction(ffsky=False, seeing=None, hdr=G.HDR_Version):
+    """
+    Applied at the PSF Weighted aperture level NOT PER FIBER
+
+    Apply a multiplicative correction, assuming g-bandpass effective wavelength near 4726AA
+    The correction is applied to fluxd as a per wavelength multiplicative,
+
+    Figure the effective fluxdensity for the g-band
+    Multiply by the defined (local or ffsky) correction x command line optional fractional scaling
+    Subtract (add a negative) the resulting flat, fixed value from the spectrum
+
+
+    :param fluxd: flux density (scale matters needs 1:1 and is erg/s/cm2/AA) if eff_fluxd not provided
+    :param fluxd_err: flux density error (same scale and units as fluxd)
+    :param eff_fluxd: if already computed the bandpass effective flux density, pass it in here
+                      if this is provided, the fluxd and fluxd_err can be None
+    :param ffsky:
+    :param seeing: might not be used ... unclear but as of right now, not used
+    :param hdr:
+    :return: the correction value (normally negative) to be added to the flux density
+             None if there is an error
+             0 is legit value if no error but no correction should be made
+    """
+
+    def correct_per_lamdba():
+        # correct the residual per lambda to deal with flam intrinsic blue bias vs fnu
+        pivot = G.DEX_G_EFF_LAM
+        return (G.CALFIB_WAVEGRID / pivot) ** 2
+
+    try:
+        if G.ZEROPOINT_FRAC == 0:
+            return 0
+
+        # we have models for HDR3 (samae as HDR4)
+        if hdr[0] in ['3', '4']:
+            pass  # all good
+        else:
+            log.warning(f"Invalid HDR version for zeropoint_correction(): {hdr}")
+            return None
+
+        if ffsky: # like 0.2 * 1.0 *
+            fluxd_corr = (1.0 -G.ZEROPOINT_BASE_FF) * G.ZEROPOINT_FRAC * correct_per_lamdba()
+        else:  # local sky
+            fluxd_corr = (1.0- G.ZEROPOINT_BASE_LL) * G.ZEROPOINT_FRAC * correct_per_lamdba()
 
         return fluxd_corr
 

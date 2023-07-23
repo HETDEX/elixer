@@ -7023,16 +7023,25 @@ class DetObj:
                     except:
                         log.warning("Exception. Unable to apply galatic exintction correction to neighbor.", exc_info=True)
 
-                if G.ZEROPOINT_FRAC:
-                    zp_corr = SU.zeropoint_correction(sep_obj['flux']*G.HETDEX_FLUX_BASE_CGS ,
-                                                   sep_obj['flux_err'] *G.HETDEX_FLUX_BASE_CGS ,
-                                                   eff_fluxd=None,
-                                                   ffsky=self.extraction_ffsky, seeing=self.survey_fwhm,
-                                                   hdr=G.HDR_Version)
+                # if G.ZEROPOINT_FRAC:
+                #     zp_corr = SU.zeropoint_add_correction(sep_obj['flux']*G.HETDEX_FLUX_BASE_CGS ,
+                #                                    sep_obj['flux_err'] *G.HETDEX_FLUX_BASE_CGS ,
+                #                                    eff_fluxd=None,
+                #                                    ffsky=self.extraction_ffsky, seeing=self.survey_fwhm,
+                #                                    hdr=G.HDR_Version)
+                #     if zp_corr is None:
+                #         self.flags |= G.DETFLAG_NO_ZEROPOINT
+                #     else:
+                #         sep_obj['flux'] += zp_corr  / G.HETDEX_FLUX_BASE_CGS
+
+                if G.ZEROPOINT_FRAC:  # everything is still with NaNs and is per 1AA
+                    zp_corr = SU.zeropoint_mul_correction(
+                        ffsky=self.extraction_ffsky, seeing=self.survey_fwhm,
+                        hdr=G.HDR_Version)
                     if zp_corr is None:
                         self.flags |= G.DETFLAG_NO_ZEROPOINT
                     else:
-                        sep_obj['flux'] += zp_corr  / G.HETDEX_FLUX_BASE_CGS
+                        sep_obj['flux'] *= zp_corr
 
                 # leave the nans in there ...., but set their errors to zero
                 sel_nan = np.isnan(sep_obj['flux']) #where the flux is NaN
@@ -7186,16 +7195,25 @@ class DetObj:
                     log.warning("Exception. Unable to apply galatic exintction correction.",exc_info=True)
 
 
+            # if G.ZEROPOINT_FRAC: #everything is still with NaNs and is per 1AA
+            #     zp_corr = SU.zeropoint_add_correction(self.sumspec_flux*G.HETDEX_FLUX_BASE_CGS,
+            #                                    self.sumspec_fluxerr*G.HETDEX_FLUX_BASE_CGS,
+            #                                    eff_fluxd=None,
+            #                                    ffsky=self.extraction_ffsky, seeing=self.survey_fwhm,
+            #                                    hdr=G.HDR_Version)
+            #     if zp_corr is None:
+            #         self.flags |= G.DETFLAG_NO_ZEROPOINT
+            #     else:
+            #         self.sumspec_flux += zp_corr  / G.HETDEX_FLUX_BASE_CGS
+
             if G.ZEROPOINT_FRAC: #everything is still with NaNs and is per 1AA
-                zp_corr = SU.zeropoint_correction(self.sumspec_flux*G.HETDEX_FLUX_BASE_CGS,
-                                               self.sumspec_fluxerr*G.HETDEX_FLUX_BASE_CGS,
-                                               eff_fluxd=None,
+                zp_corr = SU.zeropoint_mul_correction(
                                                ffsky=self.extraction_ffsky, seeing=self.survey_fwhm,
                                                hdr=G.HDR_Version)
                 if zp_corr is None:
                     self.flags |= G.DETFLAG_NO_ZEROPOINT
                 else:
-                    self.sumspec_flux += zp_corr  / G.HETDEX_FLUX_BASE_CGS
+                    self.sumspec_flux *= zp_corr
 
             # NOW get rid of NaN's and put in per 2AA bins
             self.sumspec_flux *= G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)
@@ -8218,16 +8236,24 @@ class DetObj:
                     self.flags |= G.DETFLAG_NO_DUST_CORRECTION
                     log.warning("Exception. Unable to apply galatic exintction correction.", exc_info=True)
 
-            if G.ZEROPOINT_FRAC:
-                zp_corr = SU.zeropoint_correction(self.sumspec_flux *G.HETDEX_FLUX_BASE_CGS / G.FLUX_WAVEBIN_WIDTH,
-                                               self.sumspec_fluxerr *G.HETDEX_FLUX_BASE_CGS / G.FLUX_WAVEBIN_WIDTH,
-                                               eff_fluxd=None,
+            # if G.ZEROPOINT_FRAC:
+            #     zp_corr = SU.zeropoint_add_correction(self.sumspec_flux *G.HETDEX_FLUX_BASE_CGS / G.FLUX_WAVEBIN_WIDTH,
+            #                                    self.sumspec_fluxerr *G.HETDEX_FLUX_BASE_CGS / G.FLUX_WAVEBIN_WIDTH,
+            #                                    eff_fluxd=None,
+            #                                    ffsky=self.extraction_ffsky, seeing=self.survey_fwhm,
+            #                                    hdr=G.HDR_Version)
+            #     if zp_corr is None:
+            #         self.flags |= G.DETFLAG_NO_ZEROPOINT
+            #     else:
+            #         self.sumspec_flux += zp_corr * G.FLUX_WAVEBIN_WIDTH / G.HETDEX_FLUX_BASE_CGS
+            if G.ZEROPOINT_FRAC: #everything is still with NaNs and is per 1AA
+                zp_corr = SU.zeropoint_mul_correction(
                                                ffsky=self.extraction_ffsky, seeing=self.survey_fwhm,
                                                hdr=G.HDR_Version)
                 if zp_corr is None:
                     self.flags |= G.DETFLAG_NO_ZEROPOINT
                 else:
-                    self.sumspec_flux += zp_corr * G.FLUX_WAVEBIN_WIDTH / G.HETDEX_FLUX_BASE_CGS
+                    self.sumspec_flux *= zp_corr
             # # #test:
             # print("!!!!!!!!!!!!!!!!!!!!!!! TEST: REMOVE ME !!!!!!!!!!!!!!!!!!!!!")
             # self.sumspec_flux = self.sumspec_flux * 2.0  / self.sumspec_apcor /  self.sumspec_apcor
