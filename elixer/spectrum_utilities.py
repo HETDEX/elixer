@@ -3459,7 +3459,7 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
             model =  which_models[l]
         else:
             model =  rl*which_models[l] + rh*which_models[h]  #+ zeropoint_shift
-        #
+
         # if model is not None:
         #     model = correct_per_lamdba(model)
 
@@ -3747,8 +3747,10 @@ def zeropoint_mul_correction(ffsky=False, seeing=None, hdr=G.HDR_Version):
 
     def correct_per_lamdba():
         # correct the residual per lambda to deal with flam intrinsic blue bias vs fnu
-        pivot = G.DEX_G_EFF_LAM
-        return (G.CALFIB_WAVEGRID / pivot) ** 2
+
+        return G.DEFAULT_BLUE_END_CORRECTION_MULT
+        #pivot = G.DEX_G_EFF_LAM
+        #return (G.CALFIB_WAVEGRID / pivot) ** 2
 
     try:
         if G.ZEROPOINT_FRAC == 0:
