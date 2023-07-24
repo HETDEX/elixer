@@ -3870,8 +3870,8 @@ def zeropoint_mul_correction(ffsky=False, seeing=None, hdr=G.HDR_Version):
 
     def correct_per_lamdba():
         # correct the residual per lambda to deal with flam intrinsic blue bias vs fnu
-        #return 1.0
-        return G.DEFAULT_BLUE_END_CORRECTION_MULT
+        return 1.0
+        #return G.DEFAULT_BLUE_END_CORRECTION_MULT
         #pivot = G.DEX_G_EFF_LAM
         #return (G.CALFIB_WAVEGRID / pivot) ** 2
 
