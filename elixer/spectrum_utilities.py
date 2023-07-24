@@ -3386,7 +3386,7 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
         deci = 2 #2 decimals is plenty
         if seeing < 1.2:
             return 1.0,0
-        elif seeing > 3.0:
+        elif seeing > 2.7: #have cropped 2.8,2.9,3.0"
             return 0,1.0
         elif low == high:
             return 1.0, 0
@@ -3397,6 +3397,64 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
         #correct the residual per lambda to deal with flam intrinsic blue bias vs fnu
         pivot = 4505. #G.DEX_G_EFF_LAM
         return residual / (G.CALFIB_WAVEGRID/pivot)**2
+
+    def shift_model_to_glim(model, frac_limit = 0.75, flux_limit = None, g_limit = None, seeing = None,
+                            ffsky=False, flat_adjust=True):
+        """
+
+        :param model:
+        :param frac_limit: shift the flux_limit (multiply) by this amount before adjusting the model
+                           i.e. to make the limit 20% fainter, frac_limit = 0.8; to make 20% brigher, frac_limit = 1.2
+        :param flux_limit:
+        :param g_limit:
+        :param seeing:
+        :return: fractional correction to the model, updated model
+        """
+
+        frac = 1.0
+        if flux_limit is None and g_limit is None and seeing is None:
+            log.warning("Cannot adjust per fiber sky residual model for shot flux limit. Insufficient info.")
+            return frac, model
+
+        try:
+            wave_idx = 628 #4726AA
+            if flux_limit is None:
+                if g_limit is None:
+                    #use seeing
+                    flux_limit = mag2cgs(estimated_depth(seeing),G.DEX_G_EFF_LAM)
+                    if ffsky:
+                        #have to adjust this for ffsky excess (so the limit has to be brigher
+                        flux_limit *= 2.5
+                else:
+                    #use g_limit converted to flux_limit
+                    flux_limit = mag2cgs(g_limit,G.DEX_G_EFF_LAM)
+            #else use flux_limit
+
+            flux_limit *= frac_limit * 1e17 #model is in 1e17 units erg/s/cm2/AA
+
+            #based on 3.5" aperture point-source weighting
+            #adjust model to be an aperture
+            if seeing is None:
+                seeing = 1.7
+            mul, aper = fiber_to_psf(seeing, aperture=3.5, fiber_spec=model, fiber_err=None)
+
+            model_flux = aper[wave_idx] #index 628 is 4726AA or the G.DEX_G_EFF_LAM
+            delta_flux = (flux_limit - model_flux)/mul #difference back to a single fiber
+            #the mul is an average over the whole spectrum but does not vary a huge amount from blue to red (a few %)
+            # and is close enough given the uncertainites
+
+            original_eff_flux = model[wave_idx]
+            if flat_adjust: #flat adjust?
+                model += delta_flux
+            else:   #OR by lamdba?
+                model += delta_flux / (G.CALFIB_WAVEGRID/G.DEX_G_EFF_LAM)**2
+
+            frac = model[wave_idx] / original_eff_flux
+            return frac, model
+
+        except:
+            log.warning("Exception! Cannot adjust per fiber sky residual model for shot flux limit.",exc_info=True)
+            return frac, model
 
     try:
         #now has to be checked by the caller
@@ -3429,7 +3487,8 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
                 #load the LL models
                 G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS  = np.loadtxt(G.SKY_FIBER_RESIDUAL_HDR3_ALL_FF_MODELS_FN, unpack=True)
                 # 1st column  [idx 0] is the wavelength, cut that off
-                G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS = G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS[1:]
+                # -3 to trim off 2.8, 2.9, 3.0" seeing as those are not well fit
+                G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS = G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS[1:-3]
 
             which_models = G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS
             #zeropoint_shift = G.ZEROPOINT_SHIFT_FF
@@ -3443,7 +3502,8 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
                 #load the LL models
                 G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS  = np.loadtxt(G.SKY_FIBER_RESIDUAL_HDR3_ALL_LL_MODELS_FN, unpack=True)
                 # 1st column  [idx 0] is the wavelength, cut that off
-                G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS = G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS[1:]
+                # -3 to trim off 2.8, 2.9, 3.0" seeing as those are not well fit
+                G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS = G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS[1:-3]
 
             which_models = G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS
             #zeropoint_shift = G.ZEROPOINT_SHIFT_LL
@@ -3459,6 +3519,8 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
             model =  which_models[l]
         else:
             model =  rl*which_models[l] + rh*which_models[h]  #+ zeropoint_shift
+
+        frac, model = shift_model_to_glim(model,ffsky=ffsky,seeing=seeing,flat_adjust=True)
 
         # if model is not None:
         #     model = correct_per_lamdba(model)
@@ -3520,12 +3582,13 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
         return np.nanmedian(fluxd[idx1:idx2+1])
 
     def low_high_rats(seeing,low,high):
+
         #assumes we have 1.2" to 3.0" in steps of 0.1"
         step = 0.1
         deci = 2 #2 decimals is plenty
         if seeing < 1.2:
             return 1.0,0
-        elif seeing > 3.0:
+        elif seeing > 2.7: #have cropped 2.8,2.9,3.0"
             return 0,1.0
         elif low == high:
             return 1.0, 0
@@ -3537,12 +3600,68 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
         pivot = 4505. #G.DEX_G_EFF_LAM
         return residual / (G.CALFIB_WAVEGRID/pivot)**2
 
+    def shift_model_to_glim(model, frac_limit = 0.75, flux_limit = None, g_limit = None, seeing = None,
+                            ffsky=False, flat_adjust=True):
+        """
+        Same as the per-fiber version BUT does not apply fiber to apertures
+
+        :param model:
+        :param frac_limit: shift the flux_limit (multiply) by this amount before adjusting the model
+                           i.e. to make the limit 20% fainter, frac_limit = 0.8; to make 20% brigher, frac_limit = 1.2
+        :param flux_limit:
+        :param g_limit:
+        :param seeing:
+        :return: fractional correction to the model, updated model
+        """
+
+        frac = 1.0
+        if flux_limit is None and g_limit is None and seeing is None:
+            log.warning("Cannot adjust per fiber sky residual model for shot flux limit. Insufficient info.")
+            return frac, model
+
+        try:
+            wave_idx = 628 #4726AA
+            if flux_limit is None:
+                if g_limit is None:
+                    #use seeing
+                    flux_limit = mag2cgs(estimated_depth(seeing),G.DEX_G_EFF_LAM)
+                    if ffsky:
+                        #have to adjust this for ffsky excess (so the limit has to be brigher
+                        flux_limit *= 2.5
+                else:
+                    #use g_limit converted to flux_limit
+                    flux_limit = mag2cgs(g_limit,G.DEX_G_EFF_LAM)
+            #else use flux_limit
+
+            flux_limit *= frac_limit  * 1e17 #model is in 1e17 units erg/s/cm2/AA
+
+            # #based on 3.5" aperture point-source weighting
+            # #adjust model to be an aperture
+            # if seeing is None:
+            #     seeing = 1.7
+            # mul, aper = fiber_to_psf(seeing, aperture=3.5, fiber_spec=model, fiber_err=None)
+            aper = model #just to keep the naming the same
+            mul = 1.0 #just to keep the naming the same
+
+            model_flux = aper[wave_idx] #index 628 is 4726AA or the G.DEX_G_EFF_LAM
+            delta_flux = (flux_limit - model_flux)/mul #difference back to a single fiber
+            #the mul is an average over the whole spectrum but does not vary a huge amount from blue to red (a few %)
+            # and is close enough given the uncertainites
+
+            original_eff_flux = model[wave_idx]
+            if flat_adjust: #flat adjust?
+                model += delta_flux
+            else:   #OR by lamdba?
+                model += delta_flux / (G.CALFIB_WAVEGRID/G.DEX_G_EFF_LAM)**2
+
+            frac = model[wave_idx] / original_eff_flux
+            return frac, model
+
+        except:
+            log.warning("Exception! Cannot adjust per fiber sky residual model for shot flux limit.",exc_info=True)
+            return frac, model
 
     try:
-
-        print("****** TESTING: FORCE 1.7\" aperture ***********")
-        seeing = 1.7
-
 
         #now has to be checked by the caller
         # if G.APPLY_SKY_RESIDUAL_TYPE != 1:
@@ -3582,7 +3701,8 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
                 #load the LL models
                 G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS  = np.loadtxt(G.SKY_APERTURE_RESIDUAL_HDR3_ALL_FF_MODELS_FN, unpack=True)
                 # 1st column  [idx 0] is the wavelength, cut that off
-                G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS = G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS[1:]
+                # -3 to trim off 2.8, 2.9, 3.0" seeing as those are not well fit
+                G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS = G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS[1:-3]
 
             which_models = G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS
             #zeropoint_shift = G.ZEROPOINT_SHIFT_FF
@@ -3596,7 +3716,8 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
                 #load the LL models
                 G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS  = np.loadtxt(G.SKY_APERTURE_RESIDUAL_HDR3_ALL_LL_MODELS_FN, unpack=True)
                 # 1st column  [idx 0] is the wavelength, cut that off
-                G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS = G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS[1:]
+                # -3 to trim off 2.8, 2.9, 3.0" seeing as those are not well fit
+                G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS = G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS[1:-3]
 
             which_models = G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS
             #zeropoint_shift = G.ZEROPOINT_SHIFT_LL
@@ -3615,6 +3736,8 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
 
         # if model is not None:
         #     model = correct_per_lamdba(model)
+
+        frac, model = shift_model_to_glim(model, ffsky=ffsky, seeing=seeing, flat_adjust=True)
 
         #
         # log.warning("***************** Testing 50% **************")

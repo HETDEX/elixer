@@ -1,12 +1,13 @@
 changes to elixer by version
 
-1.20.0a9 [2023-07-19]
+1.20.0a9 [2023-07-24]
 * adding catalog support for fpack
   + optional (temporary) force use of fpack with --fz; this will compress and save the fits if the compressed version
     is not already found IF ON LOCAL TEST HOST
 * updated elixer::build_neighborhood_map() to use HETDEX_API Detections Index rather than direct access to HDF5
 * added safety checks for --continuum vs detection IDs (must match, all continuum or all line)
 * added safety check for HDR version config vs detectID HDR version (i.e. detectID prefix must match)
+* limit seeing selection for residual model to
 
 1.20.0a8 [2023-07-10]
 * small tweaks to sky residual correction in progress (extreme blue and red ends, slight variation in model and selection)
