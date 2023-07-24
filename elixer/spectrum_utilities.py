@@ -3354,6 +3354,40 @@ def fetch_per_shot_single_fiber_sky_subtraction_residual(path,shotid,column,pref
 #     log.error(f"No universal sky residual found.", exc_info=True)
 #     return None
 
+def fine_tune_sky_residual_model_shape():
+    """
+    fine tune the ends of the model, we are not quite getting the very ends correct so this
+    raises the end points a bit (mostly) outside of the g-band filter window as a linear interploated
+    multiplication
+    :return: array of mulitples to tune the model
+    """
+
+    #print("!!!!! fine tune model ends set to all one !!!!! ")
+    #return np.ones(len(G.CALFIB_WAVEGRID))
+
+    try:
+        shape_x = np.ones(len(G.CALFIB_WAVEGRID))  #
+
+        max_blue_value = 1.10
+        end_blue_wave = 4000.0
+        start_red_wave = 5300.0
+        max_red_value = 1.10
+
+        blue_slope = (1.0 - max_blue_value) / (end_blue_wave - 3470.0)
+        red_slope = (max_red_value - 1.0) / (5540 - start_red_wave)
+
+        blue_intercept = max_blue_value - blue_slope * 3470
+        red_intercept = max_red_value - red_slope * 5540
+
+        i, *_ = SU.getnearpos(G.CALFIB_WAVEGRID, end_blue_wave)
+        shape_x[0:i + 1] = blue_slope * G.CALFIB_WAVEGRID[0:i + 1] + blue_intercept
+        i, *_ = SU.getnearpos(G.CALFIB_WAVEGRID, start_red_wave)
+        shape_x[i:] = red_slope * G.CALFIB_WAVEGRID[i:] + red_intercept
+
+        return shape_x
+    except:
+        log.warning("Exception! Exception fine tuning sky residual model shape.", exc_info=True)
+        return np.ones(len(G.CALFIB_WAVEGRID))
 
 def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=False,hdr=G.HDR_Version,zeroflat=False):
     """
@@ -3372,6 +3406,7 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
                      end is artificially inflated.
     :return: the per-fiber model, the average flat background IF zeroflat == True
     """
+
 
     def avg_flat(fluxd):
         #average from 3900-5400 in whatever units we're using
@@ -3398,7 +3433,7 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
         pivot = 4505. #G.DEX_G_EFF_LAM
         return residual / (G.CALFIB_WAVEGRID/pivot)**2
 
-    def shift_model_to_glim(model, frac_limit = 1.0, flux_limit = None, g_limit = None, seeing = None,
+    def shift_model_to_glim(model, frac_limit = 0.5, flux_limit = None, g_limit = None, seeing = None,
                             ffsky=False, flat_adjust=True):
         """
 
@@ -3488,7 +3523,7 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
                 G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS  = np.loadtxt(G.SKY_FIBER_RESIDUAL_HDR3_ALL_FF_MODELS_FN, unpack=True)
                 # 1st column  [idx 0] is the wavelength, cut that off
                 # -3 to trim off 2.8, 2.9, 3.0" seeing as those are not well fit
-                G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS = G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS[1:-3]
+                G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS = G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS[1:-3] * fine_tune_sky_residual_model_shape()
 
             which_models = G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS
             #zeropoint_shift = G.ZEROPOINT_SHIFT_FF
@@ -3503,7 +3538,7 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
                 G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS  = np.loadtxt(G.SKY_FIBER_RESIDUAL_HDR3_ALL_LL_MODELS_FN, unpack=True)
                 # 1st column  [idx 0] is the wavelength, cut that off
                 # -3 to trim off 2.8, 2.9, 3.0" seeing as those are not well fit
-                G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS = G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS[1:-3]
+                G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS = G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS[1:-3] * fine_tune_sky_residual_model_shape()
 
             which_models = G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS
             #zeropoint_shift = G.ZEROPOINT_SHIFT_LL
@@ -3574,6 +3609,7 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
     :return: the per-fiber model, the average flat background IF zeroflat == True
     """
 
+
     def avg_flat(fluxd):
         #average from 3900-5400 in whatever units we're using
         idx1,*_ = getnearpos(G.CALFIB_WAVEGRID,G.ZEROFLAT_BLUE)
@@ -3600,7 +3636,7 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
         pivot = 4505. #G.DEX_G_EFF_LAM
         return residual / (G.CALFIB_WAVEGRID/pivot)**2
 
-    def shift_model_to_glim(model, frac_limit = 1.0, flux_limit = None, g_limit = None, seeing = None,
+    def shift_model_to_glim(model, frac_limit = 0.5, flux_limit = None, g_limit = None, seeing = None,
                             ffsky=False, flat_adjust=True):
         """
         Same as the per-fiber version BUT does not apply fiber to apertures
@@ -3702,7 +3738,7 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
                 G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS  = np.loadtxt(G.SKY_APERTURE_RESIDUAL_HDR3_ALL_FF_MODELS_FN, unpack=True)
                 # 1st column  [idx 0] is the wavelength, cut that off
                 # -3 to trim off 2.8, 2.9, 3.0" seeing as those are not well fit
-                G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS = G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS[1:-3]
+                G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS = G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS[1:-3] * fine_tune_sky_residual_model_shape()
 
             which_models = G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS
             #zeropoint_shift = G.ZEROPOINT_SHIFT_FF
@@ -3717,7 +3753,7 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
                 G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS  = np.loadtxt(G.SKY_APERTURE_RESIDUAL_HDR3_ALL_LL_MODELS_FN, unpack=True)
                 # 1st column  [idx 0] is the wavelength, cut that off
                 # -3 to trim off 2.8, 2.9, 3.0" seeing as those are not well fit
-                G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS = G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS[1:-3]
+                G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS = G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS[1:-3] * fine_tune_sky_residual_model_shape()
 
             which_models = G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS
             #zeropoint_shift = G.ZEROPOINT_SHIFT_LL

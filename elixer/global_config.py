@@ -1365,8 +1365,8 @@ SKY_APERTURE_RESIDUAL_HDR3_ALL_FF_MODELS_FN = op.join(op.dirname(op.realpath(__f
 #ZEROPOINT_SHIFT_FF = 0 #in e-17 erg/s/cm2/AA an extra flat shift applied to Local SKy subtraction models (additive)
 
 #2023-06-29 ... just a guess at the moment ... need to calibrate
-ZEROPOINT_BASE_LL = 0.2 #default mutiplicative zeropoint correction on flux assuming effective wave of 4726AA
-ZEROPOINT_BASE_FF = 0.3
+ZEROPOINT_BASE_LL = 0.4 #default mutiplicative zeropoint correction on flux assuming effective wave of 4726AA
+ZEROPOINT_BASE_FF = 0.5
 ZEROPOINT_FRAC    = 0.0 #fraction of the above correction that is applied (default is 0.0 = not applied at all)
                         #can be adjusted on command line as another fraction of this value
 
