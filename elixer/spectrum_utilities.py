@@ -3398,7 +3398,7 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
         pivot = 4505. #G.DEX_G_EFF_LAM
         return residual / (G.CALFIB_WAVEGRID/pivot)**2
 
-    def shift_model_to_glim(model, frac_limit = 0.75, flux_limit = None, g_limit = None, seeing = None,
+    def shift_model_to_glim(model, frac_limit = 1.0, flux_limit = None, g_limit = None, seeing = None,
                             ffsky=False, flat_adjust=True):
         """
 
@@ -3600,7 +3600,7 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
         pivot = 4505. #G.DEX_G_EFF_LAM
         return residual / (G.CALFIB_WAVEGRID/pivot)**2
 
-    def shift_model_to_glim(model, frac_limit = 0.75, flux_limit = None, g_limit = None, seeing = None,
+    def shift_model_to_glim(model, frac_limit = 1.0, flux_limit = None, g_limit = None, seeing = None,
                             ffsky=False, flat_adjust=True):
         """
         Same as the per-fiber version BUT does not apply fiber to apertures
