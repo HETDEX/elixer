@@ -3354,6 +3354,70 @@ def fetch_per_shot_single_fiber_sky_subtraction_residual(path,shotid,column,pref
 #     log.error(f"No universal sky residual found.", exc_info=True)
 #     return None
 
+def shift_sky_residual_model_to_glim(model, frac_limit = 0.4, flux_limit = None, g_limit = None, seeing = None,
+                        ffsky=False, flat_adjust=True, fiber_model=True):
+    """
+
+    :param model:
+    :param frac_limit: shift the flux_limit (multiply) by this amount before adjusting the model
+                       i.e. to make the limit 20% fainter, frac_limit = 0.8; to make 20% brigher, frac_limit = 1.2
+    :param flux_limit:
+    :param g_limit:
+    :param seeing:
+    :param fiber_model if True, this is a per fiber model. If False, it is an aperture model
+    :return: fractional correction to the model, updated model
+    """
+
+    frac = 1.0
+    if flux_limit is None and g_limit is None and seeing is None:
+        log.warning("Cannot adjust per fiber sky residual model for shot flux limit. Insufficient info.")
+        return frac, model
+
+    try:
+        wave_idx = 628 #4726AA
+        if flux_limit is None:
+            if g_limit is None:
+                #use seeing
+                flux_limit = mag2cgs(estimated_depth(seeing),G.DEX_G_EFF_LAM)
+                if ffsky:
+                    #have to adjust this for ffsky excess (so the limit has to be brigher
+                    print("***** THIS IS A GUESS ***** NEED TO REFINE local to ff-sky limit conversion ")
+                    flux_limit *= 1.3
+            else:
+                #use g_limit converted to flux_limit
+                flux_limit = mag2cgs(g_limit,G.DEX_G_EFF_LAM)
+        #else use flux_limit
+
+        flux_limit *= frac_limit * 1e17 #model is in 1e17 units erg/s/cm2/AA
+
+        #based on 3.5" aperture point-source weighting
+        #adjust model to be an aperture
+        if fiber_model:
+            if seeing is None:
+                seeing = 1.7
+            mul, aper = fiber_to_psf(seeing, aperture=3.5, fiber_spec=model, fiber_err=None)
+        else:
+            aper = model #just to keep the naming the same
+            mul = 1.0 #just to keep the naming the same
+
+        model_flux = aper[wave_idx] #index 628 is 4726AA or the G.DEX_G_EFF_LAM
+        delta_flux = (flux_limit - model_flux)/mul #difference back to a single fiber
+        #the mul is an average over the whole spectrum but does not vary a huge amount from blue to red (a few %)
+        # and is close enough given the uncertainites
+
+        original_eff_flux = model[wave_idx]
+        if flat_adjust: #flat adjust?
+            model += delta_flux
+        else:   #OR by lamdba?
+            model += delta_flux / (G.CALFIB_WAVEGRID/G.DEX_G_EFF_LAM)**2
+
+        frac = model[wave_idx] / original_eff_flux
+        return frac, model
+
+    except:
+        log.warning("Exception! Cannot adjust per fiber sky residual model for shot flux limit.",exc_info=True)
+        return frac, model
+
 def fine_tune_sky_residual_model_shape():
     """
     fine tune the ends of the model, we are not quite getting the very ends correct so this
@@ -3433,64 +3497,6 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
         pivot = 4505. #G.DEX_G_EFF_LAM
         return residual / (G.CALFIB_WAVEGRID/pivot)**2
 
-    def shift_model_to_glim(model, frac_limit = 0.63, flux_limit = None, g_limit = None, seeing = None,
-                            ffsky=False, flat_adjust=True):
-        """
-
-        :param model:
-        :param frac_limit: shift the flux_limit (multiply) by this amount before adjusting the model
-                           i.e. to make the limit 20% fainter, frac_limit = 0.8; to make 20% brigher, frac_limit = 1.2
-        :param flux_limit:
-        :param g_limit:
-        :param seeing:
-        :return: fractional correction to the model, updated model
-        """
-
-        frac = 1.0
-        if flux_limit is None and g_limit is None and seeing is None:
-            log.warning("Cannot adjust per fiber sky residual model for shot flux limit. Insufficient info.")
-            return frac, model
-
-        try:
-            wave_idx = 628 #4726AA
-            if flux_limit is None:
-                if g_limit is None:
-                    #use seeing
-                    flux_limit = mag2cgs(estimated_depth(seeing),G.DEX_G_EFF_LAM)
-                    if ffsky:
-                        #have to adjust this for ffsky excess (so the limit has to be brigher
-                        flux_limit *= 2.5
-                else:
-                    #use g_limit converted to flux_limit
-                    flux_limit = mag2cgs(g_limit,G.DEX_G_EFF_LAM)
-            #else use flux_limit
-
-            flux_limit *= frac_limit * 1e17 #model is in 1e17 units erg/s/cm2/AA
-
-            #based on 3.5" aperture point-source weighting
-            #adjust model to be an aperture
-            if seeing is None:
-                seeing = 1.7
-            mul, aper = fiber_to_psf(seeing, aperture=3.5, fiber_spec=model, fiber_err=None)
-
-            model_flux = aper[wave_idx] #index 628 is 4726AA or the G.DEX_G_EFF_LAM
-            delta_flux = (flux_limit - model_flux)/mul #difference back to a single fiber
-            #the mul is an average over the whole spectrum but does not vary a huge amount from blue to red (a few %)
-            # and is close enough given the uncertainites
-
-            original_eff_flux = model[wave_idx]
-            if flat_adjust: #flat adjust?
-                model += delta_flux
-            else:   #OR by lamdba?
-                model += delta_flux / (G.CALFIB_WAVEGRID/G.DEX_G_EFF_LAM)**2
-
-            frac = model[wave_idx] / original_eff_flux
-            return frac, model
-
-        except:
-            log.warning("Exception! Cannot adjust per fiber sky residual model for shot flux limit.",exc_info=True)
-            return frac, model
-
     try:
         #now has to be checked by the caller
         # if G.APPLY_SKY_RESIDUAL_TYPE != 1:
@@ -3555,7 +3561,7 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
         else:
             model =  rl*which_models[l] + rh*which_models[h]  #+ zeropoint_shift
 
-        frac, model = shift_model_to_glim(model,ffsky=ffsky,seeing=seeing,flat_adjust=True)
+        frac, model = shift_sky_residual_model_to_glim(model,ffsky=ffsky,seeing=seeing,flat_adjust=True)
 
         # if model is not None:
         #     model = correct_per_lamdba(model)
@@ -3636,66 +3642,6 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
         pivot = 4505. #G.DEX_G_EFF_LAM
         return residual / (G.CALFIB_WAVEGRID/pivot)**2
 
-    def shift_model_to_glim(model, frac_limit = 0.63, flux_limit = None, g_limit = None, seeing = None,
-                            ffsky=False, flat_adjust=True):
-        """
-        Same as the per-fiber version BUT does not apply fiber to apertures
-
-        :param model:
-        :param frac_limit: shift the flux_limit (multiply) by this amount before adjusting the model
-                           i.e. to make the limit 20% fainter, frac_limit = 0.8; to make 20% brigher, frac_limit = 1.2
-        :param flux_limit:
-        :param g_limit:
-        :param seeing:
-        :return: fractional correction to the model, updated model
-        """
-
-        frac = 1.0
-        if flux_limit is None and g_limit is None and seeing is None:
-            log.warning("Cannot adjust per fiber sky residual model for shot flux limit. Insufficient info.")
-            return frac, model
-
-        try:
-            wave_idx = 628 #4726AA
-            if flux_limit is None:
-                if g_limit is None:
-                    #use seeing
-                    flux_limit = mag2cgs(estimated_depth(seeing),G.DEX_G_EFF_LAM)
-                    if ffsky:
-                        #have to adjust this for ffsky excess (so the limit has to be brigher
-                        flux_limit *= 2.5
-                else:
-                    #use g_limit converted to flux_limit
-                    flux_limit = mag2cgs(g_limit,G.DEX_G_EFF_LAM)
-            #else use flux_limit
-
-            flux_limit *= frac_limit  * 1e17 #model is in 1e17 units erg/s/cm2/AA
-
-            # #based on 3.5" aperture point-source weighting
-            # #adjust model to be an aperture
-            # if seeing is None:
-            #     seeing = 1.7
-            # mul, aper = fiber_to_psf(seeing, aperture=3.5, fiber_spec=model, fiber_err=None)
-            aper = model #just to keep the naming the same
-            mul = 1.0 #just to keep the naming the same
-
-            model_flux = aper[wave_idx] #index 628 is 4726AA or the G.DEX_G_EFF_LAM
-            delta_flux = (flux_limit - model_flux)/mul #difference back to a single fiber
-            #the mul is an average over the whole spectrum but does not vary a huge amount from blue to red (a few %)
-            # and is close enough given the uncertainites
-
-            original_eff_flux = model[wave_idx]
-            if flat_adjust: #flat adjust?
-                model += delta_flux
-            else:   #OR by lamdba?
-                model += delta_flux / (G.CALFIB_WAVEGRID/G.DEX_G_EFF_LAM)**2
-
-            frac = model[wave_idx] / original_eff_flux
-            return frac, model
-
-        except:
-            log.warning("Exception! Cannot adjust per fiber sky residual model for shot flux limit.",exc_info=True)
-            return frac, model
 
     try:
 
@@ -3773,7 +3719,7 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
         # if model is not None:
         #     model = correct_per_lamdba(model)
 
-        frac, model = shift_model_to_glim(model, ffsky=ffsky, seeing=seeing, flat_adjust=True)
+        frac, model = shift_sky_residual_model_to_glim(model, ffsky=ffsky, seeing=seeing, flat_adjust=True,fiber_model=False)
 
         #
         # log.warning("***************** Testing 50% **************")
