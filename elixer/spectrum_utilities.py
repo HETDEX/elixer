@@ -3379,9 +3379,9 @@ def fine_tune_sky_residual_model_shape():
         blue_intercept = max_blue_value - blue_slope * 3470
         red_intercept = max_red_value - red_slope * 5540
 
-        i, *_ = SU.getnearpos(G.CALFIB_WAVEGRID, end_blue_wave)
+        i, *_ = getnearpos(G.CALFIB_WAVEGRID, end_blue_wave)
         shape_x[0:i + 1] = blue_slope * G.CALFIB_WAVEGRID[0:i + 1] + blue_intercept
-        i, *_ = SU.getnearpos(G.CALFIB_WAVEGRID, start_red_wave)
+        i, *_ = getnearpos(G.CALFIB_WAVEGRID, start_red_wave)
         shape_x[i:] = red_slope * G.CALFIB_WAVEGRID[i:] + red_intercept
 
         return shape_x
@@ -3433,7 +3433,7 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
         pivot = 4505. #G.DEX_G_EFF_LAM
         return residual / (G.CALFIB_WAVEGRID/pivot)**2
 
-    def shift_model_to_glim(model, frac_limit = 0.5, flux_limit = None, g_limit = None, seeing = None,
+    def shift_model_to_glim(model, frac_limit = 0.63, flux_limit = None, g_limit = None, seeing = None,
                             ffsky=False, flat_adjust=True):
         """
 
@@ -3636,7 +3636,7 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
         pivot = 4505. #G.DEX_G_EFF_LAM
         return residual / (G.CALFIB_WAVEGRID/pivot)**2
 
-    def shift_model_to_glim(model, frac_limit = 0.5, flux_limit = None, g_limit = None, seeing = None,
+    def shift_model_to_glim(model, frac_limit = 0.63, flux_limit = None, g_limit = None, seeing = None,
                             ffsky=False, flat_adjust=True):
         """
         Same as the per-fiber version BUT does not apply fiber to apertures
