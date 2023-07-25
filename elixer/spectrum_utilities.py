@@ -3365,13 +3365,10 @@ def fine_tune_sky_residual_model_shape():
     #print("!!!!! fine tune model ends set to all one !!!!! ")
     #return np.ones(len(G.CALFIB_WAVEGRID))
 
-    print("***** REMOVE ME *****")
-    return np.ones(len(G.CALFIB_WAVEGRID))
-
     try:
         shape_x = np.ones(len(G.CALFIB_WAVEGRID))  #
 
-        max_blue_value = 1.10
+        max_blue_value = 1.20
         end_blue_wave = 4000.0
         start_red_wave = 5300.0
         max_red_value = 1.10
