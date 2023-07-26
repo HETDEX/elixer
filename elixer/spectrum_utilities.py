@@ -3561,7 +3561,7 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
         else:
             model =  rl*which_models[l] + rh*which_models[h]  #+ zeropoint_shift
 
-        frac, model = shift_sky_residual_model_to_glim(model,ffsky=ffsky,seeing=seeing,flat_adjust=False)
+        frac, model = shift_sky_residual_model_to_glim(model,ffsky=ffsky,seeing=seeing,flat_adjust=True)
 
         # if model is not None:
         #     model = correct_per_lamdba(model)
@@ -3719,7 +3719,7 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
         # if model is not None:
         #     model = correct_per_lamdba(model)
 
-        frac, model = shift_sky_residual_model_to_glim(model, ffsky=ffsky, seeing=seeing, flat_adjust=False,fiber_model=False)
+        frac, model = shift_sky_residual_model_to_glim(model, ffsky=ffsky, seeing=seeing, flat_adjust=True,fiber_model=False)
 
         #
         # log.warning("***************** Testing 50% **************")
@@ -3826,7 +3826,7 @@ def zeropoint_add_correction(fluxd=None,fluxd_err=None,eff_fluxd=None,ffsky=Fals
         return None
 
 
-def zeropoint_mul_correction(ffsky=False, seeing=None, hdr=G.HDR_Version):
+def zeropoint_mul_correction(ffsky=False, seeing=None, hdr=G.HDR_Version):#, flat=True):
     """
     Applied at the PSF Weighted aperture level NOT PER FIBER
 
@@ -3852,10 +3852,10 @@ def zeropoint_mul_correction(ffsky=False, seeing=None, hdr=G.HDR_Version):
 
     def correct_per_lamdba():
         # correct the residual per lambda to deal with flam intrinsic blue bias vs fnu
-        return 1.0
+        #return 1.0
         #return G.DEFAULT_BLUE_END_CORRECTION_MULT
-        #pivot = G.DEX_G_EFF_LAM
-        #return (G.CALFIB_WAVEGRID / pivot) ** 2
+        pivot = G.DEX_G_EFF_LAM
+        return (G.CALFIB_WAVEGRID / pivot) ** 2
 
     try:
         if G.ZEROPOINT_FRAC == 0:
@@ -3869,9 +3869,9 @@ def zeropoint_mul_correction(ffsky=False, seeing=None, hdr=G.HDR_Version):
             return None
 
         if ffsky: # like 0.2 * 1.0 *
-            fluxd_corr = (1.0 -G.ZEROPOINT_BASE_FF) * G.ZEROPOINT_FRAC * correct_per_lamdba()
+            fluxd_corr = (1.0 -G.ZEROPOINT_BASE_FF) * G.ZEROPOINT_FRAC # * 1.0 if flat else correct_per_lamdba()
         else:  # local sky
-            fluxd_corr = (1.0- G.ZEROPOINT_BASE_LL) * G.ZEROPOINT_FRAC * correct_per_lamdba()
+            fluxd_corr = (1.0- G.ZEROPOINT_BASE_LL) * G.ZEROPOINT_FRAC # * 1.0 if flat else correct_per_lamdba()
 
         return fluxd_corr
 
