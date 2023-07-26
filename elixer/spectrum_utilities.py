@@ -3426,8 +3426,8 @@ def fine_tune_sky_residual_model_shape():
     :return: array of mulitples to tune the model
     """
 
-    #print("!!!!! fine tune model ends set to all one !!!!! ")
-    #return np.ones(len(G.CALFIB_WAVEGRID))
+    print("!!!!! fine tune model ends set to all one !!!!! ")
+    return np.ones(len(G.CALFIB_WAVEGRID))
 
     try:
         shape_x = np.ones(len(G.CALFIB_WAVEGRID))  #
