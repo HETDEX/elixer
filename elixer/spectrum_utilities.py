@@ -3354,7 +3354,7 @@ def fetch_per_shot_single_fiber_sky_subtraction_residual(path,shotid,column,pref
 #     log.error(f"No universal sky residual found.", exc_info=True)
 #     return None
 
-def shift_sky_residual_model_to_glim(model, frac_limit = 0.4, flux_limit = None, g_limit = None, seeing = None,
+def shift_sky_residual_model_to_glim(model, frac_limit = 0.35, flux_limit = None, g_limit = None, seeing = None,
                         ffsky=False, flat_adjust=True, fiber_model=True):
     """
 
@@ -3426,8 +3426,8 @@ def fine_tune_sky_residual_model_shape():
     :return: array of mulitples to tune the model
     """
 
-    print("!!!!! fine tune model ends set to all one !!!!! ")
-    return np.ones(len(G.CALFIB_WAVEGRID))
+    # print("!!!!! fine tune model ends set to all one !!!!! ")
+    # return np.ones(len(G.CALFIB_WAVEGRID))
 
     try:
         shape_x = np.ones(len(G.CALFIB_WAVEGRID))  #
@@ -3529,7 +3529,7 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
                 G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS  = np.loadtxt(G.SKY_FIBER_RESIDUAL_HDR3_ALL_FF_MODELS_FN, unpack=True)
                 # 1st column  [idx 0] is the wavelength, cut that off
                 # -3 to trim off 2.8, 2.9, 3.0" seeing as those are not well fit
-                G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS = G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS[1:-3] * fine_tune_sky_residual_model_shape()
+                G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS = G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS[1:-3] #* fine_tune_sky_residual_model_shape()
 
             which_models = G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS
             #zeropoint_shift = G.ZEROPOINT_SHIFT_FF
@@ -3544,7 +3544,7 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
                 G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS  = np.loadtxt(G.SKY_FIBER_RESIDUAL_HDR3_ALL_LL_MODELS_FN, unpack=True)
                 # 1st column  [idx 0] is the wavelength, cut that off
                 # -3 to trim off 2.8, 2.9, 3.0" seeing as those are not well fit
-                G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS = G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS[1:-3] * fine_tune_sky_residual_model_shape()
+                G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS = G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS[1:-3] #* fine_tune_sky_residual_model_shape()
 
             which_models = G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS
             #zeropoint_shift = G.ZEROPOINT_SHIFT_LL
@@ -3561,7 +3561,7 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
         else:
             model =  rl*which_models[l] + rh*which_models[h]  #+ zeropoint_shift
 
-        frac, model = shift_sky_residual_model_to_glim(model,ffsky=ffsky,seeing=seeing,flat_adjust=True)
+        frac, model = shift_sky_residual_model_to_glim(model,ffsky=ffsky,seeing=seeing,flat_adjust=False)
 
         # if model is not None:
         #     model = correct_per_lamdba(model)
@@ -3684,7 +3684,7 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
                 G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS  = np.loadtxt(G.SKY_APERTURE_RESIDUAL_HDR3_ALL_FF_MODELS_FN, unpack=True)
                 # 1st column  [idx 0] is the wavelength, cut that off
                 # -3 to trim off 2.8, 2.9, 3.0" seeing as those are not well fit
-                G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS = G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS[1:-3] * fine_tune_sky_residual_model_shape()
+                G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS = G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS[1:-3] #* fine_tune_sky_residual_model_shape()
 
             which_models = G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS
             #zeropoint_shift = G.ZEROPOINT_SHIFT_FF
@@ -3699,7 +3699,7 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
                 G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS  = np.loadtxt(G.SKY_APERTURE_RESIDUAL_HDR3_ALL_LL_MODELS_FN, unpack=True)
                 # 1st column  [idx 0] is the wavelength, cut that off
                 # -3 to trim off 2.8, 2.9, 3.0" seeing as those are not well fit
-                G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS = G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS[1:-3] * fine_tune_sky_residual_model_shape()
+                G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS = G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS[1:-3] #* fine_tune_sky_residual_model_shape()
 
             which_models = G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS
             #zeropoint_shift = G.ZEROPOINT_SHIFT_LL
@@ -3719,7 +3719,7 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
         # if model is not None:
         #     model = correct_per_lamdba(model)
 
-        frac, model = shift_sky_residual_model_to_glim(model, ffsky=ffsky, seeing=seeing, flat_adjust=True,fiber_model=False)
+        frac, model = shift_sky_residual_model_to_glim(model, ffsky=ffsky, seeing=seeing, flat_adjust=False,fiber_model=False)
 
         #
         # log.warning("***************** Testing 50% **************")
