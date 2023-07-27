@@ -3400,18 +3400,27 @@ def shift_sky_residual_model_to_glim(model, frac_limit = 0.35, flux_limit = None
             aper = model #just to keep the naming the same
             mul = 1.0 #just to keep the naming the same
 
-        model_flux = aper[wave_idx] #index 628 is 4726AA or the G.DEX_G_EFF_LAM
+        try:
+            _,_,model_flux,_ = get_best_gmag(aper * 1e-17, None, G.CALFIB_WAVEGRID)
+            model_flux *= 1e17
+        except:
+            model_flux = None
+
+        if model_flux is None:
+            model_flux = aper[wave_idx] #index 628 is 4726AA or the G.DEX_G_EFF_LAM
         delta_flux = (flux_limit - model_flux)/mul #difference back to a single fiber
         #the mul is an average over the whole spectrum but does not vary a huge amount from blue to red (a few %)
         # and is close enough given the uncertainites
 
-        original_eff_flux = model[wave_idx]
+        original_flux = np.mean(model) #model_flux/mul
         if flat_adjust: #flat adjust?
             model += delta_flux
         else:   #OR by lamdba?
             model += delta_flux / (G.CALFIB_WAVEGRID/G.DEX_G_EFF_LAM)**2
 
-        frac = model[wave_idx] / original_eff_flux
+        #frac = model[wave_idx] / original_eff_flux
+        frac = np.mean(model)/original_flux #zero should not happen
+
         return frac, model
 
     except:
@@ -3494,7 +3503,7 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
 
     def correct_per_lamdba(residual):
         #correct the residual per lambda to deal with flam intrinsic blue bias vs fnu
-        pivot = 4505. #G.DEX_G_EFF_LAM
+        pivot = G.DEX_G_EFF_LAM
         return residual / (G.CALFIB_WAVEGRID/pivot)**2
 
     try:
@@ -3561,7 +3570,7 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
         else:
             model =  rl*which_models[l] + rh*which_models[h]  #+ zeropoint_shift
 
-        frac, model = shift_sky_residual_model_to_glim(model,ffsky=ffsky,seeing=seeing,flat_adjust=False)
+        #frac, model = shift_sky_residual_model_to_glim(model,ffsky=ffsky,seeing=seeing,flat_adjust=False)
 
         # if model is not None:
         #     model = correct_per_lamdba(model)
@@ -3719,7 +3728,7 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
         # if model is not None:
         #     model = correct_per_lamdba(model)
 
-        frac, model = shift_sky_residual_model_to_glim(model, ffsky=ffsky, seeing=seeing, flat_adjust=False,fiber_model=False)
+        #frac, model = shift_sky_residual_model_to_glim(model, ffsky=ffsky, seeing=seeing, flat_adjust=False,fiber_model=False)
 
         #
         # log.warning("***************** Testing 50% **************")
