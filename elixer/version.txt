@@ -1,5 +1,10 @@
 changes to elixer by version
 
+1.20.0 [2023-07-27]
+* tag as 1.20.0 for HDR4
+* (note: per fiber and zero point still being tuned but those features are NOT USED during an HDRx run)
+
+
 1.20.0a9 [2023-07-24]
 * adding catalog support for fpack
   + optional (temporary) force use of fpack with --fz; this will compress and save the fits if the compressed version
