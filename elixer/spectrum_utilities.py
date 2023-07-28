@@ -3439,7 +3439,8 @@ def fine_tune_sky_residual_model_shape(model):
     # return np.ones(len(G.CALFIB_WAVEGRID))
 
     try:
-        shift = 0.0006 #this is the media shift (erg/s/cm2/AA e-17) from +0.16 to +0.5
+        #shift = 0.0006 #this is the media shift (erg/s/cm2/AA e-17) from +0.16 to +0.5
+        shift = 0
         shape_x = np.ones(len(G.CALFIB_WAVEGRID))  #
 
         max_blue_value = 1.20
@@ -3573,7 +3574,7 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
         else:
             model =  rl*which_models[l] + rh*which_models[h]  #+ zeropoint_shift
 
-        #frac, model = shift_sky_residual_model_to_glim(model,ffsky=ffsky,seeing=seeing,flat_adjust=False)
+        frac, model = shift_sky_residual_model_to_glim(model,ffsky=ffsky,seeing=seeing,flat_adjust=False)
 
         # if model is not None:
         #     model = correct_per_lamdba(model)
@@ -3733,7 +3734,7 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
         # if model is not None:
         #     model = correct_per_lamdba(model)
 
-        #frac, model = shift_sky_residual_model_to_glim(model, ffsky=ffsky, seeing=seeing, flat_adjust=False,fiber_model=False)
+        frac, model = shift_sky_residual_model_to_glim(model, ffsky=ffsky, seeing=seeing, flat_adjust=False,fiber_model=False)
 
         #
         # log.warning("***************** Testing 50% **************")
