@@ -6604,6 +6604,8 @@ def main():
                             try: #these can be expensive (memory) so free them now as they are no longer needed
                                 del e.nei_mini_buf
                                 del e.line_mini_buf
+                                del nei_mini_buf
+                                del line_mini_buf
                             except:
                                 pass
                     except:
