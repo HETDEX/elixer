@@ -628,10 +628,10 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
                     #either no .sid file or we found the src_id
                     #turn off lazy loading ... unfortunately, to search, we need it all
-                    log.info(f"*** {f}")
+                    #log.debug(f"*** {f}")
                     hdulist = astropyFITS.open(f, mode="readonly",memmap=True, lazy_load_hdus=True,
                                                ignore_missing_simple=True)
-                    log.info("*** hdulist open complete")
+                    #log.debug("*** hdulist open complete")
                     if idx is not None and len(idx)==1: #idx is still an array here, with one element
                         # confirm the src_id
                         if src_id != hdulist[1].data[idx[0]][0]:

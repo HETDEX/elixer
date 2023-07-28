@@ -69,6 +69,8 @@ import fnmatch
 import errno
 import time
 import numpy as np
+import gc
+
 #import re
 from PIL import Image as PIL_Image
 from PIL import ImageFile as PIL_ImageFile
@@ -4357,63 +4359,93 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             use_rawh5 = True
             #first the line detections
             for d,w,s,st in zip(detectids,emis_line_wave,survey_names,shotids):
-                try:
-                    key = f"{s}_line"
-                    dT = G.the_DetectionsDict[key].get_spectrum(detectid_i=d,deredden=True,ffsky=ffsky,rawh5=use_rawh5)
-                    #get back a table with wave1d, spec1d, spec1d_err
-                    if dT is not None and len(dT) == len(G.CALFIB_WAVEGRID):
-                        if use_rawh5:
-                            spec.append(dT['spec1d'])  # *G.FLUX_WAVEBIN_WIDTH)  # already as flux in 2AA bins
+                #can be memory issues
+                retry = 5
+                while retry > 0:
+                    try:
+                        key = f"{s}_line"
+                        dT = G.the_DetectionsDict[key].get_spectrum(detectid_i=d,deredden=True,ffsky=ffsky,rawh5=use_rawh5)
+                        #get back a table with wave1d, spec1d, spec1d_err
+                        if dT is not None and len(dT) == len(G.CALFIB_WAVEGRID):
+                            if use_rawh5:
+                                spec.append(dT['spec1d'])  # *G.FLUX_WAVEBIN_WIDTH)  # already as flux in 2AA bins
+                            else:
+                                spec.append(dT['spec1d'] * G.FLUX_WAVEBIN_WIDTH)  # comes in as per AA, so mult by 2
+                            wave.append(dT['wave1d'])
+                            emis.append(w)
+                            shot.append(st)
                         else:
-                            spec.append(dT['spec1d'] * G.FLUX_WAVEBIN_WIDTH)  # comes in as per AA, so mult by 2
-                        wave.append(dT['wave1d'])
-                        emis.append(w)
-                        shot.append(st)
-                    else:
+                            spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
+                            wave.append(G.CALFIB_WAVEGRID)
+                            emis.append(-1.0)
+                            shot.append(0)
+                        try:
+                            del dT
+                        except:
+                            pass
+
+                        if retry < 5:
+                            log.info("++++ it worked (memory)")
+                        retry = 0 #all good
+
+                    except (MemoryError, mmap.error):
+                        gc.collect()  # try to force an immediate clean up
+                        retry -= 1
+                        t2sleep = np.random.random_integers(0, 5000) / 1000.  # sleep up to 5 sec
+                        log.info(f"+++++ Memory issue? Random sleep {t2sleep:0.4f}s. Retries remaining {retry}")
+                        time.sleep(t2sleep)
+
+                    except Exception as E:
                         spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
                         wave.append(G.CALFIB_WAVEGRID)
                         emis.append(-1.0)
                         shot.append(0)
-                    try:
-                        del dT
-                    except:
-                        pass
-                except:
-                    spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
-                    wave.append(G.CALFIB_WAVEGRID)
-                    emis.append(-1.0)
-                    shot.append(0)
-                    log.warning(f"Unable to load specific neighbor spectra {d} from HETDEX_API.", exc_info=True)
+                        log.warning(f"Unable to load specific neighbor spectra {d} from HETDEX_API.", exc_info=True)
 
             #then the continuum
             for d,s,st in zip(cont_detectids,cont_survey_names,cont_shotids):
-                try:
-                    key = f"{s}_cont"
-                    dT = G.the_DetectionsDict[key].get_spectrum(detectid_i=d, deredden=True, ffsky=ffsky, rawh5=use_rawh5)
-                    # get back a table with wave1d, spec1d, spec1d_err
-                    if dT is not None and len(dT) == len(G.CALFIB_WAVEGRID):
-                        if use_rawh5:
-                            spec.append(dT['spec1d'])#*G.FLUX_WAVEBIN_WIDTH)  # already as flux in 2AA bins
+                retry = 5
+                while retry > 0:
+                    try:
+                        key = f"{s}_cont"
+                        dT = G.the_DetectionsDict[key].get_spectrum(detectid_i=d, deredden=True, ffsky=ffsky, rawh5=use_rawh5)
+                        # get back a table with wave1d, spec1d, spec1d_err
+                        if dT is not None and len(dT) == len(G.CALFIB_WAVEGRID):
+                            if use_rawh5:
+                                spec.append(dT['spec1d'])#*G.FLUX_WAVEBIN_WIDTH)  # already as flux in 2AA bins
+                            else:
+                                spec.append(dT['spec1d']*G.FLUX_WAVEBIN_WIDTH)  # comes in as per AA, so mult by 2
+                            wave.append(dT['wave1d'])
+                            emis.append(-1.0)
+                            shot.append(st)
                         else:
-                            spec.append(dT['spec1d']*G.FLUX_WAVEBIN_WIDTH)  # comes in as per AA, so mult by 2
-                        wave.append(dT['wave1d'])
-                        emis.append(-1.0)
-                        shot.append(st)
-                    else:
+                            spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
+                            wave.append(G.CALFIB_WAVEGRID)
+                            emis.append(-1.0)
+                            shot.append(0)
+                        try:
+                            del dT
+                        except:
+                            pass
+
+                        if retry < 5:
+                            log.info("++++ it worked (memory)")
+                        retry = 0  # all good
+
+                    except (MemoryError, mmap.error):
+                        gc.collect()  # try to force an immediate clean up
+                        retry -= 1
+                        t2sleep = np.random.random_integers(0, 5000) / 1000.  # sleep up to 5 sec
+                        log.info(f"+++++ Memory issue? Random sleep {t2sleep:0.4f}s. Retries remaining {retry}")
+                        time.sleep(t2sleep)
+
+                    except Exception as E:
                         spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
                         wave.append(G.CALFIB_WAVEGRID)
                         emis.append(-1.0)
                         shot.append(0)
-                    try:
-                        del dT
-                    except:
-                        pass
-                except:
-                    spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
-                    wave.append(G.CALFIB_WAVEGRID)
-                    emis.append(-1.0)
-                    shot.append(0)
-                    log.warning(f"Unable to load specific neighbor spectra {d} from HETDEX_API.", exc_info=True)
+                        log.warning(f"Unable to load specific neighbor spectra {d} from HETDEX_API.", exc_info=True)
+
         except:
             log.warning(f"Unable to load neighbor spectra from HETDEX_API.",exc_info=True)
 
@@ -5825,7 +5857,7 @@ def main():
                                                 combined_ew = 0
                                                 combined_ew_err = 0
 
-                                            if len(p_of_z_list) > 0 and p_of_z_list[0] > 0:
+                                            if len(p_of_z_list) > 0 and p_of_z_list[0] >= 0:
                                                 if e.cluster_z == best_z_list[0]:
                                                     #scale_plae = scale_plae_list[0]
                                                     p_of_z = p_of_z_list[0]
@@ -5854,7 +5886,7 @@ def main():
                                                                                                    allow_absorption=False,
                                                                                                    allow_emission=True).name
                                                         else:
-                                                            line_label = e.spec_obj.match_line(e.w,best_z_list[0],aa_error=6.0).name
+                                                            line_label = e.spec_obj.match_line(e.w,best_z_list[0],aa_error=6.0,continuum=G.CONTINUUM_RULES).name
                                                     except:
                                                         line_label = ""
 

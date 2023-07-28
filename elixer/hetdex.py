@@ -2144,7 +2144,7 @@ class DetObj:
                     pass
 
                 if not use_multi:
-                    if broad:
+                    if broad and self.estflux > 0:
                         z = self.w / G.OII_rest - 1.0
                         rest = G.OII_rest
                         p = min(p/2.,0.1) #remember, this is just NOT LyA .. so while OII is the most common, it is hardly the only solution
@@ -2431,6 +2431,32 @@ class DetObj:
                     p = p * corr
             except:
                 pass
+
+
+            #check vs calling it OII for absorption just because there is nothing else
+            try:
+                if (self.eqw_obs < 0 or self.estflux < 0) and np.isclose(z,self.w/G.OII_rest -1.,atol=0.0001):
+                    self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
+                    if G.CONTINUUM_RULES:
+                        #this is more likley an H&K
+                        z = self.w/G.CaII_H_3968 - 1.
+                        log.info(f"Continuum rules. Absorption. More likly H&K (set to H) that OII. Setting z: {z}")
+                    p = 0
+            except:
+                pass
+
+            #check for stupid broad that is a horrible fit
+            try:
+                if self.estflux > 0 and self.snr < 7.5 and self.spec_obj.central_eli.fit_sigma > 20.0 and \
+                        self.spec_obj.central_eli.fit_sigma/self.spec_obj.central_eli.fit_sigma_err < 2.0:
+                    p = min(p,0.0)
+                    self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
+                    self.flags |= G.DETFLAG_QUESTIONABLE_DETECTION
+                    log.info(f"Really broad, poor fit. Questionable. Setting Q(z) to 0")
+
+            except:
+                pass
+
 
             self.best_z_uncorrected = z
             self.best_p_of_z = p
@@ -2950,21 +2976,22 @@ class DetObj:
                 #check blue and red sides for strong negative dip (vs what is predicted)
                 #look at 3sigma to 5 sigma?
                 eli = self.spec_obj.central_eli
-                #peak_bin = SU.getnearpos(eli.raw_wave,eli.fit_x0)
-                blue_start,*_ = SU.getnearpos(eli.raw_wave, eli.fit_x0 - eli.fit_sigma * 5) #an index is returned
-                blue_stop,*_ = SU.getnearpos(eli.raw_wave, eli.fit_x0 - eli.fit_sigma * 3)
+                if eli.raw_wave is not None and len(eli.raw_wave) > 0:
+                    #peak_bin = SU.getnearpos(eli.raw_wave,eli.fit_x0)
+                    blue_start,*_ = SU.getnearpos(eli.raw_wave, eli.fit_x0 - eli.fit_sigma * 5) #an index is returned
+                    blue_stop,*_ = SU.getnearpos(eli.raw_wave, eli.fit_x0 - eli.fit_sigma * 3)
 
-                red_start,*_ = SU.getnearpos(eli.raw_wave, eli.fit_x0 + eli.fit_sigma * 3)  # an index is returned
-                red_stop,*_ = SU.getnearpos(eli.raw_wave, eli.fit_x0 + eli.fit_sigma * 5)
+                    red_start,*_ = SU.getnearpos(eli.raw_wave, eli.fit_x0 + eli.fit_sigma * 3)  # an index is returned
+                    red_stop,*_ = SU.getnearpos(eli.raw_wave, eli.fit_x0 + eli.fit_sigma * 5)
 
-                blue_side = np.mean(eli.raw_vals[blue_start:blue_stop+1]) - eli.fit_y
-                red_side = np.mean(eli.raw_vals[red_start:red_stop+1]) - eli.fit_y
+                    blue_side = np.mean(eli.raw_vals[blue_start:blue_stop+1]) - eli.fit_y
+                    red_side = np.mean(eli.raw_vals[red_start:red_stop+1]) - eli.fit_y
 
-                #either or both sides must be negative and the difference / mean
-                if ((blue_side < 0) or (red_side < 0)) and (abs((blue_side-red_side)/np.mean([blue_side ,red_side])) > 2.0):
-                    self.flags |= G.DETFLAG_BAD_PIXELS
-                    self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
-                    log.info(f"{self.entry_id} detection possibly caused by bad pixels.")
+                    #either or both sides must be negative and the difference / mean
+                    if ((blue_side < 0) or (red_side < 0)) and (abs((blue_side-red_side)/np.mean([blue_side ,red_side])) > 2.0):
+                        self.flags |= G.DETFLAG_BAD_PIXELS
+                        self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
+                        log.info(f"{self.entry_id} detection possibly caused by bad pixels.")
 
         except:
             #not a severe exception so just log an move on
@@ -4323,7 +4350,7 @@ class DetObj:
             #this fails if LyA blue is really strong (high escape fraction)
             #really want to check just right near the line and want at least 3 wavebins
             #if self.snr is not None and self.snr > 6.0 and self.fwhm > 8.0:
-            if G.VOTER_ACTIVE & G.VOTE_ASYMMETRIC_LINEFLUX: #for now always do this as I want the info, but only vote if the condition is met
+            if G.VOTER_ACTIVE & G.VOTE_ASYMMETRIC_LINEFLUX and self.estflux > 0: #for now always do this as I want the info, but only vote if the condition is met
 
                 line_width = max(3,round(self.fwhm /2.355/G.FLUX_WAVEBIN_WIDTH))
 
@@ -4402,7 +4429,7 @@ class DetObj:
         #################################################
         try: #sometimes there is no central_eli (if we just can't get a fit)
 
-            if G.VOTER_ACTIVE & G.VOTE_STRAIGHT_LINE_SIGMA:
+            if G.VOTER_ACTIVE & G.VOTE_STRAIGHT_LINE_SIGMA and self.estflux > 0:
 
                 if self.fwhm is not None:
                     vote_line_sigma = self.fwhm / 2.355
@@ -4434,6 +4461,11 @@ class DetObj:
                         w = 1 * line_vote_weight_mul
                     else:
                         w = min(vote_line_sigma / G.LINEWIDTH_SIGMA_TRANSITION - 1.0, 1.0) * line_vote_weight_mul #limit to 1.0 max
+
+                    #modify for horrible fit
+                    if vote_line_sigma > 20.0 and vote_line_sigma/vote_line_sigma_unc < 2.0 and self.snr < 7.5:
+                        w  = min(w,0.1)
+                        self.flags |= G.DETFLAG_QUESTIONABLE_DETECTION
 
                     try:
                         ew = self.best_eqw_gmag_obs / ( 1 + self.w / G.LyA_rest)
@@ -4469,7 +4501,7 @@ class DetObj:
         ###################################
         try:
 
-            if G.VOTER_ACTIVE & G.VOTE_STRAIGHT_EW:
+            if G.VOTER_ACTIVE & G.VOTE_STRAIGHT_EW and self.estflux > 0:
 
                 delta_thresh = 0
                 rat_thresh = 0
@@ -4927,7 +4959,7 @@ class DetObj:
                     prior.append(base_assumption)
 
                     vote_info['dex_ew_plae_correction_vote'] = likelihood[-1]
-                    vote_info['dex_ew_plae_correction_vote'] = weight[-1]
+                    vote_info['dex_ew_plae_correction_weight'] = weight[-1]
                     log.info(
                         f"{self.entry_id} Aggregate Classification: EW + PLAE/POII correction vote: lk({likelihood[-1]}) "
                         f"weight({weight[-1]}); ew-ew_err: { ew-ew_err:0.2f}, PLAE(lo): {self.classification_dict['plae_hat_lo']}")
@@ -4937,6 +4969,34 @@ class DetObj:
                         f" ew-ew_err: { ew-ew_err:0.2f}, PLAE(lo): {self.classification_dict['plae_hat_lo']}")
         except:
             pass
+
+
+
+        #################################################################
+        # sanity check against absorption getting large P(LyA)
+        # while it is possible to have LyA in Abosption, ELiXer is based on EMISSION
+        # and it is unlikely that we truly pickup LyA in Abosrption
+        #
+        #
+        ##################################################################
+
+        try:
+            if self.estflux < 0:# and self.spec_obj.central_eli.
+                likelihood.append(0.0)
+                weight.append(1)
+                var.append(1)
+                prior.append(base_assumption)
+
+                vote_info['absorption_vote'] = likelihood[-1]
+                vote_info['absorption_weight'] = weight[-1]
+
+                log.info(
+                    f"{self.entry_id} Aggregate Classification: absorption vote: lk({likelihood[-1]}) weight({weight[-1]})")
+        except:
+            pass
+
+
+
 
         ###################################
         # general magnitude + EW vote
