@@ -3748,7 +3748,8 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     except:
         pass
 
-
+    all_ras = [] #initial declaration (used throughtout and will be replaced as ra and dec are found)
+    all_decs = []
     #this is THIS detection, so load it as usual if neceessary to get the RA, Dec
     if (detectid is not None) and (ra is None):
         try:
@@ -3827,6 +3828,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                 if cont_detectids is not None:
                     total_detectids += len(cont_detectids)
         else: #query method from Detections, not hdf5 files
+
             detectids = []
             ras = []
             decs = []
@@ -3884,6 +3886,9 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                     total_detectids += np.count_nonzero(src_sel)
                     all_ras = ras[:]
                     all_decs = decs[:]
+                else:
+                    all_ras = []
+                    all_decs = []
 
                 #continuum
                 src_sel = NeiTab['det_type'] == 'cont'
