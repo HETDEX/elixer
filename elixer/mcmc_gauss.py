@@ -121,6 +121,7 @@ class MCMC_Gauss:
         self.max_A_mult = 2.0
         self.max_y_mult = 2.0
         self.min_y = -10.0 #-100.0 #should this be zero? or some above zero but low limit
+        self.max_y = np.inf #used instead of max_y_mult * peak for absorbers
 
         self.data_x = None
         self.data_y = None
@@ -238,7 +239,7 @@ class MCMC_Gauss:
             if (-self.range_mu < (mu - self.initial_mu) < self.range_mu) and \
                     (self.min_sigma < sigma < self.max_sigma) and \
                     (self.max_A_mult * self.initial_A < A < 0.0) and \
-                    (self.min_y < y < self.max_y_mult * self.initial_peak):
+                    (self.min_y < y < self.max_y ):
                 return 0.0  # remember this is ln(prior) so a return of 0.0 == 1  (since ln(1) == 0.0)
         else:
             if (-self.range_mu < (mu - self.initial_mu) < self.range_mu) and \
@@ -316,6 +317,10 @@ class MCMC_Gauss:
         #note: assumes data_x (the spectral axis) and err_x have none since they are on a known grid
         data_nans = np.isnan(self.data_y)
         err_nans = np.isnan(self.err_y)
+
+        if self.initial_A < 0: #absorber
+            if self.max_y is None or np.inf:
+                self.max_y = np.max(self.data_y) * 1.5 #give a little extra room
 
         if (np.sum(data_nans) > 0) or (np.sum(err_nans) > 0):
             self.data_y = copy.copy(self.data_y)[~data_nans]

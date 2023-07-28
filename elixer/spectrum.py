@@ -2137,11 +2137,11 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         # loop over a few ranges and choose the "best"
 
         if absorber:
-            fit_dict_array = [
-                               # {"type": "small", "fit_range_AA": fit_range_AA, "wave_fit_side_aa": 20.0,
-                               # "min_fit_sigma": 1.5, "max_fit_sigma": 5.5, "min_snr": 5.0,
-                               # "max_gmag": 99, "min_gmag": G.BROADLINE_GMAG_MAX,
-                               # "snr": 0, "chi2": 999, "ew": 0, "parm": [], "pcov": [], "model": None, "score": 0},
+            fit_dict_array = [#much larger than 20AA side can miss H&k
+                               {"type": "small", "fit_range_AA": fit_range_AA, "wave_fit_side_aa": 20.0,
+                               "min_fit_sigma": 1.5, "max_fit_sigma": 5.5, "min_snr":  6.0,
+                               "max_gmag": 99, "min_gmag": 0,
+                               "snr": 0, "chi2": 999, "ew": 0, "parm": [], "pcov": [], "model": None, "score": 0},
 
                               {"type": "medium", "fit_range_AA": fit_range_AA, "wave_fit_side_aa": 40.0,
                                "min_fit_sigma": 2.0, "max_fit_sigma": 8.5, "min_snr": 6.0, #higher SNR requireed for absorption
@@ -2249,7 +2249,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                   f"{fit_dict_array[fd_idx]['type']}, quick score {fit_dict_array[fd_idx]['score']:0.1f}, "
                   f"snr {fit_dict_array[fd_idx]['snr']:0.1f}, chi2 {fit_dict_array[fd_idx]['chi2']:0.1f}, "
                   f"sigma {fit_dict_array[fd_idx]['parm'][1]:0.1f}, area {fit_dict_array[fd_idx]['parm'][2]:0.1f}, "
-                  f"ew {fit_dict_array[fd_idx]['ew']:0.1f} ")
+                  f"ew {fit_dict_array[fd_idx]['ew']:0.1f}, cont {fit_dict_array[fd_idx]['parm'][3]:0.1f} ")
 
         #EXTRA logging for debugging
         # for idx in range(len(fit_dict_array)):
@@ -2863,6 +2863,10 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         mcmc.data_x = narrow_wave_x
         mcmc.data_y = narrow_wave_counts # / adjust
         mcmc.err_y = narrow_wave_errors  # not the 1./err*err .... that is done in the mcmc likelihood function
+
+        if absorber:
+            mcmc.min_y = np.min(narrow_wave_counts)
+            mcmc.max_y = np.max(narrow_wave_counts) * 1.5
 
         if G.LIMIT_GAUSS_FIT_SIGMA_MIN is not None:
             mcmc.min_sigma = G.LIMIT_GAUSS_FIT_SIGMA_MIN
