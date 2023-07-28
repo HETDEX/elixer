@@ -147,39 +147,38 @@ if dets is not None:
     try:
         # det_file_name = sys.argv[i + 1]
         # if os.path.isfile(det_file_name):
-        if dets is not None:
-            has_continuum_id = False
+        has_continuum_id = False
 
-            #check the top and bottom for possible continuum objects
-            #for simplicity, just read the whole column and read as int for size
-            #dets = np.loadtxt(det_file_name,dtype=int,usecols=0)#,max_rows=1)
+        #check the top and bottom for possible continuum objects
+        #for simplicity, just read the whole column and read as int for size
+        #dets = np.loadtxt(det_file_name,dtype=int,usecols=0)#,max_rows=1)
 
-            #look for 3rd character as 9
-            if str(dets[0])[2] == '9' or str(dets[-1])[2] == '9':
-                has_continuum_id = True
+        #look for 3rd character as 9
+        if str(dets[0])[2] == '9' or str(dets[-1])[2] == '9':
+            has_continuum_id = True
 
-            #del dets
+        #del dets
 
-            if "--continuum" in args:
-                continuum_mode = True
+        if "--continuum" in args:
+            continuum_mode = True
+        else:
+            continuum_mode = False
+
+        prompt = None
+        if has_continuum_id and not continuum_mode:
+            prompt = "Apparent continuum detectIDs in --dets file, but --continuum not specified. Continue anyway? (y/n)"
+        elif not has_continuum_id and continuum_mode:
+            prompt = "No apparent continuum detectIDs in --dets file, but --continuum IS specified. Continue anyway? (y/n)"
+        #else all is okay
+
+        if prompt is not None:
+            r = input(prompt) #assumes Python3 or greater
+            print()
+            if len(r) > 0 and r.upper() !=  "Y":
+                print ("Cancelled.\n")
+                exit(0)
             else:
-                continuum_mode = False
-
-            prompt = None
-            if has_continuum_id and not continuum_mode:
-                prompt = "Apparent continuum detectIDs in --dets file, but --continuum not specified. Continue anyway? (y/n)"
-            elif not has_continuum_id and continuum_mode:
-                prompt = "No apparent continuum detectIDs in --dets file, but --continuum IS specified. Continue anyway? (y/n)"
-            #else all is okay
-
-            if prompt is not None:
-                r = input(prompt) #assumes Python3 or greater
-                print()
-                if len(r) > 0 and r.upper() !=  "Y":
-                    print ("Cancelled.\n")
-                    exit(0)
-                else:
-                    print("Continuing ... \n")
+                print("Continuing ... \n")
     except Exception as e:
         pass
 

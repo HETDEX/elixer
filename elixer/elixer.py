@@ -4956,9 +4956,13 @@ def check_continuum_version_vs_detectids(continuum,dets):
     try:
         cont_char = np.unique([int(str(x)[2]) for x in dets]) #the third character
         if len(cont_char) != 1:
-            # have mixed continuum and emission line values
-            print(f"***** Error! Detections from continuum and line catalogs not allowed in the same call.")
-            exit(-1)
+            if 9 in cont_char: #all continuum sources have 3rd character == 9 ... all others are emission
+                # have mixed continuum and emission line values
+                print(f"***** Error! Detections from continuum and line catalogs not allowed in the same call.")
+                exit(-1)
+            else:
+                #its fine
+                pass
         elif len(cont_char) == 1:
             if cont_char[0] == 9 and not continuum:
                 print(
@@ -6577,6 +6581,31 @@ def main():
 
                         e.nei_mini_buf = nei_mini_buf
                         e.line_mini_buf = line_mini_buf
+
+                        if G.ZOO_MINI and not args.neighborhood_only:
+                            msg = "Building ELiXer-lite summary images for all detections ...."
+                            log.info(msg)
+                            print(msg)
+
+                            if e.entry_id >= 1e9:
+                                mini_name = os.path.join(pdf.basename, str(e.entry_id) + "_mini.png")
+                            else:
+                                mini_name = os.path.join(pdf.basename, e.pdf_name.rstrip(".pdf") + "_mini.png")
+
+                            build_3panel_zoo_image(fname=mini_name,
+                                                   image_2d_fiber=e.image_2d_fibers_1st_col,
+                                                   image_1d_fit=e.image_1d_emission_fit,
+                                                   image_cutout_fiber_pos=e.image_cutout_fiber_pos,
+                                                   image_cutout_neighborhood=e.nei_mini_buf,
+                                                   image_cutout_fiber_pos_size=args.error,
+                                                   image_cutout_neighborhood_size=args.neighborhood,
+                                                   line_image_cutout=e.line_mini_buf)
+
+                            try: #these can be expensive (memory) so free them now as they are no longer needed
+                                del e.nei_mini_buf
+                                del e.line_mini_buf
+                            except:
+                                pass
                     except:
                         log.warning("Exception calling build_neighborhood_map.",exc_info=True)
 
@@ -6595,25 +6624,25 @@ def main():
 
 
 
-        if G.ZOO_MINI and not args.neighborhood_only:
-            msg = "Building ELiXer-lite summary images for all detections ...."
-            log.info(msg)
-            print(msg)
-            for h in hd_list:  # iterate over all hetdex detections
-                for e in h.emis_list:
-                    if e.entry_id >= 1e9:
-                        mini_name = os.path.join(pdf.basename, str(e.entry_id) + "_mini.png")
-                    else:
-                        mini_name = os.path.join(pdf.basename, e.pdf_name.rstrip(".pdf") + "_mini.png")
-
-                    build_3panel_zoo_image(fname=mini_name,
-                                           image_2d_fiber=e.image_2d_fibers_1st_col,
-                                           image_1d_fit=e.image_1d_emission_fit,
-                                           image_cutout_fiber_pos=e.image_cutout_fiber_pos,
-                                           image_cutout_neighborhood=e.nei_mini_buf,
-                                           image_cutout_fiber_pos_size=args.error,
-                                           image_cutout_neighborhood_size=args.neighborhood,
-                                           line_image_cutout=e.line_mini_buf)
+        # if G.ZOO_MINI and not args.neighborhood_only:
+        #     msg = "Building ELiXer-lite summary images for all detections ...."
+        #     log.info(msg)
+        #     print(msg)
+        #     for h in hd_list:  # iterate over all hetdex detections
+        #         for e in h.emis_list:
+        #             if e.entry_id >= 1e9:
+        #                 mini_name = os.path.join(pdf.basename, str(e.entry_id) + "_mini.png")
+        #             else:
+        #                 mini_name = os.path.join(pdf.basename, e.pdf_name.rstrip(".pdf") + "_mini.png")
+        #
+        #             build_3panel_zoo_image(fname=mini_name,
+        #                                    image_2d_fiber=e.image_2d_fibers_1st_col,
+        #                                    image_1d_fit=e.image_1d_emission_fit,
+        #                                    image_cutout_fiber_pos=e.image_cutout_fiber_pos,
+        #                                    image_cutout_neighborhood=e.nei_mini_buf,
+        #                                    image_cutout_fiber_pos_size=args.error,
+        #                                    image_cutout_neighborhood_size=args.neighborhood,
+        #                                    line_image_cutout=e.line_mini_buf)
 
 
         # really has to be here (hd_list is reset on each loop and the "recover" will not work otherwise)
