@@ -14400,7 +14400,7 @@ class HETDEX:
                     #if good and not absorber and (p_score > 0.7):
                     if good and (p_score > 0.7):
                         textplot.text(cwave, y_pos, sol.name + " {", rotation=-90, ha='center', va='bottom',
-                                      fontsize=24, color=sol.color)  # use the e color for this family
+                                      fontsize=20, color=sol.color)  # use the e color for this family
 
                     else: #weak solution, use standard font size
                         textplot.text(cwave, y_pos, sol.name + " {", rotation=-90, ha='center', va='bottom',
