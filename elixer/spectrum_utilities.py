@@ -3354,7 +3354,7 @@ def fetch_per_shot_single_fiber_sky_subtraction_residual(path,shotid,column,pref
 #     log.error(f"No universal sky residual found.", exc_info=True)
 #     return None
 
-def shift_sky_residual_model_to_glim(model, frac_limit = 0.35, flux_limit = None, g_limit = None, seeing = None,
+def shift_sky_residual_model_to_glim(model, frac_limit = 0.50, flux_limit = None, g_limit = None, seeing = None,
                         ffsky=False, flat_adjust=True, fiber_model=True):
     """
 
