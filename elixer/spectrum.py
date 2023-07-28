@@ -7050,7 +7050,10 @@ class Spectrum:
                 # if found_lines[i].line_score > G.MULTILINE_GOOD_LINE_SCORE:
                 #     central = found_lines[i].fit_x0
                 #now use the line_score if both absorber and emitter found
-                if (found_absorbers[j].raw_line_score > (1.5 * found_lines[i].raw_line_score) ) or \
+                if (found_lines[i].snr > found_absorbers[j].snr) or \
+                    (found_lines[i].snr > 4.5 and found_lines[i].snr/found_absorbers[j].snr > 0.7):
+                    central = found_lines[i].fit_x0
+                elif (found_absorbers[j].raw_line_score > (1.5 * found_lines[i].raw_line_score) ) or \
                    (found_absorbers[j].raw_line_score > found_lines[i].raw_line_score and
                     self.gmag is not None and self.gmag < G.BROADLINE_GMAG_MAX):
                     central = found_absorbers[j].fit_x0
