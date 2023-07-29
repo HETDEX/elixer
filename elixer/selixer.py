@@ -532,15 +532,15 @@ elif hostname == "lonestar6" or hostname == 'ls6':
             print("Python < 3 No longer supported")
             exit(-1)
         else:
-            FILL_CPU_TASKS = 20
+            FILL_CPU_TASKS = 30
             if MERGE: #use same tasks limit as full run
                 MAX_TASKS = 128
                 MAX_NODES = 2
-                MAX_TASKS_PER_NODE = 64  #need usually around 4GB per core, 256GB/ (4GB/task) = 64 tasks
+                MAX_TASKS_PER_NODE = 64  #need usually around 4-4.5GB per core, 256GB/ (4GB/task) = 64 tasks, 4.5GB = 58
             else:
                 MAX_TASKS = 10000
                 MAX_NODES = 128
-                MAX_TASKS_PER_NODE = 64  # need usually around 4GB per core, 256GB/ (4GB/task) = 64 tasks
+                MAX_TASKS_PER_NODE = 58  # need usually around 4GB per core, 256GB/ (4GB/task) = 64 tasks, 4.5GB = 58
             # MAX_TASKS = MAX_NODES * MAX_TASKS_PER_NODE #800
     elif queue == 'vm-small':  #much smaller, less memory, just a guess at this time
         cores_per_node = 16

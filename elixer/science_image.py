@@ -487,7 +487,11 @@ class science_image():
                     import subprocess
 
                     #-w compresses whole image as one tile rather than break into tiles
-                    cmdlist = [f"/home/dustin/anaconda3/bin/fpack  {self.image_location}"]
+                    # effective defautls for fpack are -r -q 4.0
+                    # which specifies the Rice compress with quantizaton 4.0 ... yields up to 6.5x compression at 0.26% noise increas
+                    # may want to try -r -q 8.0 for 5.3x compress (still really good) and 0.07% noise increase
+                    # lossless uses gzip (gzip2 is better) -g2 -q 0 but only gives about 1.25x compression
+                    cmdlist = [f"/home/dustin/anaconda3/bin/fpack -r -q 8.0 {self.image_location}"]
                     sp = subprocess.Popen(cmdlist,shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                     rc = sp.wait()
                     print(f"***** {rc}")
