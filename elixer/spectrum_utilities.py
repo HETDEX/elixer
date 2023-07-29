@@ -553,7 +553,10 @@ def get_best_gmag(flux_density, flux_density_err, wavelengths):
     try:
         # reminder needs erg/s/cm2/AA and sumspec_flux in ergs/s/cm2 so divied by 2AA bin width
         #                self.sdss_gmag, self.cont_cgs = elixer_spectrum.get_sdss_gmag(self.sumspec_flux/2.0*1e-17,self.sumspec_wavelength)
-        sdss_gmag, sdss_cgs_cont, sdss_gmag_unc, sdss_cgs_cont_unc = get_sdss_gmag(flux_density,
+        if flux_density_err is None:
+            sdss_gmag, sdss_cgs_cont  = get_sdss_gmag(flux_density,wavelengths, flux_density_err)
+        else:
+            sdss_gmag, sdss_cgs_cont, sdss_gmag_unc, sdss_cgs_cont_unc = get_sdss_gmag(flux_density,
                                                                                    wavelengths,
                                                                                    flux_density_err)
 
@@ -3401,7 +3404,7 @@ def shift_sky_residual_model_to_glim(model, frac_limit = 0.50, flux_limit = None
             mul = 1.0 #just to keep the naming the same
 
         try:
-            _,_,model_flux,_ = get_best_gmag(aper * 1e-17, None, G.CALFIB_WAVEGRID)
+            _,model_flux,_,_ =  get_hetdex_gmag(aper * 1e-17,G.CALFIB_WAVEGRID,None) #get_best_gmag(aper * 1e-17, None, G.CALFIB_WAVEGRID)
             model_flux *= 1e17
         except:
             model_flux = None
