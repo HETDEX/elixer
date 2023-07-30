@@ -20,6 +20,8 @@ except:
 #catalogs are defined at top of catalogs.py
 import socket
 hostname = socket.gethostname()
+if "tacc.utexas.edu" in hostname:
+    hostname = hostname.split(".")[1]
 
 #version
 __version__ = '1.20.0'
@@ -44,8 +46,8 @@ LAUNCH_PDF_VIEWER = None
 
 valid_HDR_Versions = [1,2,2.1,3,3.0,4,4.0]
 
-HDR_Version = "3" #"2.1"
-HDR_Version_float = 3.0
+HDR_Version = "4" #"2.1"
+HDR_Version_float = 4.0
 
 HDR_Latest_Str = "hdr4" #latest available, not necessarily the default or what is being used
 HDR_Latest_Float = 4.0
@@ -59,6 +61,7 @@ except:
     pass
 
 
+CORRAL_BASEPATH  = "/corral/utexas/Hobby-Eberly-Telesco"
 ELIXER_SPECIAL = 0 #integer, triggers special behavior in code
 #HDR_DATA_BASEPATH = "/data/03946/hetdex" #defunct 2020-10-01 #TACC wrangler:/data removed
 HDR_WORK_BASEPATH = op.join(WORK_BASEPATH,"03946/hetdex/")
@@ -134,7 +137,8 @@ the_DetectionsIndex = None #data release all detections index
 the_DetectionsDict = None #dictionary of neighbors detections query objects (separate from HETDEX_API_Detections)
 HETDEX_API_Detections = None #per detections query object; bound to a single HDR version and line vs continuum
 
-LOCAL_DEV_HOSTNAMES = ["z50","dg5"]
+print("FIX LOCAL_DEV_HOSTNAMES !!!!!!!!")
+LOCAL_DEV_HOSTNAMES = [] #["z50","dg5"]
 
 
 BUILD_REPORT_BY_FILTER = True #if True, multiple catalogs are used to build the report, with the deepest survey by filter
@@ -143,13 +147,13 @@ BUILD_REPORT_BY_FILTER = True #if True, multiple catalogs are used to build the 
 LOCAL_DEVBOX = False
 if hostname in LOCAL_DEV_HOSTNAMES:  # primary author test box
 #if False:
-    HDR_Version = "3.0" #"2.1"
-    HDR_Version_float = 3.0 #2.1
+    HDR_Version = "4.0" #"2.1"
+    HDR_Version_float = 4.0 #2.1
     LAUNCH_PDF_VIEWER = 'qpdfview'
     LOCAL_DEVBOX = True
 else:
-    HDR_Version = "3.0" #"2.1"  # default HDR Version if not specified
-    HDR_Version_float = 3.0 #2.1
+    HDR_Version = "4.0" #"2.1"  # default HDR Version if not specified
+    HDR_Version_float = 4.0 #2.1
     LOCAL_DEVBOX = False
 
 #look specifically (and only) for HDR version on call
@@ -420,6 +424,17 @@ def select_hdr_version(version):
             HDF5_RAW_DIR = HETDEX_API_CONFIG.raw_dir #local to this function only
             HDF5_REDUCTION_DIR = HETDEX_API_CONFIG.red_dir #local to this function only
 
+            #temporary
+            if hostname in ["lonestar6","ls6","dg5"]:
+                print("***** temp HDR4 pathing. Remove me *****")
+                HDF5_CONTINUUM_FN = HDF5_CONTINUUM_FN.replace("/scratch/03946/hetdex","/corral/utexas/Hobby-Eberly-Telesco")
+                HDF5_SURVEY_FN = HDF5_SURVEY_FN.replace("/scratch/03946/hetdex","/corral/utexas/Hobby-Eberly-Telesco")
+                BAD_AMP_TABLE = BAD_AMP_TABLE.replace("/scratch/03946/hetdex","/corral/utexas/Hobby-Eberly-Telesco")
+                OBSERVATIONS_BASEDIR = OBSERVATIONS_BASEDIR.replace("/scratch/03946/hetdex","/corral/utexas/Hobby-Eberly-Telesco")
+                CONFIG_BASEDIR = CONFIG_BASEDIR.replace("/scratch/03946/hetdex","/corral/utexas/Hobby-Eberly-Telesco")
+                HDF5_RAW_DIR = HDF5_RAW_DIR.replace("/scratch/03946/hetdex","/corral/utexas/Hobby-Eberly-Telesco") # local to this function only
+                HDF5_REDUCTION_DIR = HDF5_REDUCTION_DIR.replace("/scratch/03946/hetdex","/corral/utexas/Hobby-Eberly-Telesco") # local to this function only
+
             try:
                 if HDR_Version_float == 1:
                     PIXFLT_LOC = op.join(CONFIG_BASEDIR, "virus_config/PixelFlats")
@@ -452,7 +467,8 @@ def select_hdr_version(version):
 
         PANACEA_RED_BASEDIR = op.join(HDF5_RAW_DIR, "red1/reductions/")
         PANACEA_RED_BASEDIR_DEFAULT = PANACEA_RED_BASEDIR
-        PANACEA_HDF5_BASEDIR = op.join(HDR_BASEPATH, "reduction/data")
+        #PANACEA_HDF5_BASEDIR = op.join(HDR_BASEPATH, "reduction/data")
+        PANACEA_HDF5_BASEDIR = op.join(HDF5_REDUCTION_DIR, "data")
 
         #
         # Imaging Data Paths
