@@ -919,12 +919,14 @@ else: # multiple tasks
                         #nodes = min(tasks // MAX_TASKS_PER_NODE, MAX_NODES)
                         #ntasks_per_node = tasks // nodes
 
-                        target_nodes = max(1,int(len(subdirs)/(FILL_CPU_TASKS * MAX_TASKS_PER_NODE)))
-                        nodes = min(target_nodes,MAX_NODES)
-                        target_tasks = min(tasks,nodes * MAX_TASKS_PER_NODE) #target_nodes * MAX_TASKS_PER_NODE
+                        target_nodes = max(1,round(len(subdirs)/(FILL_CPU_TASKS * MAX_TASKS_PER_NODE)))
+                        target_dispatches = min(tasks,target_nodes * MAX_TASKS_PER_NODE) #target_nodes * MAX_TASKS_PER_NODE
+                        #e.g. the target number of dispatches
 
-                        ntasks_per_node = min(target_tasks,MAX_TASKS_PER_NODE)
-                        tasks = min(target_tasks,MAX_TASKS)
+                        nodes = min(target_nodes,MAX_NODES)
+                        ntasks_per_node = min(target_dispatches,MAX_TASKS_PER_NODE) #so we don't duplicate if too few
+                        tasks = min(target_dispatches,MAX_TASKS) #actual number of dispatches to make
+
             else:
                 ntasks_per_node = tasks
                 nodes = 1
