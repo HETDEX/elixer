@@ -4977,21 +4977,23 @@ class DetObj:
         # while it is possible to have LyA in Abosption, ELiXer is based on EMISSION
         # and it is unlikely that we truly pickup LyA in Abosrption
         #
-        #
+        # This does not completely prevent a final, cummulative vote for LyA
+        # but it does vote agaist LyA with a normal weight
         ##################################################################
 
         try:
-            if self.estflux < 0:# and self.spec_obj.central_eli.
-                likelihood.append(0.0)
-                weight.append(1)
-                var.append(1)
-                prior.append(base_assumption)
+            if G.VOTER_ACTIVE & G.VOTE_ABSORPTION:
+                if self.estflux < 0:# and self.spec_obj.central_eli.
+                    likelihood.append(0.0)
+                    weight.append(1)
+                    var.append(1)
+                    prior.append(base_assumption)
 
-                vote_info['absorption_vote'] = likelihood[-1]
-                vote_info['absorption_weight'] = weight[-1]
+                    vote_info['absorption_vote'] = likelihood[-1]
+                    vote_info['absorption_weight'] = weight[-1]
 
-                log.info(
-                    f"{self.entry_id} Aggregate Classification: absorption vote: lk({likelihood[-1]}) weight({weight[-1]})")
+                    log.info(
+                        f"{self.entry_id} Aggregate Classification: absorption vote: lk({likelihood[-1]}) weight({weight[-1]})")
         except:
             pass
 

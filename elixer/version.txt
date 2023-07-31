@@ -1,8 +1,14 @@
 changes to elixer by version
 
-1.20.0 [2023-07-27]
-* tag as 1.20.0 for HDR4
-* (note: per fiber and zero point still being tuned but those features are NOT USED during an HDRx run)
+1.20.0 [2023-07-31]
+* tag as 1.20.0 for HDR4 and merge with main branch
+  note: per fiber and zero point still being tuned but those features are NOT USED during an HDRx run
+* move _mini.png creation to free image buffers after each detection to save on active memory
+* add memory retries on spectra collection in neighbors
+* minor logging fix
+* fixed stupid MCMC bug with absorbers that limited the continuum to 2x the depth of the absorber
+* updated emission vs absorption selection when both are available as central wavelength
+* updated pathing for HDR4 and lonestar6
 
 
 1.20.0a9 [2023-07-24]

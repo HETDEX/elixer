@@ -137,8 +137,7 @@ the_DetectionsIndex = None #data release all detections index
 the_DetectionsDict = None #dictionary of neighbors detections query objects (separate from HETDEX_API_Detections)
 HETDEX_API_Detections = None #per detections query object; bound to a single HDR version and line vs continuum
 
-print("FIX LOCAL_DEV_HOSTNAMES !!!!!!!!")
-LOCAL_DEV_HOSTNAMES = [] #["z50","dg5"]
+LOCAL_DEV_HOSTNAMES = ["z50","dg5"]
 
 
 BUILD_REPORT_BY_FILTER = True #if True, multiple catalogs are used to build the report, with the deepest survey by filter
@@ -425,15 +424,15 @@ def select_hdr_version(version):
             HDF5_REDUCTION_DIR = HETDEX_API_CONFIG.red_dir #local to this function only
 
             #temporary
-            if hostname in ["lonestar6","ls6","dg5"]:
-                print("***** temp HDR4 pathing. Remove me *****")
-                HDF5_CONTINUUM_FN = HDF5_CONTINUUM_FN.replace("/scratch/03946/hetdex","/corral/utexas/Hobby-Eberly-Telesco")
-                HDF5_SURVEY_FN = HDF5_SURVEY_FN.replace("/scratch/03946/hetdex","/corral/utexas/Hobby-Eberly-Telesco")
-                BAD_AMP_TABLE = BAD_AMP_TABLE.replace("/scratch/03946/hetdex","/corral/utexas/Hobby-Eberly-Telesco")
-                OBSERVATIONS_BASEDIR = OBSERVATIONS_BASEDIR.replace("/scratch/03946/hetdex","/corral/utexas/Hobby-Eberly-Telesco")
-                CONFIG_BASEDIR = CONFIG_BASEDIR.replace("/scratch/03946/hetdex","/corral/utexas/Hobby-Eberly-Telesco")
-                HDF5_RAW_DIR = HDF5_RAW_DIR.replace("/scratch/03946/hetdex","/corral/utexas/Hobby-Eberly-Telesco") # local to this function only
-                HDF5_REDUCTION_DIR = HDF5_REDUCTION_DIR.replace("/scratch/03946/hetdex","/corral/utexas/Hobby-Eberly-Telesco") # local to this function only
+            # if hostname in ["lonestar6","ls6"]:#,"dg5"]:
+            #     print("***** temp HDR4 pathing. Remove me *****")
+            #     HDF5_CONTINUUM_FN = HDF5_CONTINUUM_FN.replace("/scratch/03946/hetdex","/corral/utexas/Hobby-Eberly-Telesco")
+            #     HDF5_SURVEY_FN = HDF5_SURVEY_FN.replace("/scratch/03946/hetdex","/corral/utexas/Hobby-Eberly-Telesco")
+            #     BAD_AMP_TABLE = BAD_AMP_TABLE.replace("/scratch/03946/hetdex","/corral/utexas/Hobby-Eberly-Telesco")
+            #     OBSERVATIONS_BASEDIR = OBSERVATIONS_BASEDIR.replace("/scratch/03946/hetdex","/corral/utexas/Hobby-Eberly-Telesco")
+            #     CONFIG_BASEDIR = CONFIG_BASEDIR.replace("/scratch/03946/hetdex","/corral/utexas/Hobby-Eberly-Telesco")
+            #     HDF5_RAW_DIR = HDF5_RAW_DIR.replace("/scratch/03946/hetdex","/corral/utexas/Hobby-Eberly-Telesco") # local to this function only
+            #     HDF5_REDUCTION_DIR = HDF5_REDUCTION_DIR.replace("/scratch/03946/hetdex","/corral/utexas/Hobby-Eberly-Telesco") # local to this function only
 
             try:
                 if HDR_Version_float == 1:
@@ -1330,6 +1329,7 @@ VOTE_PHOTZ                      = 0x00000100
 VOTE_DEX_GMAG                   = 0x00000200
 VOTE_FLAM_SLOPE                 = 0x00000400
 VOTE_EW_PLAE_POII_CORRECTION    = 0x00000800
+VOTE_ABSORPTION                 = 0x00001000
 
 
 
