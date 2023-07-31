@@ -46,6 +46,7 @@ from hetdex_api.detections import Detections
 plt.style.use('default') #restore to classic if hetdex api changes style
 import argparse
 import copy
+import mmap
 
 from astropy.coordinates import Angle
 from astropy.coordinates import SkyCoord
