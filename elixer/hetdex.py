@@ -35,6 +35,8 @@ from hetdex_tools.get_spec import get_spectra as hda_get_spectra
 from hetdex_api.shot import get_fibers_table as hda_get_fibers_table
 from hetdex_api.extinction import *  #includes deredden_spectra
 
+import mmap
+
 from astropy.coordinates import SkyCoord
 import astropy.units as U
 
@@ -8062,46 +8064,69 @@ class DetObj:
 
             hda_detobj = None
             if G.LOAD_SPEC_FROM_HETDEX_API:
-                try:
-                    #check for lines, continuum, or broad
-                    cat_type = "lines"
-                    if str(id)[2] == '9':
-                        cat_type = "continuum"
-                    elif str(id)[2] == '8':
-                        cat_type == 'broad'
+                retry = 5
+                while retry > 0:
+                    try:
+                        #check for lines, continuum, or broad
+                        cat_type = "lines"
+                        if str(id)[2] == '9':
+                            cat_type = "continuum"
+                        elif str(id)[2] == '8':
+                            cat_type == 'broad'
 
-                    if G.HETDEX_API_Detections is None:
-                        G.HETDEX_API_Detections = hda_Detections(survey=f"hdr{G.HDR_Version}",loadtable=False,
-                                                    searchable=False, catalog_type=cat_type,curated_version=None)
+                        if G.HETDEX_API_Detections is None:
+                            G.HETDEX_API_Detections = hda_Detections(survey=f"hdr{G.HDR_Version}",loadtable=False,
+                                                        searchable=False, catalog_type=cat_type,curated_version=None)
 
-                    hda_detobj = G.HETDEX_API_Detections
+                        hda_detobj = G.HETDEX_API_Detections
 
-                    #hda_detobj = hda_Detections(survey=f"hdr{G.HDR_Version}",loadtable=False, searchable=False, catalog_type=cat_type,curated_version=None)
-                    #note: reported flux and cont are the SAME as in the H5 ... just the spectra are /2AA
-                    row = hda_detobj.get_detection_info(detectid_i=id, rawh5=False, verbose=False)[0]
-                except:
-                    hda_detobj = None
-                    log.warning("Exception attempting to load spectra through hetdex_api",exc_info=True)
-                    log.warning("Will attempt direct load from h5 file.")
+                        #hda_detobj = hda_Detections(survey=f"hdr{G.HDR_Version}",loadtable=False, searchable=False, catalog_type=cat_type,curated_version=None)
+                        #note: reported flux and cont are the SAME as in the H5 ... just the spectra are /2AA
+                        row = hda_detobj.get_detection_info(detectid_i=id, rawh5=False, verbose=False)[0]
+                        retry = 0
+                    except (MemoryError, mmap.error):
+                        gc.collect()  # try to force an immediate clean up
+                        retry -= 1
+                        t2sleep = np.random.random_integers(0, 5000) / 1000.  # sleep up to 5 sec
+                        log.info(f"+++++ Memory issue? Random sleep {t2sleep:0.4f}s. Retries remaining {retry}")
+                        time.sleep(t2sleep)
+                    except:
+                        hda_detobj = None
+                        log.warning("Exception attempting to load spectra through hetdex_api",exc_info=True)
+                        log.warning("Will attempt direct load from h5 file.")
+                        retry = 0
 
             if hda_detobj is None:
-                try:
-                    rows = detection_table.read_where("detectid==id")
+                retry = 5
+                while retry > 0:
+                    try:
+                        rows = detection_table.read_where("detectid==id")
 
-                    if rows is None:
-                        self.status = -1
-                        log.error(f"Problem loading detectid {id}. None returned.")
-                        return
-                    elif rows.size != 1:
-                        self.status = -1
-                        log.error(f"Problem loading detectid {id}. {rows.size} rows returned.")
-                        return
+                        if rows is None:
+                            self.status = -1
+                            log.error(f"Problem loading detectid {id}. None returned.")
+                            return
+                        elif rows.size != 1:
+                            self.status = -1
+                            log.error(f"Problem loading detectid {id}. {rows.size} rows returned.")
+                            return
 
-                    row = rows[0]  # should only be the one row
-                except:
-                    log.error("Exception in hetdex::DetObj::load_hdf5_fluxcalibrated_spectra reading rows from detection_table",
-                              exc_info=True)
-                    rows = None
+                        row = rows[0]  # should only be the one row
+                        retry = 0
+                    except (MemoryError, mmap.error):
+                        gc.collect()  # try to force an immediate clean up
+                        retry -= 1
+                        t2sleep = np.random.random_integers(0, 5000) / 1000.  # sleep up to 5 sec
+                        log.info(f"+++++ Memory issue? Random sleep {t2sleep:0.4f}s. Retries remaining {retry}")
+                        time.sleep(t2sleep)
+                    except:
+                        log.error("Exception in hetdex::DetObj::load_hdf5_fluxcalibrated_spectra reading rows from detection_table",
+                                  exc_info=True)
+                        rows = None
+                        log.error (f"{[self.entry_id]} Cannot continue! ")
+                        self.status = -1
+                        retry = 0
+                        return #False # cannot continue
 
 
             #could be more than one? ... fibers from different dates, or across amps at least
