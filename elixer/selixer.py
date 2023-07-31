@@ -543,7 +543,7 @@ elif hostname == "lonestar6" or hostname == 'ls6':
                 if neighborhood == 0:
                     MAX_TASKS_PER_NODE = 64  # need usually around 4GB per core, 256GB/ (4GB/task) = 64 tasks, 4.5GB = 56
                 else:
-                    MAX_TASKS_PER_NODE = 56  # need usually around 4GB per core, 256GB/ (4GB/task) = 64 tasks, 4.5GB = 56
+                    MAX_TASKS_PER_NODE = 54  # need usually around 4GB per core, 256GB/ (4GB/task) = 64 tasks, 4.5GB = 56
             # MAX_TASKS = MAX_NODES * MAX_TASKS_PER_NODE #800
     elif queue == 'vm-small':  #much smaller, less memory, just a guess at this time
         cores_per_node = 16
@@ -920,9 +920,9 @@ else: # multiple tasks
                         #ntasks_per_node = tasks // nodes
 
                         target_nodes = max(1,int(len(subdirs)/(FILL_CPU_TASKS * MAX_TASKS_PER_NODE)))
-                        target_tasks = min(tasks,target_nodes * MAX_TASKS_PER_NODE) #target_nodes * MAX_TASKS_PER_NODE
-
                         nodes = min(target_nodes,MAX_NODES)
+                        target_tasks = min(tasks,nodes * MAX_TASKS_PER_NODE) #target_nodes * MAX_TASKS_PER_NODE
+
                         ntasks_per_node = min(target_tasks,MAX_TASKS_PER_NODE)
                         tasks = min(target_tasks,MAX_TASKS)
             else:
