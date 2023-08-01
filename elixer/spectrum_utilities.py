@@ -3446,7 +3446,7 @@ def fine_tune_sky_residual_model_shape(model=None):
         shift = 0
         shape_x = np.ones(len(G.CALFIB_WAVEGRID))  #
 
-        max_blue_value = 1.20
+        max_blue_value = 1.30
         end_blue_wave = 3750.0
         start_red_wave = 5400.0
         max_red_value = 1.10
@@ -3972,12 +3972,13 @@ def uvbg_shift_observed_frame(z, rest_waves, rest_fluxd_arcs):  # , rest_fluxd_a
     try:
         # start simple
         # waves (1+z) make sense
-        # fluxd_arcs erg/s/cm2/AA/arcsec2  .... seems tha arcsec (surface flux desnity) part we leave alone
+        # fluxd_arcs erg/s/cm2/AA/arcsec2  .... seems tha arcsec (surface flux density) part we leave alone
         # so we just have the usual 3 factors of (1+z) for erg, s, AA
+        # BUT we need another (1+z) for arcsec2, right? so 4 factors?? e.g. using luminosity distance
         # NOTE: a 1.77x to get rid of the per arcsec2 (1.77 arcsec2 is area of fiber) is applied LATER
         #     in uvbg_correct_for_lya_troughs()
 
-        return (1 + z) * rest_waves, rest_fluxd_arcs / (1 + z) ** 3
+        return (1 + z) * rest_waves, rest_fluxd_arcs / (1 + z) ** 4 #SHOULD THIS be **4 since it is a surface brightness
 
     except:
         return None, None
