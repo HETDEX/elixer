@@ -3446,7 +3446,7 @@ def fine_tune_sky_residual_model_shape(model=None):
         shift = 0
         shape_x = np.ones(len(G.CALFIB_WAVEGRID))  #
 
-        max_blue_value = 1.20
+        max_blue_value = 5.0 #1.20
         end_blue_wave = 3750.0
         start_red_wave = 5400.0
         max_red_value = 1.10
