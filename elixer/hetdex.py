@@ -7099,13 +7099,15 @@ class DetObj:
                 #         sep_obj['flux'] += zp_corr  / G.HETDEX_FLUX_BASE_CGS
 
                 if G.ZEROPOINT_FRAC:  # everything is still with NaNs and is per 1AA
-                    zp_corr = SU.zeropoint_mul_correction(
-                        ffsky=self.extraction_ffsky, seeing=self.survey_fwhm,
-                        hdr=G.HDR_Version)
-                    if zp_corr is None:
-                        self.flags |= G.DETFLAG_NO_ZEROPOINT
-                    else:
-                        sep_obj['flux'] *= zp_corr
+                    # zp_corr = SU.zeropoint_mul_correction(
+                    #     ffsky=self.extraction_ffsky, seeing=self.survey_fwhm,
+                    #     hdr=G.HDR_Version)
+                    # if zp_corr is None:
+                    #     self.flags |= G.DETFLAG_NO_ZEROPOINT
+                    # else:
+                    #     sep_obj['flux'] *= zp_corr
+
+                    sep_obj['flux'] = SU.zeropoint_shift(sep_obj['flux'])
 
                 # leave the nans in there ...., but set their errors to zero
                 sel_nan = np.isnan(sep_obj['flux']) #where the flux is NaN
@@ -7271,13 +7273,14 @@ class DetObj:
             #         self.sumspec_flux += zp_corr  / G.HETDEX_FLUX_BASE_CGS
 
             if G.ZEROPOINT_FRAC: #everything is still with NaNs and is per 1AA
-                zp_corr = SU.zeropoint_mul_correction(
-                                               ffsky=self.extraction_ffsky, seeing=self.survey_fwhm,
-                                               hdr=G.HDR_Version)
-                if zp_corr is None:
-                    self.flags |= G.DETFLAG_NO_ZEROPOINT
-                else:
-                    self.sumspec_flux *= zp_corr
+                # zp_corr = SU.zeropoint_mul_correction(
+                #                                ffsky=self.extraction_ffsky, seeing=self.survey_fwhm,
+                #                                hdr=G.HDR_Version)
+                # if zp_corr is None:
+                #     self.flags |= G.DETFLAG_NO_ZEROPOINT
+                # else:
+                #     self.sumspec_flux *= zp_corr
+                self.sumspec_flux= SU.zeropoint_shift(self.sumspec_flux)
 
             # NOW get rid of NaN's and put in per 2AA bins
             self.sumspec_flux *= G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)
@@ -8334,13 +8337,15 @@ class DetObj:
             #     else:
             #         self.sumspec_flux += zp_corr * G.FLUX_WAVEBIN_WIDTH / G.HETDEX_FLUX_BASE_CGS
             if G.ZEROPOINT_FRAC: #everything is still with NaNs and is per 1AA
-                zp_corr = SU.zeropoint_mul_correction(
-                                               ffsky=self.extraction_ffsky, seeing=self.survey_fwhm,
-                                               hdr=G.HDR_Version)
-                if zp_corr is None:
-                    self.flags |= G.DETFLAG_NO_ZEROPOINT
-                else:
-                    self.sumspec_flux *= zp_corr
+                # zp_corr = SU.zeropoint_mul_correction(
+                #                                ffsky=self.extraction_ffsky, seeing=self.survey_fwhm,
+                #                                hdr=G.HDR_Version)
+                # if zp_corr is None:
+                #     self.flags |= G.DETFLAG_NO_ZEROPOINT
+                # else:
+                #     self.sumspec_flux *= zp_corr
+
+                self.sumspec_flux = SU.zeropoint_shift(self.sumspec_flux )
             # # #test:
             # print("!!!!!!!!!!!!!!!!!!!!!!! TEST: REMOVE ME !!!!!!!!!!!!!!!!!!!!!")
             # self.sumspec_flux = self.sumspec_flux * 2.0  / self.sumspec_apcor /  self.sumspec_apcor

@@ -3382,10 +3382,14 @@ def shift_sky_residual_model_to_glim(model, frac_limit = 0.50, flux_limit = None
             if g_limit is None:
                 #use seeing
                 flux_limit = mag2cgs(estimated_depth(seeing),G.DEX_G_EFF_LAM)
-                if ffsky:
-                    #have to adjust this for ffsky excess (so the limit has to be brigher
-                    print("***** THIS IS A GUESS ***** NEED TO REFINE local to ff-sky limit conversion ")
-                    flux_limit *= 1.3
+                #NOTICE: no change in estimated limit for ffsky
+                # THIS HAS BEEN TESTED
+                # the difference is in the blue end, but the actual seeing depth is essentially the same
+                # (which physically makes sense, even if the residual for ffksy is larger)
+                # if ffsky:
+                #     #have to adjust this for ffsky excess (so the limit has to be brigher
+                #     log.error("***** THIS IS A GUESS ***** NEED TO REFINE local to ff-sky limit conversion ")
+                #     flux_limit *= 1.0
             else:
                 #use g_limit converted to flux_limit
                 flux_limit = mag2cgs(g_limit,G.DEX_G_EFF_LAM)
@@ -3430,7 +3434,7 @@ def shift_sky_residual_model_to_glim(model, frac_limit = 0.50, flux_limit = None
         log.warning("Exception! Cannot adjust per fiber sky residual model for shot flux limit.",exc_info=True)
         return frac, model
 
-def fine_tune_sky_residual_model_shape(model=None):
+def fine_tune_sky_residual_model_shape(model=None,ffsky=False):
     """
     fine tune the ends of the model, we are not quite getting the very ends correct so this
     raises the end points a bit (mostly) outside of the g-band filter window as a linear interploated
@@ -3446,21 +3450,38 @@ def fine_tune_sky_residual_model_shape(model=None):
         shift = 0
         shape_x = np.ones(len(G.CALFIB_WAVEGRID))  #
 
-        max_blue_value = 1.30
-        end_blue_wave = 3750.0
-        start_red_wave = 5400.0
-        max_red_value = 1.10
+        if ffsky:
+            max_blue_value = 2.10
+            start_blue_wave = 3800.0
+            end_blue_wave = 4000.0
+            start_red_wave = 5450.0
+            end_red_wave = 5540.0
+            max_red_value = 1.05
+        else:
+            max_blue_value = 1.50
+            start_blue_wave = 3470.0
+            end_blue_wave = 3750.0 #3750 is about where the aperture to fiber and direct fiber cross
+                                   #blue of 3750 the aperture is a better fit, red it is the fiber so this uses
+                                   #the fiber model and kicks it up to better match the aperture to fiber model < 3750AA
+            start_red_wave = 5450.0
+            end_red_wave = 5540.0
+            max_red_value = 1.05
 
-        blue_slope = (1.0 - max_blue_value) / (end_blue_wave - 3470.0)
-        red_slope = (max_red_value - 1.0) / (5540 - start_red_wave)
+        blue_slope = (1.0 - max_blue_value) / (end_blue_wave - start_blue_wave)
+        red_slope = (max_red_value - 1.0) / (end_red_wave - start_red_wave)
 
-        blue_intercept = max_blue_value - blue_slope * 3470
-        red_intercept = max_red_value - red_slope * 5540
+        blue_intercept = max_blue_value - blue_slope * start_blue_wave
+        red_intercept = max_red_value - red_slope * end_red_wave
 
         i, *_ = getnearpos(G.CALFIB_WAVEGRID, end_blue_wave)
         shape_x[0:i + 1] = blue_slope * G.CALFIB_WAVEGRID[0:i + 1] + blue_intercept
         i, *_ = getnearpos(G.CALFIB_WAVEGRID, start_red_wave)
         shape_x[i:] = red_slope * G.CALFIB_WAVEGRID[i:] + red_intercept
+
+        i, *_ = getnearpos(G.CALFIB_WAVEGRID, start_blue_wave)
+        shape_x[:i] = shape_x[i] #go flat blue of start_blue_wave
+        i, *_ = getnearpos(G.CALFIB_WAVEGRID, end_red_wave)
+        shape_x[i:] = shape_x[i]  # go flat red of end_blue_wave
 
         if model is None:
             return shape_x
@@ -3548,7 +3569,8 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
                 # -4 to trim off 2.8, 2.9, 3.0" seeing as those are not well fit
                 # (there is an extra over average seeing 0.0 column, so have to trim off 4)
                 #G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS = G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS[1:-4] * fine_tune_sky_residual_model_shape()
-                G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS = fine_tune_sky_residual_model_shape(G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS[1:-4])
+                G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS = fine_tune_sky_residual_model_shape(
+                                                        G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS[1:-4],ffsky)
 
             which_models = G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS
             #zeropoint_shift = G.ZEROPOINT_SHIFT_FF
@@ -3565,10 +3587,12 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
                 # -4 to trim off 2.8, 2.9, 3.0" seeing as those are not well fit
                 # (there is an extra over average seeing 0.0 column, so have to trim off 4)
                 #G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS = G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS[1:-4] * fine_tune_sky_residual_model_shape()
-                G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS = fine_tune_sky_residual_model_shape(G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS[1:-4])
+                G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS = fine_tune_sky_residual_model_shape(
+                                                        G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS[1:-4],ffsky)
 
             which_models = G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS
             #zeropoint_shift = G.ZEROPOINT_SHIFT_LL
+
 
         #get the two flanking models
         _, l, h = getnearpos(G.SKY_RESIDUAL_ALL_PSF, seeing)
@@ -3707,7 +3731,8 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
                 # -4 to trim off 2.8, 2.9, 3.0" seeing as those are not well fit
                 # (there is an extra over average seeing 0.0 column, so have to trim off 4)
                # G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS = G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS[1:-4] * fine_tune_sky_residual_model_shape()
-                G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS = fine_tune_sky_residual_model_shape(G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS[1:-4])
+                G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS = fine_tune_sky_residual_model_shape(
+                                                        G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS[1:-4],ffsky)
 
             which_models = G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS
             #zeropoint_shift = G.ZEROPOINT_SHIFT_FF
@@ -3724,7 +3749,8 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
                 # -3 to trim off 2.8, 2.9, 3.0" seeing as those are not well fit
                 # (there is an extra over average seeing 0.0 column, so have to trim off 4)
                 #G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS = G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS[1:-4] * fine_tune_sky_residual_model_shape()
-                G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS = fine_tune_sky_residual_model_shape(G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS[1:-4])\
+                G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS = fine_tune_sky_residual_model_shape(
+                                                            G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS[1:-4],ffsky)
 
 
             which_models = G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS
@@ -3777,6 +3803,33 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
     else:
         return None
 
+
+
+def zeropoint_shift(spec_fluxd):  # ,spec_fluxde):
+    """
+    Assume G.CALFIB_WAVEGRID
+    Use the baseline defined in global_config and the minimum (where zero)
+    """
+
+    try:
+        log.error("***** temporary, unchanged zeropoint *****")
+        return spec_fluxd
+
+        if np.median(spec_fluxd) > 1e-10: #assume the 1e-17 is missing
+            scale = 1e-17
+        else:
+            scale = 1.
+
+        mag, fluxd, *_ = get_hetdex_gmag(spec_fluxd*scale, G.CALFIB_WAVEGRID)
+        # fluxd = min(G.ZP_BRIGHT_FLUXD,fluxd)
+        shift = G.ZP_SLOPE * fluxd + G.ZP_INTERCEPT
+        if shift < 0:
+            return spec_fluxd
+        else:
+            return spec_fluxd - shift/scale
+    except:
+        log.error(f"Exception! Exception in zeropoint_shift",exc_info=True)
+        return spec_fluxd
 
 def zeropoint_add_correction(fluxd=None,fluxd_err=None,eff_fluxd=None,ffsky=False,seeing=None,hdr=G.HDR_Version):
     """
@@ -3852,7 +3905,7 @@ def zeropoint_add_correction(fluxd=None,fluxd_err=None,eff_fluxd=None,ffsky=Fals
         return None
 
 
-def zeropoint_mul_correction(ffsky=False, seeing=None, hdr=G.HDR_Version):#, flat=True):
+def zeropoint_mul_correction(ffsky=False, seeing=None, hdr=G.HDR_Version, flat=True):
     """
     Applied at the PSF Weighted aperture level NOT PER FIBER
 
@@ -3895,9 +3948,9 @@ def zeropoint_mul_correction(ffsky=False, seeing=None, hdr=G.HDR_Version):#, fla
             return None
 
         if ffsky: # like 0.2 * 1.0 *
-            fluxd_corr = (1.0 -G.ZEROPOINT_BASE_FF) * G.ZEROPOINT_FRAC # * 1.0 if flat else correct_per_lamdba()
+            fluxd_corr = (1.0 -G.ZEROPOINT_BASE_FF) * G.ZEROPOINT_FRAC  * 1.0 if flat else correct_per_lamdba()
         else:  # local sky
-            fluxd_corr = (1.0- G.ZEROPOINT_BASE_LL) * G.ZEROPOINT_FRAC # * 1.0 if flat else correct_per_lamdba()
+            fluxd_corr = (1.0- G.ZEROPOINT_BASE_LL) * G.ZEROPOINT_FRAC  * 1.0 if flat else correct_per_lamdba()
 
         return fluxd_corr
 

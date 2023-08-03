@@ -1363,8 +1363,8 @@ APPLY_SKY_RESIDUAL_TYPE = 0 #0 = No, off, do not use:   1 = per fiber, 2 = per 3
 
 #HDR3 and HDR4 use same correction
 SKY_RESIDUAL_ALL_PSF = np.arange(1.2,3.1,0.1)
-SKY_FIBER_RESIDUAL_ALL_LL_MODELS = None
-SKY_FIBER_RESIDUAL_ALL_FF_MODELS = None
+SKY_FIBER_RESIDUAL_ALL_LL_MODELS = None #array of models by seeing FWHM
+SKY_FIBER_RESIDUAL_ALL_FF_MODELS = None #array of models by seeing FWHM
 SKY_FIBER_RESIDUAL_HDR3_ALL_LL_MODELS_FN = op.join(op.dirname(op.realpath(__file__)),
                                              "sky_subtraction_residuals/hdr3_local_sky_fiber_residual_models_by_psf.txt")
 SKY_FIBER_RESIDUAL_HDR3_ALL_FF_MODELS_FN = op.join(op.dirname(op.realpath(__file__)),
@@ -1394,5 +1394,15 @@ ZEROFLAT = False #if TRUE, the sky residual is shifted such that the average flu
                    #the idea here is that the blue is artificailly enhanced and the flat is the true average background
 ZEROFLAT_BLUE = 4000.0 #bluest wavelength to compute the "flat"
 ZEROFLAT_RED = 5000.0
+
+ZP_BASELINE_FLUXD = 0.0585e-17  # e-17
+ZP_BASELINE_MAG = 24.80
+ZP_BASELINE_CORRECTION = 0.0125e-17
+ZP_BRIGHT_FLUXD = 0.1500e-17
+ZP_BRIGHT_MAG = 24.0
+ZP_FAINT_FLUXD = 0.004e-17#0.0125e-17
+ZP_FAINT_MAG = 26.50  # 26.477
+ZP_SLOPE = (ZP_BASELINE_CORRECTION - 0) / (ZP_BASELINE_FLUXD - ZP_FAINT_FLUXD)
+ZP_INTERCEPT = -1 * ZP_SLOPE * ZP_FAINT_FLUXD
 
 fz = False #temporary; if True prefer the compressed fits over the uncompressed fits
