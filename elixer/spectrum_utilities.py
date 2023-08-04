@@ -3357,7 +3357,7 @@ def fetch_per_shot_single_fiber_sky_subtraction_residual(path,shotid,column,pref
 #     log.error(f"No universal sky residual found.", exc_info=True)
 #     return None
 
-def shift_sky_residual_model_to_glim(model, frac_limit = 0.50, flux_limit = None, g_limit = None, seeing = None,
+def shift_sky_residual_model_to_glim(model, frac_limit =0.5, flux_limit = None, g_limit = None, seeing = None,
                         ffsky=False, flat_adjust=True, fiber_model=True):
     """
 
@@ -3456,16 +3456,16 @@ def fine_tune_sky_residual_model_shape(model=None,ffsky=False):
             end_blue_wave = 4000.0
             start_red_wave = 5450.0
             end_red_wave = 5540.0
-            max_red_value = 1.05
+            max_red_value = 1.1
         else:
             max_blue_value = 1.50
-            start_blue_wave = 3470.0
-            end_blue_wave = 3750.0 #3750 is about where the aperture to fiber and direct fiber cross
+            start_blue_wave = 3600. #3470.0
+            end_blue_wave = 4000.0 #3750.0 #3750 is about where the aperture to fiber and direct fiber cross
                                    #blue of 3750 the aperture is a better fit, red it is the fiber so this uses
                                    #the fiber model and kicks it up to better match the aperture to fiber model < 3750AA
-            start_red_wave = 5450.0
-            end_red_wave = 5540.0
-            max_red_value = 1.05
+            start_red_wave = 5250.#5250.0
+            end_red_wave = 5450.0
+            max_red_value = 1.15
 
         blue_slope = (1.0 - max_blue_value) / (end_blue_wave - start_blue_wave)
         red_slope = (max_red_value - 1.0) / (end_red_wave - start_red_wave)

@@ -698,6 +698,8 @@ class DetObj:
 
         self.fwhm = -1.0 #in angstroms
         self.fwhm_unc = 0.0
+        self.fwhm_kms = None
+        self.fwhm_kms_unc = None
         self.panacea = False
 
         self.ifuslot = None
@@ -801,6 +803,9 @@ class DetObj:
         self.using_best_gmag_ew = False
         self.best_gmag_selected = "" #to be filled in with sdss or hetdex later
 
+        self.gmag_combined = None
+        self.gmag_combined_unc = None
+
         self.duplicate_fibers_removed = 0 # -1 is detected, but not removed, 0 = none found, 1 = detected and removed
         self.duplicate_fiber_cutout_pair_weight =0 #any two of top 3 fiber 2D cutouts are identical
 
@@ -834,6 +839,7 @@ class DetObj:
                                     'plae_hat_sd':None,
                                     'size_in_psf':None, #to be filled in with info to help make a classification judgement
                                     'diam_in_arcsec':None, #to be filled in with info to help make a classification judgement
+                                    'diam_in_arcsec_narrow':None, #to be filled in with info to help make a classification judgement
                                     'spurious_reason': None}
 
         self.extraction_aperture=None
@@ -2108,9 +2114,9 @@ class DetObj:
 
                 #usually OII execpt if REALLY broad, then more likely MgII or CIV. but have to mark as OII, just lower the Q(z)
                 try:
-                    broad = self.fwhm/self.w * 3e5 > 1000
+                    broad = self.fwhm/self.w * 3e5 > G.BROAD_FWHM_KMS
                 except:
-                    broad = self.fhwm > 16.0
+                    broad = self.fhwm > G.BROAD_FWHM_AA
 
                 use_multi = False
                 try:
@@ -3727,6 +3733,23 @@ class DetObj:
 
         #rules based
 
+        #kms is useful
+        try:
+            self.fwhm_kms = self.fwhm / self.w * 3e5
+            self.fwhm_kms_unc = self.fwhm_unc / self.w * 3e5
+        except:
+            pass
+
+        #combined continuum is useful
+        try:
+            self.gmag_combined = SU.cgs2mag(self.classification_dict['continuum_hat'],G.DEX_G_EFF_LAM)
+            self.gmag_combined_unc = 0.5 * (SU.cgs2mag(self.classification_dict['continuum_hat']-
+                                                self.classification_dict['continuum_hat_err'],G.DEX_G_EFF_LAM) -
+                                            SU.cgs2mag(self.classification_dict['continuum_hat'] +
+                                                       self.classification_dict['continuum_hat_err'], G.DEX_G_EFF_LAM))
+        except:
+            self.gmag_combined = self.best_gmag
+            self.gmag_combined_unc = self.best_gmag_unc
 
         ######################################
         # Angular Size + Physical Size (simplified)
@@ -3854,13 +3877,16 @@ class DetObj:
                         #Meidum Big
                         #on the larger side ... generally more likely to be OII, but could be an AGN
                         #check on the FHWM for Type 1 AGN
-                        if self.fwhm-self.fwhm_unc > 15: #about 1000 km/s at 4500AA
+                        if self.fwhm_kms is not None and self.fwhm_kms_unc is not None and \
+                                self.fwhm_kms-self.fwhm_kms_unc > G.BROAD_FWHM_KMS:
                             #weak vote FOR LyA (assuming AGN)
                             likelihood.append(1.0)
                             weight.append(0.25)
                             var.append(1)
                             prior.append(base_assumption)
-                            log.info(f"{self.entry_id} Aggregate Classification: angular size ({self.classification_dict['diam_in_arcsec']:0.2})\" + consistent with AGN:"
+                            log.info(f"{self.entry_id} Aggregate Classification: angular size "
+                                     f"({self.classification_dict['diam_in_arcsec']:0.2})\" + consistent with AGN "
+                                     f"{self.fwhm_kms} km/s fwhm:"
                                      f" lk({likelihood[-1]}) weight({weight[-1]})")
                             vote_info['size_in_psf_vote'] = likelihood[-1]
                             vote_info['size_in_psf_weight'] = weight[-1]
@@ -3881,7 +3907,38 @@ class DetObj:
 
                     else: # self.classification_dict['diam_in_arcsec'] > 5.0: #unless an AGN this is probably OII
                         #REALLY big
-                        if self.fwhm-self.fwhm_unc > 15: #about 1000 km/s at 4500AA
+
+                        try:
+                            maj_min = self.classification_dict['diam_in_arcsec'] / self.classification_dict['diam_in_arcsec_narrow']
+                        except:
+                            maj_min = 1.
+
+                        if maj_min >= 2.0: #pretty elliptical in profile, expect AGN to appear more cicular
+                            #note: this DOES NOT HELP if this is a nearby spiral face on
+                            # vote for OII
+                            likelihood.append(0.0)
+
+                            w = self.classification_dict['diam_in_arcsec'] / 9.0 +  0.1 * maj_min / 2.0
+
+                            if self.gmag_combined + self.gmag_combined_unc < 23.0: #extra
+                                w +=  0.1 * (23.0 - (self.gmag_combined + self.gmag_combined_unc))
+                            elif self.gmag_combined - self.gmag_combined_unc > 23.0:
+                                w -= 0.1 * (self.gmag_combined - self.gmag_combined_unc - 23.0)
+
+                            w = max(0,min(2.0,w))
+
+                            weight.append(w)
+                            var.append(1)
+                            prior.append(base_assumption)
+                            vote_info['size_in_psf_vote'] = likelihood[-1]
+                            vote_info['size_in_psf_weight'] = weight[-1]
+                            log.info(
+                                f"{self.entry_id} Aggregate Classification: angular size "
+                                f"({self.classification_dict['diam_in_arcsec']:0.2})\" / "
+                                f"({self.classification_dict['diam_in_arcsec_narrow']:0.2})\", suggestes not-AGN, elliptical in projection:"
+                                f" lk({likelihood[-1]}) weight({weight[-1]})")
+                        elif self.fwhm_kms is not None and self.fwhm_kms_unc is not None and \
+                                self.fwhm_kms-self.fwhm_kms_unc > G.BROAD_FWHM_KMS:
                             #weak vote FOR LyA (assuming AGN)
                             likelihood.append(1.0)
                             weight.append(0.25 * line_vote_weight_mul)
@@ -3889,9 +3946,12 @@ class DetObj:
                             prior.append(base_assumption)
                             vote_info['size_in_psf_vote'] = likelihood[-1]
                             vote_info['size_in_psf_weight'] = weight[-1]
-                            log.info(f"{self.entry_id} Aggregate Classification: angular size ({self.classification_dict['diam_in_arcsec']:0.2})\" + consistent with AGN:"
+                            log.info(f"{self.entry_id} Aggregate Classification: angular size "
+                                     f"({self.classification_dict['diam_in_arcsec']:0.2})\" + consistent with AGN: "
+                                     f"{self.fwhm_kms} km/s fwhm:"
                                      f" lk({likelihood[-1]}) weight({weight[-1]})")
-                        elif self.fwhm+self.fwhm_unc < 12 :
+                        elif self.fwhm_kms is not None and self.fwhm_kms_unc is not None and \
+                                self.fwhm_kms+self.fwhm_kms_unc > 800.0:
                             #vote for OII
                             likelihood.append(0.0)
                             weight.append(0.25 * line_vote_weight_mul)
@@ -3899,11 +3959,15 @@ class DetObj:
                             prior.append(base_assumption)
                             vote_info['size_in_psf_vote'] = likelihood[-1]
                             vote_info['size_in_psf_weight'] = weight[-1]
-                            log.info(f"{self.entry_id} Aggregate Classification: angular size ({self.classification_dict['diam_in_arcsec']:0.2})\":"
+                            log.info(f"{self.entry_id} Aggregate Classification: angular size "
+                                     f"({self.classification_dict['diam_in_arcsec']:0.2})\", not consistent with AGN: "
+                                     f"{self.fwhm_kms} km/s fwhm:"
                                      f" lk({likelihood[-1]}) weight({weight[-1]})")
                         else:
                             #no vote
-                            log.info(f"{self.entry_id} Aggregate Classification angular size ({self.classification_dict['diam_in_arcsec']:0.2})\" no vote. Large size, intermediate line FWHM.")
+                            log.info(f"{self.entry_id} Aggregate Classification angular size "
+                                     f"({self.classification_dict['diam_in_arcsec']:0.2})\" "
+                                     f"no vote. Large size, intermediate line FWHM.")
                 else:
                     log.info(f"{self.entry_id} Aggregate Classification angular size no vote (unresolved) or no size info.")
             else:
@@ -4484,10 +4548,10 @@ class DetObj:
                     prior.append(base_assumption)
                     vote_info['line_sigma_vote'] = likelihood[-1]
                     vote_info['line_sigma_weight'] = weight[-1]
-                    log.info(f"{self.entry_id} Aggregate Classification: line sigma vote ({vote_line_sigma:0.1f} +/- {vote_line_sigma_unc:0.2f})"
+                    log.info(f"{self.entry_id} Aggregate Classification: (broad) line sigma vote ({vote_line_sigma:0.1f} +/- {vote_line_sigma_unc:0.2f})"
                              f": lk({likelihood[-1]}) weight({weight[-1]})")
                 else:
-                    log.info(f"{self.entry_id} Aggregate Classification: line sigma ({vote_line_sigma:0.1f} +/- {vote_line_sigma_unc:0.2f}). "
+                    log.info(f"{self.entry_id} Aggregate Classification: (broad) line sigma ({vote_line_sigma:0.1f} +/- {vote_line_sigma_unc:0.2f}). "
                              f"no vote")
             else:
                 log.info(
@@ -4900,7 +4964,7 @@ class DetObj:
                 g = SU.cgs2mag(self.classification_dict['continuum_hat'], SU.filter_iso_dict['g'])
                 ew = self.classification_dict['combined_eqw_rest_lya']
 
-                if (g < 23.5) and (3950 < self.w < 5400 ) and ((self.fwhm/self.w * 3e5) < 1200.0) \
+                if (g < 23.5) and (3950 < self.w < 5400 ) and ((self.fwhm/self.w * 3e5) < G.BROAD_FWHM_KMS) \
                         and  (self.spec_obj.spectrum_slope < -4.0e-22):
                     likelihood.append(0.0)
                     weight.append(0.5)
@@ -5737,6 +5801,7 @@ class DetObj:
         deep_detect = 0 #deepest g or r band imaging with a detection  (source extractor only)
 
         best_guess_extent = [] #from source extractor (f606w, g, r only)
+        best_guess_extent_narrow = [] #minor axis
         best_guess_maglimit = []
         base_psf = []
         size_in_psf = None #estimate of extent in terms of PSF (sort-of)
@@ -5921,6 +5986,7 @@ class DetObj:
                                 if (a['sep_obj_idx'] is not None):
                                     matched_sep = True
                                     best_guess_extent.append(a['sep_objects'][a['sep_obj_idx']]['a'])
+                                    best_guess_extent_narrow.append(a['sep_objects'][a['sep_obj_idx']]['b'])
                                     best_guess_maglimit.append(a['mag_limit'])
                                     base_psf.append(this_psf)
 
@@ -6234,6 +6300,7 @@ class DetObj:
         #
         try:
             best_guess_extent = np.array(best_guess_extent)
+            best_guess_extent_narrow = np.array(best_guess_extent_narrow)
             base_psf = np.array(base_psf)
 
             # this is really only meaningful IF it is the SEP aperture ... the elixer aperture can grow in-between
@@ -6245,10 +6312,13 @@ class DetObj:
                         # so SEP may give a much larger aperture) so, just use the deepest in this case
                         base_psf = base_psf[np.argmax(best_guess_maglimit)]
                         best_guess_extent = best_guess_extent[np.argmax(best_guess_maglimit)]
+                        #narrow is the matched minor axis to the selected major axis
+                        best_guess_extent_narrow = best_guess_extent_narrow[np.argmax(best_guess_maglimit)]
                         size_in_psf = best_guess_extent/base_psf
                     else:
                         size_in_psf = np.mean(best_guess_extent/base_psf) #usually only 1 or 2, so std makes no sense
                         best_guess_extent = np.mean(best_guess_extent)
+                        best_guess_extent_narrow = np.mean(best_guess_extent_narrow)
                         base_psf = np.max(base_psf)
 
         except:
@@ -6398,6 +6468,7 @@ class DetObj:
             self.classification_dict['size_in_psf'] = size_in_psf
             self.classification_dict['base_psf'] = base_psf #the PSF from which the measure came OR the max of those that contributed to the measure
             self.classification_dict['diam_in_arcsec'] = best_guess_extent
+            self.classification_dict['diam_in_arcsec_narrow'] = best_guess_extent_narrow
 
             return continuum_hat, continuum_sd_hat, size_in_psf, best_guess_extent
         except:
