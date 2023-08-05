@@ -3357,7 +3357,10 @@ def fetch_per_shot_single_fiber_sky_subtraction_residual(path,shotid,column,pref
 #     log.error(f"No universal sky residual found.", exc_info=True)
 #     return None
 
-def shift_sky_residual_model_to_glim(model, frac_limit =0.5, flux_limit = None, g_limit = None, seeing = None,
+#0.7 for frac_limit is very close on the red side
+#0.5 has been a default, assuming the rest will be corrected with  zero point shift
+#flat_adjust = True helps a little on the blue end, but only a little
+def shift_sky_residual_model_to_glim(model, frac_limit =0.7, flux_limit = None, g_limit = None, seeing = None,
                         ffsky=False, flat_adjust=True, fiber_model=True):
     """
 
@@ -3372,6 +3375,8 @@ def shift_sky_residual_model_to_glim(model, frac_limit =0.5, flux_limit = None, 
     """
 
     frac = 1.0
+    #print(f"***** NOT CORRECTING to GLim. TURN OFF *****")
+    #return frac, model
     if flux_limit is None and g_limit is None and seeing is None:
         log.warning("Cannot adjust per fiber sky residual model for shot flux limit. Insufficient info.")
         return frac, model
@@ -3444,6 +3449,12 @@ def fine_tune_sky_residual_model_shape(model=None,ffsky=False):
 
     # print("!!!!! fine tune model ends set to all one !!!!! ")
     # return np.ones(len(G.CALFIB_WAVEGRID))
+
+    print(f"***** NOT fine tuning model. TURN OFF *****")
+    if model is None:
+        return 1.0
+    else:
+        return model
 
     try:
         #shift = 0.0006 #this is the media shift (erg/s/cm2/AA e-17) from +0.16 to +0.5
@@ -3905,7 +3916,7 @@ def zeropoint_add_correction(fluxd=None,fluxd_err=None,eff_fluxd=None,ffsky=Fals
         return None
 
 
-def zeropoint_mul_correction(ffsky=False, seeing=None, hdr=G.HDR_Version, flat=True):
+def zeropoint_mul_correction_fixed(ffsky=False, seeing=None, hdr=G.HDR_Version, flat=True):
     """
     Applied at the PSF Weighted aperture level NOT PER FIBER
 
@@ -3959,6 +3970,78 @@ def zeropoint_mul_correction(ffsky=False, seeing=None, hdr=G.HDR_Version, flat=T
         return None
 
 
+def zeropoint_mul_correction_var(fluxd, fluxd_err, residual_correction, waves, hdr=G.HDR_Version):
+    """
+
+    Applied at the PSF Weighted aperture level NOT PER FIBER
+
+    Apply a multiplicative correction, assuming g-bandpass effective wavelength near 4726AA
+    The correction is applied to fluxd as a per wavelength multiplicative,
+
+    Figure the effective fluxdensity for the g-band
+    Multiply by the defined (local or ffsky) correction x command line optional fractional scaling
+    Subtract (add a negative) the resulting flat, fixed value from the spectrum
+
+
+    :param fluxd: flux density (scale matters needs 1:1 and is erg/s/cm2/AA) if eff_fluxd not provided
+    :param fluxd_err: flux density error (same scale and units as fluxd)
+    :param eff_fluxd: if already computed the bandpass effective flux density, pass it in here
+                      if this is provided, the fluxd and fluxd_err can be None
+    :param ffsky:
+    :param seeing: might not be used ... unclear but as of right now, not used
+    :param hdr:
+    :return: the correction value (normally negative) to be added to the flux density
+             None if there is an error
+             0 is legit value if no error but no correction should be made
+    """
+
+    def correct_per_lamdba():
+        # correct the residual per lambda to deal with flam intrinsic blue bias vs fnu
+        #return 1.0
+        #return G.DEFAULT_BLUE_END_CORRECTION_MULT
+        pivot = G.DEX_G_EFF_LAM
+        return (G.CALFIB_WAVEGRID / pivot) ** 2
+
+    try:
+        if G.ZEROPOINT_FRAC == 0:
+            return 1.0
+
+        # we have models for HDR3 (samae as HDR4)
+        if hdr[0] in ['3', '4']:
+            pass  # all good
+        else:
+            log.warning(f"Invalid HDR version for zeropoint_correction(): {hdr}")
+            return None
+
+
+        _,fd_eff, *_ = get_hetdex_gmag(fluxd*1e-17,waves,fluxd_err*1e-17,ignore_global=True)
+
+
+        if fd_eff is None or fd_eff < 0:
+            return 1.0
+
+        _, res_eff, *_ = get_hetdex_gmag(residual_correction * 1e-17, waves, ignore_global=True)
+
+
+        if res_eff is None:
+            res_eff = 0
+        fd_eff *= 1e17
+        res_eff *= 1e17
+
+        residual_correction_copy = copy.copy(residual_correction)
+        residual_correction_copy += fd_eff - res_eff #raise residual to the level of the target spectrum
+        #maybe raise it TO the fd_eff not BY the fd_eff
+
+        idx, *_ = getnearpos(waves,G.DEX_G_EFF_LAM)  #this is 628
+        corr = residual_correction_copy[idx] / residual_correction_copy
+
+        del residual_correction_copy
+        return corr
+
+    except Exception as E:
+        log.error(f"Exception! Exception in zeropoint_mul_correction_var.", exc_info=True)
+        print(E)
+        return 1.0
 #############################
 # UV Background Stuff
 #############################

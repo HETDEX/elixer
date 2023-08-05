@@ -9,6 +9,7 @@ changes to elixer by version
 * fixed stupid MCMC bug with absorbers that limited the continuum to 2x the depth of the absorber
 * updated emission vs absorption selection when both are available as central wavelength
 * updated pathing for HDR4 and lonestar6
+* update angular size vote to also include major/minor ratio when the major is intermediate (3" to 9")
 
 
 1.20.0a9 [2023-07-24]

@@ -426,13 +426,13 @@ def select_hdr_version(version):
             #temporary
             # if hostname in ["lonestar6","ls6"]:#,"dg5"]:
             #     print("***** temp HDR4 pathing. Remove me *****")
-            #     HDF5_CONTINUUM_FN = HDF5_CONTINUUM_FN.replace("/scratch/03946/hetdex","/corral/utexas/Hobby-Eberly-Telesco")
-            #     HDF5_SURVEY_FN = HDF5_SURVEY_FN.replace("/scratch/03946/hetdex","/corral/utexas/Hobby-Eberly-Telesco")
-            #     BAD_AMP_TABLE = BAD_AMP_TABLE.replace("/scratch/03946/hetdex","/corral/utexas/Hobby-Eberly-Telesco")
-            #     OBSERVATIONS_BASEDIR = OBSERVATIONS_BASEDIR.replace("/scratch/03946/hetdex","/corral/utexas/Hobby-Eberly-Telesco")
-            #     CONFIG_BASEDIR = CONFIG_BASEDIR.replace("/scratch/03946/hetdex","/corral/utexas/Hobby-Eberly-Telesco")
-            #     HDF5_RAW_DIR = HDF5_RAW_DIR.replace("/scratch/03946/hetdex","/corral/utexas/Hobby-Eberly-Telesco") # local to this function only
-            #     HDF5_REDUCTION_DIR = HDF5_REDUCTION_DIR.replace("/scratch/03946/hetdex","/corral/utexas/Hobby-Eberly-Telesco") # local to this function only
+            #     HDF5_CONTINUUM_FN = HDF5_CONTINUUM_FN.replace("/scratch/03946/hetdex","/scratch/projects/hetdex")
+            #     HDF5_SURVEY_FN = HDF5_SURVEY_FN.replace("/scratch/03946/hetdex","/scratch/projects/hetdex")
+            #     BAD_AMP_TABLE = BAD_AMP_TABLE.replace("/scratch/03946/hetdex","/scratch/projects/hetdex")
+            #     OBSERVATIONS_BASEDIR = OBSERVATIONS_BASEDIR.replace("/scratch/03946/hetdex","/scratch/projects/hetdex")
+            #     CONFIG_BASEDIR = CONFIG_BASEDIR.replace("/scratch/03946/hetdex","/scratch/projects/hetdex")
+            #     HDF5_RAW_DIR = HDF5_RAW_DIR.replace("/scratch/03946/hetdex","/scratch/projects/hetdex") # local to this function only
+            #     HDF5_REDUCTION_DIR = HDF5_REDUCTION_DIR.replace("/scratch/03946/hetdex","/scratch/projects/hetdex") # local to this function only
 
             try:
                 if HDR_Version_float == 1:

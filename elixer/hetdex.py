@@ -7352,6 +7352,9 @@ class DetObj:
                 # else:
                 #     self.sumspec_flux *= zp_corr
                 self.sumspec_flux= SU.zeropoint_shift(self.sumspec_flux)
+                #zp_mul = SU.zeropoint_mul_correction_var(self.sumspec_flux,self.sumspec_fluxerr,self.fiber_sky_subtraction_residual,
+                #                                         G.CALFIB_WAVEGRID,G.HDR_Version)
+                #self.sumspec_flux *= zp_mul
 
             # NOW get rid of NaN's and put in per 2AA bins
             self.sumspec_flux *= G.FLUX_WAVEBIN_WIDTH   #in 1e-17 units (like HDF5 read)
