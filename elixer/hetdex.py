@@ -36,6 +36,7 @@ from hetdex_api.shot import get_fibers_table as hda_get_fibers_table
 from hetdex_api.extinction import *  #includes deredden_spectra
 
 import mmap
+import gc
 
 from astropy.coordinates import SkyCoord
 import astropy.units as U
