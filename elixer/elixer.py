@@ -3671,7 +3671,7 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
 
 def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=None, distance=None, cwave=None,
                            fname=None,original_distance=None,this_detection=None,broad_hdf5=None,primary_shotid=None,
-                           wave_range=None,ffsky=False,use_hdf5=True):
+                           wave_range=None,ffsky=False,use_hdf5=False):
     """
 
     :param hdf5:
