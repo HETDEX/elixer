@@ -3450,7 +3450,7 @@ def fine_tune_sky_residual_model_shape(model=None,ffsky=False):
     # print("!!!!! fine tune model ends set to all one !!!!! ")
     # return np.ones(len(G.CALFIB_WAVEGRID))
 
-    print(f"***** NOT fine tuning model. TURN OFF *****")
+    log.info(f"***** NOT fine tuning model. TURN OFF *****")
     if model is None:
         return 1.0
     else:
@@ -3823,7 +3823,7 @@ def zeropoint_shift(spec_fluxd):  # ,spec_fluxde):
     """
 
     try:
-        log.error("***** temporary, unchanged zeropoint *****")
+        log.info("***** temporary, unchanged zeropoint *****")
         return spec_fluxd
 
         if np.median(spec_fluxd) > 1e-10: #assume the 1e-17 is missing
