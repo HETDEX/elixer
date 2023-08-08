@@ -3933,6 +3933,11 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         # except:
         #     pass
 
+        try:
+            all_detectids_combined = np.concatenate((detectids,cont_detectids))
+        except:
+            all_detectids_combined = None
+
         if len(detectids) > G.MAX_NEIGHBORS_IN_MAP:
             msg = "Maximum number of reportable (emission line) neighbors exceeded (%d). Will truncate to nearest %d." % (len(detectids),
                                                                                                 G.MAX_NEIGHBORS_IN_MAP)
@@ -4926,7 +4931,22 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
     if fname is not None:
         try:
-            plt.savefig(fname,format='png', dpi=75)
+
+            #test
+            try:
+                #metadata = {'Comment': ','.join([str(int(d)) for d in detectids]) }
+                if all_detectids_combined is not None:
+                    metadata = {'Neighbors': ','.join([str(int(d)) for d in all_detectids_combined])}
+                else:
+                    metadata = {'Neighbors': ','.join([str(int(d)) for d in detectids])}
+            except:
+                metadata = None
+
+            try:
+                plt.savefig(fname,format='png',metadata=None, dpi=75)
+            except:
+                plt.savefig(fname, format='png', dpi=75)
+
             log.debug("File written: %s" %(fname))
 
             # if False:
