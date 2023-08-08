@@ -5,9 +5,9 @@
 # not pass them as parameters
 set -o noglob
 
-imgdir="/scratch/03261/polonius/hdr3.0.3/all_pngs"
+imgdir="/scratch/03261/polonius/hdr4/all_pngs"
 #!!! IMPORTANT !!! db_dir needs to end with a /
-db_dir="/scratch/03261/polonius/hdr3.0.3/detect/image_db/"
+db_dir="/scratch/03261/polonius/hdr4/detect/image_db/"
 rpt="elixer_reports_"
 
 
@@ -54,36 +54,38 @@ rpt="elixer_reports_"
 ####################################
 
 #line detections
-for i in {30000..30138}
+#4013864075 to 4025498679
+for i in {40138..40254}
 do
 
-  echo python3 make_report_db.py --db_name "${db_dir}${rpt}${i}.db" --img_dir $imgdir --img_name "${i}*[0-9].png"
+  echo set -o noglob \; python3 make_report_db.py --db_name "${db_dir}${rpt}${i}.db" --img_dir $imgdir --img_name "${i}*[0-9].png"
 
   #note: no underscore in image names -- of form 2000123456nei.png
   #      with elixer v 1.8.x and up, yes, underscore with nei (2100123456_nei.png)
   #note: YES underscore in db names
-  echo python3 make_report_db.py --db_name "${db_dir}${rpt}${i}_nei.db" --img_dir  $imgdir  --img_name "${i}*_nei.png"
+  echo set -o noglob \; python3 make_report_db.py --db_name "${db_dir}${rpt}${i}_nei.db" --img_dir  $imgdir  --img_name "${i}*_nei.png"
 
   #note: YES underscore in image names -- of form 2000123456_mini.png
   #note: YES underscore in db names
-  echo python3 make_report_db.py --db_name "${db_dir}${rpt}${i}_mini.db" --img_dir  $imgdir  --img_name "$i*_mini.png"
+  echo set -o noglob \; python3 make_report_db.py --db_name "${db_dir}${rpt}${i}_mini.db" --img_dir  $imgdir  --img_name "$i*_mini.png"
 
 done
 
 #continuum detections
-for i in {30900..30902}
+#4090298150 to 4090481832
+for i in {40902..40904}
 do
 
-  echo python3 make_report_db.py --db_name "${db_dir}${rpt}${i}.db" --img_dir $imgdir --img_name "${i}*[0-9].png"
+  echo set -o noglob \; python3 make_report_db.py --db_name "${db_dir}${rpt}${i}.db" --img_dir $imgdir --img_name "${i}*[0-9].png"
 
   #note: no underscore in image names -- of form 2000123456nei.png
   #      with elixer v 1.8.x and up, yes, underscore with nei (2100123456_nei.png)
   #note: YES underscore in db names
-  echo python3 make_report_db.py --db_name "${db_dir}${rpt}${i}_nei.db" --img_dir  $imgdir  --img_name "${i}*_nei.png"
+  echo set -o noglob \; python3 make_report_db.py --db_name "${db_dir}${rpt}${i}_nei.db" --img_dir  $imgdir  --img_name "${i}*_nei.png"
 
   #note: YES underscore in image names -- of form 2000123456_mini.png
   #note: YES underscore in db names
-  echo python3 make_report_db.py --db_name "${db_dir}${rpt}${i}_mini.db" --img_dir  $imgdir  --img_name "$i*_mini.png"
+  echo set -o noglob \; python3 make_report_db.py --db_name "${db_dir}${rpt}${i}_mini.db" --img_dir  $imgdir  --img_name "$i*_mini.png"
 
 done
 

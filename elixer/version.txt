@@ -1,5 +1,12 @@
 changes to elixer by version
 
+1.20.1 [2023-08-08]
+* add flagging check for DETFLAG_BAD_FIBERTRACE if the fiber trace has negative pixel coordinates or if 20% of all
+  fibers in det are chi2  > 2.0 or 30% plus 2 (really bad) or 3 (bad + really bad) of top 4 fibers
+  + new flag DETFLAG_BAD_FIBERTRACE 0x20000000
+* fixed mis-aligned cutouts and colors when fiber trace has negative pixel coords
+
+
 1.20.0 [2023-07-31]
 * tag as 1.20.0 for HDR4 and merge with main branch
   note: per fiber and zero point still being tuned but those features are NOT USED during an HDRx run

@@ -24,7 +24,7 @@ if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
 #version
-__version__ = '1.20.0'
+__version__ = '1.20.1'
 #Logging
 GLOBAL_LOGGING = False #set to True in top elixer calls so we do not normally log from package imports
 LOG_TO_STDOUT = False #only kicks in if GLOBAL_LOGGING is False
@@ -1281,6 +1281,7 @@ DETFLAG_BAD_PIXELS                  = 0x04000000    #hot column, maybe bad sky s
 DETFLAG_BAD_EMISSION_LINE           = 0x08000000    #emission line is questionable, could be continuum between absorbers
 
 DETFLAG_NO_ZEROPOINT                = 0x10000000    #may be temporary ... no zeropoint correction could be made
+DETFLAG_BAD_FIBERTRACE              = 0x20000000    #bad fiber traces, may be due to interference pattern
 
 
 DETFLAG_CORRUPT_DATA                = 0x80000000    #some nontrivial portion of the data may be corrupt, though it may not be significant

@@ -12366,7 +12366,7 @@ class HETDEX:
             return datakeep
 
         #for loc in locations:
-        for item in sort_list:
+        for item_idx,item in enumerate(sort_list):
             try:
                 fits = item.fits
 
@@ -12459,8 +12459,14 @@ class HETDEX:
                 x_2D = np.interp(e.w,fits.wave_data[loc,:],range(len(fits.wave_data[loc,:])))
                 y_2D = np.interp(x_2D,range(len(fits.trace_data[loc,:])),fits.trace_data[loc,:])
 
-                if np.isnan(x_2D) or np.isnan(y_2D):
+                if np.isnan(x_2D) or np.isnan(y_2D) or x_2D < 0 or y_2D < 0:
                     log.error(f"Invalid coordinates in hetdex.py build_panacea_hetdex_data_dict: x_2D,y_2D = {x_2D},{y_2D}")
+                    if datakeep['detobj'] is not None and len(sort_list)-item_idx < 4:
+                        #these are in reverse order, so a low loc value is an unimportant fiber
+                        try:
+                            datakeep['detobj'].flags |= G.DETFLAG_BAD_FIBERTRACE
+                        except:
+                            pass
 
                 if G.LyC:
                     try:
@@ -12635,17 +12641,30 @@ class HETDEX:
                 scatter_blank_bot = 5 * yw - (yl - max(0, yl - 5 * yw)) #start copy position in scatter_blank
                 scatter_blank_height = min(max_y-1, yh + 5 * yw) - max(0, yl - 5 * yw)   #number of pixels to copy
 
-                scatter_blank[scatter_blank_bot:scatter_blank_bot + scatter_blank_height +1,
-                             (xl - blank_xl):(xl - blank_xl) + (xh - xl) + 1] = \
-                    fits.data[max(0, yl - 5 * yw):min(max_y-1, yh + 5 * yw) + 1, xl:xh + 1]
+                try:
+                    scatter_blank[scatter_blank_bot:scatter_blank_bot + scatter_blank_height +1,
+                                 (xl - blank_xl):(xl - blank_xl) + (xh - xl) + 1] = \
+                        fits.data[max(0, yl - 5 * yw):min(max_y-1, yh + 5 * yw) + 1, xl:xh + 1]
+                except:
+                    if yh < 0 or yl < 0 or xl < 0 or xh < 0:
+                        log.warning(f"Unable to build 2D fiber cutouts. Bad fibertrace.", exc_info=False)
+                    else:
+                        log.warning(f"Unable to build sky subtracted scattered light cutout.",exc_info=True)
 
                 datakeep['scatter'].append(deepcopy(scatter_blank))
 
 
                 #now with the sky NOT subtracted ... the indices are the same, just a different fits image
-                scatter_blank[scatter_blank_bot:scatter_blank_bot + scatter_blank_height + 1,
+                try:
+                    scatter_blank[scatter_blank_bot:scatter_blank_bot + scatter_blank_height + 1,
                                 (xl - blank_xl):(xl - blank_xl) + (xh - xl) + 1] = \
-                    fits.data_sky[max(0, yl - 5 * yw):min(max_y - 1, yh + 5 * yw) + 1, xl:xh + 1]
+                        fits.data_sky[max(0, yl - 5 * yw):min(max_y - 1, yh + 5 * yw) + 1, xl:xh + 1]
+                except:
+                    if yh < 0 or yl < 0 or xl < 0 or xh < 0:
+                        pass
+                    else:
+                        log.warning(f"Unable to build (with sky) scattered light cutout.",exc_info=True)
+
                 datakeep['scatter_sky'].append(deepcopy(scatter_blank))
 
                 datakeep['xi'].append(x_2D)
@@ -12661,8 +12680,14 @@ class HETDEX:
 
                 datakeep['sn'].append(e.sigma)
 
-                blank[(yl-blank_yl):(yl-blank_yl)+(yh-yl)+1, (xl-blank_xl):(xl-blank_xl)+(xh-xl)+1] = \
-                    fits.data[yl:yh+1, xl:xh+1]
+                try:
+                    blank[(yl-blank_yl):(yl-blank_yl)+(yh-yl)+1, (xl-blank_xl):(xl-blank_xl)+(xh-xl)+1] = \
+                        fits.data[yl:yh+1, xl:xh+1]
+                except:
+                    if yh < 0 or yl < 0 or xl < 0 or xh < 0:
+                        pass
+                    else:
+                        log.warning(f"Unable to build blank data.", exc_info=True)
 
                 datakeep['im'].append(deepcopy(blank))
                 datakeep['fw_im'].append(fits.data[yl:yh, 0:FRAME_WIDTH_X - 1])
@@ -12695,8 +12720,14 @@ class HETDEX:
                     except:
                         log.error("Could net get contrast stretch for sky NOT subtracted 2D spectra")
 
-                blank[(yl-blank_yl):(yl-blank_yl)+(yh-yl)+1,(xl-blank_xl):(xl-blank_xl)+(xh-xl)+1] = \
-                    fits.err_data[yl:yh + 1,xl:xh + 1]
+                try:
+                    blank[(yl-blank_yl):(yl-blank_yl)+(yh-yl)+1,(xl-blank_xl):(xl-blank_xl)+(xh-xl)+1] = \
+                        fits.err_data[yl:yh + 1,xl:xh + 1]
+                except:
+                    if yh < 0 or yl < 0 or xl < 0 or xh < 0:
+                        pass
+                    else:
+                        log.warning(f"Unable to build blank data.", exc_info=True)
 
                 datakeep['err'].append(deepcopy(blank))
 
@@ -12737,12 +12768,18 @@ class HETDEX:
                 load_blank = False
 
                 if pixel_flat_buf is not None: #loaded a few dozen lines above
-                    blank[(yl - blank_yl):(yl - blank_yl) + (yh - yl) + 1,
-                    (xl - blank_xl):(xl - blank_xl) + (xh - xl) + 1] = \
-                        pixel_flat_buf[yl:yh + 1, xl:xh + 1]
-                    datakeep['pix'].append(deepcopy(blank))
-                    datakeep['fw_pix'].append(deepcopy(pixel_flat_buf[yl:yh, 0:FRAME_WIDTH_X - 1]))
-
+                    try:
+                        blank[(yl - blank_yl):(yl - blank_yl) + (yh - yl) + 1,
+                        (xl - blank_xl):(xl - blank_xl) + (xh - xl) + 1] = \
+                            pixel_flat_buf[yl:yh + 1, xl:xh + 1]
+                        datakeep['pix'].append(deepcopy(blank))
+                        datakeep['fw_pix'].append(deepcopy(pixel_flat_buf[yl:yh, 0:FRAME_WIDTH_X - 1]))
+                    except:
+                        if yh < 0 or yl < 0 or xl < 0 or xh < 0:
+                            pass
+                        else:
+                            log.warning(f"Unable to build pixel flat data.", exc_info=True)
+                        load_blank = True
                     #note: check for bad flat in the plot creation where the owning fiber is better known
                 else:
                     load_blank = True
@@ -12750,7 +12787,10 @@ class HETDEX:
                 if load_blank:
                     # todo: this is really sloppy ... make a better/more efficient pattern
                     log.error("Could not find pixel flat: %s . Retry w/o leading 0" % pix_fn)
-                    datakeep['pix'].append(deepcopy(blank_pixel_flat(xh, xl, yh, yl)))
+                    try:
+                        datakeep['pix'].append(deepcopy(blank_pixel_flat(xh, xl, yh, yl)))
+                    except:
+                        datakeep['pix'].append(deepcopy(blank_pixel_flat())) #use defaults
 
 
                 #1D spectrum (spec is counts, specwave is the corresponding wavelength)
@@ -13481,6 +13521,31 @@ class HETDEX:
         #
         # except:
         #     pass
+
+
+        #check for interference pattern (often found by a fiber chi2 check)
+        try:
+            max_fiber_chi2 = np.max(datakeep['fiber_chi2'], axis=1)
+            ct_chi2 = len(max_fiber_chi2)
+            ct_chi2_bad = np.count_nonzero(max_fiber_chi2 > 2.0) + np.count_nonzero(max_fiber_chi2 == 0.0)
+            top_ct_chi2_really_bad = np.count_nonzero(max_fiber_chi2[-4:] > 2.5) + np.count_nonzero(max_fiber_chi2[-4:] == 0.0)
+            top_ct_chi2_bad = np.count_nonzero( np.array(max_fiber_chi2[-4:] >= 2.0) & np.array(max_fiber_chi2[-4:] < 2.5))
+            sel_nonzero = np.array(max_fiber_chi2 > 0)
+            #if 30% of fibers have bad chi2 or 2+ of the top 4 and 20% of all
+            if ct_chi2 > 3 and ( (np.nanmean(max_fiber_chi2[sel_nonzero]) > 2.0 and ct_chi2_bad/ct_chi2 >= 0.3) or
+                                  (ct_chi2_bad/ct_chi2 >= 0.2) and
+                                  ( ((top_ct_chi2_bad + top_ct_chi2_really_bad) >= 3) or
+                                    (top_ct_chi2_really_bad  >= 2.0 )
+                                  )
+                                ):
+                #likely there are
+                log.info(f"[{detobj.id}] high fraction of bad fiber chi2 {ct_chi2_bad/ct_chi2:0.2f} or top fibers {top_ct_chi2_bad}. "
+                         f"Setting corrupt data flag.")
+                detobj.flags |= G.DETFLAG_BAD_FIBERTRACE  # this would be a big problem
+
+
+        except:
+            pass
 
         buf = io.BytesIO()
        # plt.tight_layout()#pad=0.1, w_pad=0.5, h_pad=1.0)
