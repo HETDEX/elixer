@@ -32,7 +32,7 @@ for dispatch in dispatches:
 #now update the elixer.run
 _,run_dispatches = np.loadtxt("elixer.run",dtype=str,usecols=[0,1],unpack=True)
 
-tasks = np.loadtxt("elixer.run")
+tasks = np.loadtxt("elixer.run",dtype=str,unpack=False) #want each row as one unit, do not unpack
 
 _,_, idx = np.intersect1d(missing_dispatches,run_dispatches,return_indices=True)
 
