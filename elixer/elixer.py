@@ -4943,7 +4943,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                 metadata = None
 
             try:
-                plt.savefig(fname,format='png',metadata=None, dpi=75)
+                plt.savefig(fname,format='png',metadata=metadata, dpi=75)
             except:
                 plt.savefig(fname, format='png', dpi=75)
 
