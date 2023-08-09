@@ -2735,7 +2735,7 @@ def quick_fit(waves, flux, flux_err, w, delta_w=4.0, width=50, min_sigma=1.7, ma
     return snr, chi2, ew, parm, pcov, model_fit_full
 
 
-def quick_linescore(snr, chi2, sigma, ew, data_side_aa=40.0):
+def quick_linescore(snr, chi2, sigma, ew, data_side_aa=40.0, min_sigma = 0.5, max_sigma = 55.):
     """
     something like the line score, but simpler ... just for fast comparision
     """
@@ -2747,7 +2747,14 @@ def quick_linescore(snr, chi2, sigma, ew, data_side_aa=40.0):
         else:
             w_mult = 1.0
 
-        if sigma < 2.0 or sigma > 8.5:
+        if np.isclose(sigma, max_sigma, atol=0.01):
+            if max_sigma > 20:
+                s_mult = 0.0 #really just return 0
+            else:
+                s_mult = 0.1
+        elif np.isclose(sigma,min_sigma,atol=0.01):
+            s_mult = 0.5
+        elif sigma < 2.0 or sigma > 8.5:
             s_mult = 0.9
         else:
             s_mult = 1.0
@@ -2757,11 +2764,13 @@ def quick_linescore(snr, chi2, sigma, ew, data_side_aa=40.0):
         #        - 1.0 * max(0.1, chi2) \
         #        + 1.0 * abs(min(200, ew) / np.sqrt(2 * sigma) / 100.0)
 
-        return w_mult * s_mult * ( \
+        score =  w_mult * s_mult * ( \
              (5.0 * min(15.0,snr))  \
            - (max(0.5, chi2)**2) \
            + (1.0 * abs(min(200, ew) / 100.0)) \
               )
+
+        return score
     except:
         return 0
 

@@ -1990,6 +1990,33 @@ class DetObj:
                         if scaled_plae_classification > plya_vote_thresh: #more supportive case
                             p = 0.5 * (p + scaled_plae_classification) #half from the P(LyA) and half from the scale_score
 
+                        try:
+                            if (self.spec_obj.unmatched_solution_score > G.MAX_OK_UNMATCHED_LINES_SCORE) \
+                                and (self.spec_obj.unmatched_solution_count > G.MAX_OK_UNMATCHED_LINES):
+                                dscore = self.spec_obj.solutions[idx].score - self.spec_obj.unmatched_solution_score
+                                if dscore < 0:
+                                    p = min(0.1,p)
+                                    log.info("Limit maximum Q(z) due to unmatched lines.")
+                                elif p > 0.1:
+                                    p = p * dscore/self.spec_obj.solutions[idx].score
+                                    log.info("Limit maximum Q(z) due to unmatched lines.")
+                        except:
+                            pass
+
+                        try:
+                            if self.spec_obj.solutions[idx].emission_line.rank >= 5:
+                                if len(self.spec_obj.solutions[idx].lines) <  3:
+                                    p = min(p,0.2)
+                                    log.info("Limit maximum Q(z) for poor rank and few lines.")
+                            elif self.spec_obj.solutions[idx].emission_line.rank >= 3:
+                                if len(self.spec_obj.solutions[idx].lines) <  2:
+                                    if self.spec_obj.solutions[idx].lines[0].line_score < 50 and \
+                                            self.spec_obj.solutions[idx].lines[0].rank > 2:
+                                        p = min(p,0.2)
+                                        log.info("Limit maximum Q(z) for poor rank and few lines.")
+
+                        except:
+                            pass
                         multiline_sol_diag = 1 #good and agree
                         log.info(f"P(z): Multiline solution[{idx}] {self.spec_obj.solutions[idx].name} score {scale_score} "
                                  f"and P(LyA) {scaled_plae_classification} agree. Set to z: {z} with Q(z): {p}")
@@ -2115,19 +2142,29 @@ class DetObj:
 
                 #usually OII execpt if REALLY broad, then more likely MgII or CIV. but have to mark as OII, just lower the Q(z)
                 try:
-                    broad = self.fwhm/self.w * 3e5 > G.BROAD_FWHM_KMS
+                    broad = self.fwhm_kms + self.fwhm_kms_unc > G.BROAD_FWHM_KMS
                 except:
-                    broad = self.fhwm > G.BROAD_FWHM_AA
+                    try:
+                        broad = self.fwhm / self.w * 3e5 > G.BROAD_FWHM_KMS
+                    except:
+                        broad = self.fhwm > G.BROAD_FWHM_AA
 
                 use_multi = False
                 try:
 #                    if multiline_top_score > G.MULTILINE_MIN_SOLUTION_SCORE and multiline_top_rest in troublesome_lines:
-                    if multiline_top_score > G.MULTILINE_MIN_SOLUTION_SCORE or \
-                       (multiline_top_rest in troublesome_lines and multiline_top_score > 0.5 * G.MULTILINE_MIN_SOLUTION_SCORE):
+                    if multiline_top_score > G.MULTILINE_MIN_SOLUTION_SCORE:
+                        z = multiline_top_z
+                        p = min(p, 0.2)
+                        use_multi = True
+                        log.info(f"Q(z): Multiline solution is weak and inconsistent (loc 2a), but nothing better. "
+                                 f"P(LyA) favors OII {scaled_plae_classification}. Set to multiline z:{z} with Q(z): {p}")
+
+                    elif (multiline_top_rest in troublesome_lines and multiline_top_score > 0.5 * G.MULTILINE_MIN_SOLUTION_SCORE) \
+                        and broad:
                         z = multiline_top_z
                         p = min(p,0.2)
                         use_multi = True
-                        log.info(f"Q(z): Multiline solution is weak and inconsistent (loc 2), but nothing better. "
+                        log.info(f"Q(z): Multiline solution is weak and inconsistent (loc 2b), but nothing better. "
                                  f"P(LyA) favors OII {scaled_plae_classification}. Set to multiline z:{z} with Q(z): {p}")
                     # elif multiline_top_scale_score > 0.8 and multiline_top_frac_score > 0.6 and self.fwhm > 12:
                     #     #this is not terrible and may be better than an OII guess
@@ -2188,8 +2225,8 @@ class DetObj:
                         if self.flags & G.DETFLAG_LARGE_NEIGHBOR:
                             p = min(p,0.4)
 
-                        if multiline_top_score > G.MULTILINE_MIN_SOLUTION_SCORE or \
-                            (multiline_top_rest in troublesome_lines and multiline_top_score > 0.5 * G.MULTILINE_MIN_SOLUTION_SCORE):
+                        if multiline_top_score > G.MULTILINE_MIN_SOLUTION_SCORE or (broad and
+                            (multiline_top_rest in troublesome_lines and multiline_top_score > 0.5 * G.MULTILINE_MIN_SOLUTION_SCORE)):
                             z = multiline_top_z
                             log.info(f"Q(z): Multiline solution is weak and inconsistent (loc 3), but nothing better. "
                                      f"P(LyA) favors OII {scaled_plae_classification}. Set to multiline z:{z} with Q(z): {p}")

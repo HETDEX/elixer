@@ -2216,7 +2216,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                     fd["score"] = -1
                     continue
 
-                fd["score"] = SU.quick_linescore(fd["snr"],fd["chi2"],fd["parm"][1],fd["ew"],fd["wave_fit_side_aa"])
+                fd["score"] = SU.quick_linescore(fd["snr"],fd["chi2"],fd["parm"][1],fd["ew"],fd["wave_fit_side_aa"],
+                                                 min_sigma = fd["min_fit_sigma"], max_sigma=fd["max_fit_sigma"])
 
                 #may reject if at the maximum sigma
                 #does NOT apply to absorbers
@@ -7939,7 +7940,8 @@ class Spectrum:
                     try:
                         if self.all_found_lines is not None:
                             for fl in self.all_found_lines:
-                                if abs(fl.fit_x0-a_central) < NOMINAL_MAX_OFFSET_AA:
+                                if abs(fl.fit_x0-a_central) < NOMINAL_MAX_OFFSET_AA: #and \
+                                        #fl.fit_sigma/self.central_eli.fit_sigma < 3:
 
                                     lineinfo = self.match_line(fl.fit_x0,sol.z,max_rank=3)
                                     if lineinfo is not None:
