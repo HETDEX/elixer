@@ -1099,6 +1099,133 @@ class DetObj:
         # as this next step takes a while
         #self.load_fluxcalibrated_spectra()
 
+    def compact(self):
+        """
+        After this object is processed and the report PDF created,
+        get rid of large data chunks (like individual fiber spectra) that are no longer needed
+        to save memory for dispatch runs
+        :return:
+        """
+        try:
+
+
+            if x is not None:
+                del x
+                x = None
+
+
+
+            if self.nei_mini_buf is not None:
+                del self.nei_mini_buf
+                self.nei_mini_buf = None
+
+            if self.line_mini_buf is not None:
+                del self.line_mini_buf
+                self.line_mini_buf = None
+
+            if self.fiber_sky_subtraction_residual is not None:
+                del self.fiber_sky_subtraction_residual
+                self.fiber_sky_subtraction_residual = None
+
+            if self.fiber_sky_subtraction_residual_flat is not None:
+                del self.fiber_sky_subtraction_residual_flat
+                self.fiber_sky_subtraction_residual_flat = None
+
+            if self.aperture_sky_subtraction_residual is not None:
+                del self.aperture_sky_subtraction_residual
+                self.aperture_sky_subtraction_residual = None
+
+            if self.aperture_sky_subtraction_residual_flat is not None:
+                del self.aperture_sky_subtraction_residual_flat
+                self.aperture_sky_subtraction_residual_flat = None
+
+            if self.fibers is not None:
+                del self.fibers[:]
+                self.fibers = []
+
+            if self.ccd_adjacent_fibers is not None:
+                del self.ccd_adjacent_fibers[:]
+                self.ccd_adjacent_fibers = []
+
+            if self.sumspec_wavelength is not None:
+                del self.sumspec_wavelength[:]
+                self.sumspec_wavelength = []
+
+            if self.sumspec_counts  is not None:
+                del self.sumspec_counts[:]
+                self.sumspec_counts  = []
+
+            if self.sumspec_flux is not None:
+                del self.sumspec_flux[:]
+                self.sumspec_flux = []
+
+            if self.sumspec_fluxerr is not None:
+                del self.sumspec_fluxerr[:]
+                self.sumspec_fluxerr = []
+
+            if self.dust_corr is not None:
+                del self.dust_corr
+                self.dust_corr = None
+
+            if self.sumspec_apcor is not None:
+                del self.sumspec_apcor[:]
+                self.sumspec_apcor = []
+
+            if self.sumspec_wavelength_zoom is not None:
+                del self.sumspec_wavelength_zoom[:]
+                self.sumspec_wavelength_zoom = []
+
+            if self.sumspec_counts_zoom  is not None:
+                del self.sumspec_counts_zoom[:]
+                self.sumspec_counts_zoom  = []
+
+            if self.sumspec_flux_zoom is not None:
+                del self.sumspec_flux_zoom[:]
+                self.sumspec_flux_zoom = []
+
+            if self.sumspec_fluxerr_zoom is not None:
+                del self.sumspec_fluxerr_zoom[:]
+                self.sumspec_fluxerr_zoom = []
+
+            if self.sumspec_2d_zoom is not None:
+                del self.sumspec_2d_zoom[:]
+                self.sumspec_2d_zoom = []
+
+            if self.deblended_flux is not None:
+                del self.deblended_flux[:]
+                self.deblended_flux = []
+
+            if self.deblended_fluxerr is not None:
+                del self.deblended_fluxerr[:]
+                self.deblended_fluxerr = []
+
+            if self.image_2d_fibers_1st_col is not None:
+                del self.image_2d_fibers_1st_col
+                self.image_2d_fibers_1st_col = None
+
+            if self.image_1d_emission_fit is not None:
+                del self.image_1d_emission_fit
+                self.image_1d_emission_fit = None
+
+            if self.image_cutout_fiber_pos is not None:
+                del self.image_cutout_fiber_pos
+                self.image_cutout_fiber_pos = None
+
+            if self.aperture_details_list is not None:
+                del self.aperture_details_list[:]
+                self.aperture_details_list = []
+
+            if self.bid_target_list is not None:
+                del self.bid_target_list[:]
+                self.bid_target_list = []
+
+
+            gc.collect()
+
+        except:
+            log.warning(f"Exception in DetObj compact().",exc_info=True)
+
+
     def get_phot_z_vote(self):
         try:
             if len(self.phot_z_votes) > 0:
@@ -2260,7 +2387,9 @@ class DetObj:
                                 f"Q(z): weak multiline solution ({multiline_top_scale_score:0.2f}) favors OII, "
                                 f"but P(LyA) strongly favors LyA. Keeping LyA z:{z} with Q(z): {p}")
 
-                        elif np.max([x.rank for x in self.spec_obj.solutions[0].lines]) <= 3:
+                        elif np.min([x.rank for x in self.spec_obj.solutions[0].lines]) <= 3 and\
+                                np.max([x.snr for x in self.spec_obj.solutions[0].lines]) >= 5.0:
+                            #yes, the max SNR might not be with the lowest (strongest) rank
                             #the driving line(s) for this solution must be of strong rank
                             #can still be OII if the lines support it
                             z = self.spec_obj.solutions[0].z
@@ -11851,6 +11980,12 @@ class HETDEX:
         #    pages.append(fig)
         #    plt.close()
         #else, the pages were appended invidivually
+        # try:
+        #     if datakeep is not None:
+        #         datakeep.clear() #this is supposed to happend anyway as this falls out of scope
+        # except:
+        #     log.warning(f"Exception freeing datakeep.",exc_info=True)
+
         return pages
 
     def get_vrange(self,vals,scale=1.0,contrast=1.0):

@@ -533,7 +533,7 @@ elif hostname == "lonestar6" or hostname == 'ls6':
             print("Python < 3 No longer supported")
             exit(-1)
         else:
-            FILL_CPU_TASKS = 15
+            FILL_CPU_TASKS = 10
             if MERGE: #use same tasks limit as full run
                 MAX_TASKS = 128
                 MAX_NODES = 2
