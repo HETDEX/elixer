@@ -218,9 +218,13 @@ def main():
                 print("No files to merge")
                 exit(0)
 
-            print(f"Merging {len(merge_list)} files ... ")
+            print(f"Merging {len(merge_list)} files, working from {os.getcwd()} ... ")
             print(merge_list)
-            merge_hdf5(merge_list)
+            try:
+                merge_hdf5(merge_list)
+            except Exception as E:
+                print(f"Exception. Merge failed from {os.getcwd()}")
+                print(E)
             print("Intermediate merge complete")
 
 
