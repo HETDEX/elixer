@@ -2550,64 +2550,67 @@ def merge_elixer_hdf5_files(fname,flist=[]):
     log.info(f"Merging approximately {max_dets} in {len(flist)} files ...")
 
     for f in flist:
-        if f == fname: #could be the output file is one of those to merge
-            continue #just skip and move on
+        try:
+            if f == fname: #could be the output file is one of those to merge
+                continue #just skip and move on
 
-        merge_fh = get_hdf5_filehandle(f,append=True)
+            merge_fh = get_hdf5_filehandle(f,append=True)
 
-        if merge_fh is None:
-            log.error("Unable to merge: %s" %(f))
-            continue
+            if merge_fh is None:
+                log.error("Unable to merge: %s" %(f))
+                continue
 
-        m_dtb = merge_fh.root.Detections
-        m_stb = merge_fh.root.CalibratedSpectra
-        m_ltb = merge_fh.root.SpectraLines
-        m_atb = merge_fh.root.Aperture
-        m_ctb = merge_fh.root.CatalogMatch
+            m_dtb = merge_fh.root.Detections
+            m_stb = merge_fh.root.CalibratedSpectra
+            m_ltb = merge_fh.root.SpectraLines
+            m_atb = merge_fh.root.Aperture
+            m_ctb = merge_fh.root.CatalogMatch
 
 
-        #now merge
-        dtb.append(m_dtb.read())
-        stb.append(m_stb.read())
-        ltb.append(m_ltb.read())
-        atb.append(m_atb.read())
-        ctb.append(m_ctb.read())
+            #now merge
+            dtb.append(m_dtb.read())
+            stb.append(m_stb.read())
+            ltb.append(m_ltb.read())
+            atb.append(m_atb.read())
+            ctb.append(m_ctb.read())
 
-        try: #might not have ExtractedObjects table
-            m_etb = merge_fh.root.ExtractedObjects
-            etb.append(m_etb.read())
-        except:
-            pass
-
-        try: #might not have ElixerApertures table
-            m_xtb = merge_fh.root.ElixerApertures
-            xtb.append(m_xtb.read())
-        except:
-            pass
-
-        if LyC or Deblend:
-            try:
-                m_ntb = merge_fh.root.NeighborSpectra
-                ntb.append(m_ntb.read())
+            try: #might not have ExtractedObjects table
+                m_etb = merge_fh.root.ExtractedObjects
+                etb.append(m_etb.read())
             except:
                 pass
 
-            try:
-                m_dstb = merge_fh.root.DeblendedSpectra
-                dstb.append(m_dstb.read())
-            except:
-                pass
-
-        if Vote_Table:
             try: #might not have ElixerApertures table
-                m_vote_tb = merge_fh.root.ClassificationExtraFeatures
-                vote_tb.append(m_vote_tb.read())
+                m_xtb = merge_fh.root.ElixerApertures
+                xtb.append(m_xtb.read())
             except:
                 pass
 
-        flush_all(fileh,reindex=True) #for now, just to be safe, reindex anyway
-        #close the merge input file
-        merge_fh.close()
+            if LyC or Deblend:
+                try:
+                    m_ntb = merge_fh.root.NeighborSpectra
+                    ntb.append(m_ntb.read())
+                except:
+                    pass
+
+                try:
+                    m_dstb = merge_fh.root.DeblendedSpectra
+                    dstb.append(m_dstb.read())
+                except:
+                    pass
+
+            if Vote_Table:
+                try: #might not have ElixerApertures table
+                    m_vote_tb = merge_fh.root.ClassificationExtraFeatures
+                    vote_tb.append(m_vote_tb.read())
+                except:
+                    pass
+
+            flush_all(fileh,reindex=True) #for now, just to be safe, reindex anyway
+            #close the merge input file
+            merge_fh.close()
+        except:
+            log.error(f"Exception!. Exception merging {f}",exc_info=True)
 
     flush_all(fileh,reindex=True)
     fileh.close()
