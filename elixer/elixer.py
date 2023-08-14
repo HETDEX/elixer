@@ -5141,7 +5141,7 @@ def main():
         explicit_extraction = True
     elif args.fcsdir is not None:
         fcsdir_list = get_fcsdir_subdirs_to_process(args) #list of rsp1 style directories to process (each represents one detection)
-        if args.dispatch is None and args.dets is not None:
+        if args.dispatch is None and args.dets is not None and not args.blind:
             check_hdr_version_vs_detectids(int(G.HDR_Version), fcsdir_list)
             check_continuum_version_vs_detectids(args.continuum, fcsdir_list)
 
@@ -5155,7 +5155,7 @@ def main():
             print("Explicit extraction ...") #list of explicit extractions
 
         hdf5_detectid_list = get_hdf5_detectids_to_process(args)
-        if args.dispatch is None and args.dets is not None:
+        if args.dispatch is None and args.dets is not None and not args.blind:
             check_hdr_version_vs_detectids(int(G.HDR_Version), hdf5_detectid_list)
             check_continuum_version_vs_detectids(args.continuum, hdf5_detectid_list)
         if hdf5_detectid_list is not None:
@@ -5163,7 +5163,7 @@ def main():
             print("Processing %d entries in HDF5" %(len(hdf5_detectid_list)))
     else: #still even if neighborhood_only, may want neighborhood around detection
         hdf5_detectid_list = get_hdf5_detectids_to_process(args)
-        if args.dispatch is None and args.dets is not None:
+        if args.dispatch is None and args.dets is not None and not args.blind:
             check_hdr_version_vs_detectids(int(G.HDR_Version), hdf5_detectid_list)
             check_continuum_version_vs_detectids(args.continuum, hdf5_detectid_list)
     #add as a payload to args so can easily check later
