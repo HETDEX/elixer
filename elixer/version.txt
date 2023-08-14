@@ -1,5 +1,12 @@
 changes to elixer by version
 
+
+1.20.3 [2023-08-14]
+* fixed typo in "bright" CONTINUUM_RULES definition. Was using 8.5e-17 (should have been 8.5e-18) for g ~ 22
+* do not allow weak multiline solution to set the redshift for continuum bright
+  + combined with 8.5e-17 typo was allowing poor CIII fits to replace OII classifications
+* limit max sigma on quick fits to the larger 20.0 or 2x anchor line (with uncertainty)
+
 1.20.2 [2023-08-09]
 * fix error in limiting maximum Gaussian fit sigma
 

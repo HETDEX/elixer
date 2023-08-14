@@ -5343,6 +5343,53 @@ class Spectrum:
         return None
 
 
+
+    def match_found_lines(self,z,z_error=None,aa_error=None,allow_emission=True,allow_absorption=False,
+                    line_sigma=None,continuum=False,max_rank=5):
+        """
+
+        Like match_lines, but checks to see if any of the found lines are consistent with a line ID given the redshift
+
+        Given an input obsevered wavelength and a target redshift, return the matching emission line if found with the
+            +/- aa_error in angstroms of the main (central) emission line
+
+        :param obs_w:
+        :param z:
+        :param z_error: translate this to an AA error to allow for the match
+                        for spec_z should be 0.05 in z (or smaller). For phot_z, maybe up to 0.5?
+        :param aa_error: in angstroms
+        :param max_rank: maximum allowed rank to match; if matched line is greater than rank, do not accept match
+        :return:
+        """
+        try:
+            all_match = []
+
+            if continuum: #then normal  emission (like hydrogen series) can also be in absorption
+                allow_absorption = True
+
+            # continuum over rides broad and not abosorption (if there is continuum then we can allow any to be "broad"
+            # and be in absorption
+
+            for e in self.all_found_lines:
+                match = self.match_line(e.fit_x0,z,z_error=z_error,aa_error=aa_error, allow_absorption=allow_absorption,
+                                max_rank=max_rank)
+                if match is not None:
+                    all_match.append(match)
+
+
+            if all_match is not None and len(all_match) > 1:
+                _,unique_found_lines_sel=np.unique([x.w_rest for x in all_match],return_index=True)
+                all_match = np.array(all_match)[unique_found_lines_sel]
+
+            return all_match
+
+        except:
+            log.warning("Exception in Spectrum::match_found_lines()",exc_info=True)
+
+        return []
+
+
+
     def add_classification_label(self,label="",prepend=False,replace=False):
         """
 
@@ -7677,12 +7724,22 @@ class Spectrum:
                 except:
                     min_sigma = GAUSS_FIT_MIN_SIGMA
 
+                try:
+                    max_sigma = self.central_eli.fit_sigma
+                    if self.central_eli.fit_sigma_err is not None:
+                        max_sigma += self.central_eli.fit_sigma_err
+
+                    max_sigma = max(20.0,max_sigma * 2)
+
+                except:
+                    max_sigma = None
+
                 eli = signal_score(wavelengths=wavelengths, values=values, errors=errors, central=a_central,
                                    central_z = central_z, values_units=values_units, spectrum=self,
                                    show_plot=False, do_mcmc=False,min_fit_sigma=min_sigma,
                                    allow_broad= (a.broad and e.broad),
                                    relax_fit=(e.w_rest==G.OIII_5007)and(a.w_rest==G.OIII_4959),absorber=a.see_in_absorption,
-                                   test_solution=sol,spec_obj=self,targetted_fit=True)
+                                   test_solution=sol,spec_obj=self,targetted_fit=True,max_sigma=max_sigma)
 
                 if eli and a.broad and e.broad and (eli.fit_sigma < eli.fit_sigma_err) and \
                     ((eli.fit_sigma + eli.fit_sigma_err) > GOOD_BROADLINE_SIGMA):
@@ -7690,7 +7747,7 @@ class Spectrum:
                         eli = signal_score(wavelengths=wavelengths, values=medfilt(values, 5), errors=medfilt(errors, 5),
                             central=a_central, central_z = central_z, values_units=values_units, spectrum=self,
                             show_plot=False, do_mcmc=False, allow_broad= (a.broad and e.broad), absorber=a.see_in_absorption,
-                                           spec_obj=self,targetted_fit=True)
+                                           spec_obj=self,targetted_fit=True,max_sigma=max_sigma)
                 elif eli is None and a.broad and e.broad:
                     #are they in the same family? OII, OIII, OIV :  CIV, CIII, CII : H_beta, ....
                     samefamily = in_same_family(a,e)

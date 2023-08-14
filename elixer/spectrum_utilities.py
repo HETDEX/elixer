@@ -4120,10 +4120,14 @@ def uvbg_shift_observed_frame(z, rest_waves, rest_fluxd_arcs):  # , rest_fluxd_a
         # fluxd_arcs erg/s/cm2/AA/arcsec2  .... seems tha arcsec (surface flux density) part we leave alone
         # so we just have the usual 3 factors of (1+z) for erg, s, AA
         # BUT we need another (1+z) for arcsec2, right? so 4 factors?? e.g. using luminosity distance
+        #  BUT ... with isotropy, since this is presented per unit sterradian ... this is not a normal surface brightness
+        #  and the number and size of sterradians is constant, so ... maybe it is still just 3???
+        # ?? any loss of photons from any aperture is compensated by gains from outside coming in ??
+        # ?? vs a normal aperture that encapsulates a single source where photons are lost out of the apertures and not replaced ??
         # NOTE: a 1.77x to get rid of the per arcsec2 (1.77 arcsec2 is area of fiber) is applied LATER
         #     in uvbg_correct_for_lya_troughs()
 
-        return (1 + z) * rest_waves, rest_fluxd_arcs / (1 + z) ** 4 #SHOULD THIS be **4 since it is a surface brightness
+        return (1 + z) * rest_waves, rest_fluxd_arcs / (1 + z) ** 3 #SHOULD THIS be **4 since it is a surface brightness
 
     except:
         return None, None

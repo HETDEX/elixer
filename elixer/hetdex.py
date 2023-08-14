@@ -1992,13 +1992,29 @@ class DetObj:
 
             try:
                 if self.spec_obj and self.spec_obj.solutions and len(self.spec_obj.solutions) > 0:
+
                     multiline_top_z = self.spec_obj.solutions[0].z
                     multiline_top_score = self.spec_obj.solutions[0].score
                     multiline_top_scale_score = self.spec_obj.solutions[0].scale_score
                     multiline_top_frac_score = self.spec_obj.solutions[0].frac_score
                     multiline_top_rest = self.spec_obj.solutions[0].central_rest
                     log.info(f"{self.entry_id} Top solution: z={multiline_top_z:0.4f} rest={multiline_top_rest:0.1f}, "
-                             f"score={multiline_top_score:0.1f}, scaled score = {multiline_top_scale_score:0.2f}, frac_score={multiline_top_frac_score:0.3f}")
+                                 f"score={multiline_top_score:0.1f}, scaled score = {multiline_top_scale_score:0.2f}, frac_score={multiline_top_frac_score:0.3f}")
+
+                    if (self.cont_cgs > G.CONTNIUUM_RULES_THRESH or self.best_gmag_cgs_cont > G.CONTNIUUM_RULES_THRESH) \
+                            and multiline_top_score < G.MULTILINE_FULL_SOLUTION_SCORE:
+                        # don't trust it ... to be this bright, should have a good score
+                        multiline_top_z = -1
+                        multiline_top_score = -1
+                        multiline_top_scale_score = -1
+                        multiline_top_frac_score = -1
+                        multiline_top_rest = -1
+
+                        log.info(
+                            f"{self.entry_id} Continuum rules in place and top multiline score is weak, so it will be ignored.")
+
+
+
                 else:
                     multiline_top_z = -1
                     multiline_top_score = -1
@@ -2227,6 +2243,8 @@ class DetObj:
                             z = multiline_top_z
                             log.info(f"Q(z): Multiline solution is weak and inconsistent (loc 1), but nothing better. "
                                      f"P(LyA) favors OII {scaled_plae_classification}. Set to multiline z:{z} with Q(z): {p}")
+                            if  multiline_top_score < G.MULTILINE_FULL_SOLUTION_SCORE:
+                                p = min(0.1,p * multiline_top_score/G.MULTILINE_FULL_SOLUTION_SCORE)
 
                         elif scaled_plae_classification < plya_vote_thresh:
                             z = self.w / G.OII_rest - 1.0
@@ -2281,6 +2299,8 @@ class DetObj:
 #                    if multiline_top_score > G.MULTILINE_MIN_SOLUTION_SCORE and multiline_top_rest in troublesome_lines:
                     if multiline_top_score > G.MULTILINE_MIN_SOLUTION_SCORE:
                         z = multiline_top_z
+                        if multiline_top_score < G.MULTILINE_FULL_SOLUTION_SCORE:
+                            p = min(0.1, p * multiline_top_score / G.MULTILINE_FULL_SOLUTION_SCORE)
                         p = min(p, 0.2)
                         use_multi = True
                         log.info(f"Q(z): Multiline solution is weak and inconsistent (loc 2a), but nothing better. "
@@ -2289,6 +2309,8 @@ class DetObj:
                     elif (multiline_top_rest in troublesome_lines and multiline_top_score > 0.5 * G.MULTILINE_MIN_SOLUTION_SCORE) \
                         and broad:
                         z = multiline_top_z
+                        if multiline_top_score < G.MULTILINE_FULL_SOLUTION_SCORE:
+                            p = min(0.1, p * multiline_top_score / G.MULTILINE_FULL_SOLUTION_SCORE)
                         p = min(p,0.2)
                         use_multi = True
                         log.info(f"Q(z): Multiline solution is weak and inconsistent (loc 2b), but nothing better. "
@@ -2357,6 +2379,8 @@ class DetObj:
                             z = multiline_top_z
                             log.info(f"Q(z): Multiline solution is weak and inconsistent (loc 3), but nothing better. "
                                      f"P(LyA) favors OII {scaled_plae_classification}. Set to multiline z:{z} with Q(z): {p}")
+                            if multiline_top_score < G.MULTILINE_FULL_SOLUTION_SCORE:
+                                p = p * multiline_top_score / G.MULTILINE_FULL_SOLUTION_SCORE
                         else:
                             log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
             elif scaled_plae_classification > plya_fixed_hi: #plya_vote_hi:
@@ -2817,7 +2841,11 @@ class DetObj:
                     allow_absorption = True
                     phot_z_only = False
 
+                #these are just lines to check ... they are NOT FOUND lines
                 lines = self.spec_obj.match_lines(self.w,z,z_error=bid['z_err'],aa_error=None,
+                                                  allow_absorption=allow_absorption,max_rank=max_rank)
+
+                found_lines =  self.spec_obj.match_found_lines(z,z_error=bid['z_err'],aa_error=None,
                                                   allow_absorption=allow_absorption,max_rank=max_rank)
 
                 try:
@@ -2827,6 +2855,77 @@ class DetObj:
                     central_eli = None
                     line_score = 0.
 
+                # if found_lines is not None and len(found_lines) > 1:
+                #     _,unique_found_lines_sel=np.unique([x.w_rest for x in found_lines],return_index=True)
+                #     found_lines = np.array(found_lines)[unique_found_lines_sel]
+
+                #check against the found lines first
+                for line in found_lines:
+                    log.info(f"{bid['name']} possible z match: {line.name} {line.w_rest} z={z} rank={line.rank}")
+                    possible_lines.append(line)
+
+                    #note: if d25 is > GALAXY_MASK_D25_SCORE_NORM, this actually starts reducing the boost as we
+                    # get farther from the body of the galaxy mask
+                    #lines like OII, OIII, H_beta, LyA, CIV are all low rank lines and get high boosts
+                    #where H_eta, CaII, NaI are higher rank (weaker lines) and get lower boosts (and are not
+                    #likely to be the HETDEX detection line anyway)
+
+                    rank_scale = 1.0 if line.rank <= 2 else 1.0/(line.rank-1.0)
+                    boost = boost * rank_scale * (1.0 if bid['z_err'] > 0.1 else 2.0) + line_score
+
+                    #check the existing solutions ... if there is a corresponding z solution, boost its score
+                    new_solution = True
+                    for s in self.spec_obj.solutions:
+                        if s.central_rest == line.w_rest:
+                            new_solution = False
+                            if s.photz_zPDF_boosted == 0: #if this has not already been boosted by a zPDF
+                                log.info(f"Boosting ({'phot-z' if phot_z_only else 'spec-z'}) existing solution:  {line.name}({line.w_rest}) + {boost}")
+                                s.score += boost
+                                s.photz_single_boosted += 1
+
+
+                    if new_solution and (line.solution):
+
+                        if self.spec_obj.single_emission_line_redshift(line,self.w):
+                            boost /= 2.0 #cut in half for a new solution (as opposed to boosting an existing solution)
+                            sol = elixer_spectrum.Classifier_Solution()
+                            sol.z = self.w/line.w_rest - 1.0
+                            sol.central_rest = line.w_rest
+                            sol.name = line.name
+                            sol.color = line.color
+                            sol.emission_line = deepcopy(line)
+                            #add the central line info for flux, etc to line (basic info)
+                            if central_eli is not None:
+                                sol.emission_line.line_score =central_eli.line_score
+                                sol.emission_line.flux = central_eli.line_flux
+                                sol.emission_line.flux_err = central_eli.line_flux_err
+                                sol.emission_line.snr = central_eli.snr
+
+                            sol.emission_line.w_obs = self.w
+                            sol.emission_line.solution = True
+                            sol.prob_noise = 0
+                            sol.photz_single_boosted += 1
+                            sol.photz_zPDF_boosted += 1 #so this won't get a duplicate boost below
+                            #sol.score = boost
+
+                            if self.spec_obj.consistency_checks(sol):
+                                sol.score = boost
+                                #if one of the primaries ... z:[1.88,3.53] = LyA or z:[0,0.49], then this needs an
+                                #extra boost since it is only a single line
+                                if (0 < sol.z < 0.49) or (1.88 < sol.z < 3.53):
+                                    sol.score += sol.emission_line.line_score
+                                sol.lines.append(sol.emission_line) #have to add as if it is an extra line
+                                #otherwise the scaled score gets knocked way down
+                                log.info(f"Catalog z: Adding new solution {line.name}({line.w_rest}): score = {sol.score}")
+                            else: # reduce the weight ... but allow to conitnue??
+                                sol.score = G.MULTILINE_MIN_SOLUTION_SCORE
+                                log.info(f"Minimum catalog new solution {line.name}({line.w_rest}). Failed consistency check. Solution score set to {sol.score}")
+
+
+                            self.spec_obj.solutions.append(sol)
+
+
+                #basic line set
                 for line in lines:
                     log.info(f"{bid['name']} possible z match: {line.name} {line.w_rest} z={z} rank={line.rank}")
                     possible_lines.append(line)
@@ -2862,7 +2961,10 @@ class DetObj:
                         #it, so don't bother checking again (note: that is the else case)
                         #instead just see if a single line solution is allowable.
 
-                        if not phot_z_only:
+                        #NOTE: the w_obs in line is NOT NECESSARILY CORRECT, the line variable here is not a fitted line
+                        #it is just from the list of lines to check and the w_obs can have junk in it
+
+                        if not phot_z_only:# or (line.w_rest == G.OII_rest and line.z/:
                             if self.spec_obj.single_emission_line_redshift(line,self.w):
                                 boost /= 2.0 #cut in half for a new solution (as opposed to boosting an existing solution)
                                 sol = elixer_spectrum.Classifier_Solution()
@@ -14832,9 +14934,9 @@ class HETDEX:
             try:
                 #use THIS detection's spectrum object's modified emission_lines list IF there is one,
                 #otherwise, use the default list
-                emission_line_list = datakeep['detobj'].spec_obj.emission_lines
+                emission_line_list = copy(datakeep['detobj'].spec_obj.emission_lines)
             except:
-                emission_line_list = self.emission_lines
+                emission_line_list = copy(self.emission_lines)
 
 
             #found absorbers ... don't print weak emission lines if there is an absorber found there
@@ -14920,6 +15022,12 @@ class HETDEX:
                             , exc_info=True)
             else:
                 log.warning("Unable to build full width spec plot.",exc_info=True)
+
+
+        try:
+            emission_line_list.clear()
+        except:
+            pass
 
         #draw rectangle around section that is "zoomed"
         yl, yh = specplot.get_ylim()

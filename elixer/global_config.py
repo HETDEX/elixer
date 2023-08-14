@@ -24,7 +24,7 @@ if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
 #version
-__version__ = '1.20.2'
+__version__ = '1.20.3a1'
 #Logging
 GLOBAL_LOGGING = False #set to True in top elixer calls so we do not normally log from package imports
 LOG_TO_STDOUT = False #only kicks in if GLOBAL_LOGGING is False
@@ -72,7 +72,7 @@ HDR_BASEPATH = HDR_WORK_BASEPATH
 HDF5_DETECT_FN = None
 HDF5_CONTINUUM_FN = None
 CONTINUUM_RULES = False #use continuum rules instead of emission line rules
-CONTNIUUM_RULES_THRESH = 8.5e-17 #about g=22, #5e-17 #about g=20
+CONTNIUUM_RULES_THRESH = 8.5e-18 #about g=22, #5e-17 #about g=20
 HDF5_BROAD_DETECT_FN = None
 HDF5_SURVEY_FN = None
 OBSERVATIONS_BASEDIR = None
