@@ -10,6 +10,8 @@ changes to elixer by version
   + this could erroneously boost solution, particularly at low z
 * tweak unmatched line penality. Does not apply if the solution has 3+ lines, more lines than the unmatched lines, and
   a lager score than the unmatched line score.
+* added bad flags check to clustering
+* limit clustering to re-classifications that improve the scoring
 
 1.20.2 [2023-08-09]
 * fix error in limiting maximum Gaussian fit sigma
