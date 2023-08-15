@@ -2134,9 +2134,9 @@ class DetObj:
                             p = 0.5 * (p + scaled_plae_classification) #half from the P(LyA) and half from the scale_score
 
                         try:
-                            if (self.spec_obj.unmatched_solution_score > G.MAX_OK_UNMATCHED_LINES_SCORE) \
-                                and (self.spec_obj.unmatched_solution_count > G.MAX_OK_UNMATCHED_LINES):
-                                dscore = self.spec_obj.solutions[idx].score - self.spec_obj.unmatched_solution_score
+                            if (self.spec_obj.solutions[idx].unmatched_lines_score > G.MAX_OK_UNMATCHED_LINES_SCORE) \
+                                and (self.spec_obj.solutions[idx].unmatched_lines_count > G.MAX_OK_UNMATCHED_LINES):
+                                dscore = self.spec_obj.solutions[idx].score - self.spec_obj.solutions[idx].unmatched_lines_score
                                 if dscore < 0:
                                     p = min(0.1,p)
                                     log.info("Limit maximum Q(z) due to unmatched lines.")
@@ -2808,7 +2808,7 @@ class DetObj:
                 for b in self.bid_target_list:
                     try:
                         if b.phot_z_pdf_pz is not None and len(b.phot_z_pdf_pz) > 1:
-                            zPDF_area = SU.sum_zPDF(s.z,b.phot_z_pdf_pz,b.phot_z_pdf_z,0.2)
+                            zPDF_area = SU.sum_zPDF(s.z,b.phot_z_pdf_pz,b.phot_z_pdf_z,0.1*s.z) #sum +/- 10 %
                             #sanity check
                             if 0 < zPDF_area < 1.0:
                                 #don't care about any emission line ranks here
@@ -2861,6 +2861,11 @@ class DetObj:
 
                 #check against the found lines first
                 for line in found_lines:
+
+                    #this emission line records are CONSISTENT with the phot-z or spec-z redshift
+                    # BUT THEY ARE NOT necessarily the anchor line, so the solution has to be the anchor line
+
+
                     log.info(f"{bid['name']} possible z match: {line.name} {line.w_rest} z={z} rank={line.rank}")
                     possible_lines.append(line)
 
@@ -2885,8 +2890,9 @@ class DetObj:
 
 
                     if new_solution and (line.solution):
-
-                        if self.spec_obj.single_emission_line_redshift(line,self.w):
+                        found_line_z = self.w/line.w_rest-1.0 #check the found line against the anchor line
+                        if z - bid['z_err'] <   found_line_z < z + bid['z_err']:
+                            #want to bump these if the found lines are consistent??
                             boost /= 2.0 #cut in half for a new solution (as opposed to boosting an existing solution)
                             sol = elixer_spectrum.Classifier_Solution()
                             sol.z = self.w/line.w_rest - 1.0

@@ -94,7 +94,33 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
             # if (flags & G.DETFLAG_DISTANT_COUNTERPART) or (flags & G.DETFLAG_COUNTERPART_MAG_MISMATCH) or
             #     (flags &)
 
-            if flags == 0: #if there are flags, skip this check as we are going to check this object regardless
+            #flags that can influence the classification such that we would want to re-classify
+            #some flags are bad (like negative spectrum) but there is no need to re-classify because it is just junk
+            # basically, if the object is bright BUT has one or more of these flags, go ahead and re-classify
+            # if it is faint, always check
+            bad_flags_list = [
+                G.DETFLAG_FOLLOWUP_NEEDED,
+                G.DETFLAG_BLENDED_SPECTRA,
+                G.DETFLAG_COUNTERPART_MAG_MISMATCH,
+                G.DETFLAG_COUNTERPART_NOT_FOUND,
+                G.DETFLAG_DISTANT_COUNTERPART,
+                G.DETFLAG_EXT_CAT_QUESTIONABLE_Z,
+                G.DETFLAG_NO_IMAGING,
+                G.DETFLAG_BAD_PIXELS,
+                #G.DETFLAG_EXCESSIVE_ZERO_PIXELS,
+                # G.DETFLAG_POOR_SHOT,
+                # G.DETFLAG_BAD_DITHER_NORM,
+                # G.DETFLAG_POOR_THROUGHPUT,
+                #G.DETFLAG_NEGATIVE_SPECTRUM,
+                # G.DETFLAG_DUPLICATE_FIBERS,
+                # G.DETFLAG_BAD_PIXEL_FLAT,
+                # G.DETFLAG_POSSIBLE_LOCAL_TRANSIENT,
+                #G.DETFLAG_LARGE_NEIGHBOR, #irrelevant, it is likely this large neighbor we'd classify against
+                # G.DETFLAG_LARGE_SKY_SUB,
+                # G.DETFLAG_POSSIBLE_PN,
+            ]
+
+            if np.any([flags & x for x in bad_flags_list]) == 0: #if there are flags, skip this check as we are going to check this object regardless
                 try:
                     if (target_gmag+target_gmag_err) < G.CLUSTER_SELF_MAG_THRESH: #too bright
                         log.info(f"Clustering: Detectid {detectid}. Too bright. gmag = {target_gmag} +/- {target_gmag_err}")
@@ -110,10 +136,12 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
         target_dec = rows[0]['dec']
         try:
             target_z = rows[0][z_col] #use the primary (instead of the alternate plya thresholds)
+            target_pz = rows[0][pz_col]
         except:
-            target_z = rows[0]['best_z']
             z_col = 'best_z'
             pz_col = 'best_pz'
+            target_z = rows[0][z_col] #use the primary (instead of the alternate plya thresholds)
+            target_pz = rows[0][pz_col]
 
         target_wave = rows[0]['wavelength_obs']
         target_wave_err = rows[0]['wavelength_obs_err']
@@ -235,8 +263,11 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
             #could be the many are around the periphery of a bright object
 
 
-        #check if the z is the same, then don't bother
-        if abs(rows[best_idx][z_col] - target_z) < 0.1:
+        #check if the z is the same, then don't bother ... basically both positive and differnce of less than 5%
+        if np.isclose(rows[best_idx][z_col],target_z,atol=0.001) or\
+                (2 * abs((rows[best_idx][z_col] - target_z)/(rows[best_idx][z_col] + target_z)) < 0.05 and \
+                rows[best_idx][z_col] > 0 and target_z > 0):
+
             log.info(f"Clustering on {detectid}. Neighbors at same z = {target_z:0.5f}")
             return cluster_dict
 
@@ -265,6 +296,16 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
                          f"No common lines near rest {line_w_obs[best_idx]/(1 + rows[best_idx][z_col]):0.2f}")
                 return cluster_dict
 
+
+
+        #check that this is an improvement?
+        if rows[best_idx][pz_col] < target_pz:
+            if 2*(target_pz-rows[best_idx][pz_col])/(target_pz+rows[best_idx][pz_col]) > 0.1:
+                #not improved
+                log.info(f"Clustering on {detectid}. Best neighbor {neighbor_ids[best_idx]} Q(z) not significantly improved. "
+                         f"Target Q(z) {target_pz}, neighbor Q(z) {rows[best_idx][pz_col]}.")
+                return cluster_dict
+            #else they are close enough that this may still be the better choice
 
         #cannot go from a higher rank line to a lower one??
 

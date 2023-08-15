@@ -2188,7 +2188,18 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                             "min_fit_sigma": 15.0, "max_fit_sigma": 55.0, "min_snr":13.0 if targetted_fit else 15.0,
                             "max_gmag":G.BROADLINE_GMAG_MAX, "min_gmag": 0.0,
                             "snr": 0, "chi2": 999, "ew": 0, "parm": [], "pcov": [], "model": None, "score": 0},
+
+
                         ]
+                if max_sigma > 55.0:
+                    fit_dict_array.append(
+                        {"type": "xxlrg", "fit_range_AA": fit_range_AA * 10.0, "wave_fit_side_aa": max_sigma*3.3,
+                         "min_fit_sigma": max_sigma/3.0, "max_fit_sigma": max_sigma,
+                         "min_snr": 20.0 if targetted_fit else 30.0,
+                         "max_gmag": G.BROADLINE_GMAG_MAX, "min_gmag": 0.0,
+                         "snr": 0, "chi2": 999, "ew": 0, "parm": [], "pcov": [], "model": None, "score": 0},
+
+                    )
 
         #track and select the "best" to process below
         max_tested_sigma = GAUSS_FIT_MAX_SIGMA #if xlarge is allowed, this can be exceeded
@@ -7207,8 +7218,8 @@ class Spectrum:
                                                         continuum_limit=continuum_limit,continuum_limit_err=continuum_limit_err)
         self.solutions = solutions
 
-        #set the unmatched solution (i.e. the solution score IF all the extra lines were unmatched, not
-        #the unmatched score for the best solution) #instead, find the LyA solution and check it specifically
+        #set the unmatched solution (i.e. the solution score IF all the extra lines were unmatched,
+        #!!! THIS IS NOT the unmatched score for the best solution) #instead, find the LyA solution and check it specifically
         try:
             self.unmatched_solution_count, self.unmatched_solution_score = self.unmatched_lines_score(Classifier_Solution(self.central))
             log.debug(f"Unmatched solution line count {self.unmatched_solution_count} and score {self.unmatched_solution_score}")
@@ -7490,8 +7501,39 @@ class Spectrum:
             #tweak down the score for lines < 3700 (near, but blue of OII and well into the noisiest part)
             unmatched_score_list = np.array([x.line_score * rescale(x.fit_x0)
                                              for x in self.all_found_lines if (3550.0 < x.fit_x0 < 5500.0) and (x.line_score > line_score_threshold) ])
+            unmatched_raw_score_list = np.array([x.raw_line_score * rescale(x.fit_x0)
+                                             for x in self.all_found_lines if
+                                             (3550.0 < x.fit_x0 < 5500.0) and (x.line_score > line_score_threshold)])
             unmatched_wave_list = np.array([x.fit_x0 for x in self.all_found_lines if (3550.0 < x.fit_x0 < 5500.0) and (x.line_score > line_score_threshold)])
+            unmatched_wave_sigma = np.array([x.fit_sigma for x in self.all_found_lines if (3550.0 < x.fit_x0 < 5500.0) and (x.line_score > line_score_threshold)])
+
             solution_wave_list = np.array([solution.central_rest * (1.+solution.z)] + [x.w_obs for x in solution.lines])
+            solution_score_list = np.array([0] + [x.line_score for x in solution.lines ])
+            solution_sigma = np.array([x.sigma for x in solution.lines])
+
+                #0 for the central line, as it does not count toward the multiline score
+
+            #there can be LOTS of lines, esp for bright objects. Many will be false lines or junk and their scores
+            # will likely be low, BUT, because we cap the maximum score, lots of junk lines can add up and kick out
+            # an otherwise good solution, SO, limit the number of lines
+            top_x = 5
+            if len(self.all_found_lines) > top_x:
+                sorted_scores = sorted(unmatched_raw_score_list)[::-1]
+                top_thresh = sorted_scores[top_x]
+                top_sel = unmatched_raw_score_list > top_thresh
+                unmatched_score_list  = unmatched_score_list[top_sel]
+                unmatched_wave_list  = unmatched_wave_list[top_sel]
+                unmatched_wave_sigma = unmatched_wave_sigma[top_sel]
+
+            #decrease score to deal with huge FWHM or sigma (note 8.5+ sigma is generally pretty braod)
+            sigma_sel = unmatched_wave_sigma > 10.0
+            if np.count_nonzero(sigma_sel) > 0:
+                unmatched_score_list[sigma_sel] = unmatched_score_list[sigma_sel] * (10.0/unmatched_wave_sigma[sigma_sel])
+
+            #do the same for the solution
+            sigma_sel = solution_sigma > 10.0
+            if np.count_nonzero(sigma_sel) > 0:
+                solution_score_list[sigma_sel] = solution_score_list[sigma_sel] * (10.0/solution_sigma[sigma_sel])
 
 
             for line in solution_wave_list:
@@ -7512,7 +7554,7 @@ class Spectrum:
                         break
 
 
-            #also have to to check anchor line (as fit)
+            #also have to check anchor line (as fit)
             try:
                 if self.central_eli is not None:
                     for i in range(len(unmatched_wave_list)-1,-1,-1):
@@ -7539,8 +7581,15 @@ class Spectrum:
                     reduced = "*continuum reduced*"
                 else:
                     reduced = ""
-                log.debug("Unmatched lines: (wave,score): " + reduced + str([(w,s) for w,s in zip(unmatched_wave_list,unmatched_score_list)]))
-            return len(unmatched_score_list), np.nansum(unmatched_score_list)
+
+                unmatched_sum =  np.nansum(unmatched_score_list)
+                solution_sum =  np.nansum(solution_score_list)
+
+                if len(solution_wave_list) >= 3 and  len(solution_wave_list) > len(unmatched_wave_list) and solution_sum > unmatched_sum:
+                    return 0,0 #we will let it go
+                else:
+                    log.debug("Unmatched lines: (wave,score): " + reduced + str([(w,s) for w,s in zip(unmatched_wave_list,unmatched_score_list)]))
+                    return len(unmatched_score_list), np.nansum(unmatched_score_list)
         except:
             log.debug("Exception in spectrum::unmatched_lines_score",exc_info=True)
             return 0,0
@@ -7842,6 +7891,11 @@ class Spectrum:
 
                             if (ratio - ratio_err) < 3 < (ratio + ratio_err):
                                 good = True
+                        elif G.CONTINUUM_RULES or continuum_limit > G.CONTNIUUM_RULES_THRESH: #bright, OIII 4959 can get kist
+                            #the anchor might be a Balmer series or OII-3272 (note OIII-5007 already checked above)
+                            if np.isclose(a.w_rest, G.OIII_4959, atol=1.0):
+                                if eli.fit_sigma < 10 and eli.snr > 5.5 and eli.raw_line_score > 25.0 and eli.fit_chi2 < 3.0:
+                                    good = True
                     except:
                         pass
 
