@@ -7221,7 +7221,7 @@ class Spectrum:
         #set the unmatched solution (i.e. the solution score IF all the extra lines were unmatched,
         #!!! THIS IS NOT the unmatched score for the best solution) #instead, find the LyA solution and check it specifically
         try:
-            self.unmatched_solution_count, self.unmatched_solution_score = self.unmatched_lines_score(Classifier_Solution(self.central))
+            self.unmatched_solution_count, self.unmatched_solution_score = self.compute_unmatched_lines_score(Classifier_Solution(self.central))
             log.debug(f"Unmatched solution line count {self.unmatched_solution_count} and score {self.unmatched_solution_score}")
         except:
             log.debug("Exception computing unmatched solution count and score",exc_info=True)
@@ -7461,7 +7461,7 @@ class Spectrum:
         else:
             return wavelength
 
-    def unmatched_lines_score(self,solution,aa=4.0):
+    def compute_unmatched_lines_score(self,solution,aa=4.0):
         """
         Return the lines and summed line scores for unmatched lines associated with a solution
         :param solutions:
@@ -7590,8 +7590,9 @@ class Spectrum:
                 else:
                     log.debug("Unmatched lines: (wave,score): " + reduced + str([(w,s) for w,s in zip(unmatched_wave_list,unmatched_score_list)]))
                     return len(unmatched_score_list), np.nansum(unmatched_score_list)
+            return 0,0
         except:
-            log.debug("Exception in spectrum::unmatched_lines_score",exc_info=True)
+            log.debug("Exception in spectrum::compute_unmatched_lines_score",exc_info=True)
             return 0,0
 
     def is_near_absorber(self,w,aa=4.0):#pix_size=1.9): #is the provided wavelength near one of the found peaks (+/- few AA or pixels)
@@ -8086,7 +8087,7 @@ class Spectrum:
 
             #now apply penalty for unmatched lines?
             try:
-                sol.unmatched_lines_count, sol.unmatched_lines_score = self.unmatched_lines_score(sol)
+                sol.unmatched_lines_count, sol.unmatched_lines_score = self.compute_unmatched_lines_score(sol)
 
                 if sol.unmatched_lines_count > G.MAX_OK_UNMATCHED_LINES and sol.unmatched_lines_score > G.MAX_OK_UNMATCHED_LINES_SCORE:
                     log.info(f"Solution ({sol.name} {sol.central_rest:0.2f} at {sol.central_rest * (1+sol.z)}) penalized for excessive unmatched lines. Old score: {sol.score:0.2f}, "
@@ -8187,7 +8188,7 @@ class Spectrum:
                     # HAVE to REAPPLY
                     # now apply penalty for unmatched lines?
                     try:
-                        s.unmatched_lines_count, s.unmatched_lines_score = self.unmatched_lines_score(s)
+                        s.unmatched_lines_count, s.unmatched_lines_score = self.compute_unmatched_lines_score(s)
 
                         if s.unmatched_lines_count > G.MAX_OK_UNMATCHED_LINES and s.unmatched_lines_score > G.MAX_OK_UNMATCHED_LINES_SCORE:
                             log.info("Re-apply unmatched lines after rescoring....")
