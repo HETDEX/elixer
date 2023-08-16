@@ -4127,7 +4127,39 @@ def uvbg_shift_observed_frame(z, rest_waves, rest_fluxd_arcs):  # , rest_fluxd_a
         # NOTE: a 1.77x to get rid of the per arcsec2 (1.77 arcsec2 is area of fiber) is applied LATER
         #     in uvbg_correct_for_lya_troughs()
 
-        return (1 + z) * rest_waves, rest_fluxd_arcs / (1 + z) ** 3 #SHOULD THIS be **4 since it is a surface brightness
+        #return (1 + z) * rest_waves, rest_fluxd_arcs / (1 + z) ** 3 #SHOULD THIS be **4 since it is a surface brightness
+
+        #update, treating this as a specific intensity at higher z (so erg/s/cm2/Hz/solid angle)
+        #we can (prior to this step) convert per-Hz and per sterradian to per AA and per arcsec2 ... still a specfic intensity
+        # handwavy
+        # number of photons per volume box is constant, but the volume changes as (1+z)^3 and
+        # the central wavelength changes with 1+z and the width of the wavelength bin changes with 1+z (e.g. these
+        #  two 1+z deal with the energy shift and wavelength bin compression)
+        # number of photons to ergs is easy (just h*nu or hc/lambda) where lambda changes as 1+z as noted above
+        #
+        # or from Eric Gawiser 2013-08-15:
+        # n_gamma (lambda_0, delta_lambda_0) is fixed since the comoving density of photons at a particular "rest frame"
+        # wavelength interval around a particular rest frame wavelength is fixed.  We assume isotropy and note that the
+        # definition of specific intensity imagines that an area dA is perpendicular to the direction of travel of each
+        # photon.  (That part sounds strange but only changes the following by a factor of sqrt(3) ).
+        #
+        # At any redshift, n_gamma, physical  = n_gamma,0 (1+z)^3   and   lambda(z) = lambda_0/(1+z)   and
+        # delta_lambda(z) = delta_lambda_0/(1+z)
+        #
+        # Let's calculate the energy in ergs resulting from photons in an infinitesimal region of area, time, and
+        # solid angle as a product of the number of photons in that solid angle interval passing through that area in
+        # that time:
+        #
+        # J_lambda (lambda_0,z) * delta_lambda(z)  dA dt dOmega = n_gamma,0 (1+z)^3   dA  c dt  * dOmega/(4 pi) * hc/lambda(z)
+        #
+        # Now we can divide to get the specific intensity:
+        #
+        # J_lambda (lambda_0,z) = n_gamma,0 h c^2 / (4 pi lambda_0 delta_lambda_0) * (1+z)^5
+        #
+
+        #this is the erg/s/cm2/AA/arcsec2 from higher z to z = 0
+        #the next functions need to deal with the per arcsec2 as necessary (to go to per fiber or per aperture)
+        return (1 + z) * rest_waves, rest_fluxd_arcs / (1 + z) ** 5
 
     except:
         return None, None
