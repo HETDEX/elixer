@@ -5884,10 +5884,13 @@ def main():
                                                     p_of_z = p_of_z_list[0]
                                                     best_z = best_z_list[0]
                                                     e.flags |= G.DETFLAG_Z_FROM_NEIGHBOR
+                                                    line_label = e.spec_obj.match_line(e.w, best_z,aa_error=6.0,
+                                                                                       continuum=G.CONTINUUM_RULES).name
                                                     header_text = r"EW: %0.1f$\pm$%0.1f$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  " \
-                                                                  r"P(Ly$\alpha$): %0.3f  Q(z): %0.2f  z: %0.4f*" \
+                                                                  r"P(Ly$\alpha$): %0.3f  Q(z): %0.2f  z: %0.4f*  %s (%s)" \
                                                                   % (max(-9999,min(combined_ew,9999)),max(-9999,min(combined_ew_err,9999)),
-                                                                      round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae,p_of_z,best_z)
+                                                                      round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae,p_of_z,best_z,line_label,
+                                                                     e.cluster_parent)
                                                 else:
                                                     #what line is best_z?
                                                     try:

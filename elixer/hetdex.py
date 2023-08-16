@@ -1974,6 +1974,7 @@ class DetObj:
         #for lines like MgII, CIII, CIV ... regardless of the P(LyA) threhold, use these as fixed values for the uncertain range
         plya_fixed_hi = 0.6
         plya_fixed_lo = 0.4
+        apply_vacuum_correction = True
 
         try:
             #aka P(LyA)
@@ -2501,9 +2502,6 @@ class DetObj:
             except:
                 pass
 
-            if self.cluster_parent != 0 and z == self.cluster_z and self.cluster_qz > 0:
-                log.info(f"Clustering. Setting Q(z) to cluster parent Q(z): {self.cluster_qz:0.2f} ")
-                p = self.cluster_qz
 
             #last checks
             try:
@@ -2656,17 +2654,26 @@ class DetObj:
             except:
                 pass
 
+            if self.cluster_parent != 0 and z == self.cluster_z and self.cluster_qz > 0:
+                log.info(f"Clustering. Setting Q(z) to cluster parent Q(z): {self.cluster_qz:0.2f}. Overrides other conditions. ")
+                p = self.cluster_qz
+                z = self.cluster_z #NOTE THIS IS ALREADY vacuum corrected
+                apply_vacuum_correction = False
+
 
             self.best_z_uncorrected = z
             self.best_p_of_z = p
 
             #correction for air vs vac and orbital velocitym etc
-            z = SU.z_correction(z,self.w,shotid=self.survey_shotid)
+            if apply_vacuum_correction:
+                z = SU.z_correction(z,self.w,shotid=self.survey_shotid)
+                log.info(
+                    f"{self.entry_id} Applied redshift corection. Old z = {self.best_z_uncorrected}. New z = {self.best_z}.")
+
             self.best_z = z
             self.best_z_list.append(self.best_z)
             self.best_p_of_z_list.append(self.best_p_of_z)
             self.plya_thresh_list.append(plya_vote_thresh)
-            log.info(f"{self.entry_id} Applied redshift corection. Old z = {self.best_z_uncorrected}. New z = {self.best_z}.")
 
             return z,p
         except:
