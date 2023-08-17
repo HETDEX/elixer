@@ -6019,6 +6019,26 @@ def main():
                     join_report_parts(args.name)
                     delete_report_parts(args.name)
 
+            # re-check status as it may have changed
+            for h in hd_list:
+                for e in h.emis_list:
+                    if e.status < 0:
+                        try:
+                            log.info(f"[{e.entry_id}] Status changed. Report will not be generated.")
+                            file_sel = [str(e.entry_id) in f.filename for f in file_list]
+                            if np.count_nonzero(file_sel) == 1: #should be 1 or 0
+                                file_idx = np.argwhere(file_sel)[0][0]
+                                os.remove(file_list[file_idx].filename)
+                                #log.info(f"+++++ todo delete {file_list[file_idx].filename}")
+                                file_list[file_idx].filename = "--delete--"
+                            elif np.count_nonzero(file_sel) > 1:
+                                log.error(f"+++++ [{e.entry_id}] ERROR. Unexpected number of matching files exist.")
+                        except:
+                            log.error("Exception cleaning up bad status detections file list.",exc_info=True)
+                        #todo: delete the file (if it exists)
+                        #todo: remove from the emis_list
+
+
 
 
             if G.LyC or G.DeblendSpectra:
@@ -6566,6 +6586,9 @@ def main():
             if (args.jpg or args.png) and (PyPDF is not None):
                 if len(file_list) > 0:
                     for f in file_list:
+                        if f.filename == "--delete--":
+                            continue
+
                         if (G.LAUNCH_PDF_VIEWER is not None) and args.viewer:
                             viewer_file_list.append(f.filename)
 
@@ -6584,6 +6607,9 @@ def main():
             else: #no conversion, but might still want to launch the viewer
                 if len(file_list) > 0:
                     for f in file_list:
+                        if f.filename == "--delete--":
+                            continue
+
                         if (G.LAUNCH_PDF_VIEWER is not None) and args.viewer:
                             viewer_file_list.append(f.filename)
                 else:

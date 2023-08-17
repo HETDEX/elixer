@@ -12,6 +12,8 @@ changes to elixer by version
 * added bad flags check to clustering
 * limit clustering to re-classifications that improve the scoring
 * fix labeling with clustered detections and added the cluster parent to the top line
+* UVB as specific intensity with (1+z)^-5
+* do not update detection when clustering if the clustering redshift fails in classifiction
 
 1.20.2 [2023-08-09]
 * fix error in limiting maximum Gaussian fit sigma

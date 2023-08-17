@@ -2654,11 +2654,17 @@ class DetObj:
             except:
                 pass
 
-            if self.cluster_parent != 0 and z == self.cluster_z and self.cluster_qz > 0:
-                log.info(f"Clustering. Setting Q(z) to cluster parent Q(z): {self.cluster_qz:0.2f}. Overrides other conditions. ")
-                p = self.cluster_qz
-                z = self.cluster_z #NOTE THIS IS ALREADY vacuum corrected
-                apply_vacuum_correction = False
+            if self.cluster_parent != 0:
+                if z == self.cluster_z and self.cluster_qz > 0:
+                    log.info(f"Clustering. Setting Q(z) to cluster parent Q(z): {self.cluster_qz:0.2f}. Overrides other conditions. ")
+                    p = self.cluster_qz
+                    z = self.cluster_z #NOTE THIS IS ALREADY vacuum corrected
+                    apply_vacuum_correction = False
+                else:
+                    #this WAS an attempt to cluster but failed so DO NOT UPDATE the original
+                    self.status = -1 # so this will NOT update the existing record
+                    log.info(
+                        f"[{self.entry_id}] Clustering. Failed to agree on redshift. Will not update orginal record.")
 
 
             self.best_z_uncorrected = z

@@ -1834,6 +1834,8 @@ def extend_elixer_hdf5(fname,hd_list=[],overwrite=False):
         for e in h.emis_list: #for each detection in each hd collection
             if e.status >= 0:
                 append_entry(fileh,e,overwrite)
+            else:
+                log.info(f"[{e.entry_id}] NOT written to hdf5 due to bad status.")
 
 
     flush_all(fileh)
