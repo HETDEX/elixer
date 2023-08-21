@@ -7509,7 +7509,7 @@ class Spectrum:
 
             solution_wave_list = np.array([solution.central_rest * (1.+solution.z)] + [x.w_obs for x in solution.lines])
             solution_score_list = np.array([0] + [x.line_score for x in solution.lines ])
-            solution_sigma = np.array([x.sigma for x in solution.lines])
+            solution_sigma = np.array([0] + [x.sigma for x in solution.lines])
 
                 #0 for the central line, as it does not count toward the multiline score
 

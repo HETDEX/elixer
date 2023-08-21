@@ -287,16 +287,20 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--obsid', help="Observation ID (integer). "
                                         "Must provide for Panacea.", required=False, type=int)
     parser.add_argument('--specid', help="SpecID aka CAM (integer) i.e. --specid 13 or --specid 13,14,19  "
-                                         "If not specified, all are used. (may be restricted by --ifuid or --ifuslot)", required=False, type=int)
+                                         "If not specified, all are used. (may be restricted by --ifuid or --ifuslot)",
+                        required=False, type=int)
     parser.add_argument('--ifuid', help="IFU ID (integer) *** NOTICE. This is the cable ID.  "
-                                        "If not specified, all are used (may be restricted by --specid or --ifuslot)", required=False, type=int)
+                                        "If not specified, all are used (may be restricted by --specid or --ifuslot)",
+                        required=False, type=int)
     parser.add_argument('--ifuslot', help="IFU SLOT ID (integer)  "
-                                          "If not specified, all are used (may be restricted by --specid or --ifusid)", required=False, type=int)
+                                          "If not specified, all are used (may be restricted by --specid or --ifusid)",
+                        required=False, type=int)
 
     parser.add_argument('-e', '--error', help="Error (+/-) in RA and Dec in arcsecs.", required=False, type=float,
                         default=3.0)
 
-    parser.add_argument('--search', help="Search window (+/-) in RA and Dec in arcsecs (for use only with --ra and --dec).", required=False, type=float)
+    parser.add_argument('--search', help="Search window (+/-) in RA and Dec in arcsecs (for use only with --ra and --dec).",
+                        required=False, type=float)
 
     parser.add_argument('--fibers', help="Number of fibers to plot in 1D spectra cutout."
                                          "If present, also turns off weighted average.", required=False, type=int)
@@ -329,7 +333,11 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--ifu', help="HETDEX IFU (Cure) file", required=False)
     parser.add_argument('--dist', help="HETDEX Distortion (Cure) file base (i.e. do not include trailing _L.dist or _R.dist)",
                         required=False)
-    parser.add_argument('--id', help="ID or list of IDs from detect line file for which to search", required=False)
+    #parser.add_argument('--id', help="ID or list of IDs from detect line file for which to search", required=False)
+    #old --id is defunct, replace with this use
+    parser.add_argument('--id', help="Integer report ID to to 'name' the ELiXer report. Must be < 9e18. Cannot be"
+                                     " combined with --dets or --coords. For use only with --ra -dec --shotid",
+                        required=False,type=np.int64)
 
     parser.add_argument('--sn', help="Minimum fiber signal/noise threshold (Panacea) to plot in spectra cutouts",
                         required=False, type=float, default=0.0)
@@ -786,19 +794,47 @@ def parse_commandline(auto_force=False):
         return args
 
     #don't really use id any more, but pass it into dets
+    #OLD --id used with old .mc files
+    # if args.id is not None:
+    #     #if it is a small number, assume we want to start the local IDs at that number
+    #     #if it is in the HETDEX range, replace --dets with that value (assuming a lookup is being requested)
+    #     try:
+    #         _i = int(args.id)
+    #         if 0 < _i < int(1e9):
+    #             G.UNIQUE_DET_ID_NUM = _i - 1
+    #         else:
+    #             print("Note: old '--id' parameter overriding '--dets'")
+    #             args.dets = args.id
+    #     except:
+    #         print("Note: old '--id' parameter overriding '--dets'")
+    #         args.dets = args.id
+
+    #replaced --id now used to override the naming of an elixer report ID
+    #Only applies to a single run (e.g. not for use with --coords or --dets) if --dets is NOT present
+    #(e.g. for use with --ra, --dec, --shotid, --wavelength)
     if args.id is not None:
-        #if it is a small number, assume we want to start the local IDs at that number
-        #if it is in the HETDEX range, replace --dets with that value (assuming a lookup is being requested)
-        try:
-            _i = int(args.id)
-            if 0 < _i < int(1e9):
-                G.UNIQUE_DET_ID_NUM = _i - 1
-            else:
-                print("Note: old '--id' parameter overriding '--dets'")
-                args.dets = args.id
-        except:
-            print("Note: old '--id' parameter overriding '--dets'")
-            args.dets = args.id
+        if args.dets is None and args.coords is None:
+            #check that id is an integer
+            try:
+                if args.id < 0:
+                    print(f"Invalid format for --id: {args.id}. Must be a positive integer < 9e18")
+                    exit(-1)
+                elif args.ra is None or args.dec is None or args.shotid is None:
+                    print(f"Invalid supporing parameters for --id. Also requires --ra, --dec, and --shotid")
+                    exit(-1)
+                else:
+                    args.manual_name = args.id #this is for compatibility with the 5th column of --coords
+                                              #note: there is no --manual_name; args is being used as a convenient
+                                              #mechanism to pass to the hetdex object.
+            except:
+                print(f"Invalid format use of --id")
+                exit(-1)
+
+        else:
+            print("--id and (--dets or --coords) specified. Ignoring --id")
+            log.info("--id and (--dets or --coords). Ignoring --id")
+
+
 
     if args.prep_recover:
         print("Attempting to run clean_for_recovery script ... ")
@@ -1247,9 +1283,9 @@ def parse_commandline(auto_force=False):
             if (args.ra is not None) and (args.dec is not None):
                 prompt = "Looking for targets +/- %f\" from RA=%f DEC=%f\nProceed (y/n ENTER=YES)?" \
                               % (args.error, args.ra, args.dec)
-            elif args.id is not None:
-                prompt = "Looking for targets +/- %f\" from ID %s.\nProceed (y/n ENTER=YES)?" \
-                         % (args.error,args.id)
+            # elif args.id is not None: #DEFUNCT, now just using as a name (id) for the report under specific conditions
+            #     prompt = "Looking for targets +/- %f\" from ID %s.\nProceed (y/n ENTER=YES)?" \
+            #              % (args.error,args.id)
             elif (args.dets):
                 prompt = "Looking for targets +/- %f\" from detection(s).\nProceed (y/n ENTER=YES)?" \
                             % args.error

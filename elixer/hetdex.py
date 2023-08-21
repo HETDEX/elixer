@@ -9917,10 +9917,10 @@ class HETDEX:
         self.detectline_fn = args.line
         self.sigma = args.sigma
         self.chi2 = args.chi2
-        if args.id is not None:
-            self.emis_det_id = args.id.split(",") #might be a list?
-        else:
-            self.emis_det_id = None
+        # if args.id is not None:
+        #     self.emis_det_id = args.id.split(",") #might be a list?
+        # else:
+        #     self.emis_det_id = None
         self.dither = None #Dither() obj
         self.fplane_fn = None
         self.fplane = None
@@ -10762,6 +10762,7 @@ class HETDEX:
                     if (e.survey_shotid is not None) and (e.survey_shotid != 0):
                         e.id = self.manual_name
                         e.entry_id = e.id
+                        e.pdf_name = f"{e.id}"
                     else:
                         log.warning(f"Manual ID/name {self.manual_name} specified for detection, but shotid/datevshot "
                                     f"not provided. Will default back to dispatch_id naming.")
