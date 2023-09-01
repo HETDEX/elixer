@@ -173,6 +173,11 @@ FLUX_CONVERSION_f_grid = np.interp(FLUX_CONVERSION_w_grid, FLUX_CONVERSION_measu
 
 FLUX_CONVERSION_DICT = dict(zip(FLUX_CONVERSION_w_grid,FLUX_CONVERSION_f_grid))
 
+#this actually varies with seeing FWHM and throughput and really should be computed per shot
+#but this is a pretty good average for use with stacking
+COUNTS_TO_FLUX_BASE_NORMALIZATION = np.array(FLUX_CONVERSION_measured_f) / FLUX_CONVERSION_measured_f[14] #idx 14 (4740AA) is closest to 4726AA
+COUNTS_TO_FLUX_BASE_NORMALIZATION_INTERP = np.interp(G.CALFIB_WAVEGRID, FLUX_CONVERSION_measured_w, COUNTS_TO_FLUX_BASE_NORMALIZATION)
+
 
 def update_with_globals():
     global GAUSS_FIT_MAX_SIGMA,GAUSS_FIT_MIN_SIGMA
@@ -5116,7 +5121,7 @@ class Spectrum:
                                                                    self.wavelengths,
                                                                    self.errors / 2.0 * G.HETDEX_FLUX_BASE_CGS)
 
-                if gmag_cgs_cont1 >= G.HETDEX_CONTINUUM_FLUX_LIMIT: #if the unmasked continuum estimate is already below our limit,
+                if gmag_cgs_cont1 is not None and gmag_cgs_cont1 >= G.HETDEX_CONTINUUM_FLUX_LIMIT: #if the unmasked continuum estimate is already below our limit,
                                                                     # don't bother with the correction as it is meaningless
                     #with the wavelengths masked
                     gmag2, gmag_cgs_cont2, gmag_unc2, gmag_cgs_cont_unc2 = get_hetdex_gmag(
@@ -5124,11 +5129,14 @@ class Spectrum:
                                                                            self.wavelengths,
                                                                            _errors / 2.0 * G.HETDEX_FLUX_BASE_CGS)
 
-                    gmag_cgs_cont2 = max(G.HETDEX_CONTINUUM_FLUX_LIMIT,gmag_cgs_cont2)
+                    if gmag_cgs_cont2 is not None:
+                        gmag_cgs_cont2 = max(G.HETDEX_CONTINUUM_FLUX_LIMIT,gmag_cgs_cont2)
 
-                    if gmag_cgs_cont1 > 0 and gmag_cgs_cont2 > 0:
-                        self.gband_masked_correction_factor = gmag_cgs_cont2/gmag_cgs_cont1
-                        log.info(f"g-band correction factor = {self.gband_masked_correction_factor}")
+                        if gmag_cgs_cont1 > 0 and gmag_cgs_cont2 > 0:
+                            self.gband_masked_correction_factor = gmag_cgs_cont2/gmag_cgs_cont1
+                            log.info(f"g-band correction factor = {self.gband_masked_correction_factor}")
+                        else:
+                            self.gband_masked_correction_factor = 1.0
                     else:
                         self.gband_masked_correction_factor = 1.0
                 else:

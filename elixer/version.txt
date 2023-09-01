@@ -1,10 +1,12 @@
 changes to elixer by version
 
 
-1.20.3a2 [2023-08-21]
+1.20.3a2 [2023-09-01]
 * repurpose the --id command line parameter to allow the user to force a single re-extraction elixer report ID to be
   this value. Must be a posiive integer < 9e18 and cannot be used with --dets or --coords, only with a single use
   of --ra, --dec, --shotid
+* bump line width sigma to 2 decimals
+* update to random_apertures stacking; stck on bottom 2/3 of median flux of spectra in 5 wavelength bins
 
 1.20.3a1 [2023-08-16]
 * fixed typo in "bright" CONTINUUM_RULES definition. Was using 8.5e-17 (should have been 8.5e-18) for g ~ 22
