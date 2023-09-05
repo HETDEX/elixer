@@ -72,6 +72,8 @@ T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
                  ('fiber_ct', int),
                  ('trim_aper_fluxd', (float, len(G.CALFIB_WAVEGRID))),
                  ('trim_aper_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('trim_fiber_fluxd', (float, len(G.CALFIB_WAVEGRID))),
+                 ('trim_fiber_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
                  ])
 
 
@@ -101,17 +103,11 @@ def split_spectra_into_bins(fluxd_2d, fluxd_err_2d,sort=True,trim=0.666):
     :param trim: if 0 to 1.0, keep the bottom "trim" fraction of the sorted sample (only if sort is True)
     :return:
     """
-    # rd = {"f1":None,  "e1":None,   #fluxdensity bin 1, fluxdensity_error bin 1
-    #       "f2": None, "e2": None,
-    #       "f3": None, "e3": None,
-    #       "f4": None, "e4": None,
-    #       "f5": None, "e5": None,
-    #       }
 
     rd = {} #return dict
 
     bin_idx_ranges = [(15,195),(195,400),(400,605),(605,810),(810,1015)] #(inclusive-exclusive)
-    full_idx_ranges = [(0, 195), (195, 400), (400, 605), (605, 810), (810, 1036)]
+    full_idx_ranges = [(0, 195), (195, 400), (400, 605), (605, 810), (810, 1036)] #1st and last different to cover full 1036
 
 
     #todo: when appending, though need the full width, so 1st bin needs to be (0,195) and the last (810,1036)
@@ -264,6 +260,38 @@ for i,files in enumerate(zip(aper_files,fiber_files)):
 
 
     if t2 is not None:
+
+        # stack apertures by trimmed data
+        fd = split_spectra_into_bins(t2['fluxd'], t2['fluxd_err'], sort=True, trim=0.666)
+        i = 0
+        while f"f{i + 1}" in fd.keys():
+            fkey = f"f{i + 1}"
+            ekey = f"e{i + 1}"
+            rkey = f"r{i + 1}"
+            try:
+                fiber_flux_stack, fiber_fluxe_stack, fiber_grid, fiber_contributions = SU.stack_spectra(
+                    fd[fkey],
+                    fd[ekey],
+                    np.tile(G.CALFIB_WAVEGRID[fd[rkey][0]:fd[rkey][1]], (len(fd[fkey]), 1)),
+                    grid=G.CALFIB_WAVEGRID[fd[rkey][0]:fd[rkey][1]],
+                    avg_type=average,
+                    straight_error=False)
+                fiber_contributions = int(np.nanmean(fiber_contributions))  # should actually be a constant
+
+                fd[f"fs{i + 1}"] = fiber_flux_stack
+                fd[f"es{i + 1}"] = fiber_fluxe_stack
+
+            except Exception as e:
+                print(e)
+                fd[f"fs{i + 1}"] = None
+                fd[f"es{i + 1}"] = None
+
+            i += 1
+
+        # now stitch them all together into a single spectrum and error
+        fd["fluxd_stack"] = np.concatenate([fd[x] for x in fd.keys() if x[0:2] == "fs"])
+        fd["fluxe_stack"] = np.concatenate([fd[x] for x in fd.keys() if x[0:2] == "es"])
+
         # stack the fibers
         try:
             fiber_flux_stack, fiber_fluxe_stack, fiber_grid, fiber_contributions = SU.stack_spectra(
@@ -293,7 +321,8 @@ for i,files in enumerate(zip(aper_files,fiber_files)):
                aper_flux_stack, aper_fluxe_stack,aper_contributions,
                corr_flux_stack, corr_fluxe_stack,corr_contributions,
                fiber_flux_stack, fiber_fluxe_stack,fiber_contributions,
-               ad['fluxd_stack'],ad['fluxe_stack']])
+               ad['fluxd_stack'],ad['fluxe_stack'],
+               fd['fluxd_stack'],fd['fluxe_stack']])
 
     if (i) % write_every == 0:
         if T is not None:

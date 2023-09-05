@@ -3626,7 +3626,8 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
         else:
             model =  rl*which_models[l] + rh*which_models[h]  #+ zeropoint_shift
 
-        frac, model = shift_sky_residual_model_to_glim(model,ffsky=ffsky,seeing=seeing,flat_adjust=False)
+        if False:  # using the fixed24, so no extra adjustment
+            frac, model = shift_sky_residual_model_to_glim(model,ffsky=ffsky,seeing=seeing,flat_adjust=False)
 
         # if model is not None:
         #     model = correct_per_lamdba(model)
@@ -3791,7 +3792,8 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
         # if model is not None:
         #     model = correct_per_lamdba(model)
 
-        frac, model = shift_sky_residual_model_to_glim(model, ffsky=ffsky, seeing=seeing, flat_adjust=False,fiber_model=False)
+        if False: #using the fixed24, so no extra adjustment
+            frac, model = shift_sky_residual_model_to_glim(model, ffsky=ffsky, seeing=seeing, flat_adjust=False,fiber_model=False)
 
         #
         # log.warning("***************** Testing 50% **************")

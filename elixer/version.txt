@@ -1,7 +1,7 @@
 changes to elixer by version
 
 
-1.20.3a2 [2023-09-01]
+1.20.3a2 [2023-09-05]
 * repurpose the --id command line parameter to allow the user to force a single re-extraction elixer report ID to be
   this value. Must be a posiive integer < 9e18 and cannot be used with --dets or --coords, only with a single use
   of --ra, --dec, --shotid

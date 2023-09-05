@@ -556,7 +556,8 @@ def parse_commandline(auto_force=False):
                                            "--zeropoint and --skyres",
                         required=False, type=int,default=None)
 
-    parser.add_argument('--skyres', help="Set the sky residual subtraction residual correction OFF (0), or ON (1). "
+    parser.add_argument('--skyres', help="Set the sky residual subtraction residual correction OFF (0), or ON per fiber (1), "
+                                         "or (2) ON per 3.5\" aperture. "
                                          "Otherwise use default. See also --zeroflat and --zeropoint",
                         required=False, type=int,default=None)
 

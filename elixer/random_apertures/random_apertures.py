@@ -237,7 +237,8 @@ response = float(survey_table['response_4540'][sel])
 
 del survey_table
 
-elix_h5  = tables.open_file("/scratch/03946/hetdex/hdr3/detect/elixer.h5")
+#elix_h5  = tables.open_file("/scratch/03946/hetdex/hdr3/detect/elixer.h5")
+elix_h5  = tables.open_file("/scratch/projects/hetdex/hdr3/detect/elixer.h5")
 dex_ra = elix_h5.root.Detections.read(field='ra')
 dex_dec = elix_h5.root.Detections.read(field='dec')
 elix_h5.close()
@@ -363,6 +364,13 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
         norm_weights = np.pad(norm_weights, (0, 32 - len(norm_weights)))
 
         f50, apcor = SU.get_fluxlimits(ra, dec, [3800.0, 5000.0], shot)
+        if f50 is None:
+            f50 = [-1,-1]
+            print("Error. f50 is None.")
+
+        if apcor is None:
+            apcor = [-1,-1]
+            print("Error. apcor is None.")
 
         # FUTURE/OPTIONAL: Should we check the imaging?? run a cutout and SEP check and only accept if nothing found?
 
