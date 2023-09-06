@@ -3590,7 +3590,7 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
                 # (there is an extra over average seeing 0.0 column, so have to trim off 4)
                 #G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS = G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS[1:-4] * fine_tune_sky_residual_model_shape()
                 G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS = fine_tune_sky_residual_model_shape(
-                                                        G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS[1:-4],ffsky)
+                                                        G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS[1:],ffsky)
 
             which_models = G.SKY_FIBER_RESIDUAL_ALL_FF_MODELS
             #zeropoint_shift = G.ZEROPOINT_SHIFT_FF
@@ -3608,7 +3608,7 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
                 # (there is an extra over average seeing 0.0 column, so have to trim off 4)
                 #G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS = G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS[1:-4] * fine_tune_sky_residual_model_shape()
                 G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS = fine_tune_sky_residual_model_shape(
-                                                        G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS[1:-4],ffsky)
+                                                        G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS[1:],ffsky)
 
             which_models = G.SKY_FIBER_RESIDUAL_ALL_LL_MODELS
             #zeropoint_shift = G.ZEROPOINT_SHIFT_LL
@@ -3753,7 +3753,7 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
                 # (there is an extra over average seeing 0.0 column, so have to trim off 4)
                # G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS = G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS[1:-4] * fine_tune_sky_residual_model_shape()
                 G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS = fine_tune_sky_residual_model_shape(
-                                                        G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS[1:-4],ffsky)
+                                                        G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS[1:],ffsky)
 
             which_models = G.SKY_APERTURE_RESIDUAL_ALL_FF_MODELS
             #zeropoint_shift = G.ZEROPOINT_SHIFT_FF
@@ -3771,7 +3771,7 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsk
                 # (there is an extra over average seeing 0.0 column, so have to trim off 4)
                 #G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS = G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS[1:-4] * fine_tune_sky_residual_model_shape()
                 G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS = fine_tune_sky_residual_model_shape(
-                                                            G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS[1:-4],ffsky)
+                                                            G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS[1:],ffsky)
 
 
             which_models = G.SKY_APERTURE_RESIDUAL_ALL_LL_MODELS
