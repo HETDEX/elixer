@@ -945,31 +945,44 @@ class science_image():
 
                 try:
                     # now, get the flux
-                    kronrad, krflag = sep.kron_radius(data_sub, obj['x'], obj['y'],
-                                                      obj['a'], obj['b'], obj['theta'], r=6.0)
+                    #dd 2023-09-07 incompatibility with sep version 1.1+ and numpy means the
+                    #parameters need to all go in as arrays or lists
+                    kronrad, krflag = sep.kron_radius(  data = data_sub,
+                                                        x = [obj['x']], y =[obj['y']],
+                                                        a = [obj['a']], b = [obj['b']], theta= [obj['theta']],
+                                                        r = [6.0])#,
+                                                        #mask=None, maskthresh=0.0, seg_id=None, segmap=None)
+                    kronrad = kronrad[0]
+                    #not using krflag
                     # r=6 == 6 isophotal radii ... source extractor always uses 6
                     # minimum diameter = 3.5 (1.75 radius)
                     radius = kronrad * np.sqrt(obj['a'] * obj['b'])
                     if radius < 1.75:
                         radius = 1.75
-                        flux, fluxerr, flag = sep.sum_circle(data_sub, obj['x'], obj['y'],
-                                                             radius, subpix=1,err=data_err)
+                        flux, fluxerr, flag = sep.sum_circle(data_sub, [obj['x']], [obj['y']],
+                                                             [radius], subpix=1,err=data_err)
                     else:
-                        flux, fluxerr, flag = sep.sum_ellipse(data_sub, obj['x'], obj['y'],
-                                                              obj['a'], obj['b'], obj['theta'],
-                                                              2.5 * kronrad, subpix=1,err=data_err)
-                # except:
-                #     log.error("Exception! Exception in find_sep_objects.",exc_info=True)
-                except Exception as e:
-                    try:
-                        if e.args[0] == "invalid aperture parameters":
-                            #log.debug(f"+++++ invalid aperture parameters")
-                            pass #do nothing ... not important
-                        else:
-                            log.error(f"Exception! Exception in find_sep_objects. {e}",exc_info=True)
-                    except:
-                        log.warning(f"Exception with source extractor. {e}")
+                        flux, fluxerr, flag = sep.sum_ellipse(data_sub, [obj['x']], [obj['y']],
+                                                              [obj['a']], [obj['b']], [obj['theta']],
+                                                              [2.5 * kronrad], subpix=1,err=data_err)
+
+                    flux = flux[0]
+                    fluxerr = fluxerr[0]
+                    flag = flag[0]
+
+                except:
+                    log.error("Exception! Exception in find_sep_objects.",exc_info=True)
                     continue
+                # except Exception as e:
+                #     try:
+                #         if e.args[0] == "invalid aperture parameters":
+                #             #log.debug(f"+++++ invalid aperture parameters")
+                #             pass #do nothing ... not important
+                #         else:
+                #             log.error(f"Exception! Exception in find_sep_objects. {e}",exc_info=True)
+                #     except:
+                #         log.warning(f"Exception with source extractor. {e}")
+                #     continue
 
                 try:  # flux, fluxerr, flag may be ndarrays but of size zero (a bit weird)
                     flux = float(flux)
@@ -1004,12 +1017,17 @@ class science_image():
                         # same value, but this is for a temporary test
                         mid_x = int(np.shape(conv_data)[0]//2)
                         mid_y = mid_x #these are square cutouts
-                        flux, fluxerr, flag = sep.sum_circle(conv_data, mid_x,mid_y,
-                                                         radius, subpix=1,err=data_err)
+                        flux, fluxerr, flag = sep.sum_circle(conv_data, [mid_x],[mid_y],
+                                                         [radius], subpix=1,err=data_err)
                     else:
                         # now, get the flux
-                        flux, fluxerr, flag = sep.sum_circle(data_sub, obj['x'], obj['y'],
-                                                         radius, subpix=1,err=data_err)
+                        flux, fluxerr, flag = sep.sum_circle(data_sub, [obj['x']], [obj['y']],
+                                                         [radius], subpix=1,err=data_err)
+
+                    flux = flux[0]
+                    fluxerr = fluxerr[0]
+                    flag = flag[0]
+
                 except:
                     log.warning("Exception with source extractor",exc_info=True)
                     continue
@@ -1033,8 +1051,8 @@ class science_image():
                 img_objects.append(d)
                 map_idx[idx]=len(img_objects) -1
 
-                log.debug(f"+++++ len of img_objects: {len(img_objects)}")
-                log.debug(f"+++++ value of sucess: {success}")
+                # log.debug(f"+++++ len of img_objects: {len(img_objects)}")
+                # log.debug(f"+++++ value of sucess: {success}")
 
                 if success:  # this is outside
                     outside_objs.append((idx, dist2bary, dist2curve))
