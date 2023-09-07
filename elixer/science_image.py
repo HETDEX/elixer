@@ -941,7 +941,7 @@ class science_image():
                 else:
                     d['dist_curve'] = -1.0
 
-                log.debug(f"+++++ dist_curve: {d['dist_curve']}")
+                #log.debug(f"+++++ dist_curve: {d['dist_curve']}")
 
                 try:
                     # now, get the flux
@@ -961,7 +961,7 @@ class science_image():
                 except Exception as e:
                     try:
                         if e.args[0] == "invalid aperture parameters":
-                            log.debug(f"+++++ invalid aperture parameters")
+                            #log.debug(f"+++++ invalid aperture parameters")
                             pass #do nothing ... not important
 
                     except:
@@ -1029,6 +1029,9 @@ class science_image():
 
                 img_objects.append(d)
                 map_idx[idx]=len(img_objects) -1
+
+                log.debug(f"+++++ len of img_objects: {len(img_objects)}")
+                log.debug(f"+++++ value of sucess: {success}")
 
                 if success:  # this is outside
                     outside_objs.append((idx, dist2bary, dist2curve))
