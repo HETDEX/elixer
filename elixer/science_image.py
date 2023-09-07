@@ -879,6 +879,7 @@ class science_image():
         objects = None
         try:
             if (cutout is None) or (cutout.data is None):
+                log.debug("+++++ bad cutout")
                 return img_objects, None
 
             cx, cy = cutout.center_cutout
@@ -940,6 +941,8 @@ class science_image():
                 else:
                     d['dist_curve'] = -1.0
 
+                log.debug(f"+++++ dist_curve: {d['dist_curve']}")
+
                 try:
                     # now, get the flux
                     kronrad, krflag = sep.kron_radius(data_sub, obj['x'], obj['y'],
@@ -958,7 +961,9 @@ class science_image():
                 except Exception as e:
                     try:
                         if e.args[0] == "invalid aperture parameters":
+                            log.debug(f"+++++ invalid aperture parameters")
                             pass #do nothing ... not important
+
                     except:
                         log.warning(f"Exception with source extractor. {e}")
                     continue
