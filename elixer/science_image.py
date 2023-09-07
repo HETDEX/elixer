@@ -963,6 +963,8 @@ class science_image():
                         if e.args[0] == "invalid aperture parameters":
                             #log.debug(f"+++++ invalid aperture parameters")
                             pass #do nothing ... not important
+                        else:
+                            log.error(f"Exception! Exception in find_sep_objects. {e}")
 
                     except:
                         log.warning(f"Exception with source extractor. {e}")
