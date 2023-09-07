@@ -41,8 +41,8 @@ def id_from_coord(ra,dec,shot=None):
 
     try:
         idstr = '7' if dec < 0 else '8'
-        idstr += str(int(ra*1e4)).zfill(7)
-        idstr +=  str(int(abs(dec*1e4))).zfill(6)
+        idstr += str(int(round(ra*1e4))).zfill(7)
+        idstr +=  str(int(abs(round(dec*1e4)))).zfill(6)
 
         if shot is not None:
             try:

@@ -6276,7 +6276,7 @@ def main():
                 # PSF Spectra Deblending
                 ##########################
                 try:
-                    log.info("Begninning spectra PSF deblending.")
+                    log.info("Beginning spectra PSF deblending.")
                     try:
                         if args.aperture is not None:
                             aperture = args.aperture

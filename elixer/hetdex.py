@@ -2812,7 +2812,7 @@ class DetObj:
                 #allowed to have the smaller of 0.5 or 20% error in z
                 if b.phot_z is not None and b.phot_z > -0.02:
                     list_z.append({'z':b.phot_z,'z_err':min(0.25, b.phot_z * 0.2),'boost':G.ALL_CATATLOG_PHOT_Z_BOOST,'name':b.catalog_name,
-                                   'mag':b.bid_mag,'filter':b.bid_filter,'distance':b.distance,'type':"p"})
+                                   'mag':b.bid_mag,'filter':b.bid_filter,'distance':b.distance,'type':"p",'zPDF_area':-1})
 
             #first scan existing z solutions and see if they have a matching photz with zPDF; if yes, then boost their
             #scores by the zPDF in the z-region AND mark them as already phitz boosted so we don't double boost below
@@ -2836,6 +2836,11 @@ class DetObj:
 
                                 #mark so we don't repeat with a fixed z ... BUT we can repeat with independent zPDFs
                                 s.photz_zPDF_boosted += 1
+
+                                #update the z_list
+                                for lz in list_z:
+                                    if lz['distance'] == b.distance and lz['z'] == b.phot_z:
+                                        lz['zPDF_area'] = zPDF_area
 
                     except:
                         log.info("Exception",exc_info=True)
@@ -2890,6 +2895,12 @@ class DetObj:
 
                     rank_scale = 1.0 if line.rank <= 2 else 1.0/(line.rank-1.0)
                     boost = boost * rank_scale * (1.0 if bid['z_err'] > 0.1 else 2.0) + line_score
+                    if bid['zPDF_area'] == -1: #there is no zPDF
+                        if bid['z'] < 0.5: #more likely to be accurate and help with LyA vs OII
+                            boost *= 0.75
+                        else: #less accurate and can erroneously confuse LyA with CIV, CIII, MgII
+                            boost *= 0.25
+                    #else this was already handled earlier when zPDF_Area was checked
 
                     #check the existing solutions ... if there is a corresponding z solution, boost its score
                     new_solution = True

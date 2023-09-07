@@ -1,6 +1,12 @@
 changes to elixer by version
 
 
+1.20.3a3 [2023-09-07]
+* lower photz catalog match scoring if there is no zPDF to integrate. Scoring reduced more if not less than z < 0.5;
+  this keeps LyA/OII discrimination strong (and photz is better at low-z) while helping reduce erroneous up-voting
+  of CIV, CIII, MgII vs LyA
+* slight change to munged RA+DEC+shot naming ... round the RA, Dec before truncating
+
 1.20.3a2 [2023-09-05]
 * repurpose the --id command line parameter to allow the user to force a single re-extraction elixer report ID to be
   this value. Must be a posiive integer < 9e18 and cannot be used with --dets or --coords, only with a single use
