@@ -970,19 +970,19 @@ class science_image():
                     fluxerr = fluxerr[0]
                     flag = flag[0]
 
-                except:
-                    log.error("Exception! Exception in find_sep_objects.",exc_info=True)
-                    continue
-                # except Exception as e:
-                #     try:
-                #         if e.args[0] == "invalid aperture parameters":
-                #             #log.debug(f"+++++ invalid aperture parameters")
-                #             pass #do nothing ... not important
-                #         else:
-                #             log.error(f"Exception! Exception in find_sep_objects. {e}",exc_info=True)
-                #     except:
-                #         log.warning(f"Exception with source extractor. {e}")
+                # except:
+                #     log.error("Exception! Exception in find_sep_objects.",exc_info=True)
                 #     continue
+                except Exception as e:
+                    try:
+                        if e.args[0] == "invalid aperture parameters":
+                            #log.debug(f"+++++ invalid aperture parameters")
+                            pass #do nothing ... not important
+                        else:
+                            log.error(f"Exception! Exception in find_sep_objects. {e}",exc_info=True)
+                    except:
+                        log.warning(f"Exception with source extractor. {e}")
+                    continue
 
                 try:  # flux, fluxerr, flag may be ndarrays but of size zero (a bit weird)
                     flux = float(flux)

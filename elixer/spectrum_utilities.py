@@ -3459,7 +3459,7 @@ def fine_tune_sky_residual_model_shape(model=None,ffsky=False):
     # print("!!!!! fine tune model ends set to all one !!!!! ")
     # return np.ones(len(G.CALFIB_WAVEGRID))
 
-    log.info(f"***** NOT fine tuning model. TURN OFF *****")
+    log.debug(f"NOT fine tuning sky residual model.")
     if model is None:
         return 1.0
     else:
@@ -3511,7 +3511,7 @@ def fine_tune_sky_residual_model_shape(model=None,ffsky=False):
         log.warning("Exception! Exception fine tuning sky residual model shape.", exc_info=True)
         return None
 
-def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=False,hdr=G.HDR_Version,zeroflat=False):
+def interpolate_universal_single_fiber_sky_subtraction_residual(seeing=1.7,ffsky=False,hdr=G.HDR_Version,zeroflat=False):
     """
 
         This is applied with the call to HETDEX_API get_spectra() and, as such, this needs to be in:
@@ -3661,7 +3661,7 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing,ffsky=Fal
 
 
 
-def interpolate_universal_aperture_sky_subtraction_residual(seeing,aper=3.5,ffsky=False,hdr=G.HDR_Version,zeroflat=False):
+def interpolate_universal_aperture_sky_subtraction_residual(seeing=1.7,aper=3.5,ffsky=False,hdr=G.HDR_Version,zeroflat=False):
     """
         Very similar to interpolate_universal_single_fiber_sky_subtraction_residual() above, but is for
         the full 3.5" aperture model rather than a single fiber

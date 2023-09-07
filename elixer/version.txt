@@ -6,6 +6,10 @@ changes to elixer by version
   this keeps LyA/OII discrimination strong (and photz is better at low-z) while helping reduce erroneous up-voting
   of CIV, CIII, MgII vs LyA
 * slight change to munged RA+DEC+shot naming ... round the RA, Dec before truncating
+* work around issue with sep with arrays and len().; not compatible with Python 3.9.7 on lonestar6 and updated numpy;
+ newer sep (1.1 and up) has a bug that attempts to get a length from an integer. Updated calling code to pass in
+ scalars as arrays or lists and then convert back to scalars after calls.
+
 
 1.20.3a2 [2023-09-05]
 * repurpose the --id command line parameter to allow the user to force a single re-extraction elixer report ID to be

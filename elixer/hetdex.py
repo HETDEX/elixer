@@ -5751,8 +5751,8 @@ class DetObj:
             log.info(logstring)
 
             #sanity check ... no negative weights allowed
-            sel = [weight > 0] #skip any negative weights and no need to bother with zero weights
-            if np.any([weight < 0]):
+            sel = weight > 0 #skip any negative weights and no need to bother with zero weights
+            if np.any(weight < 0):
                 log.warning("Warning! One or more negative weights ignored.")
 
             try:
