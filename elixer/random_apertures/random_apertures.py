@@ -248,6 +248,9 @@ if min_gmag is None:
 
 min_gmag += mag_adjust
 
+
+reject_file = open("reject_"+str(shotid)+".coord", "w+")
+
 for f in super_tab: #these fibers are in a random order so just iterating over them is random
                     #though it is possible to get two apertures at the same location (adjacent fibers and random
                     #ra, dec shifts could line them up ... would be exceptionally unlikely, so we will ignore)
@@ -304,8 +307,14 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
         #    continue #point source mag is too bright, likely has something in it
         # g == None for negative continuum or below limit, so None itself is okay, need to check continuum
         if g is not None and g < min_gmag:
+            #reason 1 ... too bright
+            reject_file.write(f"{ra}  {dec}  {shot} 1\n")
+            reject_file.flush()
             continue  # point source mag is too bright, likely has something in it
         elif c < negative_flux_limit: #g might be None, if continuum is negative, then we don't get a magnitude
+            #reason 2 ... too negative
+            reject_file.write(f"{ra}  {dec}  {shot} 2\n")
+            reject_file.flush()
             continue  # point source mag is too bright, likely has something in it
 
         dex_cont = c
@@ -328,6 +337,9 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
                 pass
             else:
                 fail = True
+                # reason 3 ... chunk out of range
+                reject_file.write(f"{ra}  {dec}  {shot} 3\n")
+                reject_file.flush()
                 break
 
         if fail:
@@ -339,6 +351,9 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
                                                         absorber=False,
                                                         spec_obj=None, return_status=True)
         if status != 0:
+            # reason 4 ... emission line found
+            reject_file.write(f"{ra}  {dec}  {shot} 4\n")
+            reject_file.flush()
             continue  # some failure or 1 or more possible lines
 
 
