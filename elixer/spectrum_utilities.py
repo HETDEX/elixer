@@ -3711,12 +3711,23 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing=1.7,aper=3.5,
 
     try:
 
-        #now has to be checked by the caller
-        # if G.APPLY_SKY_RESIDUAL_TYPE != 1:
-        #     if zeroflat:
-        #         return None, None
-        #     else:
-        #         return None
+        if True: #just use the per fiber and translate to aperture
+
+            if zeroflat:
+                model, flat = interpolate_universal_single_fiber_sky_subtraction_residual(seeing=seeing,
+                                                                                          ffsky=ffsky,
+                                                                                          hdr=hdr,zeroflat=zeroflat)
+                _, aper_model = fiber_to_psf(seeing, aperture=aper, fiber_spec=model, fiber_err=None)
+                _, flat = fiber_to_psf(seeing, aperture=aper, fiber_spec=flat, fiber_err=None)
+                return aper_model, flat
+            else:
+                model = interpolate_universal_single_fiber_sky_subtraction_residual(seeing=seeing,
+                                                                                          ffsky=ffsky,
+                                                                                          hdr=hdr, zeroflat=zeroflat)
+                _, aper_model = fiber_to_psf(seeing, aperture=aper, fiber_spec=model, fiber_err=None)
+
+                return aper_model
+
 
         if aper is not None and not (3.0 <= aper <= 3.5):
             #if aper is None ... assume this is a HETDEX extraction and is valid
@@ -4055,16 +4066,12 @@ def zeropoint_mul_correction_var(fluxd, fluxd_err, residual_correction, waves, h
         return 1.0
 
 
-
-
-
-def shift_flam_isometric(flamd,waves,frac=1.0,iso_wave=G.DEX_G_EFF_LAM):
+def shift_flam_uniform(flamd,waves,frac=1.0,iso_wave=G.DEX_G_EFF_LAM):
     """
-    shift a flux density (or flux) per wavelength by a fixed fraction in fnu
-    this is computed from the HETDEX ISO wavelength of about 4726AA
+    shift a flux density (or flux) per wavelength by a fixed amount
+    as a multiple of the flux at the HETDEX ISO wavelength of about 4726AA
 
-    This is a pure translation then. Shifting the spectrum up or down without changing the shape in flam.
-    (the shape DOES change in fnu, so the assumption is that the spectrum is NOT FLAT in fnu)
+    This is a pure translation. Shifting the spectrum up or down without changing the shape in flam.
 
     This is an exact change, so the uncertainty on flamd is not altered
 
@@ -4074,12 +4081,11 @@ def shift_flam_isometric(flamd,waves,frac=1.0,iso_wave=G.DEX_G_EFF_LAM):
     :return: vertically translated flamd
     """
     try:
-        conv = (iso_wave/waves)**2
         iso_idx,*_ = getnearpos(waves,iso_wave)
-        add = frac * flamd /conv - flamd[iso_idx]
+        add = flamd[iso_idx] *(frac -1)
         return flamd + add
     except:
-        log.warning(f"Exception! in spectrum_utilities shift_flam_isometric:",exc_info=True)
+        log.warning(f"Exception! in spectrum_utilities shift_flam_uniform:",exc_info=True)
         return flamd
 
 
@@ -4642,17 +4648,19 @@ def fiber_to_psf(seeing_fwhm,aperture=3.5,box_size=10.5,step_arcsec=0.25,fiber_s
 
     global SU_PSF_35_spec, SU_PSF_35_fwhm
 
-    if aperture != 3.5:
-        log.error(f"Computing fiber to PSF weighted aperture multiplier only valid for 3.5\" aperture. {aperture} aperture requested.", exc_info=True)
-        if fiber_spec is None:
-            if fiber_err is None:
-                return None
-            else:
-                return None, None
-        elif fiber_err is None:
-            return None, None
-        else:
-            return None, None, None
+    if not np.isclose(aperture,3.5,atol=0.5):
+        log.warning(f"Computing fiber to PSF weighted aperture multiplier only valid for 3.5\" aperture. {aperture} aperture requested.", exc_info=True)
+        print("***** WARNING!  Fiber to Aperture really only computed for radii near 3.5\". *****")
+
+        # if fiber_spec is None:
+        #     if fiber_err is None:
+        #         return None
+        #     else:
+        #         return None, None
+        # elif fiber_err is None:
+        #     return None, None
+        # else:
+        #     return None, None, None
 
     try:
         spectrum_conv_psf = None
@@ -4661,7 +4669,7 @@ def fiber_to_psf(seeing_fwhm,aperture=3.5,box_size=10.5,step_arcsec=0.25,fiber_s
         if SU_PSF_35_fwhm is None:
             read_psf_conv_file()
 
-        if (interp == False) or (SU_PSF_35_fwhm is None) or \
+        if not np.isclose(aperture,3.5,atol=0.5) or (interp == False) or (SU_PSF_35_fwhm is None) or \
             (seeing_fwhm < SU_PSF_35_fwhm[0]) or (seeing_fwhm > SU_PSF_35_fwhm[-1]):
 
             num_fibers = 22
