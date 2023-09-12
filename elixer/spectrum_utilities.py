@@ -4053,6 +4053,36 @@ def zeropoint_mul_correction_var(fluxd, fluxd_err, residual_correction, waves, h
         log.error(f"Exception! Exception in zeropoint_mul_correction_var.", exc_info=True)
         print(E)
         return 1.0
+
+
+
+
+
+def shift_flam_isometric(flamd,waves,frac=1.0,iso_wave=G.DEX_G_EFF_LAM):
+    """
+    shift a flux density (or flux) per wavelength by a fixed fraction in fnu
+    this is computed from the HETDEX ISO wavelength of about 4726AA
+
+    This is a pure translation then. Shifting the spectrum up or down without changing the shape in flam.
+    (the shape DOES change in fnu, so the assumption is that the spectrum is NOT FLAT in fnu)
+
+    This is an exact change, so the uncertainty on flamd is not altered
+
+    :param flamd: flux or flux density per wavelength
+    :param waves: wavelengths (assumes angstrom)
+    :param frac: fractional amount at the iso wavelength by which to shift
+    :return: vertically translated flamd
+    """
+    try:
+        conv = (iso_wave/waves)**2
+        iso_idx,*_ = getnearpos(waves,iso_wave)
+        add = frac * flamd /conv - flamd[iso_idx]
+        return flamd + add
+    except:
+        log.warning(f"Exception! in spectrum_utilities shift_flam_isometric:",exc_info=True)
+        return flamd
+
+
 #############################
 # UV Background Stuff
 #############################
