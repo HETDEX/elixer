@@ -1,5 +1,11 @@
 changes to elixer by version
 
+1.20.3a4 [2023-09-12]
+* make per-fiber the operable unit for sky residuals. A per-aperture request will now take the per-fiber and
+  translate the model based on the idealized aperture conversion for the given seeing FWHM rather than use
+  individualized per-aperture models.
+* added helper to spectrum_utilities::shift_flam_uniform() to allow user to tweak up or down the per-fiber models
+  by a uniform amount as set by a fraction at a given wavelength (4726AA by default)
 
 1.20.3a3 [2023-09-07]
 * lower photz catalog match scoring if there is no zPDF to integrate. Scoring reduced more if not less than z < 0.5;
