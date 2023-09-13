@@ -118,7 +118,11 @@ def main():
             new_wd = sys.argv[i + 1]
             #there MUST be dispatch already and merge_list_fn is set
             #so, we create a subdir under the temp dir with the merge_list name (e.g. "merge_0000" or "final")
-            new_wd = os.path.join(new_wd,merge_list_fn)
+            if merge_list_fn != 'final':
+                #merge_list_fn will be "merge_xxxx" and we want the directory to be "dispatch_xxxx"
+                new_wd = os.path.join(new_wd,merge_list_fn.replace("merge","dispatch"))
+
+
             try:
                 if os.access(new_wd, os.W_OK):
                     #os.chdir(new_wd)
@@ -207,7 +211,7 @@ def main():
                              "elixer_merged_cat_old.h5",os.path.join(temp_wd,"elixer_merged_cat_new.h5"))
                 #merge_list.insert(0,"elixer_merged_cat.h5")
             else:
-                merge_hdf5(merge_list, os.path.join("elixer_merged_cat.h5"))
+                merge_hdf5(merge_list, os.path.join(temp_wd,"elixer_merged_cat.h5"))
 
 
 
