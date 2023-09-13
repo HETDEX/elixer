@@ -632,6 +632,9 @@ def parse_commandline(auto_force=False):
     if args.tmp is not None:
         if G.MAIN_SCRIPT != 'elixer.py':
             args.tmp = None
+        else:
+            if args.dispatch is not None:
+                args.dispatch = os.path.join(G.ORIGINAL_WORKING_DIR,args.dispatch)
 
     # try:
     #     if args.zeropoint_shift is not None:
