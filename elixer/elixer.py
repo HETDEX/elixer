@@ -628,6 +628,11 @@ def parse_commandline(auto_force=False):
     except:
         pass
 
+    #--tmp ONLY applies to the elixer.py script, Otherwise, ignore it.
+    if args.tmp is not None:
+        if G.MAIN_SCRIPT != 'elixer.py':
+            args.tmp = None
+
     # try:
     #     if args.zeropoint_shift is not None:
     #         if isinstance(args.zeropoint_shift,float) or isinstance(args.zeropoint_shift,int):
