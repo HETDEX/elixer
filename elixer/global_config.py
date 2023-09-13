@@ -41,7 +41,6 @@ if "--tmp" in args:
             i = args.index("--dispatch")
             if i != -1:
                 dispatch = sys.argv[i + 1]
-
                 new_wd = os.path.join(new_wd,dispatch)
         try:
             if os.access(new_wd, os.W_OK):
