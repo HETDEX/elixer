@@ -28,6 +28,9 @@ def get_base_merge_files(topdir=".",pattern="dispatch_*/*/*_cat.h5",):
     :return:
     """
 
+    #try to avoid 'cache' by finding the basedir above me and then pattern = dispatch_*/<basedir_name>/*_cat.h5 ?
+    #do not bother, all calls specify the pattern and do not hit the 'cache' direcotry for these usages
+
     files = []
     try:
         if pattern is None:
@@ -51,7 +54,7 @@ def get_base_merge_files(topdir=".",pattern="dispatch_*/*/*_cat.h5",):
     return files
 
 
-def merge_hdf5(fn_list=None,merge_fn="elixer_intermediate_merge.working"):
+def merge_hdf5(fn_list=None,merge_fn="elixer_intermediate_merge.working",out_dir="."):
     """
     Similar to merge ... replaces merge ... joins ELiXer HDF5 catlogs.
     Does not check for duplicate entries.
@@ -62,9 +65,10 @@ def merge_hdf5(fn_list=None,merge_fn="elixer_intermediate_merge.working"):
         if len(fn_list) != 0:
             merge_fn = elixer_hdf5.merge_elixer_hdf5_files(merge_fn,fn_list)
             if merge_fn is not None:
-                if merge_fn == "elixer_intermediate_merge.working":
-                    os.rename("elixer_intermediate_merge.working","elixer_intermediate_merge.h5")
-                    merge_fn = "elixer_intermediate_merge.h5"
+                if os.path.basename(merge_fn) == "elixer_intermediate_merge.working":
+                    os.rename(merge_fn,
+                              os.path.join(out_dir,"elixer_intermediate_merge.h5"))
+                    merge_fn =  os.path.join(out_dir,"elixer_intermediate_merge.h5")
                 print("Done: " + merge_fn)
             else:
                 print("Failed to write HDF5 catalog.")
@@ -91,6 +95,7 @@ def main():
     merge_list_fn = None
     merge_list = []
     args = list(map(str.lower, sys.argv))
+    temp_wd = os.getcwd() #temporary working directory (if not set, use the cwd)
 
     i = -1
     if "--dispatch" in args:
@@ -107,6 +112,33 @@ def main():
         print("Error! Cannot find mandatory parameter --dispatch")
         exit(-1)
 
+    if "--tmp" in args:
+        i = args.index("--tmp")
+        if i != -1:
+            new_wd = sys.argv[i + 1]
+            #there MUST be dispatch already and merge_list_fn is set
+            #so, we create a subdir under the temp dir with the merge_list name (e.g. "merge_0000" or "final")
+            new_wd = os.path.join(new_wd,merge_list_fn)
+            try:
+                if os.access(new_wd, os.W_OK):
+                    #os.chdir(new_wd)
+                    temp_wd = new_wd
+                elif os.path.exists(new_wd):
+                    print(f"Warning! --tmp path is not writable: {new_wd}")
+                    exit(-1)
+                else: #try to create it
+                    os.makedirs(new_wd,mode=0o755)
+                    if os.access(new_wd, os.W_OK):
+                        #os.chdir(new_wd) # do not actually change the working directory
+                        temp_wd = new_wd
+                    else:
+                        print(f"Warning! --tmp path does not exist or is not writable: {new_wd}")
+                        exit(-1)
+            except:
+                print("Exception processing command line for --tmp")
+                exit(-1)
+
+
     #we have the list of files to merge
     #merge them linearly under a .working name
     #then change the name to .h5
@@ -114,6 +146,8 @@ def main():
     if merge_list_fn == 'final':
         #this is the top level final merge
         #find all previous generation merges files AND includ the elixer_merge.cat, if present
+        #This runs from the top elixer output directory NOT from a dispatch_xxxx directory
+
         still_waiting = True
         print("Beginning final merge ... ")
 
@@ -125,14 +159,16 @@ def main():
 
         timeout_wait = 120.0 #seconds
         while still_waiting and timeout_wait > 0.0: #could sleep until the entire job times out if there is a problem
-            merge_list = get_base_merge_files(".","dispatch_*/*intermediate_merge.working")
+            #merge_list = get_base_merge_files(".","dispatch_*/*intermediate_merge.working")
+            merge_list = get_base_merge_files(temp_wd, "dispatch_*/*intermediate_merge.working")
             if len(merge_list) > 0:
                 print(f"Waiting on *working files to complete ...")
                 time.sleep(10.0) #sleep 10 secs
                 timeout_wait = 90.0 #seconds #reset to full timeout
             else:
                 #get the final list
-                merge_list = get_base_merge_files(".", "dispatch_*/*intermediate_merge.h5")
+                #merge_list = get_base_merge_files(".", "dispatch_*/*intermediate_merge.h5")
+                merge_list = get_base_merge_files(temp_wd, "dispatch_*/*intermediate_merge.h5")
                 if len(merge_list) < merge_count: #the final job could get kicked off before all the prior jobs are complete or even started
                     print(f"Waiting on merge_count to match. Current {len(merge_list)}, expected {merge_count}. Current timer: {timeout_wait:0.1f} ...")
                     time.sleep(10.0)             #so all the .working files might not even have been created yet
@@ -143,9 +179,10 @@ def main():
 
         if still_waiting: #we timed out
             print(f"Timeout {timeout_wait:0.1f}s waiting on expected number {len(merge_list)}/{merge_count} of *intermediate_merge.h5 files. Aborting run.")
-            dummy_list = [f"./dispatch_{str(n).zfill(4)}/elixer_intermediate_merge.h5" for n in range(merge_count)]
+            dummy_list = [f"{temp_wd}/dispatch_{str(n).zfill(4)}/elixer_intermediate_merge.h5" for n in range(merge_count)]
             missing = np.setdiff1d(dummy_list,merge_list)
             print(f"Missing files: {missing}")
+            #YES, this writes to the original cwd not temp as we want to see this result always
             with open("elixer_merged_cat.fail","w") as f:
                 f.write(f"Timeout {timeout_wait:0.1f}s waiting on expected number {len(merge_list)}/{merge_count} of *intermediate_merge.h5 files. Aborting run.\n")
                 f.write(f"Missing files: {missing}\n")
@@ -156,29 +193,53 @@ def main():
         if len(merge_list) > 0:
             needs_unique = False
 
-            if os.path.exists("elixer_merged_cat.h5"):
+            if os.path.exists("elixer_merged_cat.h5"): #in the original cwd
                 needs_unique = True
-                merge_hdf5(merge_list, "elixer_merged_cat_new.h5")
+
+                #in temp dir
+                merge_hdf5(merge_list, os.path.join(temp_wd,"elixer_merged_cat_new.h5"))
+
+                #in original dir
                 os.rename("elixer_merged_cat.h5","elixer_merged_cat_old.h5")
-                merge_unique("elixer_merged_cat.h5","elixer_merged_cat_old.h5","elixer_merged_cat_new.h5")
+
+
+                merge_unique(os.path.join(temp_wd,"elixer_merged_cat.h5"),
+                             "elixer_merged_cat_old.h5",os.path.join(temp_wd,"elixer_merged_cat_new.h5"))
                 #merge_list.insert(0,"elixer_merged_cat.h5")
             else:
-                merge_hdf5(merge_list, "elixer_merged_cat.h5")
+                merge_hdf5(merge_list, os.path.join("elixer_merged_cat.h5"))
+
+
 
             #clean up
             print("Cleaning up ...")
+
+            # elixer_merged_cat.h5 is in the temporary directory, need to copy back to the original cwd
+            if os.getcwd() != temp_wd:
+                import shutil
+                #copy to cwd
+                shutil.copy2(os.path.join(temp_wd,"elixer_merged_cat.h5"),"./elixer_merged_cat.h5")
+                #remove the temp dir one
+                os.remove(os.path.join(temp_wd, "elixer_merged_cat.h5"))
+
             for file in merge_list:
                 if file != "elixer_merged_cat.h5":
                     print(f"Removing {file}")
                     os.remove(file)
 
-            if os.path.exists("elixer_merged_cat_new.h5"):
-                os.remove("elixer_merged_cat_new.h5")
+            #temp wd
+            if os.path.exists(os.path.join(temp_wd,"elixer_merged_cat_new.h5")):
+                os.remove(os.path.join(temp_wd,"elixer_merged_cat_new.h5"))
 
+            #original cwd
             if os.path.exists("elixer_merged_cat_old.h5"):
                 os.remove("elixer_merged_cat_old.h5")
 
     else: #this is a generational merge
+
+        #
+        # NOTICE: we read from the original cwd (usually on /scratch) but merge to the temporary direcotry
+        #
 
         #this could be a re-run
         #first check if intermediate.working exists ... if so, delete it and continue
@@ -186,10 +247,10 @@ def main():
 
         do_merge = True
         try:
-            if os.path.exists("elixer_intermediate_merge.working"):
-                os.remove("elixer_intermediate_merge.working")
+            if os.path.exists(os.path.join(temp_wd,"elixer_intermediate_merge.working")):
+                os.remove(os.path.join(temp_wd,"elixer_intermediate_merge.working"))
                 print(f"{merge_list_fn}: Incomplete. Delete working file and re-run.")
-            elif not os.path.exists("elixer_intermediate_merge.h5"):
+            elif not os.path.exists(os.path.join(temp_wd,"elixer_intermediate_merge.h5")):
                 pass #continue to merge
             else: #this one is already done
                 do_merge = False
@@ -220,8 +281,8 @@ def main():
 
             print(f"Merging {len(merge_list)} files, working from {os.getcwd()} ... ")
             print(merge_list)
-            try:
-                merge_hdf5(merge_list)
+            try: #merge_fn="elixer_intermediate_merge.working"
+                merge_hdf5(merge_list,merge_fn=os.path.join(temp_wd,"elixer_intermediate_merge.working"),out_dir=temp_wd)
             except Exception as E:
                 print(f"Exception. Merge failed from {os.getcwd()}")
                 print(E)
