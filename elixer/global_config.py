@@ -33,14 +33,29 @@ ORIGINAL_WORKING_DIR = os.getcwd()
 args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
 if "--tmp" in args:
     i = args.index("--tmp")
-    new_wd = sys.argv[i + 1]
+
     if i != -1:
+        new_wd = sys.argv[i + 1]
+        dispatch = None
+        if "--dispatch" in args:
+            i = args.index("--dispatch")
+            if i != -1:
+                dispatch = sys.argv[i + 1]
+
+                new_wd = os.path.join(new_wd,dispatch)
         try:
             if os.access(new_wd, os.W_OK):
                 os.chdir(new_wd)
-            else:
-                print(f"Warning! --tmp path does not exist or is not writable: {new_wd}")
+            elif os.path.exists(new_wd):
+                print(f"Warning! --tmp path is not writable: {new_wd}")
                 exit(-1)
+            else: #try to create it
+                os.makedirs(new_wd,mode=0o755)
+                if os.access(new_wd, os.W_OK):
+                    os.chdir(new_wd)
+                else:
+                    print(f"Warning! --tmp path does not exist or is not writable: {new_wd}")
+                    exit(-1)
         except:
             print("Exception processing command line for --tmp")
             exit(-1)
