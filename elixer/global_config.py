@@ -5,6 +5,7 @@ import os.path as op
 from os import getenv
 from datetime import datetime
 import numpy as np
+import sys
 
 try:
     from hetdex_api.config import HDRconfig
@@ -24,7 +25,26 @@ if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
 #version
-__version__ = '1.20.3a4'
+__version__ = '1.21.0a1'
+
+
+#initial working dir
+ORIGINAL_WORKING_DIR = os.getcwd()
+args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
+if "--tmp" in args:
+    i = args.index("--tmp")
+    new_wd = sys.argv[i + 1]
+    if i != -1:
+        try:
+            if os.access(new_wd, os.W_OK):
+                os.chdir(new_wd)
+            else:
+                print(f"Warning! --tmp path does not exist or is not writable: {new_wd}")
+                exit(-1)
+        except:
+            print("Exception processing command line for --tmp")
+            exit(-1)
+
 #Logging
 GLOBAL_LOGGING = False #set to True in top elixer calls so we do not normally log from package imports
 LOG_TO_STDOUT = False #only kicks in if GLOBAL_LOGGING is False

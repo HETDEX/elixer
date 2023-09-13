@@ -561,6 +561,9 @@ def parse_commandline(auto_force=False):
                                          "Otherwise use default. See also --zeroflat and --zeropoint",
                         required=False, type=int,default=None)
 
+    parser.add_argument('--tmp', help="Use the provided path as temporary output. Copy data to original directory at the end.",
+                        required=False)
+
     # parser.add_argument('--sky_residual', help='Toggle [ON] shot-specific sky residual subtraction for forced-extracions.',
     #                     required=False, action='store_true', default=False)
 
@@ -6870,6 +6873,8 @@ def main():
     except:
         pass
 
+
+    #note this won't behave if --tmp is used and the file is moved away
     if (G.LAUNCH_PDF_VIEWER is not None) and args.viewer and (len(viewer_file_list) > 0) \
             and not args.neighborhood_only and not already_launched_viewer:
         import subprocess
@@ -6884,10 +6889,6 @@ def main():
 
         if launch:
             subprocess.Popen(cmdlist)
-
-
-
-
 
     # if (args.neighborhood is not None) and (args.neighborhood > 0.0):
     #     msg = "Building neighborhood at (%g\") for all detections ...." %(args.neighborhood)
@@ -6907,8 +6908,43 @@ def main():
     #                                    fname=os.path.join(pdf.basename,str(e.entry_id)+"nei.png"))
     #
 
-
     log.critical("Main complete.")
+
+    if args.tmp is not None and args.tmp != G.ORIGINAL_WORKING_DIR and args.tmp == os.getcwd():
+        log.critical(f"Copying output to: {G.ORIGINAL_WORKING_DIR}")
+        print(f"Copying output to: {G.ORIGINAL_WORKING_DIR}")
+        ok_to_rmdir = False
+        import shutil
+        for root, dirs, files in os.walk('.',topdown=True):  # do not copy 'cache'; might need to create destination
+            dirs[:] = [dir for dir in dirs if dir != 'cache']
+            #if os.path.basename(root) == 'cache':
+            #    continue #skip the 'cache' directory entirely
+            if not os.path.exists(os.path.join(G.ORIGINAL_WORKING_DIR,root)):
+                os.makedirs(os.path.join(G.ORIGINAL_WORKING_DIR,root),mode=0o755)
+
+            for file in files:
+                shutil.copy2(os.path.join(root, file), os.path.join(G.ORIGINAL_WORKING_DIR,root))#,copy_function=copy)
+                os.remove(os.path.join(root, file))
+                ok_to_rmdir = True
+
+        if ok_to_rmdir:
+            # for root, dirs, files in os.walk('.',topdown=False):
+            #     if root != args.tmp and root != ".": #do not remove the top
+            #         os.rmdir(root)
+            for root, dirs, files in os.walk('.',topdown=True):
+                if root != args.tmp and root != "." and root != "/": #do not remove the top
+                    shutil.rmtree(root)
+
+        #free up the tmp location
+        #this is WAAAY too dangerous ... just delete the files after the copy
+        #if ok_to_rmdir:
+        #    shutil.rmtree(os.path.join(args.tmp,"/.")) #THIS!!! is bad ... result is just "/." not <path>+"/."
+        #restore to original working dir
+
+
+
+
+    print("Main Complete.")
 
     exit(0)
 
