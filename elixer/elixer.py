@@ -6918,7 +6918,11 @@ def main():
 
     log.critical("Main complete.")
 
-    if args.tmp is not None and args.tmp != G.ORIGINAL_WORKING_DIR and args.tmp == os.getcwd():
+    if args.tmp is not None and args.tmp != G.ORIGINAL_WORKING_DIR:# and args.tmp == os.getcwd():
+        print(f"***** args.tmp {args.tmp}")
+        print(f"***** G.ORIGINAL_WORKING_DIR {G.ORIGINAL_WORKING_DIR}")
+        print(f"***** cwd() {os.getcwd()}")
+
         log.critical(f"Copying output to: {G.ORIGINAL_WORKING_DIR}")
         print(f"Copying output to: {G.ORIGINAL_WORKING_DIR}")
         ok_to_rmdir = False
@@ -6948,7 +6952,10 @@ def main():
         #if ok_to_rmdir:
         #    shutil.rmtree(os.path.join(args.tmp,"/.")) #THIS!!! is bad ... result is just "/." not <path>+"/."
         #restore to original working dir
-
+    else:
+        print(f"***** args.tmp {args.tmp}")
+        print(f"***** G.ORIGINAL_WORKING_DIR {G.ORIGINAL_WORKING_DIR}")
+        print(f"***** cwd() {os.getcwd()}")
 
 
 
