@@ -1,8 +1,9 @@
 changes to elixer by version
 
-1.21.0a1 [2023-09-12]
-* [in progress] --tmp <path>  instruct elixer to run from the specified path instead of the cwd and move the output
-  to the original cwd when full execution is complete
+1.21.0a1 [2023-09-14]
+* --tmp <path>  instruct elixer to run from the specified path instead of the cwd and move the output
+  to the original cwd when full execution is complete. Works for normal elixer call and for --merge.
+  + not yet tested with --gridsearch, but the mechanism is the same
 
 1.20.3a4 [2023-09-12]
 * make per-fiber the operable unit for sky residuals. A per-aperture request will now take the per-fiber and

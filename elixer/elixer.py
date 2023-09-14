@@ -6918,26 +6918,51 @@ def main():
 
     log.critical("Main complete.")
 
-    if args.tmp is not None and args.tmp != G.ORIGINAL_WORKING_DIR:# and args.tmp == os.getcwd():
-        print(f"***** args.tmp {args.tmp}")
-        print(f"***** G.ORIGINAL_WORKING_DIR {G.ORIGINAL_WORKING_DIR}")
-        print(f"***** cwd() {os.getcwd()}")
+    if args.tmp is not None and args.tmp != G.ORIGINAL_WORKING_DIR and G.ORIGINAL_WORKING_DIR != os.getcwd():
+        # print(f"***** args.tmp {args.tmp}")
+        # print(f"***** G.ORIGINAL_WORKING_DIR {G.ORIGINAL_WORKING_DIR}")
+        # print(f"***** cwd() {os.getcwd()}")
 
-        log.critical(f"Copying output to: {G.ORIGINAL_WORKING_DIR}")
-        print(f"Copying output to: {G.ORIGINAL_WORKING_DIR}")
+        log.critical(f"Copying output from {os.getcwd()} to: {G.ORIGINAL_WORKING_DIR}")
+        log.critical(f"There will be no more log entries as this log is part of the copy.")
+
+        print(f"Copying output from {os.getcwd()} to: {G.ORIGINAL_WORKING_DIR}")
+        with open(os.path.join(G.ORIGINAL_WORKING_DIR,"copy.running"),"w+") as outf:
+            outf.write("Copy in progress.")
+
         ok_to_rmdir = False
         import shutil
         for root, dirs, files in os.walk('.',topdown=True):  # do not copy 'cache'; might need to create destination
             dirs[:] = [dir for dir in dirs if dir != 'cache']
             #if os.path.basename(root) == 'cache':
             #    continue #skip the 'cache' directory entirely
-            if not os.path.exists(os.path.join(G.ORIGINAL_WORKING_DIR,root)):
-                os.makedirs(os.path.join(G.ORIGINAL_WORKING_DIR,root),mode=0o755)
+            try:
+                if not os.path.exists(os.path.join(G.ORIGINAL_WORKING_DIR,root)):
+                    os.makedirs(os.path.join(G.ORIGINAL_WORKING_DIR,root),mode=0o755)
+            except Exception as E:
+                print(f"Exception! Copying from --tmp {args.tmp}. Cannot create {os.path.join(G.ORIGINAL_WORKING_DIR,root)}.",
+                      f"\n{E}")
 
             for file in files:
-                shutil.copy2(os.path.join(root, file), os.path.join(G.ORIGINAL_WORKING_DIR,root))#,copy_function=copy)
-                os.remove(os.path.join(root, file))
-                ok_to_rmdir = True
+                try:
+                    shutil.copy2(os.path.join(root, file), os.path.join(G.ORIGINAL_WORKING_DIR,root))#,copy_function=copy)
+                    os.remove(os.path.join(root, file))
+                    ok_to_rmdir = True
+                except Exception as E:
+                    print(
+                        f"Exception! Cannot copy {os.path.join(root, file)} to {os.path.join(G.ORIGINAL_WORKING_DIR, root)}.",
+                        f"\n{E}")
+
+        #create a new file in the original cwd to indicate that the copy is complete (it does not matter, downstream,
+        #  if the removal of the --tmp dir succeeds)
+        #The copy.running and copy.done serve as a post-run indicator. If in a SLURM that timesout, the
+        #  copy.running file may be present indicating that the copy timed out and the whole dispatch_xxxx needs to be
+        #  re-run. If copy.done is present, then even if it timed out just after, it is of no consequence.
+        with open(os.path.join(G.ORIGINAL_WORKING_DIR,"copy.done"),"w+") as outf:
+            outf.write("Copy complete.")
+
+        #and remove the copy.running file
+        os.remove(os.path.join(G.ORIGINAL_WORKING_DIR,"copy.running"))
 
         if ok_to_rmdir:
             # for root, dirs, files in os.walk('.',topdown=False):
@@ -6945,17 +6970,23 @@ def main():
             #         os.rmdir(root)
             for root, dirs, files in os.walk('.',topdown=True):
                 if root != args.tmp and root != "." and root != "/": #do not remove the top
-                    shutil.rmtree(root)
+                    try:
+                        shutil.rmtree(root)
+                    except Exception as E:
+                        #this is not so important
+                        print(f"Exception! removing  {root}.",f"\n{E}")
 
         #free up the tmp location
         #this is WAAAY too dangerous ... just delete the files after the copy
         #if ok_to_rmdir:
         #    shutil.rmtree(os.path.join(args.tmp,"/.")) #THIS!!! is bad ... result is just "/." not <path>+"/."
         #restore to original working dir
-    else:
-        print(f"***** args.tmp {args.tmp}")
-        print(f"***** G.ORIGINAL_WORKING_DIR {G.ORIGINAL_WORKING_DIR}")
-        print(f"***** cwd() {os.getcwd()}")
+        print(f"Copying COMPLETE from {os.getcwd()} to: {G.ORIGINAL_WORKING_DIR}")
+
+    # else:
+    #     print(f"***** args.tmp {args.tmp}")
+    #     print(f"***** G.ORIGINAL_WORKING_DIR {G.ORIGINAL_WORKING_DIR}")
+    #     print(f"***** cwd() {os.getcwd()}")
 
 
 
