@@ -330,7 +330,7 @@ if "--tmp" in args:
     base_time_multiplier *= 0.60
 
 
-if MERGE:
+if MERGE: #this is usually so fast that --tmp does not matter so just leave as is
     base_time_multiplier = 0.05
 
 if "tacc.utexas.edu" in hostname:

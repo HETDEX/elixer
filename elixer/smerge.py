@@ -164,15 +164,18 @@ def main():
         timeout_wait = 120.0 #seconds
         while still_waiting and timeout_wait > 0.0: #could sleep until the entire job times out if there is a problem
             #merge_list = get_base_merge_files(".","dispatch_*/*intermediate_merge.working")
+
+            #assumes there are SOME .working on THIS node (the node that has the "final" merge)
             merge_list = get_base_merge_files(temp_wd, "dispatch_*/*intermediate_merge.working")
             if len(merge_list) > 0:
                 print(f"Waiting on *working files to complete ...")
                 time.sleep(10.0) #sleep 10 secs
                 timeout_wait = 90.0 #seconds #reset to full timeout
             else:
-                #get the final list
-                #merge_list = get_base_merge_files(".", "dispatch_*/*intermediate_merge.h5")
-                merge_list = get_base_merge_files(temp_wd, "dispatch_*/*intermediate_merge.h5")
+                #get the final list FROM THE ORIGINAL cwd() as each sub-task copies back to there when done
+                #  as we can be running on more than one node
+                merge_list = get_base_merge_files(".", "dispatch_*/*intermediate_merge.h5")
+                #merge_list = get_base_merge_files(temp_wd, "dispatch_*/*intermediate_merge.h5")
                 if len(merge_list) < merge_count: #the final job could get kicked off before all the prior jobs are complete or even started
                     print(f"Waiting on merge_count to match. Current {len(merge_list)}, expected {merge_count}. Current timer: {timeout_wait:0.1f} ...")
                     time.sleep(10.0)             #so all the .working files might not even have been created yet
@@ -183,7 +186,7 @@ def main():
 
         if still_waiting: #we timed out
             print(f"Timeout {timeout_wait:0.1f}s waiting on expected number {len(merge_list)}/{merge_count} of *intermediate_merge.h5 files. Aborting run.")
-            dummy_list = [f"{temp_wd}/dispatch_{str(n).zfill(4)}/elixer_intermediate_merge.h5" for n in range(merge_count)]
+            dummy_list = [f"./dispatch_{str(n).zfill(4)}/elixer_intermediate_merge.h5" for n in range(merge_count)]
             missing = np.setdiff1d(dummy_list,merge_list)
             print(f"Missing files: {missing}")
             #YES, this writes to the original cwd not temp as we want to see this result always
@@ -287,6 +290,14 @@ def main():
             print(merge_list)
             try: #merge_fn="elixer_intermediate_merge.working"
                 merge_hdf5(merge_list,merge_fn=os.path.join(temp_wd,"elixer_intermediate_merge.working"),out_dir=temp_wd)
+
+                #now copy from temp_wd to cwd() if we are using --tmp
+                if temp_wd != os.getcwd():
+                    import shutil
+                    shutil.copy2(os.path.join(temp_wd, "elixer_intermediate_merge.h5"),
+                                 os.path.join(os.getcwd(),"elixer_intermediate_merge.h5"))
+                    os.remove(os.path.join(temp_wd, "elixer_intermediate_merge.h5"))
+
             except Exception as E:
                 print(f"Exception. Merge failed from {os.getcwd()}")
                 print(E)
