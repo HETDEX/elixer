@@ -3537,7 +3537,7 @@ def adjust_sky_residual_model_for_response(response):
         inter = 1.0 - slope * 4000
         correction = slope * G.CALFIB_WAVEGRID + inter
         correction[265:] = 1.0 #4000.0 And redward get no change
-        return 1. / correction
+        return correction #NOT 1/correction ... here we want to go from the normal around 0.13 response TO the specific
     except:
         log.error("Exception! adjust_sky_residual_model_for_response(): ", exc_info=True)
         return np.ones(len(G.CALFIB_WAVEGRID))
