@@ -257,7 +257,8 @@ for ra,dec,shotid in zip(coord_ra,coord_dec,coord_shot):
             #fiber_flux_offset = -1 * SU.adjust_fiber_correction_by_seeing(sky_subtraction_residual, seeing, adjust_type=3)
 
             sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
-                seeing, ffsky=ffsky, hdr="3")
+                seeing, ffsky=ffsky, hdr="3",response=response, xfrac=1.0)
+
             fiber_flux_offset = -1 * sky_subtraction_residual
 
             apt_offset = get_spectra(coord, survey=survey_name, shotid=shot,

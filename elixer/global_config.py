@@ -1403,6 +1403,7 @@ APPLY_SKY_RESIDUAL_TYPE = 0 #0 = No, off, do not use:   1 = per fiber, 2 = per 3
 
 
 #HDR3 and HDR4 use same correction
+SKY_RESIDUAL_AVG_RESPONSE = 0.13
 SKY_RESIDUAL_ALL_PSF = np.arange(1.2,3.1,0.1)
 SKY_FIBER_RESIDUAL_ALL_LL_MODELS = None #array of models by seeing FWHM
 SKY_FIBER_RESIDUAL_ALL_FF_MODELS = None #array of models by seeing FWHM

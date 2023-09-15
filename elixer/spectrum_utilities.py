@@ -3511,7 +3511,39 @@ def fine_tune_sky_residual_model_shape(model=None,ffsky=False):
         log.warning("Exception! Exception fine tuning sky residual model shape.", exc_info=True)
         return None
 
-def interpolate_universal_single_fiber_sky_subtraction_residual(seeing=1.7,ffsky=False,hdr=G.HDR_Version,zeroflat=False):
+
+def adjust_sky_residual_model_for_response(response):
+    """
+    There is variablity by response for a fixed seeing. It is mostly for blueward of 4000AA and can be up to 30-40%
+    different for the same seeing at extreme differences in response. The lower the response the larger the difference,
+    which is likely just due to the poor throughput in the blue and the needed multiplicative increase for calibration.
+    Red of 4000AA it is pretty constant and does not seem to vary by more than about 5%.
+
+    So, this function provides a multiplicative, given the response of a particular shot, to apply to the sky
+    residual model which is based on the average response. This will adjust that model to better align with what
+    would be a shot specific model for the response. Values red of 4000AA are left as a multiplicative of 1.0
+
+    :param response: the response (throughput) for the shot
+    :return:
+    """
+    try:
+        #sanity ... can use this to turn off
+        if G.SKY_RESIDUAL_AVG_RESPONSE <= 0:
+            log.info("Adjust sky residual model for response turned OFF.")
+            return np.ones(len(G.CALFIB_WAVEGRID))
+        rat = G.SKY_RESIDUAL_AVG_RESPONSE / response
+        #the change from the most blue (3470AA) to 4000AA is very linear, decreasing from a max to about 1.0x
+        slope = (1.0 - rat) / (4000.0 - 3470.0)
+        inter = 1.0 - slope * 4000
+        correction = slope * G.CALFIB_WAVEGRID + inter
+        correction[265:] = 1.0 #4000.0 And redward get no change
+        return 1. / correction
+    except:
+        log.error("Exception! adjust_sky_residual_model_for_response(): ", exc_info=True)
+        return np.ones(len(G.CALFIB_WAVEGRID))
+
+def interpolate_universal_single_fiber_sky_subtraction_residual(seeing=1.7,ffsky=False,hdr=G.HDR_Version,zeroflat=False,
+                                                                response=None,xfrac=1.0):
     """
 
         This is applied with the call to HETDEX_API get_spectra() and, as such, this needs to be in:
@@ -3526,6 +3558,9 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing=1.7,ffsky
     :param zeroflat: if TRUE, shift down s|t the average flux or fluxdensity in the flat part (3900-5400AA) is zero
                      The idea here is that that region is the actual average sky residual background where the blue
                      end is artificially inflated.
+    :param response: the shot througput (response)
+    :param xfrac: raise/lower the spectrum by this fraction at the iso wavelength (4726), s|t the shape (in flam)
+                 does not change (just an overall shift up or down)
     :return: the per-fiber model, the average flat background IF zeroflat == True
     """
 
@@ -3639,6 +3674,12 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing=1.7,ffsky
         # model[0:blue_idx] = 0.5 * model[blue_idx] #pretty good, still a bit spikey but not too bad
         # model[red_idx:] = 0.5 * model[red_idx]
 
+        if response is not None:
+            model = model * adjust_sky_residual_model_for_response(response)
+
+        if xfrac:
+            model = shift_flam_uniform(model, G.CALFIB_WAVEGRID, frac=xfrac, iso_wave=G.DEX_G_EFF_LAM)
+
         if zeroflat:
             flat = avg_flat(model)
             return model-flat,flat
@@ -3661,7 +3702,8 @@ def interpolate_universal_single_fiber_sky_subtraction_residual(seeing=1.7,ffsky
 
 
 
-def interpolate_universal_aperture_sky_subtraction_residual(seeing=1.7,aper=3.5,ffsky=False,hdr=G.HDR_Version,zeroflat=False):
+def interpolate_universal_aperture_sky_subtraction_residual(seeing=1.7,aper=3.5,ffsky=False,hdr=G.HDR_Version,
+                                                            zeroflat=False,response=None,xfrac=1.0):
     """
         Very similar to interpolate_universal_single_fiber_sky_subtraction_residual() above, but is for
         the full 3.5" aperture model rather than a single fiber
@@ -3678,7 +3720,10 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing=1.7,aper=3.5,
     :param zeroflat: if TRUE, shift down s|t the average flux or fluxdensity in the flat part (3900-5400AA) is zero
                      The idea here is that that region is the actual average sky residual background where the blue
                      end is artificially inflated.
-    :return: the per-fiber model, the average flat background IF zeroflat == True
+    :param response: the shot througput (response)
+    :param xfrac: raise/lower the spectrum by this fraction at the iso wavelength (4726), s|t the shape (in flam)
+                 does not change (just an overall shift up or down)
+    :return: the per-APERTURE model, the average flat background IF zeroflat == True
     """
 
 
@@ -3716,14 +3761,18 @@ def interpolate_universal_aperture_sky_subtraction_residual(seeing=1.7,aper=3.5,
             if zeroflat:
                 model, flat = interpolate_universal_single_fiber_sky_subtraction_residual(seeing=seeing,
                                                                                           ffsky=ffsky,
-                                                                                          hdr=hdr,zeroflat=zeroflat)
+                                                                                          hdr=hdr,zeroflat=zeroflat,
+                                                                                          response=response,
+                                                                                          xfrac=xfrac)
                 _, aper_model = fiber_to_psf(seeing, aperture=aper, fiber_spec=model, fiber_err=None)
                 _, flat = fiber_to_psf(seeing, aperture=aper, fiber_spec=flat, fiber_err=None)
                 return aper_model, flat
             else:
                 model = interpolate_universal_single_fiber_sky_subtraction_residual(seeing=seeing,
-                                                                                          ffsky=ffsky,
-                                                                                          hdr=hdr, zeroflat=zeroflat)
+                                                                                    ffsky=ffsky,
+                                                                                    hdr=hdr, zeroflat=zeroflat,
+                                                                                    response=response,
+                                                                                    xfrac=xfrac)
                 _, aper_model = fiber_to_psf(seeing, aperture=aper, fiber_spec=model, fiber_err=None)
 
                 return aper_model
@@ -5472,7 +5521,7 @@ def get_shotids(ra,dec,hdr_version=G.HDR_Version):
 
 
 
-def patch_holes_in_hetdex_spectrum(wavelengths,flux,flux_err,mag,mag_err=0,filter='g',nan_okay=200):
+def patch_holes_in_hetdex_spectrum(wavelengths,flux,flux_err,mag,mag_err=0,filter='g',nan_okay=200,flat_fnu=True):
     """
 
     note: for stacking, we want to keep NaNs so they are skipped
@@ -5510,10 +5559,19 @@ def patch_holes_in_hetdex_spectrum(wavelengths,flux,flux_err,mag,mag_err=0,filte
             return patched_flux,patched_flux_err
 
         #otherwise need to substitute
-        flat_flux = make_fnu_flat_spectrum(mag,_filter,wavelengths) * G.FLUX_WAVEBIN_WIDTH / G.HETDEX_FLUX_BASE_CGS
+        if flat_fnu:
+            flat_flux = make_fnu_flat_spectrum(mag,_filter,wavelengths) * G.FLUX_WAVEBIN_WIDTH / G.HETDEX_FLUX_BASE_CGS
+        else:
+            flat_flux = make_flux_flat_spectrum(mag, _filter, wavelengths) * G.FLUX_WAVEBIN_WIDTH / G.HETDEX_FLUX_BASE_CGS
+
+
         if mag_err is not None and mag_err != 0:
-            flat_flux_hi = make_fnu_flat_spectrum(mag-mag_err,_filter,wavelengths) * G.FLUX_WAVEBIN_WIDTH / G.HETDEX_FLUX_BASE_CGS
-            flat_flux_lo = make_fnu_flat_spectrum(mag+mag_err,_filter,wavelengths) * G.FLUX_WAVEBIN_WIDTH / G.HETDEX_FLUX_BASE_CGS
+            if flat_fnu:
+                flat_flux_hi = make_fnu_flat_spectrum(mag-mag_err,_filter,wavelengths) * G.FLUX_WAVEBIN_WIDTH / G.HETDEX_FLUX_BASE_CGS
+                flat_flux_lo = make_fnu_flat_spectrum(mag+mag_err,_filter,wavelengths) * G.FLUX_WAVEBIN_WIDTH / G.HETDEX_FLUX_BASE_CGS
+            else:
+                flat_flux_hi = make_flux_flat_spectrum(mag-mag_err,_filter,wavelengths) * G.FLUX_WAVEBIN_WIDTH / G.HETDEX_FLUX_BASE_CGS
+                flat_flux_lo = make_flux_flat_spectrum(mag+mag_err,_filter,wavelengths) * G.FLUX_WAVEBIN_WIDTH / G.HETDEX_FLUX_BASE_CGS
             flat_flux_err = 0.5*(flat_flux_hi-flat_flux_lo)
         else:
             #flat_flux_err = np.zeros(len(wavelengths)).astype(float)

@@ -6307,6 +6307,10 @@ def main():
                             if e.status < 0:
                                 continue #go to the next one
 
+                            if e.ra is None: #this should not be happending
+                                e.ra = e.wra
+                                e.dec = e.wdec
+
                             #pre-scan for large objects that would preclude the deblending???
                             #conduct anyway, but flag (maybe in the deblend table)
                             #this would be any 0 < dist_curve < 2*aperture with 'major' > seeing fwhm? or maybe a fixed 1.5" or 1.7" or 2.0" ???
@@ -6483,21 +6487,28 @@ def main():
                                     #np.savetxt("preflux_err.txt",measured_fluxes)
 
                                     log.info(f"Filling in spectra ...")
-                                    for i in range(len(measured_fluxes)): #todo: should we also check (in patch_holes) that the spectra is not grossly deformed?
-                                        measured_fluxes[i], measured_flux_errs[i] = SU.patch_holes_in_hetdex_spectrum(G.CALFIB_WAVEGRID,
-                                                                                                            measured_fluxes[i],
-                                                                                                            measured_flux_errs[i],
-                                                                                                            measured_mags[i],
-                                                                                                            measured_mag_errs[i],
-                                                                                                            e.neighbors_sep['filter_name'])
+                                    #todo: should we also check (in patch_holes) that the spectra is not grossly deformed?
+                                    for i in range(len(measured_fluxes)):
+                                        measured_fluxes[i], measured_flux_errs[i] = SU.patch_holes_in_hetdex_spectrum(
+                                                                                        G.CALFIB_WAVEGRID,
+                                                                                        measured_fluxes[i],
+                                                                                        measured_flux_errs[i],
+                                                                                        measured_mags[i],
+                                                                                        measured_mag_errs[i],
+                                                                                        e.neighbors_sep['filter_name'],
+                                                                                        flat_fnu=False)
 
                                     #and the target candidate
+                                    #find that in stacking HSC-g, probably because the redshift is hightly variable,
+                                    #the "average" is surprisingly flat in flam ... it does not show an upswing toward
+                                    #the blue ... that is, in fnu, it declines to the blue
                                     target_flux, target_flux_err = SU.patch_holes_in_hetdex_spectrum(G.CALFIB_WAVEGRID,
-                                                                                                                  e.sumspec_flux,
-                                                                                                                  e.sumspec_fluxerr,
-                                                                                                                  target_mag,
-                                                                                                                  target_mag_err,
-                                                                                                                  target_mag_filter)
+                                                                                                    e.sumspec_flux,
+                                                                                                    e.sumspec_fluxerr,
+                                                                                                    target_mag,
+                                                                                                    target_mag_err,
+                                                                                                    target_mag_filter,
+                                                                                                    flat_fnu=False)
                                     ##############
                                     #debug
                                     #############

@@ -1,9 +1,13 @@
 changes to elixer by version
 
-1.21.0a1 [2023-09-14]
+1.21.0a1 [2023-09-15]
 * --tmp <path>  instruct elixer to run from the specified path instead of the cwd and move the output
   to the original cwd when full execution is complete. Works for normal elixer call and for --merge.
   + not yet tested with --gridsearch, but the mechanism is the same
+* add two new parameters to spectrum_utilities::interpolate_universal_single_fiber_sky_subtraction_residual() and
+  interpolate_universal_aperture_sky_subtraction_residual()
+    + response -- if provided will adjust the residual model blueward of 4000AA based on the response (aka throughput)
+    + xfrac -- if provided will shift the model up/down based on this as a multiple on the flux at 4726AA
 
 1.20.3a4 [2023-09-12]
 * make per-fiber the operable unit for sky residuals. A per-aperture request will now take the per-fiber and
