@@ -30,19 +30,19 @@ __version__ = '1.21.0a1'
 
 #initial working dir
 ORIGINAL_WORKING_DIR = os.getcwd()
-args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
-MAIN_SCRIPT = os.path.basename(args[0])
-#args[0] is the main script. The --tmp DOES NOT APPLY to the initial setup via selixer.
+cl_args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
+MAIN_SCRIPT = os.path.basename(cl_args[0])
+#cl_args[0] is the main script. The --tmp DOES NOT APPLY to the initial setup via selixer.
 
 if MAIN_SCRIPT == 'elixer.py':
-    if "--tmp" in args:
-        i = args.index("--tmp")
+    if "--tmp" in cl_args:
+        i = cl_args.index("--tmp")
 
         if i != -1:
             new_wd = sys.argv[i + 1]
             dispatch = None
-            if "--dispatch" in args:
-                i = args.index("--dispatch")
+            if "--dispatch" in cl_args:
+                i = cl_args.index("--dispatch")
                 if i != -1:
                     dispatch = sys.argv[i + 1]
                     new_wd = os.path.join(new_wd,dispatch)
@@ -194,11 +194,12 @@ else:
     LOCAL_DEVBOX = False
 
 #look specifically (and only) for HDR version on call
-args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
+#now getting this earlier
+#cl_args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
 
-if "--hdr" in args: #overide default if specified on command line
+if "--hdr" in cl_args: #overide default if specified on command line
     try:
-        i = args.index("--hdr")
+        i = cl_args.index("--hdr")
         if i != -1:
             HDR_Version = sys.argv[i + 1] #this could be an integer or a float or a string?
 #            if HDR_Version.is_integer():
@@ -670,9 +671,9 @@ if hostname in LOCAL_DEV_HOSTNAMES:  # primary author test box
 else:
     LOG_LEVEL = logging.INFO
 
-if "--log" in args: #overide default if specified on command line
+if "--log" in cl_args: #overide default if specified on command line
     try:
-        i = args.index("--log")
+        i = cl_args.index("--log")
         if i != -1:
             log_level = str(sys.argv[i + 1]).lower()
 
@@ -694,7 +695,7 @@ if "--log" in args: #overide default if specified on command line
 ##log initialization moved to elixer.py to incorporate --name into filename
 # reminder to self ... this is pointless with SLURM given the bash wraper (which does not know about the
 # specific dir name and just builds elixer.run ... so leave this here
-if "--merge" in args or "--merge_unique" in args:
+if "--merge" in cl_args or "--merge_unique" in cl_args:
     LOG_FILENAME = "elixer_merge.log"
 else:
     LOG_FILENAME = "elixer.log"
