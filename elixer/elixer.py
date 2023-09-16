@@ -3356,24 +3356,29 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
 
                 okay_to_skip = False
                 if os.path.isfile(os.path.join(args.name, args.name + "_" + filename + extension)) or \
-                    os.path.isfile(os.path.join(args.name, filename + extension)):
+                    os.path.isfile(os.path.join(args.name, filename + extension)) or \
+                    os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, args.name + "_" + filename + extension)) or \
+                    os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + extension)):
 
                     okay_to_skip = True
                     if not args.neighborhood_only:
                         #do we need the png or the neighborhood?
                         if args.png:
                             #if not os.path.isfile(os.path.join(args.name, filename + ".png")):
-                            if len(glob.glob(os.path.join(args.name, filename + ".png"))) == 0:
+                            if len(glob.glob(os.path.join(args.name, filename + ".png"))) == 0 and \
+                               len(glob.glob(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + ".png"))) == 0:
                                 okay_to_skip = False
 
                         if okay_to_skip and args.neighborhood:
                             #if not os.path.isfile(os.path.join(args.name, filename + "_nei.png")):
-                            if len(glob.glob(os.path.join(args.name, filename + "_nei.png"))) == 0:
+                            if len(glob.glob(os.path.join(args.name, filename + "_nei.png"))) == 0 and \
+                               len(glob.glob(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + "_nei.png"))) == 0:
                                 okay_to_skip = False
 
                         if okay_to_skip and args.mini:
                            # if not os.path.isfile(os.path.join(args.name, filename + "_mini.png")):
-                            if len(glob.glob(os.path.join(args.name, filename + "_mini.png"))) == 0:
+                            if len(glob.glob(os.path.join(args.name, filename + "_mini.png"))) == 0 and \
+                               len(glob.glob(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + "_mini.png"))) == 0:
                                 okay_to_skip = False
 
                     if okay_to_skip:
@@ -3393,21 +3398,26 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
             try:
                 filename = os.path.basename(str(d))
                 if os.path.isfile(os.path.join(args.name, args.name + "_" + filename + extension)) or \
-                    os.path.isfile(os.path.join(args.name, filename + extension)):
+                    os.path.isfile(os.path.join(args.name, filename + extension)) or \
+                    os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, args.name + "_" + filename + extension)) or \
+                    os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + extension)):
 
                     okay_to_skip = True
                     if not args.neighborhood_only:
                         #do we need the png or the neighborhood?
                         if args.png:
-                            if not os.path.isfile(os.path.join(args.name, filename + ".png")):
+                            if not os.path.isfile(os.path.join(args.name, filename + ".png")) and \
+                               not os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + ".png")):
                                 okay_to_skip = False
 
                         if okay_to_skip and args.neighborhood:
-                            if not os.path.isfile(os.path.join(args.name, filename + "_nei.png")):
+                            if not os.path.isfile(os.path.join(args.name, filename + "_nei.png")) and \
+                               not os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + "_nei.png")):
                                 okay_to_skip = False
 
                         if okay_to_skip and args.mini:
-                            if not os.path.isfile(os.path.join(args.name, filename + "_mini.png")):
+                            if not os.path.isfile(os.path.join(args.name, filename + "_mini.png")) and \
+                               not os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + "_mini.png")):
                                 okay_to_skip = False
 
                     if okay_to_skip:
@@ -5113,6 +5123,9 @@ def main():
     except:
         pass
 
+    if G.ORIGINAL_WORKING_DIR != os.getcwd():
+        import shutil #will need this later
+
     if args.upgrade_hdf5:
         upgrade_hdf5(args)
         exit(0)
@@ -6582,6 +6595,17 @@ def main():
                                 e.flag_check()
 
                     h5name = os.path.join(args.name, args.name + "_cat.h5")
+
+                    #check for original path if we are on /tmp
+                    if G.ORIGINAL_WORKING_DIR != os.getcwd():
+                        #copy elixer h5 if it exists, though this really should not happen as dispatch_xxxx are
+                        #fully complete or not at all when using --tmp
+                        if os.path.exists(os.path.join(G.ORIGINAL_WORKING_DIR,h5name)):
+                            try:
+                                shutil.copy(os.path.join(G.ORIGINAL_WORKING_DIR,h5name),os.path.join(args.name,"."))
+                            except:
+                                log.error("Exception copying h5 file tmp working dir: ", exc_info=True)
+
                     elixer_hdf5.extend_elixer_hdf5(h5name,hd_list,overwrite=True)
                     for hd in hd_list:
                         for e in hd.emis_list:
@@ -6942,7 +6966,6 @@ def main():
             outf.write("Copy in progress.")
 
         ok_to_rmdir = False
-        import shutil
         for root, dirs, files in os.walk('.',topdown=True):  # do not copy 'cache'; might need to create destination
             dirs[:] = [dir for dir in dirs if dir != 'cache']
             #if os.path.basename(root) == 'cache':
