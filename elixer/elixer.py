@@ -3358,7 +3358,9 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
                 if os.path.isfile(os.path.join(args.name, args.name + "_" + filename + extension)) or \
                     os.path.isfile(os.path.join(args.name, filename + extension)) or \
                     os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, args.name + "_" + filename + extension)) or \
-                    os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + extension)):
+                    os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + extension)) or \
+                    (len(glob.glob(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, args.name + "_" + filename + extension))) > 0 ) or \
+                    (len(glob.glob(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + extension))) > 0):
 
                     okay_to_skip = True
                     if not args.neighborhood_only:
@@ -3400,7 +3402,9 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
                 if os.path.isfile(os.path.join(args.name, args.name + "_" + filename + extension)) or \
                     os.path.isfile(os.path.join(args.name, filename + extension)) or \
                     os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, args.name + "_" + filename + extension)) or \
-                    os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + extension)):
+                    os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + extension)) or \
+                    (len(glob.glob(os.path.join(G.ORIGINAL_WORKING_DIR, args.name,args.name + "_" + filename + extension))) > 0) or \
+                    (len(glob.glob(os.path.join(G.ORIGINAL_WORKING_DIR, args.name, filename + extension))) > 0):
 
                     okay_to_skip = True
                     if not args.neighborhood_only:
