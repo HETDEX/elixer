@@ -325,9 +325,9 @@ if "--slurm" in args:
         autoqueue_slurm = 1
 
 #in most cases, on TACC, the --tmp means we will be using the local /tmp storage to work and then copy at the end
-#this is around 2x faster in I/O vs /scratch, so multiply by 0.6 for some slop room
+#this is around 30% faster in I/O vs /scratch, so multiply by 0.6 for some slop room
 if "--tmp" in args:
-    base_time_multiplier *= 0.7
+    base_time_multiplier *= 0.75
 
 
 if MERGE: #this is usually so fast that --tmp does not matter so just leave as is
