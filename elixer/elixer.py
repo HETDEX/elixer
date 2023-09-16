@@ -3307,11 +3307,11 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
 
     newlist = []
     if args.neighborhood_only:
-        extension = "nei.png"
+        extension = "_nei.png"
     else:
         extension = ".pdf"
     if (hdf5_detectid_list is not None) and (len(hdf5_detectid_list) > 0):
-
+        log.info("Scanning hdf5_detectid_list")
         for d in hdf5_detectid_list:
             try:
                 #does the file exist
@@ -3355,32 +3355,86 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
                     filename = str(d) #assume a normal hetdex ID
 
                 okay_to_skip = False
-                if os.path.isfile(os.path.join(args.name, args.name + "_" + filename + extension)) or \
-                    os.path.isfile(os.path.join(args.name, filename + extension)) or \
-                    os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, args.name + "_" + filename + extension)) or \
-                    os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + extension)) or \
-                    (len(glob.glob(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, args.name + "_" + filename + extension))) > 0 ) or \
-                    (len(glob.glob(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + extension))) > 0):
 
+                full_fn = None
+                if os.path.isfile(os.path.join(args.name, args.name + "_" + filename + extension)):
                     okay_to_skip = True
+                    full_fn = os.path.join(args.name, args.name + "_" + filename)
+                elif os.path.isfile(os.path.join(args.name, filename + extension)):
+                    okay_to_skip = True
+                    full_fn = os.path.join(args.name, filename)
+                elif os.path.isfile(
+                        os.path.join(G.ORIGINAL_WORKING_DIR, args.name, args.name + "_" + filename + extension)):
+                    okay_to_skip = True
+                    full_fn = os.path.join(G.ORIGINAL_WORKING_DIR, args.name, args.name + "_" + filename)
+                elif os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR, args.name, filename + extension)):
+                    okay_to_skip = True
+                    full_fn = os.path.join(G.ORIGINAL_WORKING_DIR, args.name, filename)
+                elif len(glob.glob(
+                        os.path.join(G.ORIGINAL_WORKING_DIR, args.name, args.name + "_" + filename + extension))) > 0:
+                    # this is an exact match, so wildcards are gone now from full_fn
+                    okay_to_skip = True
+                    fns = glob.glob(
+                        os.path.join(G.ORIGINAL_WORKING_DIR, args.name, args.name + "_" + filename + extension))
+                    full_fn = fns[0][:-len(extension)]
+                elif len(glob.glob(os.path.join(G.ORIGINAL_WORKING_DIR, args.name, filename + extension))) > 0:
+                    # this is an exact match, so wildcards are gone now from full_fn
+                    okay_to_skip = True
+                    fns = glob.glob(os.path.join(G.ORIGINAL_WORKING_DIR, args.name, filename + extension))
+                    full_fn = fns[0][:-len(extension)]
+
+                #
+                # if os.path.isfile(os.path.join(args.name, args.name + "_" + filename + extension)) or \
+                #     os.path.isfile(os.path.join(args.name, filename + extension)) or \
+                #     os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, args.name + "_" + filename + extension)) or \
+                #     os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + extension)) or \
+                #     (len(glob.glob(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, args.name + "_" + filename + extension))) > 0 ) or \
+                #     (len(glob.glob(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + extension))) > 0):
+                #
+                #     okay_to_skip = True
+                #     if not args.neighborhood_only:
+                #         #do we need the png or the neighborhood?
+                #         if args.png:
+                #             #if not os.path.isfile(os.path.join(args.name, filename + ".png")):
+                #             if len(glob.glob(os.path.join(args.name, filename + ".png"))) == 0 and \
+                #                len(glob.glob(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + ".png"))) == 0:
+                #                 okay_to_skip = False
+                #
+                #         if okay_to_skip and args.neighborhood:
+                #             #if not os.path.isfile(os.path.join(args.name, filename + "_nei.png")):
+                #             if len(glob.glob(os.path.join(args.name, filename + "_nei.png"))) == 0 and \
+                #                len(glob.glob(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + "_nei.png"))) == 0:
+                #                 okay_to_skip = False
+                #
+                #         if okay_to_skip and args.mini:
+                #            # if not os.path.isfile(os.path.join(args.name, filename + "_mini.png")):
+                #             if len(glob.glob(os.path.join(args.name, filename + "_mini.png"))) == 0 and \
+                #                len(glob.glob(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + "_mini.png"))) == 0:
+                #                 okay_to_skip = False
+
+                if okay_to_skip and full_fn is not None:
+                    # okay_to_skip = True
                     if not args.neighborhood_only:
-                        #do we need the png or the neighborhood?
+                        # do we need the png or the neighborhood?
                         if args.png:
-                            #if not os.path.isfile(os.path.join(args.name, filename + ".png")):
-                            if len(glob.glob(os.path.join(args.name, filename + ".png"))) == 0 and \
-                               len(glob.glob(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + ".png"))) == 0:
+                            # if not os.path.isfile(os.path.join(args.name, filename + ".png")) and \
+                            #    not os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + ".png")):
+                            if not os.path.isfile(full_fn + ".png"):
+                                log.info("Missing .png")
                                 okay_to_skip = False
 
                         if okay_to_skip and args.neighborhood:
-                            #if not os.path.isfile(os.path.join(args.name, filename + "_nei.png")):
-                            if len(glob.glob(os.path.join(args.name, filename + "_nei.png"))) == 0 and \
-                               len(glob.glob(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + "_nei.png"))) == 0:
+                            # if not os.path.isfile(os.path.join(args.name, filename + "_nei.png")) and \
+                            #    not os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + "_nei.png")):
+                            if not os.path.isfile(full_fn + "_nei.png"):
+                                log.info("Missing _nei.png")
                                 okay_to_skip = False
 
                         if okay_to_skip and args.mini:
-                           # if not os.path.isfile(os.path.join(args.name, filename + "_mini.png")):
-                            if len(glob.glob(os.path.join(args.name, filename + "_mini.png"))) == 0 and \
-                               len(glob.glob(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + "_mini.png"))) == 0:
+                            # if not os.path.isfile(os.path.join(args.name, filename + "_mini.png")) and \
+                            #    not os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + "_mini.png")):
+                            if not os.path.isfile(full_fn + "_mini.png"):
+                                log.info("Missing _mini.png")
                                 okay_to_skip = False
 
                     if okay_to_skip:
@@ -3396,32 +3450,67 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
                 newlist.append(d)
 
     else: #this is the fcsdir list
+        log.info("Scanning fcsdir_list")
         for d in fcsdir_list:
             try:
                 filename = os.path.basename(str(d))
-                if os.path.isfile(os.path.join(args.name, args.name + "_" + filename + extension)) or \
-                    os.path.isfile(os.path.join(args.name, filename + extension)) or \
-                    os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, args.name + "_" + filename + extension)) or \
-                    os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + extension)) or \
-                    (len(glob.glob(os.path.join(G.ORIGINAL_WORKING_DIR, args.name,args.name + "_" + filename + extension))) > 0) or \
-                    (len(glob.glob(os.path.join(G.ORIGINAL_WORKING_DIR, args.name, filename + extension))) > 0):
 
+                full_fn = None
+                if os.path.isfile(os.path.join(args.name, args.name + "_" + filename + extension)):
                     okay_to_skip = True
+                    full_fn = os.path.join(args.name, args.name + "_" + filename)
+                elif os.path.isfile(os.path.join(args.name, filename + extension)):
+                    okay_to_skip = True
+                    full_fn = os.path.join(args.name, filename)
+                elif os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, args.name + "_" + filename + extension)):
+                    okay_to_skip = True
+                    full_fn = os.path.join(G.ORIGINAL_WORKING_DIR,args.name, args.name + "_" + filename)
+                elif os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + extension)):
+                    okay_to_skip = True
+                    full_fn = os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename)
+                elif len(glob.glob(os.path.join(G.ORIGINAL_WORKING_DIR, args.name,args.name + "_" + filename + extension))) > 0:
+                    # this is an exact match, so wildcards are gone now from full_fn
+                    okay_to_skip = True
+                    fns = glob.glob(os.path.join(G.ORIGINAL_WORKING_DIR, args.name,args.name + "_" + filename + extension))
+                    full_fn = fns[0][:-len(extension)]
+                elif len(glob.glob(os.path.join(G.ORIGINAL_WORKING_DIR, args.name, filename + extension))) > 0:
+                    # this is an exact match, so wildcards are gone now from full_fn
+                    okay_to_skip = True
+                    fns = glob.glob(os.path.join(G.ORIGINAL_WORKING_DIR, args.name, filename + extension))
+                    full_fn = fns[0][:-len(extension)]
+
+
+
+                # if  os.path.isfile(os.path.join(args.name, args.name + "_" + filename + extension)) or \
+                #     os.path.isfile(os.path.join(args.name, filename + extension)) or \
+                #     os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, args.name + "_" + filename + extension)) or \
+                #     os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + extension)) or \
+                #     (len(glob.glob(os.path.join(G.ORIGINAL_WORKING_DIR, args.name,args.name + "_" + filename + extension))) > 0) or \
+                #     (len(glob.glob(os.path.join(G.ORIGINAL_WORKING_DIR, args.name, filename + extension))) > 0):
+
+                if okay_to_skip and full_fn is not None:
+                    #okay_to_skip = True
                     if not args.neighborhood_only:
                         #do we need the png or the neighborhood?
                         if args.png:
-                            if not os.path.isfile(os.path.join(args.name, filename + ".png")) and \
-                               not os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + ".png")):
+                            # if not os.path.isfile(os.path.join(args.name, filename + ".png")) and \
+                            #    not os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + ".png")):
+                            if not os.path.isfile(full_fn+".png"):
+                                log.info("Missing .png")
                                 okay_to_skip = False
 
                         if okay_to_skip and args.neighborhood:
-                            if not os.path.isfile(os.path.join(args.name, filename + "_nei.png")) and \
-                               not os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + "_nei.png")):
+                            # if not os.path.isfile(os.path.join(args.name, filename + "_nei.png")) and \
+                            #    not os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + "_nei.png")):
+                            if not os.path.isfile(full_fn + "_nei.png"):
+                                log.info("Missing _nei.png")
                                 okay_to_skip = False
 
                         if okay_to_skip and args.mini:
-                            if not os.path.isfile(os.path.join(args.name, filename + "_mini.png")) and \
-                               not os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + "_mini.png")):
+                            # if not os.path.isfile(os.path.join(args.name, filename + "_mini.png")) and \
+                            #    not os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + "_mini.png")):
+                            if not os.path.isfile(full_fn + "_mini.png"):
+                                log.info("Missing _mini.png")
                                 okay_to_skip = False
 
                     if okay_to_skip:
