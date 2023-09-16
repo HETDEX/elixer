@@ -874,6 +874,9 @@ def parse_commandline(auto_force=False):
     if not (args.neighborhood_only > 0):
         args.neighborhood_only = False
 
+    if args.neighborhood is None or args.neighborhood < 0:
+        args.neighborhood = 0.0
+
     if args.shotid is not None:
         try:
             #put into YYYYMMDDxxx as integer format; could be received as YYYYMMDDvXXX
@@ -3423,7 +3426,7 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
                                 log.info("Missing .png")
                                 okay_to_skip = False
 
-                        if okay_to_skip and args.neighborhood:
+                        if okay_to_skip and args.neighborhood > 0:
                             # if not os.path.isfile(os.path.join(args.name, filename + "_nei.png")) and \
                             #    not os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + "_nei.png")):
                             if not os.path.isfile(full_fn + "_nei.png"):
@@ -3499,7 +3502,7 @@ def prune_detection_list(args,fcsdir_list=None,hdf5_detectid_list=None):
                                 log.info("Missing .png")
                                 okay_to_skip = False
 
-                        if okay_to_skip and args.neighborhood:
+                        if okay_to_skip and args.neighborhood > 0:
                             # if not os.path.isfile(os.path.join(args.name, filename + "_nei.png")) and \
                             #    not os.path.isfile(os.path.join(G.ORIGINAL_WORKING_DIR,args.name, filename + "_nei.png")):
                             if not os.path.isfile(full_fn + "_nei.png"):
