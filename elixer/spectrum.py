@@ -7353,7 +7353,7 @@ class Spectrum:
                 k_reference = self.emission_lines[np.where([k.name == "(K)CaII" for k in self.emission_lines])[0][0]]
                 h_reference = self.emission_lines[np.where([k.name == "(H)CaII" for k in self.emission_lines])[0][0]]
 
-                wsel = [x0 > 3932.0] #allow a little blue of 3934 for slop
+                wsel = np.array(x0 > 3932.0) #allow a little blue of 3934 for slop
 
                 for k in np.array(self.all_found_absorbs)[wsel]:
                     # #if (k.fit_x0 + k.fit_x0_err)  > self.h_and_k_waves[0]: #could be k

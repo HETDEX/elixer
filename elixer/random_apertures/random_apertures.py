@@ -127,7 +127,7 @@ if op.exists(table_outname ) or op.exists(table_outname2 ):
 
 
 
-survey_name = "hdr3" #"hdr2.1"
+survey_name = "hdr4" #"hdr2.1"
 hetdex_api_config = HDRconfig(survey_name)
 survey = Survey(survey_name)
 print("Reading survey table ...")
