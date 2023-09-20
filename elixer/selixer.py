@@ -497,7 +497,7 @@ elif hostname == "lonestar6" or hostname == 'ls6':
     if queue is None:
         queue = "normal"  # SKX  ... the KNL nodes seem really slow
     # https://docs.tacc.utexas.edu/hpc/lonestar6/
-    # standard compute node: num =  560 each with 128 cores, 256 GB RAM and 144GB disk on /tmp
+    # standard compute node: num =  560 each with 128 cores per node (64x2 sockets), 256 GB RAM and 144GB disk on /tmp
     # vm-small
     # GPU nodes
     # /scratch purge after minimum of 10days
@@ -541,8 +541,8 @@ elif hostname == "lonestar6" or hostname == 'ls6':
             FILL_CPU_TASKS = 10
             if MERGE: #use same tasks limit as full run
                 MAX_TASKS = 128
-                MAX_NODES = 2
-                MAX_TASKS_PER_NODE = 64  #need usually around 4-4.5GB per core, 256GB/ (4GB/task) = 64 tasks, 4.5GB = 58
+                MAX_NODES = 1
+                MAX_TASKS_PER_NODE = 128  #need usually around 4-4.5GB per core, 256GB/ (4GB/task) = 64 tasks, 4.5GB = 58
             else:
                 MAX_TASKS = 10000
                 MAX_NODES = 128

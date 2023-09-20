@@ -1,6 +1,8 @@
 """
 based on random_apertures.py, but uses previous determined coordinates rather than seeking new random apertures
 """
+import os.path
+
 COORD_ID = None #"ll_model" #"ll_1050"
 SKY_RESIDUAL_FITS_PATH = None #"/scratch/03261/polonius/random_apertures/all_fibers/all/"
 #SKY_RESIDUAL_FITS_PREFIX = "fiber_summary_sym_bw_"
@@ -23,10 +25,12 @@ from hetdex_api.shot import get_fibers_table
 from hetdex_api.survey import Survey,FiberIndex
 from hetdex_tools.get_spec import get_spectra
 from hetdex_api.extinction import *  #includes deredden_spectra
+from hetdex_api.extract import Extract
 
 from elixer import spectrum as elixer_spectrum
 from elixer import spectrum_utilities as SU
 from elixer import global_config as G
+import shutil
 
 #get the shot from the command line
 
@@ -87,6 +91,13 @@ else:
     print("NO dust correction")
     dust = False
 
+if "--fiber_corr" in args:
+    print("Apply per fiber residual correction")
+    per_fiber_corr = True
+    G.APPLY_SKY_RESIDUAL_TYPE = 1
+else:
+    print("Do Not apply per fiber residual correction")
+    per_fiber_corr = False
 
 if "--aper" in args:
     i = args.index("--aper")
@@ -100,14 +111,23 @@ else:
     print("using default 3.5\" aperture")
     aper = 3.5  # 3.5" aperture
 
+tmppath = "/tmp/hx/"
+
 if COORD_ID is not None:
     table_outname = f"coord_apertures_{COORD_ID}_" + str(shotid) + ".fits"
+    table_outname2 = f"coord_apertures_{COORD_ID}_" + str(shotid) + "_fibers.fits"
 else:
     table_outname = f"coord_apertures_" + str(shotid) + ".fits"
+    table_outname2 = "coord_apertures_" + str(shotid) + "_fibers.fits"
 
-#maybe this one was already done?
-if op.exists(table_outname):
-    exit(0)
+
+
+
+
+# maybe this one was already done?
+# if op.exists(table_outname) or op.exists(table_outname2):
+#     print("One or more outputs already exists. Exiting.")
+#     exit(0)
 
 #get the single fiber residual for THIS shot
 
@@ -141,9 +161,8 @@ if op.exists(table_outname):
 #                                                                                             ffsky=ffsky,
 #                                                                                             hdr=G.HDR_Version)
 
-    if shot_sky_subtraction_residual is None:
-        print("FAIL!!! No single fiber shot residual retrieved.")
-
+if shot_sky_subtraction_residual is None:
+    print("FAIL!!! No single fiber shot residual retrieved.")
     fiber_flux_offset = -1 * shot_sky_subtraction_residual
 else:
     fiber_flux_offset = None
@@ -165,6 +184,7 @@ survey_table=survey.return_astropy_table()
 aper_ct = 0
 write_every = 100
 
+
 T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
                  ('seeing',float),('response',float),('apcor',float),
                  ('f50_3800',float),('f50_5000',float),
@@ -177,6 +197,16 @@ T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
                  ('fluxd_zero', (float, len(G.CALFIB_WAVEGRID))),
                  ('fluxd_zero_err', (float, len(G.CALFIB_WAVEGRID))),
                  ])
+
+#individual fibers
+T2 = Table(dtype=[('ra', float), ('dec', float), ('fiber_ra', float), ('fiber_dec', float),
+                 ('shotid', int),
+                 ('seeing',float),
+                 ('fluxd', (float, len(G.CALFIB_WAVEGRID))),
+                 ('fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ])
+E = Extract()
+E.load_shot(shotid)
 
 sel = np.array(survey_table['shotid'] == shotid)
 seeing = float(survey_table['fwhm_virus'][sel])
@@ -228,13 +258,16 @@ for ra,dec,shotid in zip(coord_ra,coord_dec,coord_shot):
             dex_g = g
             dex_g_err = ge
 
+
+        # do not re-run the line check ... this was already done with random_apertures script
+
         # check for any emission lines ... simple scan? or should we user elixer's method?
         #2022-12-09 should re-run and use this with fluxd*2.0 since that is how it is calibrated
-        pos, status = elixer_spectrum.sn_peakdet_no_fit(wavelength, fluxd*2.0, fluxd_err*2.0, dx=3, dv=3, dvmx=4.0,
-                                                        absorber=False,
-                                                        spec_obj=None, return_status=True)
-        if status != 0:
-            continue  # some failure or 1 or more possible lines
+        # pos, status = elixer_spectrum.sn_peakdet_no_fit(wavelength, fluxd*2.0, fluxd_err*2.0, dx=3, dv=3, dvmx=4.0,
+        #                                                 absorber=False,
+        #                                                 spec_obj=None, return_status=True)
+        # if status != 0:
+        #     continue  # some failure or 1 or more possible lines
 
         fiber_weights = sorted(apt['fiber_weights'][0][:,2])[::-1]
         norm_weights = fiber_weights / np.sum(fiber_weights)
@@ -244,41 +277,52 @@ for ra,dec,shotid in zip(coord_ra,coord_dec,coord_shot):
 
 
         f50, apcor = SU.get_fluxlimits(ra, dec, [3800.0, 5000.0], shot)
+        if f50 is None:
+            f50 = [-1,-1]
+            print("Error. f50 is None.")
+
+        if apcor is None:
+            apcor = [-1,-1]
+            print("Error. apcor is None.")
 
         fluxd_sum = np.nansum(fluxd[215:966])
         fluxd_sum_wide = np.nansum(fluxd[65:966])
         fluxd_median = np.nanmedian(fluxd[215:966])
         fluxd_median_wide = np.nanmedian(fluxd[65:966])
 
-        try:
-            #sky_subtraction_residual = SU.fetch_universal_single_fiber_sky_subtraction_residual(
-            #    ffsky=ffsky, hdr="3")
-            #adjust_type  0 = default (none), 1 = multiply  2 = add, 3 = None
-            #fiber_flux_offset = -1 * SU.adjust_fiber_correction_by_seeing(sky_subtraction_residual, seeing, adjust_type=3)
+        if per_fiber_corr:
+            try:
+                #sky_subtraction_residual = SU.fetch_universal_single_fiber_sky_subtraction_residual(
+                #    ffsky=ffsky, hdr="3")
+                #adjust_type  0 = default (none), 1 = multiply  2 = add, 3 = None
+                #fiber_flux_offset = -1 * SU.adjust_fiber_correction_by_seeing(sky_subtraction_residual, seeing, adjust_type=3)
 
-            sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
-                seeing, ffsky=ffsky, hdr="3",response=response, xfrac=1.0)
+                sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
+                    seeing, ffsky=ffsky, hdr="3",response=response, xfrac=1.0)
 
-            fiber_flux_offset = -1 * sky_subtraction_residual
+                fiber_flux_offset = -1 * sky_subtraction_residual
 
-            apt_offset = get_spectra(coord, survey=survey_name, shotid=shot,
-                                     ffsky=ffsky, multiprocess=True, rad=aper,
-                                     tpmin=0.0, fiberweights=True, loglevel="ERROR",
-                                     fiber_flux_offset=fiber_flux_offset)
+                apt_offset = get_spectra(coord, survey=survey_name, shotid=shot,
+                                         ffsky=ffsky, multiprocess=True, rad=aper,
+                                         tpmin=0.0, fiberweights=True, loglevel="ERROR",
+                                         fiber_flux_offset=fiber_flux_offset)
 
-            fluxd_offset = np.array(apt_offset['spec'][0]) * 1e-17
-            fluxd_offset_err = np.array(apt_offset['spec_err'][0]) * 1e-17
-            #wavelength = np.array(apt['wavelength'][0])
+                fluxd_offset = np.array(apt_offset['spec'][0]) * 1e-17
+                fluxd_offset_err = np.array(apt_offset['spec_err'][0]) * 1e-17
+                #wavelength = np.array(apt['wavelength'][0])
 
-            if dust:
-                dust_corr = deredden_spectra(wavelength, coord)
-                fluxd_offset *= dust_corr
-                fluxd_offset_err *= dust_corr
+                if dust:
+                    dust_corr = deredden_spectra(wavelength, coord)
+                    fluxd_offset *= dust_corr
+                    fluxd_offset_err *= dust_corr
 
-        except Exception as e:
-            print(e)
+            except Exception as e:
+                print(e)
+                fluxd_offset = np.full(len(fluxd), np.nan)
+                fluxd_offset_err = np.full(len(fluxd),np.nan)
+        else:
             fluxd_offset = np.full(len(fluxd), np.nan)
-            fluxd_offset_err = np.full(len(fluxd),np.nan)
+            fluxd_offset_err = np.full(len(fluxd), np.nan)
 
 
         T.add_row([ra, dec, shotid, seeing, response, apcor[1], f50[0], f50[1],
@@ -288,10 +332,38 @@ for ra,dec,shotid in zip(coord_ra,coord_dec,coord_shot):
 
         aper_ct += 1
 
+
+        try:
+             #fiber level
+            #get the fibers at the coord for the aperture size
+            _, _, _, _, fiber_ra, fiber_dec, spec, spece, _, _, _ = E.get_fiberinfo_for_coord(coord,
+                                                    radius=aper,ffsky=ffsky,return_fiber_info=True,
+                                                    fiber_lower_limit=3, verbose=False, fiber_flux_offset=None)
+
+            for i in range(len(fiber_ra)):
+                T2.add_row([ra,dec,fiber_ra[i], fiber_dec[i],shotid,seeing,spec[i],spece[i]])
+        except Exception as e:
+            print("Exception (1b) !", e)
+            continue
+
+
+
+        if aper_ct % write_every == 0:
+            T.write( os.path.join(tmppath,table_outname), format='fits', overwrite=True)
+            T2.write(os.path.join(tmppath,table_outname2), format='fits', overwrite=True)
+
     except Exception as e:
         print("Exception (2) !", e)
         continue
 
-T.write(table_outname, format='fits', overwrite=True)
+T.write(os.path.join(tmppath,table_outname), format='fits', overwrite=True)
+T2.write(os.path.join(tmppath,table_outname2), format='fits', overwrite=True)
 
+shutil.copy2(os.path.join(tmppath,table_outname),table_outname)  # ,copy_function=copy)
+os.remove(os.path.join(tmppath,table_outname))
 
+shutil.copy2(os.path.join(tmppath,table_outname2),table_outname2)  # ,copy_function=copy)
+os.remove(os.path.join(tmppath,table_outname2))
+
+# table_outname = os.path.join(tmppath,table_outname)
+# table_outname2 = os.path.join(tmppath,table_outname2)

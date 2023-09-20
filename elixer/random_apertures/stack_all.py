@@ -14,6 +14,7 @@ from astropy.table import Table,vstack
 import sys
 import os.path as op
 import copy
+from datetime import datetime
 
 from elixer import global_config as G
 from elixer import spectrum_utilities as SU
@@ -46,7 +47,7 @@ if "--path" in args:
 else:
     path = "./"
 
-table_outname = "all_apertures_stack"
+table_outname = "all_"+prefix
 
 aper_files = sorted(glob.glob(op.join(path,prefix +"*[0-9].fits")))
 #fiber_files = sorted(glob.glob(op.join(path,prefix +"*_fibers.fits")))
@@ -146,7 +147,7 @@ fluxd = []
 fluxd_err = []
 
 for i,file in enumerate(aper_files):
-    print(i+1,op.basename(file))
+    print("stack_all:", i+1,op.basename(file), datetime.now())
     f1 = file
 
     #anity check

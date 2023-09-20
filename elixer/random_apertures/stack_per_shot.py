@@ -12,14 +12,18 @@ import glob
 import numpy as np
 from astropy.table import Table,vstack
 import sys
+import os
 import os.path as op
 import copy
+import shutil
+from datetime import datetime
 
 from elixer import global_config as G
 from elixer import spectrum_utilities as SU
 
 average = "biweight"
 
+tmppath = "/tmp/hx/"
 
 args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
 #"random_apertures_"
@@ -46,7 +50,7 @@ if "--path" in args:
 else:
     path = "./"
 
-table_outname = prefix
+table_outname = prefix + "per_shot_"
 
 aper_files = sorted(glob.glob(op.join(path,prefix +"*[0-9].fits")))
 fiber_files = sorted(glob.glob(op.join(path,prefix +"*_fibers.fits")))
@@ -144,7 +148,8 @@ def split_spectra_into_bins(fluxd_2d, fluxd_err_2d,sort=True,trim=0.666):
 
 
 for i,files in enumerate(zip(aper_files,fiber_files)):
-    print(i+1,op.basename(files[0]))
+    print("stack_per_shot:", i+1,op.basename(files[0]),datetime.now())
+
     f1 = files[0]
     f2 = files[1]
 
@@ -326,7 +331,7 @@ for i,files in enumerate(zip(aper_files,fiber_files)):
 
     if (i) % write_every == 0:
         if T is not None:
-            T.write(table_outname+"_stacks.fits",format='fits',overwrite=True)
+            T.write(op.join(tmppath,table_outname+"_stacks.fits"),format='fits',overwrite=True)
 
     if t1 is not None:
         del t1
@@ -334,4 +339,7 @@ for i,files in enumerate(zip(aper_files,fiber_files)):
         del t2
 
 if T is not None:
-    T.write(table_outname+"_stacks.fits",format='fits',overwrite=True)
+    T.write(op.join(tmppath,table_outname+"_stacks.fits"),format='fits',overwrite=True)
+print("Copying from /tmp")
+shutil.copy2(op.join(tmppath,table_outname+"_stacks.fits"),table_outname+"_stacks.fits")  # ,copy_function=copy)
+os.remove(op.join(tmppath,table_outname+"_stacks.fits"))
