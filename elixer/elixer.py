@@ -6055,7 +6055,10 @@ def main():
                                                             len(e.spec_obj.solutions) > 0 and e.spec_obj.solutions[0].emission_line.absorber:
                                                             p_of_z = p_of_z_list[0]
                                                             best_z = best_z_list[0]
-                                                            if e.spec_obj.central_eli.absorber:
+
+                                                            if np.isclose(e.spec_obj.solutions[0].z,best_z,atol=1e-4):
+                                                                line_label = e.spec_obj.solutions[0].name
+                                                            elif e.spec_obj.central_eli.absorber:
                                                                 line_label = e.spec_obj.match_line(e.w,best_z_list[0],aa_error=6.0,
                                                                                                    allow_absorption=True,
                                                                                                    allow_emission=True).name

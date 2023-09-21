@@ -8445,8 +8445,17 @@ class Spectrum:
                     #find the line (fl.fit_x0,sol.z,max_rank=3)
                     # lineinfo = self.match_line(fl.fit_x0,sol.z,max_rank=3)
                      #               if lineinfo is not None:
-                    lineinfo = self.match_line(sol.central_rest,0)
+                    lineinfo = self.match_line(sol.central_rest,0,max_rank=99,allow_absorption=True)
                     if lineinfo is not None:
+                        #special case NeIII pops up as a higher rank than H_epsilon as that is based on emission
+                        #but if this is a WD, then NeIII 3967 is really H_epsilon 3970AA
+                        if lineinfo.w_rest == G.NeIII_3967 or lineinfo.w_rest == G.CaII_H_3968:
+                            try:
+                                h_ep_sel = np.array([x.w_rest == G.Hepsilon_3970 for x in self.emission_lines])
+                                lineinfo = np.array(self.emission_lines)[h_ep_sel][0]
+                                #if this fails, just let it go and revert to the earlier match
+                            except:
+                                log.debug("Minor exception.",exc_info=True)
                         sol.name = lineinfo.name
                         sol.color = lineinfo.color
                         sol.emission_line = copy.deepcopy(lineinfo)

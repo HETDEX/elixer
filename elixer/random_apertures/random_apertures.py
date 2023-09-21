@@ -35,6 +35,7 @@ from elixer import spectrum as elixer_spectrum
 from elixer import spectrum_utilities as SU
 from elixer import global_config as G
 
+survey_name = "hdr3" #"hdr4" #"hdr2.1"
 
 tmppath = "/tmp/hx/"
 #tmppath = "/home/dustin/temp/random_apertures/hx/"
@@ -91,12 +92,13 @@ else:
     per_fiber_corr = False
 
 if "--dust" in args:
-    print("applying dust correction")
+    print("recording dust correction")
     dust = True
 else:
     print("NO dust correction")
     dust = False
 
+applydust = False
 
 if "--aper" in args:
     i = args.index("--aper")
@@ -150,7 +152,7 @@ if op.exists(table_outname ) or op.exists(table_outname2 ):
 
 
 
-survey_name = "hdr4" #"hdr2.1"
+
 hetdex_api_config = HDRconfig(survey_name)
 survey = Survey(survey_name)
 print("Reading survey table ...")
@@ -236,6 +238,7 @@ T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
                  ('fiber_weights_norm',(float,32)),
                  ('fluxd_zero', (float, len(G.CALFIB_WAVEGRID))),
                  ('fluxd_zero_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('dust_corr', (float, len(G.CALFIB_WAVEGRID))),
                  ])
 
 #individual fibers
@@ -244,6 +247,7 @@ T2 = Table(dtype=[('ra', float), ('dec', float), ('fiber_ra', float), ('fiber_de
                  ('seeing',float),
                  ('fluxd', (float, len(G.CALFIB_WAVEGRID))),
                  ('fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('dust_corr', (float, len(G.CALFIB_WAVEGRID))),
                  ])
 
 #ffsky table IF bothsky
@@ -261,6 +265,7 @@ T3 = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
                  ('fiber_weights_norm',(float,32)),
                  ('fluxd_zero', (float, len(G.CALFIB_WAVEGRID))),
                  ('fluxd_zero_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('dust_corr', (float, len(G.CALFIB_WAVEGRID))),
                  ])
 
 #individual fibers (ffsky) if --bothsky
@@ -269,6 +274,7 @@ T4 = Table(dtype=[('ra', float), ('dec', float), ('fiber_ra', float), ('fiber_de
                  ('seeing',float),
                  ('fluxd', (float, len(G.CALFIB_WAVEGRID))),
                  ('fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('dust_corr', (float, len(G.CALFIB_WAVEGRID))),
                  ])
 
 E = Extract()
@@ -315,8 +321,12 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
 
     ra = np.random.uniform(-ra_nudge, ra_nudge) / 3600. + f['ra']
     dec = np.random.uniform(-dec_nudge, dec_nudge) / 3600. + f['dec']
-
     coord = SkyCoord(ra, dec, unit="deg")
+
+    if dust:
+        dust_corr = deredden_spectra(G.CALFIB_WAVEGRID, coord)
+
+
     try:
 
         #this one does NOT use the fiber_flux_offset, but if it passes, we will call again with one that does use it
@@ -338,8 +348,8 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
         fluxd_err = np.array(apt['spec_err'][0]) * 1e-17
         wavelength = np.array(apt['wavelength'][0])
 
-        if dust:
-            dust_corr = deredden_spectra(wavelength, coord)
+        if applydust:
+            #dust_corr = deredden_spectra(wavelength, coord)
             fluxd *= dust_corr
             fluxd_err *= dust_corr
 
@@ -471,8 +481,8 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
                 fluxd_offset_err = np.array(apt_offset['spec_err'][0]) * 1e-17
                 #wavelength = np.array(apt['wavelength'][0])
 
-                if dust:
-                    dust_corr = deredden_spectra(wavelength, coord)
+                if applydust:
+                    #dust_corr = deredden_spectra(wavelength, coord)
                     fluxd_offset *= dust_corr
                     fluxd_offset_err *= dust_corr
 
@@ -488,7 +498,7 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
         T.add_row([ra, dec, shotid, seeing, response, apcor[1], f50[0], f50[1],
                    dex_g, dex_g_err, dex_cont, dex_cont_err,
                    fluxd_sum,fluxd_sum_wide,fluxd_median,fluxd_median_wide,
-                   fluxd, fluxd_err,fiber_weights,norm_weights,fluxd_offset, fluxd_offset_err])
+                   fluxd, fluxd_err,fiber_weights,norm_weights,fluxd_offset, fluxd_offset_err,dust_corr])
 
 
         if bothsky:
@@ -509,8 +519,8 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
             fluxd_err = np.array(apt['spec_err'][0]) * 1e-17
             wavelength = np.array(apt['wavelength'][0])
 
-            if dust:
-                dust_corr = deredden_spectra(wavelength, coord)
+            if applydust:
+                #dust_corr = deredden_spectra(wavelength, coord)
                 fluxd *= dust_corr
                 fluxd_err *= dust_corr
 
@@ -532,7 +542,7 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
                    dex_g, dex_g_err, dex_cont, dex_cont_err,
                    dex_g_ff, dex_g_err_ff, dex_cont_ff, dex_cont_err_ff,
                    fluxd_sum,fluxd_sum_wide,fluxd_median,fluxd_median_wide,
-                   fluxd, fluxd_err,fiber_weights,norm_weights,fluxd_offset, fluxd_offset_err])
+                   fluxd, fluxd_err,fiber_weights,norm_weights,fluxd_offset, fluxd_offset_err,dust_corr])
 
 
         try:
@@ -542,8 +552,13 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
                                                     radius=aper,ffsky=ffsky,return_fiber_info=True,
                                                     fiber_lower_limit=3, verbose=False, fiber_flux_offset=None)
 
+            if applydust:
+                # dust_corr = deredden_spectra(wavelength, coord)
+                spec *= dust_corr
+                spece *= dust_corr
+
             for i in range(len(fiber_ra)):
-                T2.add_row([ra,dec,fiber_ra[i], fiber_dec[i],shotid,seeing,spec[i],spece[i]])
+                T2.add_row([ra,dec,fiber_ra[i], fiber_dec[i],shotid,seeing,spec[i],spece[i],dust_corr])
         except Exception as e:
             print("Exception (1b) !", e)
             continue
@@ -557,8 +572,13 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
                                                         radius=aper,ffsky=True,return_fiber_info=True,
                                                         fiber_lower_limit=3, verbose=False, fiber_flux_offset=None)
 
+                if applydust:
+                    # dust_corr = deredden_spectra(wavelength, coord)
+                    spec *= dust_corr
+                    spece *= dust_corr
+
                 for i in range(len(fiber_ra)):
-                    T4.add_row([ra,dec,fiber_ra[i], fiber_dec[i],shotid,seeing,spec[i],spece[i]])
+                    T4.add_row([ra,dec,fiber_ra[i], fiber_dec[i],shotid,seeing,spec[i],spece[i],dust_corr])
             except Exception as e:
                 print("Exception (1d) !", e)
                 continue

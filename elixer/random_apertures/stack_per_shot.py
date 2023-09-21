@@ -56,10 +56,39 @@ if "--path" in args:
 else:
     path = "./"
 
+
+if "--aperfile" in args:
+    i = args.index("--aperfile")
+    try:
+        aperfile = sys.argv[i + 1]
+    except:
+        print("bad --aperfile specified")
+        exit(-1)
+else:
+    aperfile =None
+
+if "--fiberfile" in args:
+    i = args.index("--fiberfile")
+    try:
+        fiberfile = sys.argv[i + 1]
+    except:
+        print("bad --fiberfile specified")
+        exit(-1)
+else:
+    fiberfile = None
+
 table_outname = prefix + "per_shot_"
 
-aper_files = sorted(glob.glob(op.join(path,prefix +"*[0-9].fits")))
-fiber_files = sorted(glob.glob(op.join(path,prefix +"*_fibers.fits")))
+if aperfile is None:
+    aper_files = sorted(glob.glob(op.join(path,prefix +"*[0-9].fits")))
+else:
+    aper_files = [op.join(path,aperfile)]
+    table_outname += f"_{aperfile[:-5]}"
+
+if fiberfile is None:
+    fiber_files = sorted(glob.glob(op.join(path,prefix +"*_fibers.fits")))
+else:
+    fiber_files = [op.join(path, fiberfile)]
 
 #these SHOULD be in the same order due to the shotid
 if len(fiber_files) == 0:
@@ -70,7 +99,7 @@ elif len(fiber_files) != len(aper_files):
     exit(-1)
 
 T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
-                 ('seeing',float),
+                 ('seeing',float), ('response',float),
                  ('aper_fluxd', (float, len(G.CALFIB_WAVEGRID))),
                  ('aper_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
                  ('aper_ct', int),
@@ -80,6 +109,7 @@ T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
                  ('fiber_fluxd', (float, len(G.CALFIB_WAVEGRID))),
                  ('fiber_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
                  ('fiber_ct', int),
+                 ('dust_corr', (float, len(G.CALFIB_WAVEGRID))),
                  ('trim_aper_fluxd', (float, len(G.CALFIB_WAVEGRID))),
                  ('trim_aper_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
                  ('trim_fiber_fluxd', (float, len(G.CALFIB_WAVEGRID))),
@@ -170,6 +200,11 @@ for i,files in enumerate(zip(aper_files,fiber_files)):
     else:
         t2 = None
 
+    try:
+        dust_corr = np.nanmedian(t1['dust_corr'],axis=0)
+    except:
+        dust_corr = np.full(len(G.CALFIB_WAVEGRID), np.nan)
+
     # stack apertures by trimmed data
     ad = split_spectra_into_bins(t1['fluxd'], t1['fluxd_err'], sort=True, trim=0.666)
     i = 0
@@ -217,6 +252,7 @@ for i,files in enumerate(zip(aper_files,fiber_files)):
         aper_flux_stack = np.full(len(G.CALFIB_WAVEGRID), np.nan)
         aper_fluxe_stack = np.full(len(G.CALFIB_WAVEGRID), np.nan)
         aper_contributions = 0
+
 
     #
     # #stack apertures by trimmed data
@@ -328,10 +364,11 @@ for i,files in enumerate(zip(aper_files,fiber_files)):
 
 
    #add to the table:
-    T.add_row([t1['ra'][0], t1['dec'][0], t1['shotid'][0], t1['seeing'][0],
+    T.add_row([t1['ra'][0], t1['dec'][0], t1['shotid'][0], t1['seeing'][0],t1['response'][0],
                aper_flux_stack, aper_fluxe_stack,aper_contributions,
                corr_flux_stack, corr_fluxe_stack,corr_contributions,
                fiber_flux_stack, fiber_fluxe_stack,fiber_contributions,
+               dust_corr,
                ad['fluxd_stack'],ad['fluxe_stack'],
                fd['fluxd_stack'],fd['fluxe_stack']])
 
