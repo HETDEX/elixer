@@ -297,7 +297,7 @@ if min_gmag is None:
 min_gmag += mag_adjust
 
 
-reject_file = open("reject_"+str(shotid)+".coord", "w+")
+reject_file = open(op.join(tmppath,"reject_"+str(shotid)+".coord"), "w+")
 
 for f in super_tab: #these fibers are in a random order so just iterating over them is random
                     #though it is possible to get two apertures at the same location (adjacent fibers and random
@@ -588,9 +588,12 @@ shutil.copy2(op.join(tmppath,table_outname),table_outname)
 shutil.copy2(op.join(tmppath,table_outname2),table_outname2)
 shutil.copy2(op.join(tmppath,table_outname3),table_outname3)
 shutil.copy2(op.join(tmppath,table_outname4),table_outname4)
+shutil.copy2(op.join(tmppath,reject_file),reject_file)
+
 print("Done copying")
 
 os.remove(op.join(tmppath,table_outname))
 os.remove(op.join(tmppath,table_outname2))
 os.remove(op.join(tmppath,table_outname3))
 os.remove(op.join(tmppath,table_outname4))
+os.remove(op.join(tmppath,reject_file))
