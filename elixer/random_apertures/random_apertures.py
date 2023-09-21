@@ -1,6 +1,6 @@
 """
 simple file to pull a code specified number of random apertures, validating each against acceptance critieria,
-and save to an astropy table on a per shot basis
+and save to an astropy table on a PER SHOT basis
 
 intended for use with SLURM
 
@@ -13,6 +13,7 @@ based on hetdex_all_shots_random_empty_apertures notebooks on /work/03261/poloni
 
 """
 import sys
+import os
 import os.path as op
 import numpy as np
 import tables
@@ -21,6 +22,7 @@ from astropy.table import Table,join,vstack
 import astropy.units as u
 import copy
 import glob
+import shutil
 
 from hetdex_api.config import HDRconfig
 from hetdex_api.shot import get_fibers_table
@@ -32,6 +34,16 @@ from hetdex_api.extract import Extract
 from elixer import spectrum as elixer_spectrum
 from elixer import spectrum_utilities as SU
 from elixer import global_config as G
+
+
+tmppath = "/tmp/hx/"
+#tmppath = "/home/dustin/temp/random_apertures/hx/"
+
+if not os.path.exists(tmppath):
+    os.makedirs(tmppath, mode=0o755)
+    if not os.access(tmppath, os.W_OK):
+        print(f"Warning! --tmp path does not exist, cannot be created, or is not writable: {tmppath}")
+        exit(-1)
 
 #get the shot from the command line
 
@@ -60,6 +72,15 @@ if "--ffsky" in args:
 else:
     print("using local sky subtraction")
     ffsky = False
+
+if "--bothsky" in args:
+    print("Using local sky subtraction selection. Recording both local and ffsky extractions.")
+    print("Overriding --ffsky")
+    bothsky = True
+    ffsky = False
+else:
+    print("using local sky subtraction")
+    bothsky = False
 
 if "--fiber_corr" in args:
     print("Apply per fiber residual correction")
@@ -119,6 +140,8 @@ else:
 outfile = open("random_apertures_"+str(shotid)+".coord", "w+")  # 3500-3800 avg +/- 0.04
 table_outname = "random_apertures_"+str(shotid) + ".fits"
 table_outname2 = "random_apertures_"+str(shotid) + "_fibers.fits"
+table_outname3 = "random_apertures_"+str(shotid) + "_ff.fits"
+table_outname4 = "random_apertures_"+str(shotid) + "_ff_fibers.fits"
 
 #maybe this one was already done?
 if op.exists(table_outname ) or op.exists(table_outname2 ):
@@ -217,6 +240,31 @@ T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
 
 #individual fibers
 T2 = Table(dtype=[('ra', float), ('dec', float), ('fiber_ra', float), ('fiber_dec', float),
+                 ('shotid', int),
+                 ('seeing',float),
+                 ('fluxd', (float, len(G.CALFIB_WAVEGRID))),
+                 ('fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ])
+
+#ffsky table IF bothsky
+#the first 12 columns (ra through dex_cont_err) are same as the T (local sky) table
+#the remaining columns (dex_g_ff and onward) are new
+T3 = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
+                 ('seeing',float),('response',float),('apcor',float),
+                 ('f50_3800',float),('f50_5000',float),
+                 ('dex_g',float),('dex_g_err',float),('dex_cont',float),('dex_cont_err',float),
+                 ('dex_g_ff',float),('dex_g_err_ff',float),('dex_cont_ff',float),('dex_cont_err_ff',float),
+                 ('fluxd_sum',float),('fluxd_sum_wide',float),('fluxd_median',float),('fluxd_median_wide',float),
+                 ('fluxd', (float, len(G.CALFIB_WAVEGRID))),
+                 ('fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('fiber_weights',(float,32)),
+                 ('fiber_weights_norm',(float,32)),
+                 ('fluxd_zero', (float, len(G.CALFIB_WAVEGRID))),
+                 ('fluxd_zero_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ])
+
+#individual fibers (ffsky) if --bothsky
+T4 = Table(dtype=[('ra', float), ('dec', float), ('fiber_ra', float), ('fiber_dec', float),
                  ('shotid', int),
                  ('seeing',float),
                  ('fluxd', (float, len(G.CALFIB_WAVEGRID))),
@@ -443,6 +491,50 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
                    fluxd, fluxd_err,fiber_weights,norm_weights,fluxd_offset, fluxd_offset_err])
 
 
+        if bothsky:
+            apt = get_spectra(coord, survey=survey_name, shotid=shot,
+                              ffsky=True, multiprocess=True, rad=aper,
+                              tpmin=0.0, fiberweights=True, loglevel="ERROR",
+                              fiber_flux_offset=None)
+            try:
+                if apt['fiber_weights'][0].shape[0] < min_fibers:
+                    continue  # too few fibers, probably on the edge or has dead fibers
+            except Exception as e:
+                continue
+
+            # fluxd = np.nan_to_num(apt['spec'][0]) * 1e-17
+            # fluxd_err = np.nan_to_num(apt['spec_err'][0]) * 1e-17
+            # lets leave the nans in place
+            fluxd = np.array(apt['spec'][0]) * 1e-17
+            fluxd_err = np.array(apt['spec_err'][0]) * 1e-17
+            wavelength = np.array(apt['wavelength'][0])
+
+            if dust:
+                dust_corr = deredden_spectra(wavelength, coord)
+                fluxd *= dust_corr
+                fluxd_err *= dust_corr
+
+            gff, cff, geff, ceff = elixer_spectrum.get_hetdex_gmag(fluxd, wavelength, fluxd_err)
+            dex_cont_ff = cff
+            dex_cont_err_ff = ceff
+
+            if gff is None or np.isnan(gff):
+                dex_g_ff = 99.0
+                dex_g_err_ff = 0
+            else:
+                dex_g_ff = gff
+                dex_g_err_ff = geff
+
+
+
+            #aperture level FFsky (Some of this is repeat from the local sky)
+            T3.add_row([ra, dec, shotid, seeing, response, apcor[1], f50[0], f50[1],
+                   dex_g, dex_g_err, dex_cont, dex_cont_err,
+                   dex_g_ff, dex_g_err_ff, dex_cont_ff, dex_cont_err_ff,
+                   fluxd_sum,fluxd_sum_wide,fluxd_median,fluxd_median_wide,
+                   fluxd, fluxd_err,fiber_weights,norm_weights,fluxd_offset, fluxd_offset_err])
+
+
         try:
              #fiber level
             #get the fibers at the coord for the aperture size
@@ -456,18 +548,49 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
             print("Exception (1b) !", e)
             continue
 
+
+        if bothsky:
+            try:
+                #fiber level ffsky
+                #get the fibers at the coord for the aperture size
+                _, _, _, _, fiber_ra, fiber_dec, spec, spece, _, _, _ = E.get_fiberinfo_for_coord(coord,
+                                                        radius=aper,ffsky=True,return_fiber_info=True,
+                                                        fiber_lower_limit=3, verbose=False, fiber_flux_offset=None)
+
+                for i in range(len(fiber_ra)):
+                    T4.add_row([ra,dec,fiber_ra[i], fiber_dec[i],shotid,seeing,spec[i],spece[i]])
+            except Exception as e:
+                print("Exception (1d) !", e)
+                continue
+
         aper_ct += 1
 
 
         if aper_ct % write_every == 0:
-            T.write(table_outname, format='fits', overwrite=True)
-            T2.write(table_outname2, format='fits', overwrite=True)
+            T.write(op.join(tmppath,table_outname), format='fits', overwrite=True)
+            T2.write(op.join(tmppath,table_outname2), format='fits', overwrite=True)
+            if bothsky:
+                T3.write(op.join(tmppath,table_outname3), format='fits', overwrite=True)
+                T4.write(op.join(tmppath,table_outname4), format='fits', overwrite=True)
 
     except Exception as e:
         print("Exception (2) !", e)
         continue
 
-T.write(table_outname, format='fits', overwrite=True)
-T2.write(table_outname2, format='fits', overwrite=True)
+T.write(op.join(tmppath,table_outname), format='fits', overwrite=True)
+T2.write(op.join(tmppath,table_outname2), format='fits', overwrite=True)
+if bothsky:
+    T3.write(op.join(tmppath,table_outname3), format='fits', overwrite=True)
+    T4.write(op.join(tmppath,table_outname4), format='fits', overwrite=True)
 
+print("Copying from /tmp")
+shutil.copy2(op.join(tmppath,table_outname),table_outname)
+shutil.copy2(op.join(tmppath,table_outname2),table_outname2)
+shutil.copy2(op.join(tmppath,table_outname3),table_outname3)
+shutil.copy2(op.join(tmppath,table_outname4),table_outname4)
+print("Done copying")
 
+os.remove(op.join(tmppath,table_outname))
+os.remove(op.join(tmppath,table_outname2))
+os.remove(op.join(tmppath,table_outname3))
+os.remove(op.join(tmppath,table_outname4))

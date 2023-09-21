@@ -25,6 +25,12 @@ average = "biweight"
 
 tmppath = "/tmp/hx/"
 
+if not os.path.exists(tmppath):
+    os.makedirs(tmppath, mode=0o755)
+    if not os.access(tmppath, os.W_OK):
+        print(f"Warning! --tmp path does not exist, cannot be created, or is not writable: {tmppath}")
+        exit(-1)
+
 args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
 #"random_apertures_"
 #"fiber_summary_"
