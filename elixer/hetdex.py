@@ -7374,11 +7374,11 @@ class DetObj:
                 if G.ZEROFLAT:
                     self.fiber_sky_subtraction_residual, self.fiber_sky_subtraction_residual_flat = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
                                                 self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
-                                                zeroflat=True,response=self.survey_response, xfrac=1.0)
+                                                zeroflat=True,response=self.survey_response, xfrac=G.SKY_RESIDUAL_XFRAC)
                 else:
                     self.fiber_sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
                                                 self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
-                                                zeroflat=False,response=self.survey_response, xfrac=1.0)
+                                                zeroflat=False,response=self.survey_response, xfrac=G.SKY_RESIDUAL_XFRAC)
 
                 # if G.SKY_RESIDUAL_PER_SHOT:
                 #     self.fiber_sky_subtraction_residual = SU.fetch_per_shot_single_fiber_sky_subtraction_residual(G.SKY_RESIDUAL_FITS_PATH,
@@ -7447,11 +7447,11 @@ class DetObj:
                         if G.ZEROFLAT:
                             self.aperture_sky_subtraction_residual, self.aperture_sky_subtraction_residual_flat = SU.inter(
                                 self.survey_fwhm, aper=self.extraction_aperture,ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
-                                zeroflat=True,response=self.survey_response, xfrac=1.0)
+                                zeroflat=True,response=self.survey_response, xfrac=G.SKY_RESIDUAL_XFRAC)
                         else:
                             self.aperture_sky_subtraction_residual = SU.interpolate_universal_aperture_sky_subtraction_residual(
                                 self.survey_fwhm, aper=self.extraction_aperture,ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
-                                    zeroflat=False,response=self.survey_response, xfrac=1.0)
+                                    zeroflat=False,response=self.survey_response, xfrac=G.SKY_RESIDUAL_XFRAC)
 
                     if self.aperture_sky_subtraction_residual is not None:
                         # the sky residual model for correction is PER FIBER, so we have to convolve with the seeing and
@@ -7550,11 +7550,11 @@ class DetObj:
                 if G.ZEROFLAT:
                     self.fiber_sky_subtraction_residual, self.fiber_sky_subtraction_residual_flat = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
                                                 self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
-                                                zeroflat=True,response=self.survey_response, xfrac=1.0)
+                                                zeroflat=True,response=self.survey_response, xfrac=G.SKY_RESIDUAL_XFRAC)
                 else:
                     self.fiber_sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
                                                 self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
-                                                zeroflat=False,response=self.survey_response, xfrac=1.0)
+                                                zeroflat=False,response=self.survey_response, xfrac=G.SKY_RESIDUAL_XFRAC)
 
                 # if G.SKY_RESIDUAL_PER_SHOT:
                 #     self.fiber_sky_subtraction_residual = SU.fetch_per_shot_single_fiber_sky_subtraction_residual(
@@ -7630,11 +7630,11 @@ class DetObj:
                     if G.ZEROFLAT:
                         self.aperture_sky_subtraction_residual, self.aperture_sky_subtraction_residual_flat = SU.interpolate_universal_aperture_sky_subtraction_residual(
                         self.survey_fwhm, aper=self.extraction_aperture,ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
-                        zeroflat=True,response=self.survey_response, xfrac=1.0)
+                        zeroflat=True,response=self.survey_response, xfrac=G.SKY_RESIDUAL_XFRAC)
                     else:
                         self.aperture_sky_subtraction_residual = SU.interpolate_universal_aperture_sky_subtraction_residual(
                             self.survey_fwhm, aper=self.extraction_aperture,ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
-                            zeroflat=False,response=self.survey_response, xfrac=1.0)
+                            zeroflat=False,response=self.survey_response, xfrac=G.SKY_RESIDUAL_XFRAC)
 
                 # everything is still with NaNs and is per 1AA
                 if self.aperture_sky_subtraction_residual is not None:
@@ -8707,17 +8707,17 @@ class DetObj:
             #
             #Optional Sky residual corection (before dust correction)
             # HERE this is done to the PSF Weighted Aperture POST extraction, so a bit different than the forced_extraction path
-            if G.APPLY_SKY_RESIDUAL_TYPE == 2 and self.aperture_sky_subtraction_residual is None:
+            if G.APPLY_SKY_RESIDUAL_TYPE > 0 and self.aperture_sky_subtraction_residual is None:
                 #note: 1 = per fiber, 2 = per aperture however, here we can only apply per aperture so any positive value
                 #triggers this logic
                 if G.ZEROFLAT:
                     self.aperture_sky_subtraction_residual, self.aperture_sky_subtraction_residual_flat = SU.interpolate_universal_aperture_sky_subtraction_residual(
                                                 self.survey_fwhm, aper=self.extraction_aperture,ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
-                                                zeroflat=True,response=self.survey_response, xfrac=1.0)
+                                                zeroflat=True,response=self.survey_response, xfrac=G.SKY_RESIDUAL_XFRAC)
                 else:
                     self.aperture_sky_subtraction_residual = SU.interpolate_universal_aperture_sky_subtraction_residual(
                                                 self.survey_fwhm, aper=self.extraction_aperture, ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
-                                                zeroflat=False,response=self.survey_response, xfrac=1.0)
+                                                zeroflat=False,response=self.survey_response, xfrac=G.SKY_RESIDUAL_XFRAC)
 
             if self.aperture_sky_subtraction_residual is not None:
                 #the sky residual model for correction is PER FIBER, so we have to convolve with the seeing and

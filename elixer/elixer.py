@@ -1088,6 +1088,11 @@ def parse_commandline(auto_force=False):
     # else:
     #     G.SUBTRACT_HETDEX_SKY_RESIDUAL = False
 
+    if args.ffsky:
+        G.SKY_RESIDUAL_XFRAC = G.SKY_RESIDUAL_XFRAC_FF
+    else:
+        G.SKY_RESIDUAL_XFRAC = G.SKY_RESIDUAL_XFRAC_LL
+
     if args.gridsearch:
 
         #first get rid of parenthesis that are not supposed to be there, but are commonly typed in
@@ -5254,6 +5259,9 @@ def main():
             OS_PNG_ONLY = True
     except:
         OS_PNG_ONLY = False
+
+
+
 
     #always build these ... the library handles the USE_PHOTO_CATS (--nophoto) global
     cat_library = catalogs.CatalogLibrary()
