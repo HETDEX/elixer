@@ -41,10 +41,16 @@ tmppath = "/tmp/hx/"
 #tmppath = "/home/dustin/temp/random_apertures/hx/"
 
 if not os.path.exists(tmppath):
-    os.makedirs(tmppath, mode=0o755)
-    if not os.access(tmppath, os.W_OK):
-        print(f"Warning! --tmp path does not exist, cannot be created, or is not writable: {tmppath}")
-        exit(-1)
+    try:
+        os.makedirs(tmppath, mode=0o755)
+        if not os.access(tmppath, os.W_OK):
+            print(f"Warning! --tmp path does not exist, cannot be created, or is not writable: {tmppath}")
+            exit(-1)
+    except: #can catch timing on creation if multiples are trying to make it
+        if not os.access(tmppath, os.W_OK):
+            print(f"Warning! --tmp path does not exist, cannot be created, or is not writable: {tmppath}")
+            exit(-1)
+
 
 #get the shot from the command line
 
@@ -302,8 +308,8 @@ if min_gmag is None:
 
 min_gmag += mag_adjust
 
-
-reject_file = open(op.join(tmppath,"reject_"+str(shotid)+".coord"), "w+")
+reject_outname = "reject_"+str(shotid)+".coord"
+reject_file = open(op.join(tmppath,reject_outname), "w+")
 
 for f in super_tab: #these fibers are in a random order so just iterating over them is random
                     #though it is possible to get two apertures at the same location (adjacent fibers and random
@@ -325,6 +331,8 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
 
     if dust:
         dust_corr = deredden_spectra(G.CALFIB_WAVEGRID, coord)
+    else:
+        dust_corr = np.ones(len(G.CALFIB_WAVEGRID))
 
 
     try:
@@ -436,14 +444,18 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
         fiber_weights = np.pad(fiber_weights,(0,32-len(fiber_weights)))
         norm_weights = np.pad(norm_weights, (0, 32 - len(norm_weights)))
 
-        f50, apcor = SU.get_fluxlimits(ra, dec, [3800.0, 5000.0], shot)
-        if f50 is None:
-            f50 = [-1,-1]
-            print("Error. f50 is None.")
+        if False:
+            f50, apcor = SU.get_fluxlimits(ra, dec, [3800.0, 5000.0], shot)
+            if f50 is None:
+                f50 = [-1,-1]
+                print("Error. f50 is None.")
 
-        if apcor is None:
-            apcor = [-1,-1]
-            print("Error. apcor is None.")
+            if apcor is None:
+                apcor = [-1,-1]
+                print("Error. apcor is None.")
+        else:
+            f50 = [-1, -1]
+            apcor = [-1, -1]
 
         # FUTURE/OPTIONAL: Should we check the imaging?? run a cutout and SEP check and only accept if nothing found?
 
@@ -608,7 +620,7 @@ shutil.copy2(op.join(tmppath,table_outname),table_outname)
 shutil.copy2(op.join(tmppath,table_outname2),table_outname2)
 shutil.copy2(op.join(tmppath,table_outname3),table_outname3)
 shutil.copy2(op.join(tmppath,table_outname4),table_outname4)
-shutil.copy2(op.join(tmppath,reject_file),reject_file)
+shutil.copy2(op.join(tmppath,reject_outname),reject_outname)
 
 print("Done copying")
 
@@ -616,4 +628,4 @@ os.remove(op.join(tmppath,table_outname))
 os.remove(op.join(tmppath,table_outname2))
 os.remove(op.join(tmppath,table_outname3))
 os.remove(op.join(tmppath,table_outname4))
-os.remove(op.join(tmppath,reject_file))
+os.remove(op.join(tmppath,reject_outname))

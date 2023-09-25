@@ -3523,6 +3523,8 @@ def adjust_sky_residual_model_for_response(response):
     residual model which is based on the average response. This will adjust that model to better align with what
     would be a shot specific model for the response. Values red of 4000AA are left as a multiplicative of 1.0
 
+    ## looks to be kind of flat above response > 0.14 or 0.15, so limit to a max
+
     :param response: the response (throughput) for the shot
     :return:
     """
@@ -3531,7 +3533,7 @@ def adjust_sky_residual_model_for_response(response):
         if G.SKY_RESIDUAL_AVG_RESPONSE <= 0:
             log.info("Adjust sky residual model for response turned OFF.")
             return np.ones(len(G.CALFIB_WAVEGRID))
-        rat = G.SKY_RESIDUAL_AVG_RESPONSE / response
+        rat = G.SKY_RESIDUAL_AVG_RESPONSE / min(response,0.15)
         #the change from the most blue (3470AA) to 4000AA is very linear, decreasing from a max to about 1.0x
         slope = (1.0 - rat) / (4000.0 - 3470.0)
         inter = 1.0 - slope * 4000

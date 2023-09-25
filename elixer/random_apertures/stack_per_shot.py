@@ -23,7 +23,7 @@ from elixer import spectrum_utilities as SU
 
 average = "biweight"
 
-tmppath = "/tmp/hx/"
+tmppath = "." #"/tmp/hx/"
 
 if not os.path.exists(tmppath):
     os.makedirs(tmppath, mode=0o755)
@@ -57,6 +57,18 @@ else:
     path = "./"
 
 
+
+if "--ffsky" in args:
+    #
+    # changes the files to use from *[0-9].fits and *[0-9]_fibers.fits
+    # to *[0-9]_ff.fits and *[0-9]_ff_fibers.fits
+    # does not apply if --aperfile and --fiberfile are used
+    print("using ff sky subtraction")
+    ffsky = True
+else:
+    print("using local sky subtraction")
+    ffsky = False
+
 if "--aperfile" in args:
     i = args.index("--aperfile")
     try:
@@ -77,16 +89,25 @@ if "--fiberfile" in args:
 else:
     fiberfile = None
 
-table_outname = prefix + "per_shot_"
+if ffsky:
+    table_outname = prefix + "per_shot_ff_"
+else:
+    table_outname = prefix + "per_shot_"
 
 if aperfile is None:
-    aper_files = sorted(glob.glob(op.join(path,prefix +"*[0-9].fits")))
+    if ffsky:
+        aper_files = sorted(glob.glob(op.join(path, prefix + "*[0-9]_ff.fits")))
+    else:
+        aper_files = sorted(glob.glob(op.join(path,prefix +"*[0-9].fits")))
 else:
     aper_files = [op.join(path,aperfile)]
     table_outname += f"_{aperfile[:-5]}"
 
 if fiberfile is None:
-    fiber_files = sorted(glob.glob(op.join(path,prefix +"*_fibers.fits")))
+    if ffsky:
+        fiber_files = sorted(glob.glob(op.join(path, prefix + "*[0-9]_ff_fibers.fits")))
+    else:
+        fiber_files = sorted(glob.glob(op.join(path,prefix +"*[0-9]_fibers.fits")))
 else:
     fiber_files = [op.join(path, fiberfile)]
 
@@ -114,6 +135,10 @@ T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
                  ('trim_aper_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
                  ('trim_fiber_fluxd', (float, len(G.CALFIB_WAVEGRID))),
                  ('trim_fiber_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('aper_dered_fluxd', (float, len(G.CALFIB_WAVEGRID))),
+                 ('aper_deredfluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('fiber_dered_fluxd', (float, len(G.CALFIB_WAVEGRID))),
+                 ('fiber_dered_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
                  ])
 
 
@@ -183,8 +208,8 @@ def split_spectra_into_bins(fluxd_2d, fluxd_err_2d,sort=True,trim=0.666):
 
 
 
-for i,files in enumerate(zip(aper_files,fiber_files)):
-    print("stack_per_shot:", i+1,op.basename(files[0]),datetime.now())
+for enum_i,files in enumerate(zip(aper_files,fiber_files)):
+    print("stack_per_shot:", enum_i+1,op.basename(files[0]),datetime.now(),flush=True)
 
     f1 = files[0]
     f2 = files[1]
@@ -226,7 +251,7 @@ for i,files in enumerate(zip(aper_files,fiber_files)):
             ad[f"es{i + 1}"] = aper_fluxe_stack
 
         except Exception as e:
-            print(e)
+            print(e,flush=True)
             ad[f"fs{i + 1}"] = None
             ad[f"es{i + 1}"] = None
 
@@ -248,10 +273,29 @@ for i,files in enumerate(zip(aper_files,fiber_files)):
                                                                                         straight_error=False)
         aper_contributions = int(np.nanmean(aper_contributions))  # should actually be a constant
     except Exception as e:
-        print(e)
+        print(e,flush=True)
         aper_flux_stack = np.full(len(G.CALFIB_WAVEGRID), np.nan)
         aper_fluxe_stack = np.full(len(G.CALFIB_WAVEGRID), np.nan)
         aper_contributions = 0
+
+
+
+    #stack the de-reddened apertures
+    try:
+        aper_dered_flux_stack, aper_dered_fluxe_stack, aper_dered_grid, aper_dered_contributions = \
+                                                                                    SU.stack_spectra(
+                                                                                        t1['fluxd']*t1['dust_corr'],
+                                                                                        t1['fluxd_err'],
+                                                                                        np.tile(G.CALFIB_WAVEGRID,(len(t1),1)),
+                                                                                        grid=G.CALFIB_WAVEGRID,
+                                                                                        avg_type=average,
+                                                                                        straight_error=False)
+        aper_dered_contributions = int(np.nanmean(aper_dered_contributions))  # should actually be a constant
+    except Exception as e:
+        print(e,flush=True)
+        aper_dered_flux_stack = np.full(len(G.CALFIB_WAVEGRID), np.nan)
+        aper_dered_fluxe_stack = np.full(len(G.CALFIB_WAVEGRID), np.nan)
+        aper_dered_contributions = 0
 
 
     #
@@ -300,7 +344,7 @@ for i,files in enumerate(zip(aper_files,fiber_files)):
                                                                             straight_error=False)
         corr_contributions = int(np.nanmean(corr_contributions))  # should actually be a constant
     except Exception as e:
-        print(e)
+        print(e,flush=True)
         corr_flux_stack = np.full(len(G.CALFIB_WAVEGRID), np.nan)
         corr_fluxe_stack = np.full(len(G.CALFIB_WAVEGRID), np.nan)
         corr_contributions = 0
@@ -329,7 +373,7 @@ for i,files in enumerate(zip(aper_files,fiber_files)):
                 fd[f"es{i + 1}"] = fiber_fluxe_stack
 
             except Exception as e:
-                print(e)
+                print(e,flush=True)
                 fd[f"fs{i + 1}"] = None
                 fd[f"es{i + 1}"] = None
 
@@ -351,14 +395,37 @@ for i,files in enumerate(zip(aper_files,fiber_files)):
                                                                                                 straight_error=False)
             fiber_contributions = int(np.nanmean(fiber_contributions)) #should actually be a constant
         except Exception as e:
-            print(e)
+            print(e,flush=True)
             fiber_flux_stack = np.full(len(G.CALFIB_WAVEGRID), np.nan)
             fiber_fluxe_stack = np.full(len(G.CALFIB_WAVEGRID), np.nan)
             fiber_contributions =0
+
+
+
+        # stack the fibers dereddened
+        try:
+            fiber_dered_flux_stack, fiber_dered_fluxe_stack, fiber_dered_grid, fiber_dered_contributions = SU.stack_spectra(
+                                                                                                t2['fluxd']*t2['dust_corr'],
+                                                                                                t2['fluxd_err'],
+                                                                                                np.tile(G.CALFIB_WAVEGRID,
+                                                                                                        (len(t2), 1)),
+                                                                                                grid=G.CALFIB_WAVEGRID,
+                                                                                                avg_type=average,
+                                                                                                straight_error=False)
+            fiber_dered_contributions = int(np.nanmean(fiber_dered_contributions)) #should actually be a constant
+        except Exception as e:
+            print(e,flush=True)
+            fiber_dered_flux_stack = np.full(len(G.CALFIB_WAVEGRID), np.nan)
+            fiber_dered_fluxe_stack = np.full(len(G.CALFIB_WAVEGRID), np.nan)
+            fiber_dered_contributions =0
     else:
         fiber_flux_stack = np.full(len(G.CALFIB_WAVEGRID), np.nan)
         fiber_fluxe_stack= np.full(len(G.CALFIB_WAVEGRID), np.nan)
         fiber_contributions = 0
+
+        fiber_dered_flux_stack = np.full(len(G.CALFIB_WAVEGRID), np.nan)
+        fiber_dered_fluxe_stack= np.full(len(G.CALFIB_WAVEGRID), np.nan)
+        fiber_dered_contributions = 0
         #fiber_grid, fiber_contributions
 
 
@@ -370,19 +437,29 @@ for i,files in enumerate(zip(aper_files,fiber_files)):
                fiber_flux_stack, fiber_fluxe_stack,fiber_contributions,
                dust_corr,
                ad['fluxd_stack'],ad['fluxe_stack'],
-               fd['fluxd_stack'],fd['fluxe_stack']])
+               fd['fluxd_stack'],fd['fluxe_stack'],
+               aper_dered_flux_stack, aper_dered_fluxe_stack,
+               fiber_dered_flux_stack, fiber_dered_fluxe_stack])
 
-    if (i) % write_every == 0:
+    if enum_i % write_every == 0:
+        print("intermediate write ...",flush=True)
         if T is not None:
             T.write(op.join(tmppath,table_outname+"_stacks.fits"),format='fits',overwrite=True)
+        else:
+            print("Table is None",flush=True)
 
     if t1 is not None:
         del t1
     if t2 is not None:
         del t2
 
+print("final write ...",flush=True)
 if T is not None:
     T.write(op.join(tmppath,table_outname+"_stacks.fits"),format='fits',overwrite=True)
-print("Copying from /tmp")
-shutil.copy2(op.join(tmppath,table_outname+"_stacks.fits"),table_outname+"_stacks.fits")  # ,copy_function=copy)
-os.remove(op.join(tmppath,table_outname+"_stacks.fits"))
+else:
+    print("Table is None",flush=True)
+
+if tmppath is not None and tmppath != ".":
+    print("Copying from /tmp",flush=True)
+    shutil.copy2(op.join(tmppath,table_outname+"_stacks.fits"),table_outname+"_stacks.fits")  # ,copy_function=copy)
+    os.remove(op.join(tmppath,table_outname+"_stacks.fits"))
