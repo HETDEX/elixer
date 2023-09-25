@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.21.0 [2023-09-25]
+* for HDR4
+
 1.21.0a1 [2023-09-15]
 * --tmp <path>  instruct elixer to run from the specified path instead of the cwd and move the output
   to the original cwd when full execution is complete. Works for normal elixer call and for --merge.
