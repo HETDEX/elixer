@@ -316,6 +316,10 @@ if "--cluster" in args: #runs a clustering search per detectid but only re-runs 
 else:
     CLUSTER = False
 
+#continuum source tend to have more fitting issues and more HETDEX hits, and take a bit longer to run
+if "--continuum" in args:
+    base_time_multiplier *= 1.2
+
 autoqueue_slurm = 1
 if "--slurm" in args:
     i = args.index("--slurm")

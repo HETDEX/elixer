@@ -7525,7 +7525,7 @@ class Spectrum:
             # will likely be low, BUT, because we cap the maximum score, lots of junk lines can add up and kick out
             # an otherwise good solution, SO, limit the number of lines
             top_x = 5
-            if len(self.all_found_lines) > top_x:
+            if len(unmatched_raw_score_list) > top_x:
                 sorted_scores = sorted(unmatched_raw_score_list)[::-1]
                 top_thresh = sorted_scores[top_x]
                 top_sel = unmatched_raw_score_list > top_thresh
