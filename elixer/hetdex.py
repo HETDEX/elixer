@@ -7349,6 +7349,7 @@ class DetObj:
         except:
             log.warning("Unable to make catalog coordinate correction in neighbor_forced_extraction.",exc_info=True)
 
+        dust_corr = 1.0 #will set this later
         try:
             if ra_fix or dec_fix:
                 log.info(f"Applying RA, Dec correction to move from {catalog_name} to HETDEX coord. ({ra_fix},{dec_fix})")
@@ -7361,6 +7362,13 @@ class DetObj:
                 get_spectra_loglevel = "INFO"
             else:
                 get_spectra_loglevel = "ERROR"
+
+            if G.APPLY_GALACTIC_DUST_CORRECTION:  # everything is still with NaNs and is per 1AA
+                try:
+                    dust_corr = deredden_spectra(G.CALFIB_WAVEGRID, coord)
+                except:
+                    dust_corr = 1.0
+
 
             if self.fiber_sky_subtraction_residual is None and G.APPLY_SKY_RESIDUAL_TYPE == 1:
                 if G.ZEROFLAT:
@@ -7385,7 +7393,9 @@ class DetObj:
                 fiber_flux_offset = None
             elif G.APPLY_SKY_RESIDUAL_TYPE == 1: #per fiber
                 #fiber_flux_offset = -1 * SU.adjust_fiber_correction_by_seeing(self.fiber_sky_subtraction_residual,self.survey_fwhm)
-                fiber_flux_offset = -1 * self.fiber_sky_subtraction_residual
+                fiber_flux_offset = -1 * self.fiber_sky_subtraction_residual / dust_corr
+                #divide by dust correction to ADD in the effect of DUST at this RA, Dec
+                #since the fiber_flux_offset is applied BEFORE dust is corrected in get_spectra()
             else:
                 fiber_flux_offset = None
 
@@ -7448,11 +7458,14 @@ class DetObj:
                         # aperteure size. Note: the aperture size is not specified here so it is the HETDEX default (3.5")
                         # _, aperture_flux_offset = SU.fiber_to_psf(self.survey_fwhm,
                         #                                           fiber_spec=self.fiber_sky_subtraction_residual)
-                        sep_obj['flux'] -= self.aperture_sky_subtraction_residual
+                        sep_obj['flux'] = sep_obj['flux'] - self.aperture_sky_subtraction_residual / dust_corr
+                        #divide by dust_corr since we wiil be correcting for it just below
+                        #and the residual is built from de-reddened spectra
 
                 if G.APPLY_GALACTIC_DUST_CORRECTION: #everything is still with NaNs and is per 1AA
                     try:
-                        dust_corr = deredden_spectra(G.CALFIB_WAVEGRID, coord)
+                        #dust_corr = deredden_spectra(G.CALFIB_WAVEGRID, coord)
+                        #dust_corr is collected just above since it is also used elsewhere
                         sep_obj['flux'] *= dust_corr
                         sep_obj['flux_err'] *= dust_corr
                     except:
@@ -7521,6 +7534,13 @@ class DetObj:
 
         try:
             coord = SkyCoord(ra=self.ra * U.deg, dec=self.dec * U.deg)
+
+            if G.APPLY_GALACTIC_DUST_CORRECTION:  #everything is still with NaNs and is per 1AA
+                try:
+                    self.dust_corr = deredden_spectra(G.CALFIB_WAVEGRID,coord)
+                except:
+                    self.dust_corr = 1.0
+
             if G.LOG_LEVEL <= 10: #10 = DEBUG
                 get_spectra_loglevel = "INFO"
             else:
@@ -7552,7 +7572,9 @@ class DetObj:
                 fiber_flux_offset = None
             elif G.APPLY_SKY_RESIDUAL_TYPE == 1: #per fiber
                 # fiber_flux_offset = -1 * SU.adjust_fiber_correction_by_seeing(self.fiber_sky_subtraction_residual,self.survey_fwhm)
-                fiber_flux_offset = -1 * self.fiber_sky_subtraction_residual
+                fiber_flux_offset = -1 * self.fiber_sky_subtraction_residual / self.dust_corr
+                #divide by dust since the model is built on de-reddend spectra but the
+                #subtraction in get_spectr() takes place BEFORE dust correction
             else:
                 fiber_flux_offset = None
 
@@ -7620,11 +7642,14 @@ class DetObj:
                     # aperteure size. Note: the aperture size is not specified here so it is the HETDEX default (3.5")
                     # _, aperture_flux_offset = SU.fiber_to_psf(self.survey_fwhm,
                     #                                           fiber_spec=self.fiber_sky_subtraction_residual)
-                    self.sumspec_flux -= self.aperture_sky_subtraction_residual
+                    self.sumspec_flux -= self.aperture_sky_subtraction_residual / self.dust_corr
+                    #divide by dust since the model is from de-reddend spectra
+                    #and we will be dust correcting in the next step
 
             if G.APPLY_GALACTIC_DUST_CORRECTION:  #everything is still with NaNs and is per 1AA
                 try:
-                    self.dust_corr = deredden_spectra(self.sumspec_wavelength,coord)
+                    #self.dust_corr = deredden_spectra(self.sumspec_wavelength,coord)
+                    #alaredy collected above
                     self.sumspec_flux *= self.dust_corr
                     self.sumspec_fluxerr *= self.dust_corr
                 except:
@@ -8670,6 +8695,12 @@ class DetObj:
 
                 self.sumspec_apcor = row['apcor'] #aperture correction
 
+            if G.APPLY_GALACTIC_DUST_CORRECTION:
+                try:
+                    self.dust_corr = deredden_spectra(self.sumspec_wavelength,
+                                                      SkyCoord(self.wra, self.wdec, unit='deg'))
+                except:
+                    self.dust_corr = 1.0
 
             #
             # !!! NOTICE: unlike the forced extraction code, here the spectra is per 2AA so we have to work in that binning !!!
@@ -8692,11 +8723,14 @@ class DetObj:
                 #the sky residual model for correction is PER FIBER, so we have to convolve with the seeing and
                 #aperteure size. Note: the aperture size is not specified here so it is the HETDEX default (3.5")
                 #_, aperture_flux_offset =  SU.fiber_to_psf(self.survey_fwhm,fiber_spec=self.fiber_sky_subtraction_residual)
-                self.sumspec_flux  -= self.aperture_sky_subtraction_residual * G.FLUX_WAVEBIN_WIDTH
+                self.sumspec_flux  -= self.aperture_sky_subtraction_residual * G.FLUX_WAVEBIN_WIDTH / self.dust_corr
+                #divide by dust_corr since the models are built on de-reddened spectra
+                #and we apply the dust correction just below
 
             if G.APPLY_GALACTIC_DUST_CORRECTION:
                 try:
-                    self.dust_corr = deredden_spectra(self.sumspec_wavelength, SkyCoord(self.wra,self.wdec,unit='deg'))
+                    #self.dust_corr = deredden_spectra(self.sumspec_wavelength, SkyCoord(self.wra,self.wdec,unit='deg'))
+                    #collected above
                     self.sumspec_flux *= self.dust_corr
                     self.sumspec_fluxerr *= self.dust_corr
                 except:
