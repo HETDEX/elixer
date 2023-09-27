@@ -6196,7 +6196,13 @@ def main():
                             file_sel = [str(e.entry_id) in f.filename for f in file_list]
                             if np.count_nonzero(file_sel) == 1: #should be 1 or 0
                                 file_idx = np.argwhere(file_sel)[0][0]
-                                os.remove(file_list[file_idx].filename)
+                                try:
+                                    os.remove(file_list[file_idx].filename)
+                                except:
+                                    try:
+                                        os.remove(file_list[file_idx].filename[:-1]) #it might end with ! or ?
+                                    except:
+                                        pass
                                 #log.info(f"+++++ todo delete {file_list[file_idx].filename}")
                                 file_list[file_idx].filename = "--delete--"
                             elif np.count_nonzero(file_sel) > 1:

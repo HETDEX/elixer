@@ -318,7 +318,7 @@ else:
 
 #continuum source tend to have more fitting issues and more HETDEX hits, and take a bit longer to run
 if "--continuum" in args:
-    base_time_multiplier *= 1.2
+    base_time_multiplier *= 1.5
 
 autoqueue_slurm = 1
 if "--slurm" in args:

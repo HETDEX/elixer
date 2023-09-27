@@ -95,8 +95,19 @@ class GalaxyMask():
             self.galaxy_table = astropy.table.Table.read( G.HETDEX_API_CONFIG.rc3cat)
             self.galaxy_table["SkyCoords"] = SkyCoord(self.galaxy_table["Coords"]) #build out column as SkyCoord for easier searching
         except:
-            log.error("Unable to open galaxy mask table file. Galaxy mask unavailable.",exc_info=True)
-            self.galaxy_table = None
+
+            try:
+                if 'hdr2.1' in G.HETDEX_API_CONFIG.rc3cat:
+                    self.galaxy_table = astropy.table.Table.read(G.HETDEX_API_CONFIG.rc3cat.replace("hdr2.1","hdr4"))
+                    self.galaxy_table["SkyCoords"] = SkyCoord(
+                        self.galaxy_table["Coords"])  # build out column as SkyCoord for easier searching
+                else:
+                    log.error("Unable to open galaxy mask table file. Galaxy mask unavailable.", exc_info=True)
+                    self.galaxy_table = None
+            except:
+                log.error("Unable to open galaxy mask table file. Galaxy mask unavailable.", exc_info=True)
+                self.galaxy_table = None
+
 
     def redshift(self,ra,dec,d25scale=G.GALAXY_MASK_D25_SCALE):
         """

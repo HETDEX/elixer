@@ -471,7 +471,10 @@ class HetdexFits:
                         self.fiber_to_fiber = get_field('fiber_to_fiber',(112,1032),self.multiframe) #np.array(hda_fibers_table['fiber_to_fiber']) #np.zeros((112, 1032))
                         self.calfib = get_field('calfib',(112,len(G.CALFIB_WAVEGRID)),self.multiframe)#np.array(hda_fibers_table['calfib']) #np.zeros((112, len(G.CALFIB_WAVEGRID)))
                         self.calfibe = get_field('calfibe',(112,len(G.CALFIB_WAVEGRID)),self.multiframe)#np.array(hda_fibers_table['calfibe']) #np.zeros((112, len(G.CALFIB_WAVEGRID)))
-                        self.ffsky_calfib = get_field('calfib_ffsky',(112,len(G.CALFIB_WAVEGRID)),self.multiframe)#np.array(hda_fibers_table['calfib_ffsky']) #np.zeros((112, len(G.CALFIB_WAVEGRID)))
+                        if G.HDR_Version_float < 3.0:
+                            self.ffsky_calfib = get_field('spec_fullsky_sub',(112,len(G.CALFIB_WAVEGRID)),self.multiframe)#np.array(hda_fibers_table['calfib_ffsky']) #np.zeros((112, len(G.CALFIB_WAVEGRID)))
+                        else:
+                            self.ffsky_calfib = get_field('calfib_ffsky',(112,len(G.CALFIB_WAVEGRID)),self.multiframe)#np.array(hda_fibers_table['calfib_ffsky']) #np.zeros((112, len(G.CALFIB_WAVEGRID)))
                         self.fiber_chi2 = get_field('chi2',(112,1032),self.multiframe)#np.array(hda_fibers_table['chi2']) #np.zeros((112, 1032))
                         self.fiber_rms = get_field('rms',(112,1032),self.multiframe)#np.array(hda_fibers_table['rms']) #np.zeros((112, 1032))
 

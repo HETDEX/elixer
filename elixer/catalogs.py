@@ -100,7 +100,7 @@ class CatalogLibrary:
             # self.cats.append(EGS_GROTH()) #this is of no value right now
             #print("!!!!! TURNED OFF SHELA and COSMOS !!!!!!!!!!")
             #print("!!!!! GO BACK AND TURN OFF SHELA and COSMOS !!!!!!!!!!")
-            #self.cats.append(cat_stack_cosmos.STACK_COSMOS())
+            self.cats.append(cat_stack_cosmos.STACK_COSMOS())
             #self.cats.append(cat_shela.SHELA())
 
             self.cats.append(cat_hsc.HSC())
