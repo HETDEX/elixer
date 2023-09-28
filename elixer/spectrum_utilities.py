@@ -1504,7 +1504,7 @@ def make_flux_flat_spectrum(mag,filter='g',waves=None):
             _filter = filter.decode()
         else:
             _filter = filter
-        if _filter not in  ['g','r']:
+        if _filter not in  ['g','r','f606w']:
             log.info(f"Invalid filter {filter} passed to make_flux_flat_spectrum")
             return None
 
