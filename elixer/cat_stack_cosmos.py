@@ -187,7 +187,7 @@ class STACK_COSMOS(cat_base.Catalog):
     STACK_COSMOS_BASE_PATH = G.STACK_COSMOS_BASE_PATH
     #only use g-band catalog (best overlap with HETDEX wavelengths)
     STACK_COSMOS_CAT = op.join(G.STACK_COSMOS_CAT_PATH, "cat_g.fits")
-    STACK_COSMOS_IMAGE_PATH = G.STACK_COSMOS_BASE_PATH
+    STACK_COSMOS_IMAGE_PATH = None# G.STACK_COSMOS_BASE_PATH
     #STACK_COSMOS_IMAGE = op.join(STACK_COSMOS_IMAGE_PATH, "COSMOS_g_sci.fits")
     MAG_LIMIT = 25.7 #very generous (recall I am adding 0.5 for slop ... so 25.5-ish)
 
@@ -202,119 +202,125 @@ class STACK_COSMOS(cat_base.Catalog):
 
     AstroTable = None
     Laigle2015 = None
+    Laigle2015_only = False #only load Laigle2015 ... do not load stack cosmos
 
-    BidCols = ['NUMBER',  # int32
-               'FLUXERR_ISO',  # ct float32
-               'MAG_APER',  # [25] mag float32
-               'MAGERR_APER',  # [25] mag float32
-               'FLUX_APER',  # [25] ct float32
-               'FLUXERR_APER',  # [25] ct float32
-               'FLUX_AUTO',  # ct float32
-               'FLUXERR_AUTO',  # ct float32
-               'MAG_AUTO',  # mag float32
-               'MAGERR_AUTO',  # mag float32
-               'THRESHOLD',  # ct float32
-               'X_IMAGE',  # pix float32
-               'Y_IMAGE',  # pix float32
-               'ALPHA_J2000',  # deg float64
-               'DELTA_J2000',  # deg float64
-               'A_WORLD',  # deg float32
-               'B_WORLD',  # deg float32
-               'FLUX_RADIUS',  # pix float32
-               'THETA_IMAGE',  # deg float32
-               'FWHM_IMAGE',  # pix float32
-               'FWHM_WORLD',  # deg float32
-               'FLAGS',  # int16
-               'IMAFLAGS_ISO',  # int32
-               'NIMAFLAGS_ISO',  # int32
-               'CLASS_STAR']  # float32
+    if Laigle2015_only:
+        CatalogImages = []
+        BidCols = []
+    else:
+        BidCols = ['NUMBER',  # int32
+                   'FLUXERR_ISO',  # ct float32
+                   'MAG_APER',  # [25] mag float32
+                   'MAGERR_APER',  # [25] mag float32
+                   'FLUX_APER',  # [25] ct float32
+                   'FLUXERR_APER',  # [25] ct float32
+                   'FLUX_AUTO',  # ct float32
+                   'FLUXERR_AUTO',  # ct float32
+                   'MAG_AUTO',  # mag float32
+                   'MAGERR_AUTO',  # mag float32
+                   'THRESHOLD',  # ct float32
+                   'X_IMAGE',  # pix float32
+                   'Y_IMAGE',  # pix float32
+                   'ALPHA_J2000',  # deg float64
+                   'DELTA_J2000',  # deg float64
+                   'A_WORLD',  # deg float32
+                   'B_WORLD',  # deg float32
+                   'FLUX_RADIUS',  # pix float32
+                   'THETA_IMAGE',  # deg float32
+                   'FWHM_IMAGE',  # pix float32
+                   'FWHM_WORLD',  # deg float32
+                   'FLAGS',  # int16
+                   'IMAFLAGS_ISO',  # int32
+                   'NIMAFLAGS_ISO',  # int32
+                   'CLASS_STAR']  # float32
 
-    CatalogImages = [
-        # {'path': EXPANDED_IMAGES_PATH,
-        #  'name': 'cosmos.g.image.fits',
-        #  'filter': 'g',
-        #  'instrument': 'Subaru HSC',
-        #  'cols': [],
-        #  'labels': [],
-        #  'image': None,
-        #  'expanded': True,
-        #  'wcs_manual': False,
-        #  'aperture': 1.0 * 0.5 + 0.5,# since a radius, half the FWHM + 0.5" for astrometric error,
-        #              # Subaru mean seeing ~ 1.0"
-        #  'mag_func': None,
-        #  'footprint': [[151.35, 0.915], [151.35, 3.49],
-        #                [148.90, 3.49], [148.90, 0.915]],
-        #  'RA_min': 148.90,
-        #  'RA_max': 151.35,
-        #  'Dec_min': 0.915,
-        #  'Dec_max': 3.49
-        #  },
-        {'path': STACK_COSMOS_IMAGE_PATH,
-         'name': 'COSMOS_u_sci.fits',
-         'filter': 'u',
-         'instrument': '',
-         'cols': ['FLUX_AUTO','FLUXERR_AUTO'],
-         'labels': [],
-         'image': None,
-         'expanded': False,
-         'wcs_manual': False,
-         'aperture': 1.0 * 0.5 + 0.5,# since a radius, half the FWHM + 0.5" for astrometric error,
-         'mag_func': cosmos_count_to_mag
-         # 'frame': 'icrs'
-         },
-        {'path': STACK_COSMOS_IMAGE_PATH,
-         'name': 'COSMOS_g_sci.fits',
-         'filter': 'g',
-         'instrument': '',
-         'cols': ['FLUX_AUTO','FLUXERR_AUTO'],
-         'labels': [],
-         'image': None,
-         'expanded': False,
-         'wcs_manual': False,
-         'aperture':1.0 * 0.5 + 0.5,# since a radius, half the FWHM + 0.5" for astrometric error,
-         'mag_func': cosmos_count_to_mag
-         #'frame': 'icrs'
-        },
-        {'path': STACK_COSMOS_IMAGE_PATH,
-         'name': 'COSMOS_r_sci.fits',
-         'filter': 'r',
-         'instrument': '',
-         'cols': ['FLUX_AUTO','FLUXERR_AUTO'],
-         'labels': [],
-         'image': None,
-         'expanded': False,
-         'wcs_manual': False,
-         'aperture': 1.0 * 0.5 + 0.5,# since a radius, half the FWHM + 0.5" for astrometric error,
-         'mag_func': cosmos_count_to_mag
-         # 'frame': 'icrs'
-         },
-        {'path': STACK_COSMOS_IMAGE_PATH,
-         'name': 'COSMOS_i_sci.fits',
-         'filter': 'i',
-         'instrument': '',
-         'cols': ['FLUX_AUTO','FLUXERR_AUTO'],
-         'labels': [],
-         'image': None,
-         'expanded': False,
-         'wcs_manual': False,
-         'aperture': 1.0 * 0.5 + 0.5,# since a radius, half the FWHM + 0.5" for astrometric error,
-         'mag_func': cosmos_count_to_mag
-         # 'frame': 'icrs'
-         },
-        {'path': STACK_COSMOS_IMAGE_PATH,
-         'name': 'COSMOS_z_sci.fits',
-         'filter': 'z',
-         'instrument': '',
-         'cols': ['FLUX_AUTO','FLUXERR_AUTO'],
-         'labels': [],
-         'image': None,
-         'expanded': False,
-         'wcs_manual': False,
-         'aperture': 1.0 * 0.5 + 0.5,# since a radius, half the FWHM + 0.5" for astrometric error,
-         'mag_func': cosmos_count_to_mag
-         # 'frame': 'icrs'
-         }
-    ]
+        CatalogImages = [
+            # {'path': EXPANDED_IMAGES_PATH,
+            #  'name': 'cosmos.g.image.fits',
+            #  'filter': 'g',
+            #  'instrument': 'Subaru HSC',
+            #  'cols': [],
+            #  'labels': [],
+            #  'image': None,
+            #  'expanded': True,
+            #  'wcs_manual': False,
+            #  'aperture': 1.0 * 0.5 + 0.5,# since a radius, half the FWHM + 0.5" for astrometric error,
+            #              # Subaru mean seeing ~ 1.0"
+            #  'mag_func': None,
+            #  'footprint': [[151.35, 0.915], [151.35, 3.49],
+            #                [148.90, 3.49], [148.90, 0.915]],
+            #  'RA_min': 148.90,
+            #  'RA_max': 151.35,
+            #  'Dec_min': 0.915,
+            #  'Dec_max': 3.49
+            #  },
+            {'path': STACK_COSMOS_IMAGE_PATH,
+             'name': 'COSMOS_u_sci.fits',
+             'filter': 'u',
+             'instrument': '',
+             'cols': ['FLUX_AUTO','FLUXERR_AUTO'],
+             'labels': [],
+             'image': None,
+             'expanded': False,
+             'wcs_manual': False,
+             'aperture': 1.0 * 0.5 + 0.5,# since a radius, half the FWHM + 0.5" for astrometric error,
+             'mag_func': cosmos_count_to_mag
+             # 'frame': 'icrs'
+             },
+            {'path': STACK_COSMOS_IMAGE_PATH,
+             'name': 'COSMOS_g_sci.fits',
+             'filter': 'g',
+             'instrument': '',
+             'cols': ['FLUX_AUTO','FLUXERR_AUTO'],
+             'labels': [],
+             'image': None,
+             'expanded': False,
+             'wcs_manual': False,
+             'aperture':1.0 * 0.5 + 0.5,# since a radius, half the FWHM + 0.5" for astrometric error,
+             'mag_func': cosmos_count_to_mag
+             #'frame': 'icrs'
+            },
+            {'path': STACK_COSMOS_IMAGE_PATH,
+             'name': 'COSMOS_r_sci.fits',
+             'filter': 'r',
+             'instrument': '',
+             'cols': ['FLUX_AUTO','FLUXERR_AUTO'],
+             'labels': [],
+             'image': None,
+             'expanded': False,
+             'wcs_manual': False,
+             'aperture': 1.0 * 0.5 + 0.5,# since a radius, half the FWHM + 0.5" for astrometric error,
+             'mag_func': cosmos_count_to_mag
+             # 'frame': 'icrs'
+             },
+            {'path': STACK_COSMOS_IMAGE_PATH,
+             'name': 'COSMOS_i_sci.fits',
+             'filter': 'i',
+             'instrument': '',
+             'cols': ['FLUX_AUTO','FLUXERR_AUTO'],
+             'labels': [],
+             'image': None,
+             'expanded': False,
+             'wcs_manual': False,
+             'aperture': 1.0 * 0.5 + 0.5,# since a radius, half the FWHM + 0.5" for astrometric error,
+             'mag_func': cosmos_count_to_mag
+             # 'frame': 'icrs'
+             },
+            {'path': STACK_COSMOS_IMAGE_PATH,
+             'name': 'COSMOS_z_sci.fits',
+             'filter': 'z',
+             'instrument': '',
+             'cols': ['FLUX_AUTO','FLUXERR_AUTO'],
+             'labels': [],
+             'image': None,
+             'expanded': False,
+             'wcs_manual': False,
+             'aperture': 1.0 * 0.5 + 0.5,# since a radius, half the FWHM + 0.5" for astrometric error,
+             'mag_func': cosmos_count_to_mag
+             # 'frame': 'icrs'
+             }
+        ]
+
 
     def __init__(self):
         super(STACK_COSMOS, self).__init__()
@@ -333,6 +339,17 @@ class STACK_COSMOS(cat_base.Catalog):
     @classmethod
     def read_catalog(cls, catalog_loc, name):
         "This catalog is in a fits file"
+
+        try:
+            if cls.Laigle2015 is None:
+                log.debug("Loading Laigle+2015")
+                cls.Laigle2015 = cat_laigle2015.LAIGLE2015()
+                cls.Laigle2015.read_catalog()
+        except:
+            cls.Laigle2015 = None
+
+        if cls.Laigle2015_only:
+            return None #just load Laigle
 
         log.debug("Building " + name + " dataframe...")
         try:
@@ -359,12 +376,7 @@ class STACK_COSMOS(cat_base.Catalog):
             log.error(name + " Exception attempting to build pandas dataframe", exc_info=True)
             return None
 
-        try:
-            log.debug("Loading Laigle+2015")
-            cls.Laigle2015 = cat_laigle2015.LAIGLE2015()
-            cls.Laigle2015.read_catalog()
-        except:
-            cls.Laigle2015 = None
+
 
         return df
 
@@ -474,10 +486,14 @@ class STACK_COSMOS(cat_base.Catalog):
             if len(self.dataframe_of_bid_targets) > 0:
                 self.dataframe_of_bid_targets = self.dataframe_of_bid_targets.to_pandas()
                 query_stack_catalog = False
+            elif self.Laigle2015_only:
+                return 0, None, None
         except:
             self.dataframe_of_bid_targets = None
             self.dataframe_of_photoz_pdf = None
             query_stack_catalog = True
+            if self.Laigle2015_only:
+                return 0, None, None
 
 
         if query_stack_catalog:

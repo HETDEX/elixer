@@ -6601,10 +6601,12 @@ def main():
 
                                     # zero out the spectra of those that are fainter than the mag limit (using g or r as sufficient to compare
                                     # to dex-g
-                                    s2 = ap_mag[neighbor_sel] > dex_mag[neighbor_sel]
-                                    log.info(f"Replacing {np.count_nonzero(s2)} spectra with flat fnu as too faint for HETDEX.")
-                                    measured_fluxes[s2] =  np.zeros(len(G.CALFIB_WAVEGRID))
-                                    measured_flux_errs[s2] =  np.zeros(len(G.CALFIB_WAVEGRID))
+
+                                    if False: #no ... should use the HETDEX spectra if we have it
+                                        s2 = ap_mag[neighbor_sel] > dex_mag[neighbor_sel]
+                                        log.info(f"Replacing {np.count_nonzero(s2)} spectra with flat fnu as too faint for HETDEX.")
+                                        measured_fluxes[s2] =  np.zeros(len(G.CALFIB_WAVEGRID))
+                                        measured_flux_errs[s2] =  np.zeros(len(G.CALFIB_WAVEGRID))
 
                                     ##############
                                     #debug

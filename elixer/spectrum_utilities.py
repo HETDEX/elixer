@@ -5567,6 +5567,9 @@ def patch_holes_in_hetdex_spectrum(wavelengths,flux,flux_err,mag,mag_err=0,filte
             flat_flux = make_flux_flat_spectrum(mag, _filter, wavelengths) * G.FLUX_WAVEBIN_WIDTH / G.HETDEX_FLUX_BASE_CGS
 
 
+        #have found PSF aperture extraction runs a bit fainter than catalog reports (10% ish) so reduce as a best guess
+        flat_flux *= 0.90
+
         if mag_err is not None and mag_err != 0:
             if flat_fnu:
                 flat_flux_hi = make_fnu_flat_spectrum(mag-mag_err,_filter,wavelengths) * G.FLUX_WAVEBIN_WIDTH / G.HETDEX_FLUX_BASE_CGS

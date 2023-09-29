@@ -91,6 +91,10 @@ missing_imaging_dets = np.setdiff1d(h5_dets,all_apt_dets)
 print(f"Number of missing imaging: {len(missing_imaging_dets)}")
 np.savetxt("consistency_missing_imaging_h5.dets",missing_imaging_dets,fmt="%d")
 
+
+
+#todo: add a different interface to either just query (one at a time) the existence of the entry
+#todo: OR a new interface to retrieve the list of all entries and then just compare to the expected list
 #check for database entries
 missing_db_report = []
 missing_db_nei  = []
