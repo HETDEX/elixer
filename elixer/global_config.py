@@ -1419,8 +1419,8 @@ SKY_APERTURE_RESIDUAL_HDR3_ALL_LL_MODELS_FN = op.join(op.dirname(op.realpath(__f
 SKY_APERTURE_RESIDUAL_HDR3_ALL_FF_MODELS_FN = op.join(op.dirname(op.realpath(__file__)),
                                              "sky_subtraction_residuals/hdr3_ff_sky_aperture_residual_models_by_psf.txt")
 
-SKY_RESIDUAL_XFRAC_LL = 1.0
-SKY_RESIDUAL_XFRAC_FF = 0.8
+SKY_RESIDUAL_XFRAC_LL = 0.6
+SKY_RESIDUAL_XFRAC_FF = 0.6
 SKY_RESIDUAL_XFRAC = SKY_RESIDUAL_XFRAC_LL
 
 #temporary
