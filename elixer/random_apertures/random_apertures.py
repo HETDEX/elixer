@@ -15,48 +15,12 @@ based on hetdex_all_shots_random_empty_apertures notebooks on /work/03261/poloni
 import sys
 import os
 import os.path as op
-import numpy as np
-import tables
-from astropy.coordinates import SkyCoord
-from astropy.table import Table,join,vstack
-import astropy.units as u
-import copy
-import glob
-import shutil
-
-from hetdex_api.config import HDRconfig
-from hetdex_api.shot import get_fibers_table
-from hetdex_api.survey import Survey,FiberIndex
-from hetdex_tools.get_spec import get_spectra
-from hetdex_api.extinction import *  #includes deredden_spectra
-from hetdex_api.extract import Extract
-
-from elixer import spectrum as elixer_spectrum
-from elixer import spectrum_utilities as SU
-from elixer import global_config as G
-
-survey_name = "hdr3" #"hdr4" #"hdr2.1"
-
-tmppath = "/tmp/hx/"
-#tmppath = "/home/dustin/temp/random_apertures/hx/"
-
-if not os.path.exists(tmppath):
-    try:
-        os.makedirs(tmppath, mode=0o755)
-        if not os.access(tmppath, os.W_OK):
-            print(f"Warning! --tmp path does not exist, cannot be created, or is not writable: {tmppath}")
-            exit(-1)
-    except: #can catch timing on creation if multiples are trying to make it
-        if not os.access(tmppath, os.W_OK):
-            print(f"Warning! --tmp path does not exist, cannot be created, or is not writable: {tmppath}")
-            exit(-1)
+import datetime
 
 
-#get the shot from the command line
-
-def linear_g(seeing): #estimate of depth from the seeing (based on HDR 3.0.3 detections)
-    # return seeing * (-31./70.) + 25.76  # middle of the y_err
-    return seeing * (-31. / 70.) + 25.56  # bottom of the y_err
+##################################
+# should we even run this one?
+##################################
 
 args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
 
@@ -144,20 +108,124 @@ else:
     print("using no magnitude limit adjustment.")
     mag_adjust = 0  # 24.5  # 3.5" aperture
 
+print(f"{shotid} starting: {datetime.datetime.now()}")
 
-outfile = open("random_apertures_"+str(shotid)+".coord", "w+")  # 3500-3800 avg +/- 0.04
 table_outname = "random_apertures_"+str(shotid) + ".fits"
 table_outname2 = "random_apertures_"+str(shotid) + "_fibers.fits"
 table_outname3 = "random_apertures_"+str(shotid) + "_ff.fits"
 table_outname4 = "random_apertures_"+str(shotid) + "_ff_fibers.fits"
 
 #maybe this one was already done?
-if op.exists(table_outname ) or op.exists(table_outname2 ):
-    print("One or more outputs already exists. Exiting.")
-    exit(0)
+# which files to check really depends on --ffsky and --bothsky
+    #did they all copy or did it timeout during a copy?
+
+if bothsky:
+    if op.exists(table_outname) and op.exists(table_outname2) and op.exists(table_outname3) and op.exists(table_outname4):
+        #all good
+        print(f"{shotid} --bothsky outputs already exists. Exiting. {datetime.datetime.now()}")
+        exit(0)
+elif ffsky:
+    if op.exists(table_outname3) and op.exists(table_outname4):
+        #all good
+        print(f"{shotid} --ffsky outputs already exists. Exiting. {datetime.datetime.now()}")
+        exit(0)
+else:
+    if op.exists(table_outname) and op.exists(table_outname2):
+        #all good
+        print(f"{shotid} outputs already exists. Exiting. {datetime.datetime.now()}")
+        exit(0)
+
+if op.exists(table_outname) or op.exists(table_outname2) or op.exists(table_outname3) or op.exists(table_outname4):
+    print(f"{shotid} incomplete. Reset and retry. {datetime.datetime.now()}")
+
+    try:
+        if not ffsky or bothsky:
+            os.remove(table_outname)
+    except:
+        pass
+    try:
+        if not ffsky or bothsky:
+            os.remove(table_outname2)
+    except:
+        pass
+    try:
+        if ffsky or bothsky:
+            os.remove(table_outname3)
+    except:
+        pass
+    try:
+        if ffsky or bothsky:
+            os.remove(table_outname4)
+    except:
+        pass
+    try:
+        os.remove(reject_outname)
+    except:
+        pass
+    try:
+        if not ffsky or bothsky:
+            os.remove("random_apertures_"+str(shotid)+".coord") #aka outfile
+    except:
+        pass
+    try:
+        os.remove("reject_"+str(shotid)+".coord") #aka reject coords file
+    except:
+        pass
 
 
+#####################################
+# OK. This one needs to be run, so
+# continue loading packages, etc
+#####################################
 
+print(f"{shotid} load ....  {datetime.datetime.now()}")
+
+import numpy as np
+import tables
+from astropy.coordinates import SkyCoord
+from astropy.table import Table,join,vstack
+import astropy.units as u
+import copy
+import glob
+import shutil
+
+from hetdex_api.config import HDRconfig
+from hetdex_api.shot import get_fibers_table
+from hetdex_api.survey import Survey,FiberIndex
+from hetdex_tools.get_spec import get_spectra
+from hetdex_api.extinction import *  #includes deredden_spectra
+from hetdex_api.extract import Extract
+
+from elixer import spectrum as elixer_spectrum
+from elixer import spectrum_utilities as SU
+from elixer import global_config as G
+
+survey_name = "hdr4" #"hdr4" #"hdr2.1"
+
+tmppath = "/tmp/hx/"
+#tmppath = "/home/dustin/temp/random_apertures/hx/"
+
+if not os.path.exists(tmppath):
+    try:
+        os.makedirs(tmppath, mode=0o755)
+        if not os.access(tmppath, os.W_OK):
+            print(f"Warning! --tmp path does not exist, cannot be created, or is not writable: {tmppath}")
+            exit(-1)
+    except: #can catch timing on creation if multiples are trying to make it
+        if not os.access(tmppath, os.W_OK):
+            print(f"Warning! --tmp path does not exist, cannot be created, or is not writable: {tmppath}")
+            exit(-1)
+
+
+#get the shot from the command line
+
+def linear_g(seeing): #estimate of depth from the seeing (based on HDR 3.0.3 detections)
+    # return seeing * (-31./70.) + 25.76  # middle of the y_err
+    #return seeing * (-31. / 70.) + 25.56  # bottom of the y_err
+    return SU.estimated_depth(seeing)
+
+
+outfile = open("random_apertures_"+str(shotid)+".coord", "w+")  # 3500-3800 avg +/- 0.04
 
 hetdex_api_config = HDRconfig(survey_name)
 survey = Survey(survey_name)
@@ -174,7 +242,7 @@ ampflag_table = Table.read(hetdex_api_config.badamp)
 
 
 
-random_fibers_per_shot = 500  # number of anchor fibers to select per shot (also then the maximum number of aperture attempts)
+random_fibers_per_shot = 10000  # number of anchor fibers to select per shot (also then the maximum number of aperture attempts)
 empty_apertures_per_shot = 200  # stop once we hit this number of "successful" apertures in a shot
 ra_nudge = 0.75  # random nudge between 0 and this value in fiber center RA
 dec_nudge = 0.75  # ditto for Dec
@@ -205,9 +273,18 @@ sel = (ampflag_table['shotid'] == shotid) & (ampflag_table['flag'] == 0)  # here
 
 print("Building super table of fiberIDs ...")
 idx = FibIndex.hdfile.root.FiberIndex.get_where_list("shotid==shot")
-if idx is None or len(idx) < 20000:
-    fi_shotids = FibIndex.hdfile.root.FiberIndex.read(field="shotid")
-    idx = np.where(fi_shotids==shotid)[0]
+if len(idx) is None or len(idx) < 9000: #less than 20 IFUs ... very early data
+    print(f"{shot} too few fibers. Aborting.")
+    exit(0)
+
+# if idx is None or len(idx) < 20000:
+#     fi_shotids = FibIndex.hdfile.root.FiberIndex.read(field="shotid")
+#     idx = np.where(fi_shotids==shotid)[0]
+
+small_array = False
+if len(idx) < random_fibers_per_shot:
+    random_fibers_per_shot = len(idx)
+    small_array = True
 
 rand_idx = np.random.choice(idx, size=random_fibers_per_shot, replace=False)
 fibers_table = Table(FibIndex.hdfile.root.FiberIndex.read_coordinates(rand_idx)) #randomize the fiber ordering
@@ -298,18 +375,34 @@ response = float(survey_table['response_4540'][sel])
 del survey_table
 
 #elix_h5  = tables.open_file("/scratch/03946/hetdex/hdr3/detect/elixer.h5")
-elix_h5  = tables.open_file("/scratch/projects/hetdex/hdr3/detect/elixer.h5")
-dex_ra = elix_h5.root.Detections.read(field='ra')
-dex_dec = elix_h5.root.Detections.read(field='dec')
+#elix_h5  = tables.open_file("/scratch/projects/hetdex/hdr3/detect/elixer.h5")
+#the RA, Dec of HETDEX detections, used as a check against detections being too close
+#these CAN BE NOISE though
+elix_h5  = tables.open_file("/scratch/projects/hetdex/hdr4/detect/elixer_hdr3_hdr4_all_cat.h5")
+dex_ra = elix_h5.root.Detections.read_where("sn > 5.5",field='ra')
+dex_dec = elix_h5.root.Detections.read_where("sn > 5.5",field='dec')
+#dex_snr = elix_h5.root.Detections.read(field='sn')
 elix_h5.close()
 
 if min_gmag is None:
     min_gmag = SU.estimated_depth(seeing)
+    min_gmag = max(min_gmag,24.3)
 
 min_gmag += mag_adjust
 
+
 reject_outname = "reject_"+str(shotid)+".coord"
 reject_file = open(op.join(tmppath,reject_outname), "w+")
+
+
+accepted_coords = []
+
+fail_rate_max = 100 #if fail 100 in a row, just quit if we have at least 50 spectra
+                    #or if there are too few to use
+
+sequential_fails = 0
+
+print(f"{shotid} main loop ....  {datetime.datetime.now()}")
 
 for f in super_tab: #these fibers are in a random order so just iterating over them is random
                     #though it is possible to get two apertures at the same location (adjacent fibers and random
@@ -317,17 +410,38 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
                     #It is more likely to pick up one or a few that have overlapping apertures, but since this is
                     #PSF weighted, the effect of the overlap is limited and quickly falls off over 1-2"
 
+    if sequential_fails > fail_rate_max:
+        if aper_ct > 50:
+            break
+        elif aper_ct > 10 and short_array:
+            break
+
+
+
     if aper_ct > empty_apertures_per_shot:
         # we have enough, move on to the next shot
         break
 
-    if not (f['amp_flag'] and f['meteor_flag'] and f['gal_flag']):
+    sequential_fails += 1
+
+    if not (f['flag']):#" and f['amp_flag'] and f['meteor_flag'] and f['gal_flag']):
         # if any of the three are false, skip this fiber and move on
         pass
+
 
     ra = np.random.uniform(-ra_nudge, ra_nudge) / 3600. + f['ra']
     dec = np.random.uniform(-dec_nudge, dec_nudge) / 3600. + f['dec']
     coord = SkyCoord(ra, dec, unit="deg")
+
+    #none can be within 1.5" of another
+    if len(accepted_coords) > 0:
+        #just iterate over the accepted_coords as there aren't that many
+        #rather than keep rebuilding a SkyCoord object that is arrays of RA, Dec
+        #noting you cannot use an array of SkyCoords here
+        #separations = np.array([coord.separation(c).arcsec for c in accepted_coords])
+        if np.count_nonzero(np.array([coord.separation(c).arcsec for c in accepted_coords]) < 1.5) > 0:
+            continue
+
 
     if dust:
         dust_corr = deredden_spectra(G.CALFIB_WAVEGRID, coord)
@@ -438,6 +552,9 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
 
         if fail:
             continue
+
+        accepted_coords.append(coord)
+        sequential_fails = 0
 
         fiber_weights = sorted(apt['fiber_weights'][0][:,2])[::-1]
         norm_weights = fiber_weights/np.sum(fiber_weights)
@@ -615,14 +732,15 @@ if bothsky:
     T3.write(op.join(tmppath,table_outname3), format='fits', overwrite=True)
     T4.write(op.join(tmppath,table_outname4), format='fits', overwrite=True)
 
-print("Copying from /tmp")
+
+print(f"{shotid} Copying from /tmp : {datetime.datetime.now()}")
 shutil.copy2(op.join(tmppath,table_outname),table_outname)
 shutil.copy2(op.join(tmppath,table_outname2),table_outname2)
 shutil.copy2(op.join(tmppath,table_outname3),table_outname3)
 shutil.copy2(op.join(tmppath,table_outname4),table_outname4)
 shutil.copy2(op.join(tmppath,reject_outname),reject_outname)
 
-print("Done copying")
+print(f"{shotid} Done copying: {datetime.datetime.now()}")
 
 os.remove(op.join(tmppath,table_outname))
 os.remove(op.join(tmppath,table_outname2))

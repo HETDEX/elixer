@@ -400,6 +400,10 @@ def parse_commandline(auto_force=False):
                                                'detection. Format: new-file,file1,file2.\nNote: preferred TACC use'
                                                ' with IDEV. Do not use with selixer.', required=False)
 
+    parser.add_argument('--remove_dets', help='Remove list of detections from ELiXer HDF5 files. '
+                                               'Format: new-file,file1,file2.\nNote: preferred TACC use'
+                                               ' with IDEV. Do not use with selixer.', required=False)
+
     parser.add_argument('--upgrade_hdf5', help='Copy HDF5 file into new format/version. Format old_file,new_file',
                         required=False)
 
@@ -800,6 +804,9 @@ def parse_commandline(auto_force=False):
         print("Merging catalogs (ignoring all other parameters) ... ")
         return args
 
+    if args.remove_dets:
+        print("Removing detections from catalog (ignoring all other parameters) ... ")
+        return args
 
     if args.missing:
         print("Check for missing reports ... ")
@@ -3167,7 +3174,7 @@ def remove_h5_duplicate_rows(args=None):
     try:
         result = elixer_hdf5.remove_duplicates(args.remove_duplicates)
     except:
-        log.error("Exception! merging HDF5 files in merge_unique", exc_info=True)
+        log.error("Exception! merging HDF5 files in remove_h5_duplicate_rows", exc_info=True)
 
 
 def merge_unique(args=None):
@@ -3194,6 +3201,31 @@ def merge_unique(args=None):
     except:
         log.error("Exception! merging HDF5 files in merge_unique",exc_info=True)
 
+
+
+def remove_dets(args=None):
+    """
+    note: elixer_hdf5 will chunk the h5 files into small blocks and merge the blocks (much more efficient)
+    :param args:
+    :return:
+    """
+
+    try:
+        #tokenize
+        toks = args.remove_dets.split(',')
+        if len(toks) != 3:
+            print("Invalid parameters for remove_dets (%s)"%args.remove_dets)
+            log.error("Invalid parameters for remove_dets (%s)"%args.remove_dets)
+            return
+
+        result = elixer_hdf5.remove_bulk_detectids(toks[0],toks[1],toks[2])
+
+        if result:
+            print("Success. File = %s" %toks[0])
+        else:
+            print("FAIL.")
+    except:
+        log.error("Exception! merging HDF5 files in remove_dets",exc_info=True)
 
 def merge_hdf5(args=None):
     """
@@ -5237,6 +5269,11 @@ def main():
 
     if args.merge_unique:
         merge_unique(args)
+        exit(0)
+
+
+    if args.remove_dets:
+        remove_dets(args)
         exit(0)
 
     if args.merge or args.merge_local:

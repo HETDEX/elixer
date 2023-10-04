@@ -2451,6 +2451,202 @@ def merge_unique(newfile,file1,file2):
     return True
 
 
+def remove_bulk_detectids(newfile,file1,file2):
+    """
+    Merge, detectID by detectID file1 and file2 into newfile, keeping only the most recent detectID if
+    there are duplicates.
+
+    :param newfile: file name of new file to create as merge of file1 and file2
+    :param file1:  either of the two files to merge
+    :param file2:  list of IDs to remove
+    :return:
+    """
+    import glob
+
+    chunk_size = 25000 #25k
+    try:
+        file1_handle = get_hdf5_filehandle(file1,append=False,allow_overwrite=False,must_exist=True)
+
+        dets_to_remove = np.loadtxt(file2,dtype=int)
+
+
+        if (file1_handle is None) or (dets_to_remove is None) or len(dets_to_remove) < 1:
+            print("Unable to execute remove_bulk_detectids.")
+            log.info("Unable to execute remove_bulk_detectids.")
+            return False
+
+    except:
+        log.error("Exception! in elixer_hdf5::remove_bulk_detectids",exc_info=True)
+
+    #todo: enforce version matching?? since creating new file, these should be backward compatible with defaults for
+    #todo: missing columns
+
+    try:
+
+        dtb1 = file1_handle.root.Detections
+       # dtb2 = file2_handle.root.Detections
+
+        detectids = dtb1.read()['detectid']
+       # detectids = np.concatenate((detectids,dtb2.read()['detectid']))
+
+        detectids = np.array(sorted(set(detectids))) #'set' so they are unique
+
+        #break into chunks of 100,000
+        num_chunks = int(len(detectids)/chunk_size)+1
+        detect_chunks = np.array_split(detectids,num_chunks)
+
+
+        #check if either old h5 has the extra tables:
+        if not G.DeblendSpectra:
+            try:
+                _ = file1_handle.root.DeblendedSpectra
+                G.DeblendSpectra = True
+            except:
+                try:
+                    _ = file1_handle.root.NeighborSpectra
+                    G.DeblendSpectra = True
+                except:
+                    pass
+
+        log.info(f"Removing {len(dets_to_remove)} detections out of {len(detectids)} ...")
+
+        for chunk in detect_chunks:
+            #make a new receiving h5 file
+            log.info(f"Merging for chunk starting at {chunk[0]}")
+            newfile_chunk = newfile + f".chunk{chunk[0]}"
+            newfile_handle = get_hdf5_filehandle(newfile_chunk, append=False, allow_overwrite=True, must_exist=False,
+                                                 estimated_dets=chunk_size)
+
+            if newfile_handle is None:
+                print(f"Unable to create destination file {newfile_chunk} for remove_bulk_detectids. File may already exist.")
+                log.info(f"Unable to create destination file {newfile_chunk} for remove_bulk_detectids.")
+                return False
+
+            dtb_new = newfile_handle.root.Detections
+            stb_new = newfile_handle.root.CalibratedSpectra
+            ltb_new = newfile_handle.root.SpectraLines
+            atb_new = newfile_handle.root.Aperture
+            ctb_new = newfile_handle.root.CatalogMatch
+            etb_new = newfile_handle.root.ExtractedObjects  # new MUST have this table
+            xtb_new = newfile_handle.root.ElixerApertures
+
+            try:
+                ntb_new = newfile_handle.root.NeighborSpectra
+                LyC = True
+                Deblend = True #redundant
+            except:
+                LyC = False
+                Deblend = False
+
+            try:
+                dstb_new = newfile_handle.root.DeblendedSpectra
+                LyC = True
+                Deblend = True #redundant
+            except:
+                LyC = False
+                Deblend = False
+
+            try:
+                vote_tb_new = newfile_handle.root.ClassificationExtraFeatures
+                Vote_Table = True
+            except:
+                Vote_Table = False
+
+            for d in chunk:
+                try:
+                    log.debug(f"Checking {d}")
+                    if d in dets_to_remove:
+                        continue #basically we skip
+
+                    source_h = file1_handle
+
+                    dtb_src = source_h.root.Detections
+                    stb_src = source_h.root.CalibratedSpectra
+                    ltb_src = source_h.root.SpectraLines
+                    atb_src = source_h.root.Aperture
+                    ctb_src = source_h.root.CatalogMatch
+
+                    dtb_new.append(dtb_src.read_where("(detectid==d) & (elixer_datetime==q_date)"))
+                    #################################
+                    #manual merge of defunct version
+                    #################################
+                    #if False:
+                    #   old_row = dtb_src.read_where("(detectid==d) & (elixer_datetime==q_date)")[0]
+                    #   new_row = dtb_new.row
+                    #   temp_append_dtb_002_to_003(new_row,old_row)
+
+                    #unfortunately, have to assume following data is unique
+                    stb_new.append(stb_src.read_where("(detectid==d)"))
+                    ltb_new.append(ltb_src.read_where("(detectid==d)"))
+                    atb_new.append(atb_src.read_where("(detectid==d)"))
+                    ctb_new.append(ctb_src.read_where("(detectid==d)"))
+                    try:
+                        etb_src = source_h.root.ExtractedObjects
+                        etb_new.append(etb_src.read_where("(detectid==d)"))
+                    except Exception as e:
+                        print(f"ExtractedObjects merge failed {d}")
+                        print(e)
+
+                    try:
+                        xtb_src = source_h.root.ElixerApertures
+                        xtb_new.append(xtb_src.read_where("(detectid==d)"))
+                    except Exception as e:
+                        print(f"ElixerApertures merge failed {d}")
+                        print(e)
+
+                    if LyC or Deblend:
+                        try:
+                            ntb_src = source_h.root.NeighborSpectra
+                            ntb_new.append(ntb_src.read_where("(detectid==d)"))
+                        except Exception as e:
+                            print(f"NeighborSpectra merge failed {d}")
+                            print(e)
+
+                        try:
+                            dstb_src = source_h.root.DeblendedSpectra
+                            dstb_new.append(dstb_src.read_where("(detectid==d)"))
+                        except Exception as e:
+                            print(f"DeblendedSpectra merge failed {d}")
+                            print(e)
+
+                    if Vote_Table:
+                        try:
+                            vote_tb_src = source_h.root.ClassificationExtraFeatures
+                            vote_tb_new.append(vote_tb_src.read_where("(detectid==d)"))
+                        except Exception as e:
+                            print(f"ClassificationExtraFeatures merge failed {d}")
+                            print(e)
+
+                    #flush_all(newfile_handle) #don't think we need to flush every time
+                    #definitely DO NOT reindex each time ... super costly; flush each time is okay, but does increase
+                    #overall time a bit and is not necessary
+
+                except Exception as e:
+                    print(f"Exception! keeping detectid {d} : {e}")
+                    log.error("Exception! keeping detectid (%d): (%s)" %(d,e))
+             # end for loop
+            flush_all(newfile_handle,reindex=True) #re-index is important for the final merge
+            newfile_handle.close()
+
+        #end for loop (chunks)
+        file1_handle.close()
+
+        #now glob all the chunks and regular merge (already know they are unique)
+        log.info("Chunking done. Calling merge_elixer_hdf5_files ...")
+        chunk_files = glob.glob(newfile + ".chunk*")
+        merge_elixer_hdf5_files(newfile,chunk_files)
+
+        #now, cleanup the chunks
+        for cf in chunk_files:
+            os.remove(cf)
+
+    except:
+        log.error("Exception! conducting merge in elixer_hdf5::remove_bulk_detectids", exc_info=True)
+        return False
+
+    return True
+
+
 def merge_chunks(newfile):
     """
     merge newfile + ".chunk*" into new file

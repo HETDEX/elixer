@@ -431,15 +431,18 @@ for enum_i,files in enumerate(zip(aper_files,fiber_files)):
 
 
    #add to the table:
-    T.add_row([t1['ra'][0], t1['dec'][0], t1['shotid'][0], t1['seeing'][0],t1['response'][0],
-               aper_flux_stack, aper_fluxe_stack,aper_contributions,
-               corr_flux_stack, corr_fluxe_stack,corr_contributions,
-               fiber_flux_stack, fiber_fluxe_stack,fiber_contributions,
-               dust_corr,
-               ad['fluxd_stack'],ad['fluxe_stack'],
-               fd['fluxd_stack'],fd['fluxe_stack'],
-               aper_dered_flux_stack, aper_dered_fluxe_stack,
-               fiber_dered_flux_stack, fiber_dered_fluxe_stack])
+    try:
+        T.add_row([t1['ra'][0], t1['dec'][0], t1['shotid'][0], t1['seeing'][0],t1['response'][0],
+                   aper_flux_stack, aper_fluxe_stack,aper_contributions,
+                   corr_flux_stack, corr_fluxe_stack,corr_contributions,
+                   fiber_flux_stack, fiber_fluxe_stack,fiber_contributions,
+                   dust_corr,
+                   ad['fluxd_stack'],ad['fluxe_stack'],
+                   fd['fluxd_stack'],fd['fluxe_stack'],
+                   aper_dered_flux_stack, aper_dered_fluxe_stack,
+                   fiber_dered_flux_stack, fiber_dered_fluxe_stack])
+    except:
+        print(f"[{enum_i}] Unable to add row.")
 
     if enum_i % write_every == 0:
         print("intermediate write ...",flush=True)

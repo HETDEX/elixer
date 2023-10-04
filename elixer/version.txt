@@ -1,5 +1,10 @@
 changes to elixer by version
 
+
+1.21.1 [2023-10-05]
+* for HDR4 update
+* added --remove_dets as command line argument to remove detectIDs from elixer h5 file(s)
+
 1.21.0 [2023-09-25]
 * for HDR4
 
