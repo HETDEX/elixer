@@ -2469,14 +2469,14 @@ def remove_bulk_detectids(newfile,file1,file2):
 
         dets_to_remove = np.loadtxt(file2,dtype=int)
 
-
         if (file1_handle is None) or (dets_to_remove is None) or len(dets_to_remove) < 1:
             print("Unable to execute remove_bulk_detectids.")
             log.info("Unable to execute remove_bulk_detectids.")
             return False
-
     except:
         log.error("Exception! in elixer_hdf5::remove_bulk_detectids",exc_info=True)
+        print("Unable to execute remove_bulk_detectids. Check elixer.log")
+        return False
 
     #todo: enforce version matching?? since creating new file, these should be backward compatible with defaults for
     #todo: missing columns
@@ -2566,7 +2566,7 @@ def remove_bulk_detectids(newfile,file1,file2):
                     atb_src = source_h.root.Aperture
                     ctb_src = source_h.root.CatalogMatch
 
-                    dtb_new.append(dtb_src.read_where("(detectid==d) & (elixer_datetime==q_date)"))
+                    dtb_new.append(dtb_src.read_where("(detectid==d)"))# & (elixer_datetime==q_date)"))
                     #################################
                     #manual merge of defunct version
                     #################################
