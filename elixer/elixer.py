@@ -4598,6 +4598,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                         emis.append(-1.0)
                         shot.append(0)
                         log.warning(f"Unable to load specific neighbor spectra {d} from HETDEX_API.", exc_info=True)
+                        retry = 0
 
             #then the continuum
             for d,s,st in zip(cont_detectids,cont_survey_names,cont_shotids):
@@ -4642,6 +4643,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                         emis.append(-1.0)
                         shot.append(0)
                         log.warning(f"Unable to load specific neighbor spectra {d} from HETDEX_API.", exc_info=True)
+                        retry = 0
 
         except:
             log.warning(f"Unable to load neighbor spectra from HETDEX_API.",exc_info=True)
