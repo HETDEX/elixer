@@ -2554,7 +2554,7 @@ def remove_bulk_detectids(newfile,file1,file2):
 
             for d in chunk:
                 try:
-                    log.debug(f"Checking {d}")
+                    #log.debug(f"Checking {d}")
                     if d in dets_to_remove:
                         continue #basically we skip
 

@@ -6218,7 +6218,7 @@ def make_grid_max_length(all_waves):
     #return the grid
     return np.arange(mn, mx + step, step)
 
-def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="weighted_biweight",straight_error=False,std=False,
+def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="biweight",straight_error=False,std=False,
                   allow_zero_valued_errs = False):
     """
         Assumes all spectra are in the same frame (ie. all in restframe) and ignores the flux type, but
@@ -6295,7 +6295,7 @@ def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="weighted_biweight
         #do not accept errors == 0
         if not allow_zero_valued_errs:
             l1 = len(wslice_err)
-            wslice_err[weighted_biweight==0] = np.nan
+            wslice_err[wslice_err==0] = np.nan
             l2 = len(wslice_err)
             if l1 != l2:
                 log.debug(f"Stacking: removed {l1-l2} zero valued flux_errs.")

@@ -5,6 +5,10 @@ reandom_apertures in purpose, but collects all "empty" fibers for a single shot 
 
 All fibers for the shot are collected and evaluated individually by rules to determine if they are "empty"
 
+
+
+See Notebook version empty_fibers_residuals_for_shot.py (on /work/03261/polonius/hub/)
+
 """
 
 
@@ -172,9 +176,7 @@ T4 = Table(dtype=[('ra', float), ('dec', float), ('fiber_ra', float), ('fiber_de
                  ])
 
 
-
-
-def split_spectra_into_bins(fluxd_2d, fluxd_err_2d,sort=True,trim=0.666):
+def split_spectra_into_bins(fluxd_2d, fluxd_err_2d, sort=True, trim=0.9):
     """
     given 2d array of spectra (G.CALFIB_WAVEGRID wavelengths assumed) in flux_density,
     split and retun as a dictionary of 5 bins (10 entries ... 5bins x 2 for fluxd and fluxd_error)
@@ -185,27 +187,27 @@ def split_spectra_into_bins(fluxd_2d, fluxd_err_2d,sort=True,trim=0.666):
     :return:
     """
 
-    rd = {} #return dict
+    rd = {}  # return dict
 
-    bin_idx_ranges = [(15,195),(195,400),(400,605),(605,810),(810,1015)] #(inclusive-exclusive)
-    full_idx_ranges = [(0, 195), (195, 400), (400, 605), (605, 810), (810, 1036)] #1st and last different to cover full 1036
+    bin_idx_ranges = [(15, 195), (195, 400), (400, 605), (605, 810), (810, 1015)]  # (inclusive-exclusive)
+    full_idx_ranges = [(0, 195), (195, 400), (400, 605), (605, 810),
+                       (810, 1036)]  # 1st and last different to cover full 1036
 
+    # todo: when appending, though need the full width, so 1st bin needs to be (0,195) and the last (810,1036)
 
-    #todo: when appending, though need the full width, so 1st bin needs to be (0,195) and the last (810,1036)
-
-    for i,((left,right),(full_left,full_right)) in enumerate(zip(bin_idx_ranges,full_idx_ranges)):
-        f = fluxd_2d[:,left:right]
-        e = fluxd_err_2d[:,left:right]
-        r = (full_left,full_right)
-        ff = fluxd_2d[:,full_left:full_right]
-        ef = fluxd_err_2d[:,full_left:full_right]
+    for i, ((left, right), (full_left, full_right)) in enumerate(zip(bin_idx_ranges, full_idx_ranges)):
+        f = fluxd_2d[:, left:right]
+        e = fluxd_err_2d[:, left:right]
+        r = (full_left, full_right)
+        ff = fluxd_2d[:, full_left:full_right]
+        ef = fluxd_err_2d[:, full_left:full_right]
 
         if sort:
-            md = np.nanmedian(fluxd_2d,axis=1)
-            idx = np.argsort(md) #ascending order, smallest average flux to largest
+            md = np.nanmedian(fluxd_2d, axis=1)
+            idx = np.argsort(md)  # ascending order, smallest average flux to largest
 
-            if trim is not None and ( 0 < trim < 1.0):
-                max_idx = int(len(md)*trim)
+            if trim is not None and (0 < trim < 1.0):
+                max_idx = int(len(md) * trim)
             else:
                 max_idx = len(md)
             f = f[idx[0:max_idx]]
@@ -213,11 +215,58 @@ def split_spectra_into_bins(fluxd_2d, fluxd_err_2d,sort=True,trim=0.666):
             ff = ff[idx[0:max_idx]]
             ef = ef[idx[0:max_idx]]
 
-        rd[f"f{i + 1}"] = copy.copy(ff) #flux density in bin range
-        rd[f"e{i + 1}"] = copy.copy(ef) #flux density error in bin range
-        rd[f"r{i + 1}"] = copy.copy(r) #bin range indicies (inclusive index, exclusive index)
+        rd[f"f{i + 1}"] = copy.copy(ff)  # flux density in bin range
+        rd[f"e{i + 1}"] = copy.copy(ef)  # flux density error in bin range
+        rd[f"r{i + 1}"] = copy.copy(r)  # bin range indicies (inclusive index, exclusive index)
 
     return rd
+
+
+def stack_by_trimmed_bins(ad, average="biweight"):
+    """
+    ad is the dictionary with the data
+    """
+    # stack apertures by trimmed data
+    i = 0
+    while f"f{i + 1}" in ad.keys():
+        fkey = f"f{i + 1}"
+        ekey = f"e{i + 1}"
+        rkey = f"r{i + 1}"
+        try:
+            aper_flux_stack, aper_fluxe_stack, aper_grid, aper_contributions = SU.stack_spectra(
+                ad[fkey],
+                ad[ekey],
+                np.tile(G.CALFIB_WAVEGRID[ad[rkey][0]:ad[rkey][1]], (len(ad[fkey]), 1)),
+                grid=G.CALFIB_WAVEGRID[ad[rkey][0]:ad[rkey][1]],
+                avg_type=average,
+                straight_error=False)
+            aper_contributions = int(np.nanmean(aper_contributions))  # should actually be a constant
+
+            ad[f"fs{i + 1}"] = aper_flux_stack
+            ad[f"es{i + 1}"] = aper_fluxe_stack
+
+        except Exception as e:
+            print(e, flush=True)
+            ad[f"fs{i + 1}"] = None
+            ad[f"es{i + 1}"] = None
+
+        i += 1
+
+    # now stitch them all together into a single spectrum and error
+    ad["fluxd_stack"] = np.concatenate([ad[x] for x in ad.keys() if x[0:2] == "fs"])
+    ad["fluxe_stack"] = np.concatenate([ad[x] for x in ad.keys() if x[0:2] == "es"])
+
+    return ad
+
+
+def mask_flux_where_bad(fluxd_2d, fluxd_err_2d):
+    """
+    where the error <=0 or nan, set flux to nan
+    """
+
+    sel = np.isnan(fluxd_err_2d) | np.array(fluxd_err_2d <= 0)
+    fluxd_2d[sel] = np.nan
+    return fluxd_2d
 
 
 ##################################
@@ -299,12 +348,12 @@ fT.remove_columns(['fiber_id','multiframe','flag','amp_flag','gal_flag','meteor_
 
 
 
-
-#the dictionaries are the 2/3 trim ... lets not do that
 #let's keep the original order and all
+#the trimming cut will follow later
 calfib_bins = split_spectra_into_bins(fT['calfib'], fT['calfibe'], sort=False, trim=None)
 #calfibe repeat is redundant, but keesp code simple and consistent
 calfib_ffsky_bins = split_spectra_into_bins(fT['calfib_ffsky'], fT['calfibe'], sort=False, trim=None)
+
 
 #add as columns (fluxes)
 fT['calfib_f1'] = calfib_bins['f1']
@@ -324,16 +373,18 @@ fT['calfib_ffsky_f4'] = calfib_ffsky_bins['f4']
 fT['calfib_ffsky_f5'] = calfib_ffsky_bins['f5']
 
 #add medians
-fT['calfib_f1_md'] = np.nanmedian(calfib_bins['f1'],axis=1)
-fT['calfib_f2_md'] = np.nanmedian(calfib_bins['f2'],axis=1)
-fT['calfib_f3_md'] = np.nanmedian(calfib_bins['f3'],axis=1)
-fT['calfib_f4_md'] = np.nanmedian(calfib_bins['f4'],axis=1)
-fT['calfib_f5_md'] = np.nanmedian(calfib_bins['f5'],axis=1)
-fT['calfib_ffsky_f1_md'] = np.nanmedian(calfib_ffsky_bins['f1'],axis=1)
-fT['calfib_ffsky_f2_md'] = np.nanmedian(calfib_ffsky_bins['f2'],axis=1)
-fT['calfib_ffsky_f3_md'] = np.nanmedian(calfib_ffsky_bins['f3'],axis=1)
-fT['calfib_ffsky_f4_md'] = np.nanmedian(calfib_ffsky_bins['f4'],axis=1)
-fT['calfib_ffsky_f5_md'] = np.nanmedian(calfib_ffsky_bins['f5'],axis=1)
+# ! do not use where calfibe is 0 or None
+fT['calfib_f1_md'] = np.nanmedian(mask_flux_where_bad(calfib_bins['f1'],calfib_bins['e1']),axis=1)
+fT['calfib_f2_md'] = np.nanmedian(mask_flux_where_bad(calfib_bins['f2'],calfib_bins['e2']),axis=1)
+fT['calfib_f3_md'] = np.nanmedian(mask_flux_where_bad(calfib_bins['f3'],calfib_bins['e3']),axis=1)
+fT['calfib_f4_md'] = np.nanmedian(mask_flux_where_bad(calfib_bins['f4'],calfib_bins['e4']),axis=1)
+fT['calfib_f5_md'] = np.nanmedian(mask_flux_where_bad(calfib_bins['f5'],calfib_bins['e5']),axis=1)
+
+fT['calfib_ffsky_f1_md'] = np.nanmedian(mask_flux_where_bad(calfib_ffsky_bins['f1'],calfib_bins['e1']),axis=1)
+fT['calfib_ffsky_f2_md'] = np.nanmedian(mask_flux_where_bad(calfib_ffsky_bins['f2'],calfib_bins['e2']),axis=1)
+fT['calfib_ffsky_f3_md'] = np.nanmedian(mask_flux_where_bad(calfib_ffsky_bins['f3'],calfib_bins['e3']),axis=1)
+fT['calfib_ffsky_f4_md'] = np.nanmedian(mask_flux_where_bad(calfib_ffsky_bins['f4'],calfib_bins['e4']),axis=1)
+fT['calfib_ffsky_f5_md'] = np.nanmedian(mask_flux_where_bad(calfib_ffsky_bins['f5'],calfib_bins['e5']),axis=1)
 
 #now eliminate fibers based on continua
 #base this in LOCAL SKY and oringal LyCon paper ... those ranges were based on 2AA bins, so cut in half here
@@ -346,68 +397,96 @@ sel = sel & np.array(fT['calfib_f5_md'] > -0.2) & np.array(fT['calfib_f5_md'] < 
 fT = fT[sel]
 
 
+# Now, trim off the top xx% wavelength bins by fluxes
+# here we use chunks in 5 wavelength bin ranges
+trim = 0.9
+trim_calfib_bins = split_spectra_into_bins(fT['calfib'], fT['calfibe'], sort=True, trim=trim)
+#calfibe repeat is redundant, but keesp code simple and consistent
+trim_calfib_ffsky_bins = split_spectra_into_bins(fT['calfib_ffsky'], fT['calfibe'], sort=True, trim=trim)
+
+final_trimmed_num_fibers = len(trim_calfib_bins['f1'])
+
+#
+# now stack as synthetic spectrum from the 5 wavelength bins
+#
+trim_calfib_bins = stack_by_trimmed_bins(trim_calfib_bins,average)
+trim_calfib_ffsky_bins = stack_by_trimmed_bins(trim_calfib_ffsky_bins,average)
+
+#want the "fluxd_stack" and "fluxe_stack" in each
+
+#this is the nominal end product for this shot, though we have NOT checked for emission lines
+# or other weird artificat/features
+
+#todo: turn this into a model? like a Poly6?
+
+#todo: save this off in a table?
+
+#
+# HERE!!!
+#
+
 #todo: need to get rid of emission lines (example 20220703017)
 
 
 
 
-
-#keep between 2/3 and 4/5 (0.667 and 0.8) ... keep the most that yields zero but not more than a 2/3 cut
-#try 0.8, 0.75. 0.7 and 0.67, but once done us the uniform smallest value
-md_cols_to_check = ['calfib_f1_md','calfib_f2_md','calfib_f3_md','calfib_f4_md','calfib_f5_md']
-ll_cols_to_stack = ['calfib_f1','calfib_f2','calfib_f3','calfib_f4','calfib_f5']
-ff_cols_to_stack = ['calfib_ffsky_f1','calfib_ffsky_f2','calfib_ffsky_f3','calfib_ffsky_f4','calfib_ffsky_f5']
-ee_cols_to_stack = ['calfibe_f1','calfibe_f2','calfibe_f3','calfibe_f4','calfibe_f5']
-range_to_stack =   [(0, 195), (195, 400), (400, 605), (605, 810), (810, 1036)]
-
-md_trims_to_check = [0.80,0.75,0.70,0.67]
-max_best_trim = []
-for col in md_cols_to_check:
-    avg = []
-    for trim in md_trims_to_check:
-        idx = np.argsort(fT[col])
-        max_idx = int(len(fT) * trim)
-        avg.append(np.nanmedian(fT[col][idx[0:max_idx]]))
-
-    #get value closest to zero (could be multiples, will yield the largest (first))
-    min_idx = np.argmin(abs(np.array(avg)))
-    max_best_trim.append(md_trims_to_check[min_idx])
-
-#now choose the smallest trim (keep the fewest fibers)
-trim = np.min(max_best_trim)
-
-#and perform the trim in each BIN
-by_bin_ll_stack = np.array([])
-by_bin_ll_err_stack = np.array([])
-by_bin_ff_stack = np.array([])
-by_bin_ff_err_stack = np.array([])
-by_bin_trim = trim
-for md_col,ll_col,ff_col,ee_col,rr in zip(md_cols_to_check,ll_cols_to_stack,ff_cols_to_stack,ee_cols_to_stack,range_to_stack):
-    idx = np.argsort(fT[md_col])
-    max_idx = int(len(fT) * trim)
-
-    flux_stack, fluxe_stack, grid, contributions = SU.stack_spectra(
-                                                    fT[ll_col][idx[0:max_idx]],
-                                                    fT[ee_col][idx[0:max_idx]],
-                                                    np.tile(G.CALFIB_WAVEGRID[rr[0]:rr[1]], (max_idx, 1)),
-                                                    grid=G.CALFIB_WAVEGRID[rr[0]:rr[1]],
-                                                    avg_type=average,
-                                                    straight_error=False)
-
-    by_bin_ll_stack = np.concatenate((by_bin_ll_stack, flux_stack))
-    by_bin_ll_err_stack = np.concatenate((by_bin_ll_err_stack, fluxe_stack))
-
-    flux_stack, fluxe_stack, grid, contributions = SU.stack_spectra(
-                                                    fT[ff_col][idx[0:max_idx]],
-                                                    fT[ee_col][idx[0:max_idx]],
-                                                    np.tile(G.CALFIB_WAVEGRID[rr[0]:rr[1]], (max_idx, 1)),
-                                                    grid=G.CALFIB_WAVEGRID[rr[0]:rr[1]],
-                                                    avg_type=average,
-                                                    straight_error=False)
-
-    by_bin_ff_stack = np.concatenate((by_bin_ff_stack, flux_stack))
-    by_bin_ff_err_stack = np.concatenate((by_bin_ff_err_stack, fluxe_stack))
-
+#
+# #keep between 2/3 and 4/5 (0.667 and 0.8) ... keep the most that yields zero but not more than a 2/3 cut
+# #try 0.8, 0.75. 0.7 and 0.67, but once done us the uniform smallest value
+# md_cols_to_check = ['calfib_f1_md','calfib_f2_md','calfib_f3_md','calfib_f4_md','calfib_f5_md']
+# ll_cols_to_stack = ['calfib_f1','calfib_f2','calfib_f3','calfib_f4','calfib_f5']
+# ff_cols_to_stack = ['calfib_ffsky_f1','calfib_ffsky_f2','calfib_ffsky_f3','calfib_ffsky_f4','calfib_ffsky_f5']
+# ee_cols_to_stack = ['calfibe_f1','calfibe_f2','calfibe_f3','calfibe_f4','calfibe_f5']
+# range_to_stack =   [(0, 195), (195, 400), (400, 605), (605, 810), (810, 1036)]
+#
+# md_trims_to_check = [0.80,0.75,0.70,0.67]
+# max_best_trim = []
+# for col in md_cols_to_check:
+#     avg = []
+#     for trim in md_trims_to_check:
+#         idx = np.argsort(fT[col])
+#         max_idx = int(len(fT) * trim)
+#         avg.append(np.nanmedian(fT[col][idx[0:max_idx]]))
+#
+#     #get value closest to zero (could be multiples, will yield the largest (first))
+#     min_idx = np.argmin(abs(np.array(avg)))
+#     max_best_trim.append(md_trims_to_check[min_idx])
+#
+# #now choose the smallest trim (keep the fewest fibers)
+# trim = np.min(max_best_trim)
+#
+# #and perform the trim in each BIN
+# by_bin_ll_stack = np.array([])
+# by_bin_ll_err_stack = np.array([])
+# by_bin_ff_stack = np.array([])
+# by_bin_ff_err_stack = np.array([])
+# by_bin_trim = trim
+# for md_col,ll_col,ff_col,ee_col,rr in zip(md_cols_to_check,ll_cols_to_stack,ff_cols_to_stack,ee_cols_to_stack,range_to_stack):
+#     idx = np.argsort(fT[md_col])
+#     max_idx = int(len(fT) * trim)
+#
+#     flux_stack, fluxe_stack, grid, contributions = SU.stack_spectra(
+#                                                     fT[ll_col][idx[0:max_idx]],
+#                                                     fT[ee_col][idx[0:max_idx]],
+#                                                     np.tile(G.CALFIB_WAVEGRID[rr[0]:rr[1]], (max_idx, 1)),
+#                                                     grid=G.CALFIB_WAVEGRID[rr[0]:rr[1]],
+#                                                     avg_type=average,
+#                                                     straight_error=False)
+#
+#     by_bin_ll_stack = np.concatenate((by_bin_ll_stack, flux_stack))
+#     by_bin_ll_err_stack = np.concatenate((by_bin_ll_err_stack, fluxe_stack))
+#
+#     flux_stack, fluxe_stack, grid, contributions = SU.stack_spectra(
+#                                                     fT[ff_col][idx[0:max_idx]],
+#                                                     fT[ee_col][idx[0:max_idx]],
+#                                                     np.tile(G.CALFIB_WAVEGRID[rr[0]:rr[1]], (max_idx, 1)),
+#                                                     grid=G.CALFIB_WAVEGRID[rr[0]:rr[1]],
+#                                                     avg_type=average,
+#                                                     straight_error=False)
+#
+#     by_bin_ff_stack = np.concatenate((by_bin_ff_stack, flux_stack))
+#     by_bin_ff_err_stack = np.concatenate((by_bin_ff_err_stack, fluxe_stack))
+#
 
 
 #and overall selection (entire fibers)
