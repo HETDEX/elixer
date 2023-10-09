@@ -2186,7 +2186,7 @@ def convert_pdf(filename, resolution=150, jpeg=False, png=True):
             retry_ct += 1
             if (run_convert_pdf(filename, resolution=resolution, jpeg=jpeg, png=png,
                                 systemcall=systemcalls[(retry_ct-1)%len(systemcalls)]) < 0):
-                retry = 99
+                retry_ct = 99
                 break
             else: #check the result
                 #BOTH png and jpeg could be generated, but we are only going to check one (the png preferred)
@@ -2199,7 +2199,7 @@ def convert_pdf(filename, resolution=150, jpeg=False, png=True):
                     size = os.path.getsize(image_name)
                     if OS_PNG_ONLY:
                         log.debug(f"Conversion assumed good at ({size}) for {image_name}. Only OS conversions allowed.")
-                        retry = 99
+                        retry_ct = 99
                         break
                     elif size > 430000: #some are legit conversions though
                         log.debug(f"Conversion filesize ({size}) good for {image_name}.")
@@ -2210,7 +2210,7 @@ def convert_pdf(filename, resolution=150, jpeg=False, png=True):
                             os.remove(image_name)
                             time.sleep(1.0 * retry_ct)  # sleep in increasing chunks of 5 seconds to let memory clear
                         else:
-                            retry = 99
+                            retry_ct = 99
                             break
                     elif (retry_ct < max_retries):
                         img_dim  = check_imagefile_dimensions(image_name)
@@ -2224,13 +2224,13 @@ def convert_pdf(filename, resolution=150, jpeg=False, png=True):
                             time.sleep(5.0 * retry_ct)  #sleep in increasing chunks of 5 seconds to let memory clear
                         else:
                             log.debug(f"Conversion filesize ({size}) good for {image_name}. Incomplete report, reduced size {img_dim}).")
-                            retry = 99
+                            retry_ct = 99
                             break
                     else:
                         log.info(f"Small filesize ({size}) for {image_name}. Out of retries.")
                 except:
                     log.info(f"Could not get file size for {image_name}. Aborting retries.")
-                    retry = 99
+                    retry_ct = 99
                     break
     except:
         log.error(f"Exception converting PDF {filename} to image type.", exc_info=True)
