@@ -3315,28 +3315,70 @@ def get_background_residual(hdr=G.HDR_Version,rtype=None,shotid=None,seeing=None
             log.warning("Invalid parameters passed to get_background_residual()")
             return residual, residual_err
 
+        #which column is wanted
+        if rtype == 'aper3.5':
+            if dered:
+                col = 'aper_dered_fluxd'
+                col_err = 'aper_dered_fluxd_err'
+            else:
+                col = 'aper_fluxd'
+                col_err = 'aper_fluxd_err'
+        elif rtype == 'aper3.5_fiber':
+            if dered:
+                col = 'fiber_dered_fluxd'
+                col_err = 'fiber_dered_fluxd_err'
+            else:
+                col = 'fiber_fluxd'
+                col_err = 'fiber_fluxd_err'
+        else:
+            msg = f"Warning! Unable to find appropriate background residual. rtype not (yet) supported: {rtype}"
+            print(msg)
+            log.warning(msg)
+            return residual, residual_err
 
         T = None
-
-        if ffsky:
-            if G.BGR_RES_TAB_FF is None:
-                #load the table
-                T = Table.read(G.BGR_RES_TAB_FF_FN)
-                if persist:
-                    G.BGR_RES_TAB_FF = T
-            else:
-                T = G.BGR_RES_TAB_FF
-        else:
-            if G.BGR_RES_TAB_LL is None:
-                #load the table
-                T = Table.read(G.BGR_RES_TAB_LL_FN)
-                if persist:
-                    G.BGR_RES_TAB_LL = T
-            else:
-                T = G.BGR_RES_TAB_LL
-
-
         idx = -1
+        #try the running tables first
+        if shotid is not None:
+            if ffsky and G.BGR_RES_TAB_FF_RUN is not None:
+                T = G.BGR_RES_TAB_FF_RUN
+            elif not ffsky and G.BGR_RES_TAB_LL_RUN is not None:
+                T = G.BGR_RES_TAB_LL_RUN
+
+            if T is not None:
+                sel = np.array(T['shotid']==shotid)
+                ct = np.count_nonzero(sel)
+                if ct > 1:
+                    msg = f"Warning! Unexpected number of shot matches {ct}"
+                    print(msg)
+                    log.warning(msg)
+                elif ct == 1:
+                    idx = np.where(sel)[0][0]
+                    #we have what we want already,so just return it
+                    residual = np.array(T[col][idx])
+                    residual_err = np.array(T[col_err][idx])
+
+                    return residual, residual_err
+
+        #we don't have it already, so check the index to find the row we want to read
+        if ffsky:
+            if G.BGR_RES_TAB_FF_IDX is None:
+                #load the table
+                T = Table.read(G.BGR_RES_TAB_FF_IDX_FN)
+                if persist:
+                    G.BGR_RES_TAB_FF_IDX = T
+            else:
+                T = G.BGR_RES_TAB_FF_IDX
+        else:
+            if G.BGR_RES_TAB_LL_IDX is None:
+                #load the table
+                T = Table.read(G.BGR_RES_TAB_LL_IDX_FN)
+                if persist:
+                    G.BGR_RES_TAB_LL_IDX = T
+            else:
+                T = G.BGR_RES_TAB_LL_IDX
+
+
         if shotid is not None:
             sel = np.array(T['shotid']==shotid)
             ct = np.count_nonzero(sel)
@@ -3361,35 +3403,22 @@ def get_background_residual(hdr=G.HDR_Version,rtype=None,shotid=None,seeing=None
             return residual, residual_err
 
 
-        #we have a single entry, which column is wanted?
-        #('ra','dec','shotid','seeing','response',
-        # 'aper_fluxd','aper_fluxd_err','aper_ct',
-        # 'fiber_fluxd','fiber_fluxd_err','fiber_ct',
-        # 'dust_corr',
-        # 'aper_dered_fluxd','aper_dered_fluxd_err',
-        # 'fiber_dered_fluxd','fiber_dered_fluxd_err
-        if rtype == 'aper3.5':
-            if dered:
-                col = 'aper_dered_fluxd'
-                col_err = 'aper_dered_fluxd_err'
+        #read in that one row
+        if ffsky:
+            Trow = Table.read(G.BGR_RES_TAB_FF_FN,memmap=True)[idx]
+            if G.BGR_RES_TAB_FF_RUN is None:
+                G.BGR_RES_TAB_FF_RUN = Table(Trow)
             else:
-                col = 'aper_fluxd'
-                col_err = 'aper_fluxd_err'
-        elif rtype == 'aper3.5_fiber':
-            if dered:
-                col = 'fiber_dered_fluxd'
-                col_err = 'fiber_dered_fluxd_err'
-            else:
-                col = 'fiber_fluxd'
-                col_err = 'fiber_fluxd_err'
+                G.BGR_RES_TAB_FF_RUN.add_row(Trow)
         else:
-            msg = f"Warning! Unable to find appropriate background residual. rtype not (yet) supported: {rtype}"
-            print(msg)
-            log.warning(msg)
-            return residual, residual_err
+            Trow = Table.read(G.BGR_RES_TAB_LL_FN, memmap=True)[idx]
+            if G.BGR_RES_TAB_LL_RUN is None:
+                G.BGR_RES_TAB_LL_RUN = Table(Trow)
+            else:
+                G.BGR_RES_TAB_LL_RUN.add_row(Trow)
 
-        residual = np.array(T[col][idx])
-        residual_err =  np.array(T[col_err][idx])
+        residual = np.array(Trow[col])
+        residual_err =  np.array(Trow[col_err])
 
         return residual, residual_err
 

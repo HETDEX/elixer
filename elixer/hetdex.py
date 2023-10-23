@@ -7480,7 +7480,7 @@ class DetObj:
                     else: #new way per shot
                         if self.aperture_sky_subtraction_residual is None:
                             self.aperture_sky_subtraction_residual, self.aperture_sky_subtraction_residual_err = \
-                                SU.get_background_residual(shotid=self.survey_shotid ,rtype="aper3.5",
+                                SU.get_background_residual(shotid=self.survey_shotid ,rtype="aper3.5",persist=True,
                                                                             dered=False,ffsky=self.extraction_ffsky)
 
                         if self.aperture_sky_subtraction_residual is not None:
@@ -7675,7 +7675,7 @@ class DetObj:
                 else:  # new way per shot
                     if self.aperture_sky_subtraction_residual is None:
                         self.aperture_sky_subtraction_residual, self.aperture_sky_subtraction_residual_err = \
-                            SU.get_background_residual(shotid=self.survey_shotid, rtype="aper3.5",
+                            SU.get_background_residual(shotid=self.survey_shotid, rtype="aper3.5",persist=True,
                                                        dered=False, ffsky=self.extraction_ffsky)
 
                     if self.aperture_sky_subtraction_residual is not None:
@@ -8761,7 +8761,8 @@ class DetObj:
                 else:
                     if self.aperture_sky_subtraction_residual is None:
                         self.aperture_sky_subtraction_residual, self.aperture_sky_subtraction_residual_err = \
-                            SU.get_background_residual(shotid=self.survey_shotid, rtype="aper3.5", dered=False, ffsky=self.extraction_ffsky)
+                            SU.get_background_residual(shotid=self.survey_shotid, rtype="aper3.5", persist=True,
+                                                       dered=False, ffsky=self.extraction_ffsky)
 
             if False: #old way
                 if self.aperture_sky_subtraction_residual is not None:

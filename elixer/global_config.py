@@ -1459,9 +1459,19 @@ fz = False #temporary; if True prefer the compressed fits over the uncompressed 
 #Background Residual Tables (LL (local) and FF sky)
 BGR_RES_TAB_LL = None
 BGR_RES_TAB_FF = None
+
+BGR_RES_TAB_LL_RUN = None #running table, only has the rows we've used so far
+BGR_RES_TAB_FF_RUN = None
+
+BGR_RES_TAB_LL_IDX = None
+BGR_RES_TAB_FF_IDX = None
 #todo: need to add the columns for fibers from full shot
 
 # BGR_RES_TAB_LL_FN = op.join(op.dirname(op.realpath(__file__)),"sky_subtraction_residuals/BGR_RES_TAB_LL.fits")
 # BGR_RES_TAB_FF_FN = op.join(op.dirname(op.realpath(__file__)),"sky_subtraction_residuals/BGR_RES_TAB_FF.fits")
 BGR_RES_TAB_LL_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_TAB_LL.fits"
 BGR_RES_TAB_FF_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_TAB_FF.fits"
+
+#just ra, dec, shotid, seeing and respoonse ... not the full data
+BGR_RES_TAB_LL_IDX_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_TAB_LL_IDX.fits"
+BGR_RES_TAB_FF_IDX_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_TAB_FF_IDX.fits"
