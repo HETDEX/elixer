@@ -1463,5 +1463,5 @@ BGR_RES_TAB_FF = None
 
 # BGR_RES_TAB_LL_FN = op.join(op.dirname(op.realpath(__file__)),"sky_subtraction_residuals/BGR_RES_TAB_LL.fits")
 # BGR_RES_TAB_FF_FN = op.join(op.dirname(op.realpath(__file__)),"sky_subtraction_residuals/BGR_RES_TAB_FF.fits")
-BGR_RES_TAB_LL_FN = "/work/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_TAB_LL.fits"
-BGR_RES_TAB_FF_FN = "/work/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_TAB_FF.fits"
+BGR_RES_TAB_LL_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_TAB_LL.fits"
+BGR_RES_TAB_FF_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_TAB_FF.fits"
