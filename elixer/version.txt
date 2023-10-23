@@ -1,5 +1,9 @@
 changes to elixer by version
 
+1.22.0a1 [2023-10-23]
+* [in progress]
+* add per-shot background residuals by apertures (3.5") and fiber from those apertures
+  + todo: fibers from whole shot without aperture sub-selection
 
 1.21.1 [2023-10-05]
 * for HDR4 update

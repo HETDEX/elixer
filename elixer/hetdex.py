@@ -2125,6 +2125,7 @@ class DetObj:
 
                         log.info(f"Q(z): Multiline solution[{idx}], score {scale_score}, frac {sol.frac_score}. "
                                  f"P(LyA) uncertain {scaled_plae_classification}. Set to z: {z} with Q(z): {p}")
+                        log.debug(f"+++++ Consider removing this 'UNCERTAIN CLASSIFICATION' as this is actually pretty good.")
 
                         self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
                     else:

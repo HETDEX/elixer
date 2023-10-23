@@ -119,7 +119,12 @@ elif len(fiber_files) != len(aper_files):
     print(f"Inconsistent aperture and fiber table file counts. Exiting!")
     exit(-1)
 
-T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
+existing_shots = None
+try:
+    T = Table.read(op.join(tmppath, table_outname + "_stacks.fits"), format='fits')
+    existing_shots = np.array(T['shotid'])
+except:
+    T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
                  ('seeing',float), ('response',float),
                  ('aper_fluxd', (float, len(G.CALFIB_WAVEGRID))),
                  ('aper_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
@@ -131,12 +136,12 @@ T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
                  ('fiber_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
                  ('fiber_ct', int),
                  ('dust_corr', (float, len(G.CALFIB_WAVEGRID))),
-                 ('trim_aper_fluxd', (float, len(G.CALFIB_WAVEGRID))),
-                 ('trim_aper_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('trim_fiber_fluxd', (float, len(G.CALFIB_WAVEGRID))),
-                 ('trim_fiber_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('trim_aper_5bin_fluxd', (float, len(G.CALFIB_WAVEGRID))),
+                 ('trim_aper_5bin_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('trim_fiber_5bin_fluxd', (float, len(G.CALFIB_WAVEGRID))),
+                 ('trim_fiber_5bin_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
                  ('aper_dered_fluxd', (float, len(G.CALFIB_WAVEGRID))),
-                 ('aper_deredfluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('aper_dered_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
                  ('fiber_dered_fluxd', (float, len(G.CALFIB_WAVEGRID))),
                  ('fiber_dered_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
                  ])
@@ -156,6 +161,46 @@ write_every = 100
 # [3500-3860),[3860-4270),[4270-4680),[4680-5090),[5090-5500)
 # or indicies: [15-195),[195-400),[400-605),[605-810),[810-1015)
 #
+
+
+def sort_by_wavelength(fluxd_2d, fluxd_err_2d): #,trim=0.95):
+    """
+    sort down each wavelength bin,
+
+    :param fluxd_2d:
+    :param fluxd_err_2d:
+    :param sort:
+    :param trim:
+    :return:
+    """
+
+    #need the fluxd_err_2d to go with it?
+    try:
+        F = np.array(fluxd_2d)
+        E = np.array(fluxd_err_2d)
+        #sort down each column (that is, down each wavelength bin)
+        #get the sort as 2D indicies so can apply to the flux and the flux_err
+        i2d = F.argsort(axis=0)
+        sF = np.take_along_axis(F,i2d,0)
+        sE = np.take_along_axis(E,i2d,0)
+
+
+        #more efficient to perform this sort and return
+        #let the caller then sort at different trims
+        return sF, sE
+
+        # #keep the top trim (sorted from smallest flux at the top to largest)
+        # last_row = int(trim * len(F))
+        # sF = sF[0:last_row+1]
+        # sE = sE[0:last_row + 1]
+
+        #stack (use elixer is fine)
+
+    except Exception as Exc:
+        print(Exc)
+        return None, None
+
+
 
 
 def split_spectra_into_bins(fluxd_2d, fluxd_err_2d,sort=True,trim=0.666):
@@ -214,7 +259,15 @@ for enum_i,files in enumerate(zip(aper_files,fiber_files)):
     f1 = files[0]
     f2 = files[1]
 
-    #anity check
+    #oddly, if this fails with an exception, I want the whole script to stop
+    if existing_shots is not None:
+        #get the shotid and see if we already have it
+        the_shot = int(os.path.basename(f1).split("_")[2].split(".")[0])
+        if the_shot in existing_shots:
+            print(f"stack_per_shot: {the_shot} #{enum_i+1} already in table. Skipping.")
+            continue
+
+    #sanity check
     if f2 is not None and op.basename(f2) != str(op.basename(f1)[:-5])+"_fibers.fits":
         print(f"Problem. Aperture and fiber files out of sync. Exiting!")
         exit(-1)
@@ -350,9 +403,25 @@ for enum_i,files in enumerate(zip(aper_files,fiber_files)):
         corr_contributions = 0
 
 
+
+
+    ###############################################
+    # per wavelength bin fibers sort, trim, stack
+    # This does NOT alter t2[] columns
+    ###############################################
+    if t2 is not None:
+        # sort
+        sF, sE = sort_by_wavelength(t2['fluxd'], t2['fluxd_err'])
+        #sort with dust correction
+        sFdust, sEdust = sort_by_wavelength(t2['fluxd']*t2['dust_corr'], t2['fluxd_err'])
+
+
+    ########################
+    #Fibers data (5 bins)
+    #######################
     if t2 is not None:
 
-        # stack apertures by trimmed data
+        # stack fibers by trimmed data
         fd = split_spectra_into_bins(t2['fluxd'], t2['fluxd_err'], sort=True, trim=0.666)
         i = 0
         while f"f{i + 1}" in fd.keys():
@@ -427,6 +496,10 @@ for enum_i,files in enumerate(zip(aper_files,fiber_files)):
         fiber_dered_fluxe_stack= np.full(len(G.CALFIB_WAVEGRID), np.nan)
         fiber_dered_contributions = 0
         #fiber_grid, fiber_contributions
+
+
+
+
 
 
 

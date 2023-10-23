@@ -1129,10 +1129,15 @@ elif host == HOST_WRANGLER:
         # slurm += "set_io_param 1 45.00, 35.00, 20.00, 50.00 \n"
 
         # updated 02-12-2020 to match stamped2
-        slurm += "module use " + workbasedir + "/01255/siliu/stampede2/ooops/modulefiles/ \n"
+        #slurm += "module use " + workbasedir + "/01255/siliu/stampede2/ooops/modulefiles/ \n"
         slurm += "module load ooops \n" #"/1.0 \n"
         slurm += "export IO_LIMIT_CONFIG=" + workbasedir + "/01255/siliu/stampede2/ooops/1.0/conf/config_low \n"
         slurm += "set_io_param 0 low\n"
+        #
+        # If OOOPS finds intensive I/O work in your job, it will print out warning messages and create an open/stat call
+        # report after the job finishes. To enable reporting, load the OOOPS module on a login node, and then submit
+        # your batch job. The reporting function will not be enabled if the module is loaded within a batch script.
+        #
 
     #slurm += "module unload xalt \n"
     slurm += "module load launcher\n"
@@ -1223,7 +1228,21 @@ elif host == HOST_LONESTAR6:
     slurm += "#SBATCH -A AST23008\n"
     slurm += email + "\n"
 
-    #assume ooops not for LoneStar6
+    #updated --
+    #If OOOPS finds intensive I/O work in your job, it will print out warning messages and create an open/stat call
+    # report after the job finishes.
+    # To enable reporting, load the OOOPS module on a login node, and then submit your batch job.
+    # The reporting function will not be enabled if the module is loaded within a batch script.
+    # 0 == /scratch, 1 == /work
+    #limit the I/O frequency with low, medium, or high  (unlimited turns it off)
+    # if ooops_mode:
+    #     slurm += "module load ooops \n"
+    #     if nodes == 1:
+    #         slurm += "set_io_param 0 low\n"
+    #     else:
+    #         slurm += "set_io_param_batch $SLURM_JOBID 0 low\n"
+
+    #old ooops (wrangler and stampede2)
     # if ooops_mode:
     #
     #     #updated 01-23-2020
@@ -1232,6 +1251,7 @@ elif host == HOST_LONESTAR6:
     #     slurm += "export IO_LIMIT_CONFIG=" + workbasedir + "/01255/siliu/stampede2/ooops/1.0/conf/config_low \n"
     #     slurm += "set_io_param 0 low\n"
     #     #slurm += "/work/01255/siliu/stampede2/ooops/1.0/bin/set_io_param 0 low \n"
+
 
     #slurm += "module unload xalt \n"
     slurm += "module load launcher\n"
@@ -1248,6 +1268,10 @@ elif host == HOST_LONESTAR6:
     slurm += "CONTROL_FILE=$LAUNCHER_JOB_FILE\n"
 
     slurm += "export LAUNCHER_SCHED=interleaved\n"
+    # k = task, p = num of procs, n = num of jobs
+    #dynamic (default) - each task k executes first available unclaimed line
+    #interleaved - each task k executes every (k+p)th line
+    #block - each task k executes lines [ k(n/p)+1, (k+1)(n/p) ]
 
 
     launch_str = "$TACC_LAUNCHER_DIR/paramrun\n"

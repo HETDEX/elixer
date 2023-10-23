@@ -25,7 +25,7 @@ if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
 #version
-__version__ = '1.21.1'
+__version__ = '1.22.0a1'
 
 
 #initial working dir
@@ -1262,6 +1262,7 @@ PLYA_VOTE_HI =  lambda thresh : thresh + (1 - thresh) * 0.2 # upper bound for a 
 
 DETFLAG_FOLLOWUP_NEEDED             = 0x00000001  #unspecified reason, catch-all, but human visual inspection recommended
 DETFLAG_IMAGING_MAG_INCONSISTENT    = 0x00000002  #large differences in bandpass mags of overlapping imaging (of adequate depth)
+                                                  #i.e. between 2 different catalogs, not vs HETDEX spectrum
 DETFLAG_DEX_GMAG_INCONSISTENT       = 0x00000004  #the g-mag from the DEX spectrum is very different from g or r band aperture mag
                                             #where the DEX g-mag is 24.5 or brighter and the imaging is at least as deep
 
@@ -1453,3 +1454,14 @@ ZP_SLOPE = (ZP_BASELINE_CORRECTION - 0) / (ZP_BASELINE_FLUXD - ZP_FAINT_FLUXD)
 ZP_INTERCEPT = -1 * ZP_SLOPE * ZP_FAINT_FLUXD
 
 fz = False #temporary; if True prefer the compressed fits over the uncompressed fits
+
+
+#Background Residual Tables (LL (local) and FF sky)
+BGR_RES_TAB_LL = None
+BGR_RES_TAB_FF = None
+#todo: need to add the columns for fibers from full shot
+
+# BGR_RES_TAB_LL_FN = op.join(op.dirname(op.realpath(__file__)),"sky_subtraction_residuals/BGR_RES_TAB_LL.fits")
+# BGR_RES_TAB_FF_FN = op.join(op.dirname(op.realpath(__file__)),"sky_subtraction_residuals/BGR_RES_TAB_FF.fits")
+BGR_RES_TAB_LL_FN = "/work/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_TAB_LL.fits"
+BGR_RES_TAB_FF_FN = "/work/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_TAB_FF.fits"

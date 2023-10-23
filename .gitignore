@@ -1,3 +1,5 @@
 /line_classifier_install/
 /.idea/
 /elixer/mkpkg/
+/elixer/sky_subtraction_residuals/BGR_RES_TAB_FF.fits
+/elixer/sky_subtraction_residuals/BGR_RES_TAB_LL.fits

@@ -3269,6 +3269,136 @@ def adjust_fiber_correction_by_seeing(fiber_fluxd, seeing, adjust_type = 0):
         log.warning("Exception adjusting per fiber correction by seeing.",exc_info=True)
         return fiber_fluxd
 
+
+def get_background_residual(hdr=G.HDR_Version,rtype=None,shotid=None,seeing=None,response=None,dered=True,ffsky=False,
+                            persist=False):
+    """
+    Similar to fetch_xxx but deliberately renamed with different parameters to force caller to think about it and
+    deliberately break old code if attempting to just substitute in as this behavior is different.
+
+    Must supply shotid or seeing + response
+
+    If there is no matching shotid, return the nearest from simple cartesian distance for seeing, response
+
+    Always returns in observed frame with in-air wavelengths
+
+    Always in 1AA bins as flux denity (erg/s/sm2/AA) in 1e-17 scale
+
+    :param hdr: str ('3' or '4', etc)
+    :param rtype: one of the available types of residuals, based on the method of construction for the residual.
+                 'aper3.5' : built from 200 random "empty" apertures for the shot
+                 'aper3.5_fiber': built from the individual fibers of the 200 random "empty" apertures
+                 'fiber': built from ALL "empty" fibers from the shot (no apertures used). Per wavelenth bin triming
+                          is used
+                <more to come>
+    :param shotid: integer dateVshot
+    :param seeing: float
+    :param response: float i.e response_4540
+    :param dered: if True, return having applies the dereddenin for the shot
+    :param ffsky: if True, return the ffsky version, else the local sky subtraction version
+    :param persist: if True, keep the table of residuals open at a memory cost
+    :return:
+    """
+
+    def sr_dist(s1, r1, s2,r2):
+        try:
+            return np.sqrt((s1-s2)**2 + (r1-r2)**2)
+        except:
+            return np.nan
+
+
+    residual = None
+    residual_err = None
+    try:
+        if shotid is None and (seeing is None or response is None):
+            print("Invalid parameters passed to get_background_residual()")
+            log.warning("Invalid parameters passed to get_background_residual()")
+            return residual, residual_err
+
+
+        T = None
+
+        if ffsky:
+            if G.BGR_RES_TAB_FF is None:
+                #load the table
+                T = Table.read(G.BGR_RES_TAB_FF_FN)
+                if persist:
+                    G.BGR_RES_TAB_FF = T
+            else:
+                T = G.BGR_RES_TAB_FF
+        else:
+            if G.BGR_RES_TAB_LL is None:
+                #load the table
+                T = Table.read(G.BGR_RES_TAB_LL_FN)
+                if persist:
+                    G.BGR_RES_TAB_LL = T
+            else:
+                T = G.BGR_RES_TAB_LL
+
+
+        idx = -1
+        if shotid is not None:
+            sel = np.array(T['shotid']==shotid)
+            ct = np.count_nonzero(sel)
+            if ct > 1:
+                msg = f"Warning! Unexpected number of shot matches {ct}"
+                print(msg)
+                log.warning(msg)
+            elif ct == 1:
+                idx = np.where(sel)[0][0]
+            #else == 0 and we fall down to the next block
+
+        if idx < 0 and not (seeing is None and response is None):
+            d = np.array([sr_dist(seeing,response,s,r) for s,r in zip(T['seeing'],T['response'])])
+            #todo: could be a bit smarter and take the nearest few and then select by nearest date?
+            # would require the shotid be passed and then used in combination
+            idx = np.nanargmin(d)
+
+        if idx < 0:
+            msg = f"Warning! Unable to find appropriate background residual."
+            print(msg)
+            log.warning(msg)
+            return residual, residual_err
+
+
+        #we have a single entry, which column is wanted?
+        #('ra','dec','shotid','seeing','response',
+        # 'aper_fluxd','aper_fluxd_err','aper_ct',
+        # 'fiber_fluxd','fiber_fluxd_err','fiber_ct',
+        # 'dust_corr',
+        # 'aper_dered_fluxd','aper_dered_fluxd_err',
+        # 'fiber_dered_fluxd','fiber_dered_fluxd_err
+        if rtype == 'aper3.5':
+            if dered:
+                col = 'aper_dered_fluxd'
+                col_err = 'aper_dered_fluxd_err'
+            else:
+                col = 'aper_fluxd'
+                col_err = 'aper_fluxd_err'
+        elif rtype == 'aper3.5_fiber':
+            if dered:
+                col = 'fiber_dered_fluxd'
+                col_err = 'fiber_dered_fluxd_err'
+            else:
+                col = 'fiber_fluxd'
+                col_err = 'fiber_fluxd_err'
+        else:
+            msg = f"Warning! Unable to find appropriate background residual. rtype not (yet) supported: {rtype}"
+            print(msg)
+            log.warning(msg)
+            return residual, residual_err
+
+        residual = np.array(T[col][idx])
+        residual_err =  np.array(T[col_err][idx])
+
+        return residual, residual_err
+
+    except:
+        log.warning("Exception in get_background_residual.",exc_info=True)
+
+    return residual, residual_err
+
+
 def fetch_per_shot_single_fiber_sky_subtraction_residual(path,shotid,column,prefix=None,seeing=None):
     """
     in this version (for testing) all the residual fits files are in one place, with each holding one row for the shot
