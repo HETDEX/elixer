@@ -6511,6 +6511,26 @@ def main():
                             try:
                                 dcurve = np.array([x['dist_curve'] for x in e.neighbors_sep['sep_objects']])
                                 dist_sel = dcurve <= 2*aperture
+
+                                # do not attempt to deblend imaging neighbors that are too faint, such that they would
+                                # be considered "Empty" for the purposes of the background residual creation, otherwise
+                                # this effetively double subtracts, on average
+                                try:
+                                    if G.APPLY_SKY_RESIDUAL_TYPE > 0: #apply the limit only if we are residual subtracting
+                                        if G.DEBLEND_MAG_LIMIT == 0:
+                                            pass
+                                            #do nothing, there is no limit imposed
+                                        elif G.DEBLEND_MAG_LIMIT == -1: #use the depth based limit
+                                            mag_sel = np.array([x['dex_g_mag'] < e.hetdex_gmag_limit for x in
+                                                                e.neighbors_sep['sep_objects']])
+                                            dist_sel = dist_sel & mag_sel
+                                        else:
+                                            mag_sel = np.array([x['dex_g_mag'] < G.DEBLEND_MAG_LIMIT for x in
+                                                                e.neighbors_sep['sep_objects']])
+                                            dist_sel = dist_sel & mag_sel
+                                except:
+                                    log.warning(f"Exception (non-fatal) in deblending.",exc_info=True)
+
                                 if np.count_nonzero(dist_sel) == 0:
                                     continue
 

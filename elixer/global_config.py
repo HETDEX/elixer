@@ -25,7 +25,7 @@ if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
 #version
-__version__ = '1.22.0a1'
+__version__ = '1.22.0a2'
 
 
 #initial working dir
@@ -1457,6 +1457,7 @@ fz = False #temporary; if True prefer the compressed fits over the uncompressed 
 
 
 #Background Residual Tables (LL (local) and FF sky)
+DEBLEND_MAG_LIMIT = -1 #-1 use estimated depth, 0 no limit, other the actual HETDEX gmag limit
 BGR_RES_TAB_LL = None
 BGR_RES_TAB_FF = None
 
