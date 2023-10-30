@@ -6094,9 +6094,9 @@ def shift_flam_to_rest_luminosity(z,flux_density,wave,eflux=None,apply_air_to_va
     Assume z, wavelengths, and luminosity distances are without error
 
     :param z:
-    :param flux_density:
-    :param wave:
-    :param eflux:
+    :param flux_density: OBSERVED (list-type or single float)
+    :param wave: OBSERVED wavelengths (should be list-type or a single float)
+    :param eflux: OBSERVED (None or list-type or single float)
     :param apply_air_to_vac: if true, apply the air to vacuum correction on the observed spectrum before redshifting
     :param per_aa: if true (default)
     :return: luminosity/AA , rest wavelengths , luminosity_error/AA
@@ -6108,9 +6108,22 @@ def shift_flam_to_rest_luminosity(z,flux_density,wave,eflux=None,apply_air_to_va
     elif z < 0: #close enough to zero that we will call it zero
         z = 0
 
-    if ( (flux_density is None) or (wave is None)) or (len(flux_density) != len(wave)) or (len(flux_density) == 0):
+    if ( (flux_density is None) or (wave is None)):
         log.error("Invalid flux_density and wavelengths")
         return None, None, None
+
+    try:
+        #if they are iterable, they are probably list types
+        _ = iter(flux_density)
+        _ = iter(wave)
+        if len(wave) != len(flux_density):
+            log.error("Invalid flux_density and wavelengths")
+            return None, None, None
+    except:
+        #assume int or float type
+        if not(isinstance(flux_density, (float,int)) and isinstance(wave, (float,int))):
+            log.error("Invalid flux_density and wavelengths")
+            return None, None, None
 
     try:
 
@@ -6135,13 +6148,25 @@ def shift_flam_to_rest_luminosity(z,flux_density,wave,eflux=None,apply_air_to_va
         #Passing in erg/s/cm2/AA in 2AA bins for z = 3 gives back erg/s/AA restframe in 0.5AA bins
         #So the Luminosity in a bin then is that Lum/AA * 0.5AA
         #BUT when fitting a Gaussin, we are integrating over the Lum/AA s|t it is essentially Lum/AA * width (in AA) = integrated Lum
-        lum = flux_density * conv * (wave[1]-wave[0])
-        if (eflux is not None) and (len(eflux) == len(wave)):
-            lum_err = eflux * conv * (wave[1]-wave[0])
-        else:
-            lum_err =None
+        try:
+            lum = flux_density * conv * (wave[1]-wave[0])
+            if (eflux is not None) and (len(eflux) == len(wave)):
+                lum_err = eflux * conv * (wave[1]-wave[0])
+            else:
+                lum_err =None
+        except:
+            log.info("Cannot compute lum or lum_err either assuming list-like")
+            try:
+                lum = flux_density * conv
+                if eflux is not None:
+                    lum_err = eflux * conv
+                else:
+                    lum_err = None
+            except:
+                log.warning("Cannot compute lum or lum_err either assuming list-like or float-like")
+                return None, None, None
 
-        return lum, wave , lum_err
+        return lum, wave, lum_err
 
     except Exception as e:
         print(e)
