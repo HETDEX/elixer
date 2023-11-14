@@ -1,2 +1,3 @@
 #cat shots_2020.txt | awk '{print "mpiexec.hydra -np 1 /opt/apps/intel18/python3/3.7.0/bin/python3 ./random_apertures.py --minmag 24.5 --aper 3.5 --shot " $0}'  > rand_ap.run
-cat low_sd_shotids_2020_model.txt | awk '{print "mpiexec.hydra -np 1 /opt/apps/intel18/python3/3.7.0/bin/python3 ./random_apertures.py --minmag "$2" --aper 3.5 --shot " $1}'  > rand_ap.run
+#cat low_sd_shotids_2020_model.txt | awk '{print "mpiexec.hydra -np 1 /opt/apps/intel18/python3/3.7.0/bin/python3 ./random_apertures.py --minmag "$2" --aper 3.5 --shot " $1}'  > rand_ap.run
+cat shots_2020.txt | awk '{print "python3 ./random_apertures.py --mag_adjust 0 --minmag 24.5  --bothsky  --dust --aper 3.5 --shot " $0}'  > rand_ap.run

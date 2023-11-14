@@ -56,10 +56,22 @@ else:
 if "--fiber_corr" in args:
     print("Apply per fiber residual correction")
     per_fiber_corr = True
-    G.APPLY_SKY_RESIDUAL_TYPE = 1
 else:
     print("Do Not apply per fiber residual correction")
     per_fiber_corr = False
+
+if "--aper_corr" in args:
+    print("Apply per aperture residual correction")
+    per_aper_corr = True
+else:
+    print("Do Not apply per aperture residual correction")
+    per_aper_corr = False
+
+
+if per_aper_corr and per_fiber_corr:
+    print("Must specify --fiber_corr OR --aper_cor, not both.")
+    exit(-1)
+
 
 if "--dust" in args:
     print("recording dust correction")
@@ -199,6 +211,7 @@ from hetdex_api.extract import Extract
 from elixer import spectrum as elixer_spectrum
 from elixer import spectrum_utilities as SU
 from elixer import global_config as G
+from elixer import catalogs
 
 survey_name = "hdr4" #"hdr4" #"hdr2.1"
 
@@ -404,6 +417,11 @@ sequential_fails = 0
 
 print(f"{shotid} main loop ....  {datetime.datetime.now()}")
 
+aperture_sky_subtraction_residual = None #only one per shot
+aperture_sky_subtraction_residual_err = None
+
+catlib = catalogs.CatalogLibrary()
+
 for f in super_tab: #these fibers are in a random order so just iterating over them is random
                     #though it is possible to get two apertures at the same location (adjacent fibers and random
                     #ra, dec shifts could line them up ... would be exceptionally unlikely, so we will ignore)
@@ -449,6 +467,53 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
         dust_corr = np.ones(len(G.CALFIB_WAVEGRID))
 
 
+
+    #first grab the imaging, see if there is anything close
+    #reject if nearby and large or really nearby and bright
+    img_mag_fail = False
+    img_sep_fail = False
+    try:
+        cutouts = catlib.get_cutouts(position=coord, radius=5., aperture=1.5, dynamic=False, first=True, nudge=False,
+                                         filter=['r','g'],allow_bad_image='False',allow_web='False')
+
+        if cutouts is not None and len(cutouts) > 0:
+            for c in cutouts:
+                if c['details'] is not None:
+                    if c['details']['sep_objects'] is not None and len(c['details']['sep_objects']) > 0:
+                        #there are SEP objects
+                        for sep in c['details']['sep_objects']:
+                            if sep['dist_curve'] == -1: #we are inside
+                                img_sep_fail = True
+                                break
+                            elif sep['dist_curve'] <= 1.5 and sep['mag_bright'] < 25.5:
+                                img_sep_fail = True
+                                break
+                            elif sep['dist_curve'] <= 2.5 and sep['mag_bright'] < 24.0:
+                                img_sep_fail = True
+                                break
+                            elif sep['a'] > 3.0 and sep['dist_curve'] < sep['a']: #already know we are outside the ellipse, so dist != -1
+                                img_sep_fail = True
+                                break
+
+                    if not img_sep_fail and c['details']['elixer_apertures'] is not None and len(c['details']['elixer_apertures']) > 0:
+                        #there are apertures at the exact position
+                        c_idx = c['details']['elixer_aper_idx']
+                        elix_img_mag = c['details']['elixer_apertures'][c_idx]['mag_bright']
+
+                        #treating r and g as roughly equivalent here
+                        #also just assuming that the imaging depth is sufficient
+                        if elix_img_mag < min_gmag:
+                            img_mag_fail = True
+                            break
+
+
+    except Exception as e:
+        #but keep going anyway
+        print(e)
+
+    if img_mag_fail or img_sep_fail:
+        continue
+
     try:
 
         #this one does NOT use the fiber_flux_offset, but if it passes, we will call again with one that does use it
@@ -463,12 +528,55 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
             continue
 
 
+        len_spec = len(apt['spec'][0])
+        #check for overly negative spectrum (number of bins)
+        try:
+            negsel = np.where(np.array(apt['spec'][0]) > 0)[0]
+            #would normally expect about half to be negative is this is an "empty" fiber
+            if len(negsel) < (0.25 * len_spec):  # pretty weak check, but if it fails something is very wrong
+                continue
+
+            #more than 10% are exactly zero or NaN, there is something very wrong
+            if np.count_nonzero(apt['spec'][0])/len_spec < 0.9 or np.count_nonzero(apt['spec_err'][0])/len_spec < 0.9 or \
+               np.count_nonzero(np.isnan(apt['spec'][0]))/len_spec > 0.1 or \
+               np.count_nonzero(np.isnan(apt['spec_err'][0]))/len_spec > 0.1:
+                continue
+        except:
+            pass
+
+
         # fluxd = np.nan_to_num(apt['spec'][0]) * 1e-17
         # fluxd_err = np.nan_to_num(apt['spec_err'][0]) * 1e-17
         # lets leave the nans in place
         fluxd = np.array(apt['spec'][0]) * 1e-17
         fluxd_err = np.array(apt['spec_err'][0]) * 1e-17
         wavelength = np.array(apt['wavelength'][0])
+
+
+
+#####   #it is convenient to do this HERE since we apply this to the original aperture,
+        #the per_fiber_corr (if set) is done later
+        if per_aper_corr:
+            if aperture_sky_subtraction_residual is None:
+                aperture_sky_subtraction_residual, aperture_sky_subtraction_residual_err = \
+                    SU.get_background_residual(shotid=shot, rtype="aper3.5", persist=True,
+                                               dered=False, ffsky=ffsky)
+                aperture_sky_subtraction_residual *= 1e-17
+                aperture_sky_subtraction_residual_err *= 1e-17
+
+            if aperture_sky_subtraction_residual is not None:
+                fluxd_offset = fluxd - aperture_sky_subtraction_residual
+                fluxd_offset_err = np.sqrt(fluxd_err**2 + aperture_sky_subtraction_residual_err**2)
+
+                if applydust:
+                    # dust_corr = deredden_spectra(wavelength, coord)
+                    fluxd_offset *= dust_corr
+                    fluxd_offset_err *= dust_corr
+            else:
+                fluxd_offset = np.full(len(fluxd), np.nan)
+                fluxd_offset_err = np.full(len(fluxd), np.nan)
+
+#########
 
         if applydust:
             #dust_corr = deredden_spectra(wavelength, coord)
@@ -596,19 +704,20 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
                 #adjust_type  0 = default (none), 1 = multiply  2 = add, 3 = None
                 #fiber_flux_offset = -1 * SU.adjust_fiber_correction_by_seeing(sky_subtraction_residual, seeing, adjust_type=3)
 
-                sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
-                    seeing, ffsky=ffsky, hdr="3",zeroflat=False,response=response, xfrac=1.0)
+                if per_fiber_corr:
+                    sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
+                        seeing, ffsky=ffsky, hdr="3",zeroflat=False,response=response, xfrac=1.0)
 
-                fiber_flux_offset = -1 * sky_subtraction_residual
+                    fiber_flux_offset = -1 * sky_subtraction_residual
 
-                apt_offset = get_spectra(coord, survey=survey_name, shotid=shot,
-                                         ffsky=ffsky, multiprocess=True, rad=aper,
-                                         tpmin=0.0, fiberweights=True, loglevel="ERROR",
-                                         fiber_flux_offset=fiber_flux_offset)
+                    apt_offset = get_spectra(coord, survey=survey_name, shotid=shot,
+                                             ffsky=ffsky, multiprocess=True, rad=aper,
+                                             tpmin=0.0, fiberweights=True, loglevel="ERROR",
+                                             fiber_flux_offset=fiber_flux_offset)
 
-                fluxd_offset = np.array(apt_offset['spec'][0]) * 1e-17
-                fluxd_offset_err = np.array(apt_offset['spec_err'][0]) * 1e-17
-                #wavelength = np.array(apt['wavelength'][0])
+                    fluxd_offset = np.array(apt_offset['spec'][0]) * 1e-17
+                    fluxd_offset_err = np.array(apt_offset['spec_err'][0]) * 1e-17
+                    #wavelength = np.array(apt['wavelength'][0])
 
                 if applydust:
                     #dust_corr = deredden_spectra(wavelength, coord)
@@ -619,7 +728,7 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
                 print(e)
                 fluxd_offset = np.full(len(fluxd), np.nan)
                 fluxd_offset_err = np.full(len(fluxd),np.nan)
-        else:
+        elif not per_aper_corr: #only set to nans if we did not already do the per apeture version near the top
             fluxd_offset = np.full(len(fluxd), np.nan)
             fluxd_offset_err = np.full(len(fluxd), np.nan)
 
