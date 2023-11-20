@@ -4262,7 +4262,7 @@ class DetObj:
                                      f"{self.fwhm_kms} km/s fwhm:"
                                      f" lk({likelihood[-1]}) weight({weight[-1]})")
                         elif self.fwhm_kms is not None and self.fwhm_kms_unc is not None and \
-                                self.fwhm_kms+self.fwhm_kms_unc > 800.0:
+                                self.fwhm_kms+self.fwhm_kms_unc < 800.0:
                             #vote for OII
                             likelihood.append(0.0)
                             weight.append(0.25 * line_vote_weight_mul)
@@ -5095,11 +5095,30 @@ class DetObj:
                                 likelihood.append(1.0)
                                 weight.append(0.40) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
                             elif (ew+ew_err) < 15:
-                                likelihood.append(0.0)
-                                weight.append(0.10) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                try:
+                                    if diam_kpc is not None and diam_kpc > 9.0:
+                                        likelihood.append(0.0)
+                                        weight.append(0.20)
+                                    else:
+                                        likelihood.append(0.0)
+                                        weight.append(0.10)
+                                except:
+                                    likelihood.append(0.0)
+                                    weight.append(0.10) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
                             else:
-                                likelihood.append(1.0)
-                                weight.append(0.20) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                try: #see also the size vote closer to the top of this function
+                                    if diam_kpc is not None and diam_kpc > 9.0:
+                                        likelihood.append(0.0)
+                                        weight.append(0.1)
+                                    elif diam_kpc is not None and diam_kpc < 4.5:
+                                        likelihood.append(1.0)
+                                        weight.append(0.20)
+                                    else:
+                                        likelihood.append(1.0)
+                                        weight.append(0.10)
+                                except:
+                                    likelihood.append(1.0)
+                                    weight.append(0.20)
                         else:
                             likelihood.append(1.0)
                             weight.append(0.20) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin

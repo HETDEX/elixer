@@ -3877,6 +3877,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     :return: PNG of the figure
     """
 
+    this_detectid_idx = -1
     just_mini_cutout = False
     nei_buf = None
     line_buf = None
@@ -4129,6 +4130,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             all_detectids_combined = np.concatenate((detectids,cont_detectids))
         except:
             all_detectids_combined = None
+
 
         if len(detectids) > G.MAX_NEIGHBORS_IN_MAP:
             msg = "Maximum number of reportable (emission line) neighbors exceeded (%d). Will truncate to nearest %d." % (len(detectids),
@@ -4883,7 +4885,27 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     gs_idx = -1 #so will start at zero
 
     top_axes = None
-    for i in range(num_rows):
+
+    #################################
+    # if there is a detectid
+    # put that object first
+    # (re-extractions are handled separately later)
+    #################################
+
+    indices_to_plot = np.arange(num_rows)
+    try:
+        if detectid is not None:
+            if detectid in detectids:
+                this_detectid_idx = np.where(detectids == detectid)[0][0]
+                if this_detectid_idx!= 0:
+                    indices_to_plot = np.delete(indices_to_plot,this_detectid_idx)
+                    indices_to_plot = np.insert(indices_to_plot,0,this_detectid_idx)
+
+    except:
+        pass
+
+    for i in indices_to_plot:
+
         #first the cutout
         gs_idx += 1
         plt.subplot(gs[gs_idx*row_step+1:(gs_idx+1)*row_step-1,0:3])
@@ -6922,7 +6944,7 @@ def main():
                             wave_range = [e.w-e.fwhm*3/2.355,e.w+e.fwhm*3/2.355]
 
                         _, nei_mini_buf, line_mini_buf = build_neighborhood_map(hdf5=args.hdf5, cont_hdf5=G.HDF5_CONTINUUM_FN,
-                                           detectid=None, ra=ra, dec=dec, distance=args.neighborhood, cwave=e.w,
+                                           detectid=e.entry_id, ra=ra, dec=dec, distance=args.neighborhood, cwave=e.w,
                                            fname=nei_name, original_distance=args.error,
                                            this_detection=e if explicit_extraction else None,
                                            broad_hdf5=G.HDF5_BROAD_DETECT_FN,

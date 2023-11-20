@@ -1,5 +1,10 @@
 changes to elixer by version
 
+1.22.0a3 [2023-11-19]
+* fixed >,< typo in check for medium angular size galaxy with small-ish emission line FWHM
+* make sure "this" detectid is at the top of neighbors if only running neighbors and using a specific detectid;
+  rest of the sort is still emission lines first, then continuum detections, sorted under each by distances
+
 1.22.0a2 [2023-10-24]
 * when deblending, do not include neighbors that are fainter s|t they would be considered to be in an "emtpy" aperture
   + otherwise, when subtracting the "empty" residual background, we effectively have repeated subtractions (PSF weighted)

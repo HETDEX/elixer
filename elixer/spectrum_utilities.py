@@ -5694,6 +5694,10 @@ def patch_holes_in_hetdex_spectrum(wavelengths,flux,flux_err,mag,mag_err=0,filte
     :param mag_err:
     :param filter:
     :param nan_okay: if up to this number of NaN's are okay, then return with them, otherwise fill in with an interpolation
+    :param flat_fnu: if True, assume that we have the mag and a correct flam_iso and can convert to fnu
+                    NOTE: I find that if the mag is taken from a broadfilter it does not translate well to HETDEX
+                    and a flat flam actually works better. This is consistent with the HSC-g band stacking where
+                    extracting on those objects in g-band is quite flat in flam for HETDEX spectra.
     :return:
     """
 
@@ -6458,40 +6462,54 @@ def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="biweight",straigh
         resampled_flux_errs.append(res_err) #aka  interp_flux_density_err_matrix
         #all on the same wave grid, so don't need that back
 
+    resampled_fluxes = np.array(resampled_fluxes)
+    resampled_flux_errs = np.array(resampled_flux_errs)
     #########################################################################
     # average down each wavebin THEN across the (single) averaged spectrum
     #########################################################################
 
     #save the units
-
     for i in range(len(grid)):
         #build error first since wslice is modified and re-assigned
         #build the error on the flux (wslice) so they stay lined up
 
-        #have to remove the quantity here, just use the float values
-        wslice_err = np.array([m[i] for m in resampled_flux_errs])  # interp_flux_matrix[:, i]  # all rows, ith index
-        wslice = np.array([m[i] for m in resampled_fluxes]) #interp_flux_matrix[:, i]  # all rows, ith index
 
-        #since using np.nan and np.nan != np.nan, so where wslice == itself it is not nan
-        wslice_err = wslice_err[np.where(wslice==wslice)]  # so same as wslice, since these need to line up
-        wslice = wslice[np.where(wslice==wslice)]  # git rid of the out of range interp values
+        # if False:
+        #     #have to remove the quantity here, just use the float values
+        #     wslice_err = np.array([m[i] for m in resampled_flux_errs])  # interp_flux_matrix[:, i]  # all rows, ith index
+        #     wslice = np.array([m[i] for m in resampled_fluxes]) #interp_flux_matrix[:, i]  # all rows, ith index
+        #
+        #     #since using np.nan and np.nan != np.nan, so where wslice == itself it is not nan
+        #     wslice_err = wslice_err[np.where(wslice==wslice)]  # so same as wslice, since these need to line up
+        #     wslice = wslice[np.where(wslice==wslice)]  # git rid of the out of range interp values
+        #
+        #     #do not accept errors == 0
+        #     if not allow_zero_valued_errs:
+        #         l1 = len(wslice_err)
+        #         wslice_err[wslice_err==0] = np.nan
+        #         l2 = len(wslice_err)
+        #         if l1 != l2:
+        #             log.debug(f"Stacking: removed {l1-l2} zero valued flux_errs.")
+        #
+        #     # git rid of any nans
+        #     wslice_err = wslice_err[~np.isnan(wslice)] #err first so the wslice is not modified
+        #     wslice = wslice[~np.isnan(wslice)]
+        #
+        #     #now the otherway
+        #     wslice = wslice[~np.isnan(wslice_err)]
+        #     wslice_err = wslice_err[~np.isnan(wslice_err)] #err first so the wslice is not modified
+        #
+        # else:
 
-        #do not accept errors == 0
+        wslice_err = resampled_flux_errs[:, i]  # all rows, ith index
+        wslice = resampled_fluxes[:, i]  # all rows, ith index
+
+        #remove NaN's (from either) and zeros from _err
+        sel = np.array(~np.isnan(wslice_err)) & np.array(~np.isnan(wslice))
         if not allow_zero_valued_errs:
-            l1 = len(wslice_err)
-            wslice_err[wslice_err==0] = np.nan
-            l2 = len(wslice_err)
-            if l1 != l2:
-                log.debug(f"Stacking: removed {l1-l2} zero valued flux_errs.")
-
-        # git rid of any nans
-        wslice_err = wslice_err[~np.isnan(wslice)] #err first so the wslice is not modified
-        wslice = wslice[~np.isnan(wslice)]
-
-        #now the otherway
-        wslice = wslice[~np.isnan(wslice_err)]
-        wslice_err = wslice_err[~np.isnan(wslice_err)] #err first so the wslice is not modified
-
+            sel = sel & np.array(wslice_err > 0)
+        wslice_err = wslice_err[sel]
+        wslice = wslice[sel]
 
         contrib_count[i] = len(wslice)
 

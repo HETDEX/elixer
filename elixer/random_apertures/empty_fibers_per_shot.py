@@ -1,15 +1,17 @@
 """
-simple file to pull a code specified number of random apertures, validating each against acceptance critieria,
-and save to an astropy table on a PER SHOT basis
+simple script to collect the "empty" fibers for a single shot (all dithers) validating each against acceptance critieria,
+and save to an astropy table
 
 intended for use with SLURM
 
 caller specifies only the shotid
 
-this code is modified to specify aperture size, number of apertures wanted, maximum number of apertures to attempt,
-and any selection criteria, etc
+loosely based on hetdex_all_shots_random_empty_apertures notebooks on /work/03261/polonius/notebooks
 
-based on hetdex_all_shots_random_empty_apertures notebooks on /work/03261/polonius/notebooks
+There is a basic check for continuum and emission lines at an absolute level and then variations on cuts/clips
+overall, per wavelength bin, and/or per wavelength range
+
+Then under those cuts, the fibers are stacked into a single average and recorded for the shot
 
 """
 import sys
@@ -60,94 +62,44 @@ else:
     print("Do Not apply per fiber residual correction")
     per_fiber_corr = False
 
-if "--aper_corr" in args:
-    print("Apply per aperture residual correction")
-    per_aper_corr = True
-else:
-    print("Do Not apply per aperture residual correction")
-    per_aper_corr = False
 
+#dust is a bit dodgy here since it is RA, Dec and thus per fiber specific and IT DOES VARY from fiber to fiber
+#albeit rather slowly
+# if "--dust" in args:
+#     print("recording dust correction")
+#     dust = True
+# else:
+#     print("NO dust correction")
+#     dust = False
 
-if per_aper_corr and per_fiber_corr:
-    print("Must specify --fiber_corr OR --aper_cor, not both.")
-    exit(-1)
-
-
-if "--dust" in args:
-    print("recording dust correction")
-    dust = True
-else:
-    print("NO dust correction")
-    dust = False
-
-applydust = False
-
-if "--aper" in args:
-    i = args.index("--aper")
-    try:
-        aper = float(sys.argv[i + 1])
-        print(f"using specified  {aper}\" aperture")
-    except:
-        print("bad --aper specified")
-        exit(-1)
-else:
-    print("using default 3.5\" aperture")
-    aper = 3.5  # 3.5" aperture
-
-
-if "--minmag" in args:
-    i = args.index("--minmag")
-    try:
-        min_gmag = float(sys.argv[i + 1])
-        print(f"using specified {min_gmag} bright limit mag.")
-    except:
-        print("bad --minmag specified")
-        exit(-1)
-else:
-    print("using Seeing based minimum mag estimate.")
-    min_gmag = None #24.5  # 3.5" aperture
-
-
-if "--mag_adjust" in args:
-    i = args.index("--mag_adjust")
-    try:
-        mag_adjust = float(sys.argv[i + 1])
-        print(f"using specified {mag_adjust} magnitude adjustment.")
-    except:
-        print("bad --mag_adjust specified")
-        exit(-1)
-else:
-    print("using no magnitude limit adjustment.")
-    mag_adjust = 0  # 24.5  # 3.5" aperture
 
 print(f"{shotid} starting: {datetime.datetime.now()}")
 
-table_outname = "random_apertures_"+str(shotid) + ".fits"
-table_outname2 = "random_apertures_"+str(shotid) + "_fibers.fits"
-table_outname3 = "random_apertures_"+str(shotid) + "_ff.fits"
-table_outname4 = "random_apertures_"+str(shotid) + "_ff_fibers.fits"
+table_outname = "empty_fibers_"+str(shotid) + ".fits"
+table_outname2 = "empty_fibers_"+str(shotid) + "_ff.fits"
+
 
 #maybe this one was already done?
 # which files to check really depends on --ffsky and --bothsky
     #did they all copy or did it timeout during a copy?
 
 if bothsky:
-    if op.exists(table_outname) and op.exists(table_outname2) and op.exists(table_outname3) and op.exists(table_outname4):
-        #all good
-        print(f"{shotid} --bothsky outputs already exists. Exiting. {datetime.datetime.now()}")
-        exit(0)
-elif ffsky:
-    if op.exists(table_outname3) and op.exists(table_outname4):
-        #all good
-        print(f"{shotid} --ffsky outputs already exists. Exiting. {datetime.datetime.now()}")
-        exit(0)
-else:
     if op.exists(table_outname) and op.exists(table_outname2):
         #all good
-        print(f"{shotid} outputs already exists. Exiting. {datetime.datetime.now()}")
+        print(f"{shotid} --bothsky outputs already exist. Exiting. {datetime.datetime.now()}")
+        exit(0)
+elif ffsky:
+    if op.exists(table_outname2):
+        #all good
+        print(f"{shotid} --ffsky output already exists. Exiting. {datetime.datetime.now()}")
+        exit(0)
+else:
+    if op.exists(table_outname):
+        #all good
+        print(f"{shotid} output already exist. Exiting. {datetime.datetime.now()}")
         exit(0)
 
-if op.exists(table_outname) or op.exists(table_outname2) or op.exists(table_outname3) or op.exists(table_outname4):
+if op.exists(table_outname) or op.exists(table_outname2):
     print(f"{shotid} incomplete. Reset and retry. {datetime.datetime.now()}")
 
     try:
@@ -155,34 +107,13 @@ if op.exists(table_outname) or op.exists(table_outname2) or op.exists(table_outn
             os.remove(table_outname)
     except:
         pass
+
     try:
-        if not ffsky or bothsky:
+        if ffsky or bothsky:
             os.remove(table_outname2)
     except:
         pass
-    try:
-        if ffsky or bothsky:
-            os.remove(table_outname3)
-    except:
-        pass
-    try:
-        if ffsky or bothsky:
-            os.remove(table_outname4)
-    except:
-        pass
-    try:
-        os.remove(reject_outname)
-    except:
-        pass
-    try:
-        if not ffsky or bothsky:
-            os.remove("random_apertures_"+str(shotid)+".coord") #aka outfile
-    except:
-        pass
-    try:
-        os.remove("reject_"+str(shotid)+".coord") #aka reject coords file
-    except:
-        pass
+
 
 
 #####################################
@@ -229,8 +160,9 @@ if not os.path.exists(tmppath):
             print(f"Warning! --tmp path does not exist, cannot be created, or is not writable: {tmppath}")
             exit(-1)
 
-
-#get the shot from the command line
+#########################################
+# Helper Funcs
+#########################################
 
 def linear_g(seeing): #estimate of depth from the seeing (based on HDR 3.0.3 detections)
     # return seeing * (-31./70.) + 25.76  # middle of the y_err
@@ -238,7 +170,63 @@ def linear_g(seeing): #estimate of depth from the seeing (based on HDR 3.0.3 det
     return SU.estimated_depth(seeing)
 
 
-outfile = open("random_apertures_"+str(shotid)+".coord", "w+")  # 3500-3800 avg +/- 0.04
+def split_spectra_into_bins(fluxd_2d, fluxd_err_2d, sort=True, trim=0.9):
+    """
+    given 2d array of spectra (G.CALFIB_WAVEGRID wavelengths assumed) in flux_density,
+    split and retun as a dictionary of 5 bins (10 entries ... 5bins x 2 for fluxd and fluxd_error)
+    :param fluxd_2d:
+    :param fluxd_err_2d:
+    :param sort: if True, sort under each bin (independently)
+    :param trim: if 0 to 1.0, keep the bottom "trim" fraction of the sorted sample (only if sort is True)
+    :return:
+    """
+
+    rd = {}  # return dict
+
+    bin_idx_ranges = [(15, 195), (195, 400), (400, 605), (605, 810), (810, 1015)]  # (inclusive-exclusive)
+    full_idx_ranges = [(0, 195), (195, 400), (400, 605), (605, 810),
+                       (810, 1036)]  # 1st and last different to cover full 1036
+
+    # todo: when appending, though need the full width, so 1st bin needs to be (0,195) and the last (810,1036)
+
+    for i, ((left, right), (full_left, full_right)) in enumerate(zip(bin_idx_ranges, full_idx_ranges)):
+        f = fluxd_2d[:, left:right]
+        e = fluxd_err_2d[:, left:right]
+        r = (full_left, full_right)
+        ff = fluxd_2d[:, full_left:full_right]
+        ef = fluxd_err_2d[:, full_left:full_right]
+
+        sel_e = np.isnan(e)
+        sel_ef = np.isnan(ef)
+        f[sel_e] = np.nan
+        ff[sel_ef] = np.nan
+
+        if sort:
+            md = np.nanmedian(fluxd_2d, axis=1)
+            idx = np.argsort(md)  # ascending order, smallest average flux to largest
+
+            if trim is not None and (0 < trim < 1.0):
+                max_idx = int(len(md) * trim)
+            else:
+                max_idx = len(md)
+            f = f[idx[0:max_idx]]
+            e = e[idx[0:max_idx]]
+            ff = ff[idx[0:max_idx]]
+            ef = ef[idx[0:max_idx]]
+
+        rd[f"f{i + 1}"] = copy.copy(ff)  # flux density in bin range
+        rd[f"e{i + 1}"] = copy.copy(ef)  # flux density error in bin range
+        rd[f"r{i + 1}"] = copy.copy(r)  # bin range indicies (inclusive index, exclusive index)
+
+    return rd
+
+
+
+
+#########################
+# Main Logic
+#########################
+
 
 hetdex_api_config = HDRconfig(survey_name)
 survey = Survey(survey_name)
@@ -246,20 +234,7 @@ print("Reading survey table ...")
 survey_table=survey.return_astropy_table()
 print("Getting FiberIndex ...")
 FibIndex = FiberIndex(survey_name)
-print("Reading amp flags table ...")
-ampflag_table = Table.read(hetdex_api_config.badamp)
 
-########################
-# Main Loop
-########################
-
-
-
-random_fibers_per_shot = 10000  # number of anchor fibers to select per shot (also then the maximum number of aperture attempts)
-empty_apertures_per_shot = 200  # stop once we hit this number of "successful" apertures in a shot
-ra_nudge = 0.75  # random nudge between 0 and this value in fiber center RA
-dec_nudge = 0.75  # ditto for Dec
-min_fibers = 15  # min number of fibers in an extraction
 negative_flux_limit = -0.4e-17  # erg/s/cm2/AA ... more negative than this, assume something is wrong
 hetdex_nearest_detection = 2.0 #in arcsec
 
@@ -271,63 +246,123 @@ wave_continuum_chunks_idx = [np.arange(15, 166, 1),  # 3500-3800
 # these are not based on seeing FWHM.
 # aligns with wave_continuum_chunks_idx
 #aperture values: note 0.1e-17 is about 24.2 at 4700AA
-acceptable_fluxd = [(-0.1, 0.5), #swing in the blue ... really should never be negative, roughly 5-10x is maybe okay
-                    (-0.1, 0.1),
-                    (-0.1, 0.1),]
+
+#based on the aperture values; for a typical high weighted (central) fiber this is about a factor of 7x high
+#so, for a rough 1st estimate, divide by 7
+#(though this is seeing dependent)
+aper2fiber = 7.0
+acceptable_fluxd = [(-0.1/aper2fiber, 0.5/aper2fiber), #swing in the blue ... really should never be negative, roughly 5-10x is maybe okay
+                    (-0.1/aper2fiber, 0.1/aper2fiber),
+                    (-0.1/aper2fiber, 0.1/aper2fiber),]
 
 
 
 ##
-## grab all the fibers for this shot and randomly select random_fibers_per_shot
-## go ahead and read the badamps for this shot so can more quickly compare
+## grab all the fibers for this shot
+## go ahead and read the badamps for this shot
 ##
-sel = (ampflag_table['shotid'] == shotid) & (ampflag_table['flag'] == 0)  # here, 0 is bad , 1 is good
+#sel = (ampflag_table['shotid'] == shotid) & (ampflag_table['flag'] == 0)  # here, 0 is bad , 1 is good
 #bad_amp_list = ampflag_table['multiframe'][sel] #using the fiber index values which includes the bad amp flag
 
-print("Building super table of fiberIDs ...")
-idx = FibIndex.hdfile.root.FiberIndex.get_where_list("shotid==shot")
-if len(idx) is None or len(idx) < 9000: #less than 20 IFUs ... very early data
-    print(f"{shot} too few fibers. Aborting.")
-    exit(0)
+# print("Building super table of fiberIDs ...")
+# idx = FibIndex.hdfile.root.FiberIndex.get_where_list("shotid==shot")
+# if len(idx) is None or len(idx) < 4000: #something is wrong
+#     print(f"{shot} too few fibers. Aborting.")
+#     exit(0)
 
-# if idx is None or len(idx) < 20000:
-#     fi_shotids = FibIndex.hdfile.root.FiberIndex.read(field="shotid")
-#     idx = np.where(fi_shotids==shotid)[0]
 
-small_array = False
-if len(idx) < random_fibers_per_shot:
-    random_fibers_per_shot = len(idx)
-    small_array = True
 
-rand_idx = np.random.choice(idx, size=random_fibers_per_shot, replace=False)
-fibers_table = Table(FibIndex.hdfile.root.FiberIndex.read_coordinates(rand_idx)) #randomize the fiber ordering
-mask_table = Table(FibIndex.fibermaskh5.root.Flags.read_coordinates(rand_idx))
+fibers_table = get_fibers_table(shot)
+#drop the columns we don't care about to save memory
+fibers_table.keep_columns(['fiber_id','calfib','calfib_ffsky','calfibe','fiber_to_fiber','trace','chi2']) #have to keep the fiber_id for the moment
+
+start = f'{shot}_0'
+stop = f'{shot}_9'
+mask_table = Table(FibIndex.fibermaskh5.root.Flags.read_where("(fiber_id > start) & (fiber_id < stop)"))
 super_tab = join(fibers_table, mask_table, "fiber_id")
+del fibers_table #don't need it anymore
+del mask_table
+super_tab.remove_columns(['fiber_id']) #don't need it anymore
 
+
+#######################################################################
+# first, always cut all fibers (entire fibers) that are flagged
+# remove any that are bad (flag = True is actually good)
+#######################################################################
+sel = super_tab['flag'] & super_tab['amp_flag'] & super_tab['meteor_flag'] & super_tab['gal_flag'] & super_tab['shot_flag'] & super_tab['throughput_flag']
+super_tab = super_tab[sel]
+#and we do not need the flag columns anymore
+super_tab.remove_columns(['flag','amp_flag','meteor_flag','gal_flag','shot_flag','throughput_flag'])
+
+############################################################################
+# next, cut all fibers with obvious continuum or deeply negative problems
+############################################################################
+rd = split_spectra_into_bins(super_tab['calfib'],super_tab['calfibe'],sort=False,trim=None)
+
+super_tab['avg1'] = np.nanmedian(rd['f1'],axis=1) #3500-3860
+super_tab['avg2'] = np.nanmedian(rd['f2'],axis=1) #3860-4270
+super_tab['avg3'] = np.nanmedian(rd['f3'],axis=1) #4270-4860
+super_tab['avg4'] = np.nanmedian(rd['f4'],axis=1) #4860-5090
+super_tab['avg5'] = np.nanmedian(rd['f5'],axis=1) #5090-5500
+
+
+norm_min = -0.05
+norm_max = 0.05
+#first bin, at exteme blue is different
+sel =       np.array(super_tab['avg1'] > norm_min) & np.array(super_tab['avg1'] < 0.2) #3500-3860
+
+sel = sel & np.array(super_tab['avg2'] > norm_min) & np.array(super_tab['avg2'] < norm_max) #3860-4270
+sel = sel & np.array(super_tab['avg3'] > norm_min) & np.array(super_tab['avg3'] < norm_max) #4270-4860
+sel = sel & np.array(super_tab['avg4'] > norm_min) & np.array(super_tab['avg4'] < norm_max) #4860-5090
+sel = sel & np.array(super_tab['avg5'] > norm_min) & np.array(super_tab['avg5'] < norm_max) #5090-5500
+super_tab = super_tab[sel]
+
+#######################################################################
+# next, cut all fibers with emission lines??? (this could be trixy)
+# maybe a median filter that is 3 or 5 wide and if there are any peaks above
+# some level, then cut the whole fiber?
+# any faint emission line will not repeat over more than a handfull of fibers
+#   and when averaged into 60-70K fibers, will be meaningless
+#######################################################################
+
+
+
+# NOW apply the variable cuts:
+#  entire fiber, in multi-wavelength bins, per wavelength bin
+#  by sigma clip?, by top xx where the xx% could vary by bin
 #
-# todo: if min_mag is 0 (say, not specified) attempt to make an overall depth estimate for the SHOT
-# todo: based on the elixer method in spectrum_utilities::calc_dex_g_limit()
-# todo: maybe just grab a bunch of random fibers, say up to 500?
-# todo: toss out any with high flux counts or high noise (like in elixer)
-# todo: then send the rest into SU.calc_dex_g_limit() along with the seeing FWHM etc
-# todo: and use the resulting value as the mag limit? OR just send in ALL the fibers?
 
 
 
+#local sky, ALL stacking statistics are biweight
+T = Table(dtype=[('shotid', int),
 
+                 ('t00_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #keep all AFTER flag trim and absolute flux cut
+                 ('t00_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('t01_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 1% per wavelength bin
+                 ('t01_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('t02_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 2% per wavelength bin
+                 ('t02_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('t03_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 3% per wavelength bin
+                 ('t03_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('t04_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 4% per wavelength bin
+                 ('t04_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('t05_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 5% per wavelength bin
+                 ('t05_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
 
-##
-## iterate over the random fibers, verify is NOT on a bad amp, nudge the coordinate and extract
-##
-aper_ct = 0
-write_every = 50
+                 ('fluxd', (float, len(G.CALFIB_WAVEGRID))),
+                 ('fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('fiber_weights',(float,32)),
+                 ('fiber_weights_norm',(float,32)),
+                 ('fluxd_zero', (float, len(G.CALFIB_WAVEGRID))),
+                 ('fluxd_zero_err', (float, len(G.CALFIB_WAVEGRID))),
 
-#aperture
-T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
-                 ('seeing',float),('response',float),('apcor',float),
-                 ('f50_3800',float),('f50_5000',float),
+                 ])
+
+#ffsky (if both)
+T2 = Table(dtype=[('shotid', int),
+                 ('seeing',float),('response',float),
                  ('dex_g',float),('dex_g_err',float),('dex_cont',float),('dex_cont_err',float),
-                 ('fluxd_sum',float),('fluxd_sum_wide',float),('fluxd_median',float),('fluxd_median_wide',float),
                  ('fluxd', (float, len(G.CALFIB_WAVEGRID))),
                  ('fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
                  ('fiber_weights',(float,32)),
@@ -337,53 +372,16 @@ T = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
                  ('dust_corr', (float, len(G.CALFIB_WAVEGRID))),
                  ])
 
-#individual fibers
-T2 = Table(dtype=[('ra', float), ('dec', float), ('fiber_ra', float), ('fiber_dec', float),
-                 ('shotid', int),
-                 ('seeing',float),
-                 ('fluxd', (float, len(G.CALFIB_WAVEGRID))),
-                 ('fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('dust_corr', (float, len(G.CALFIB_WAVEGRID))),
-                 ])
 
-#ffsky table IF bothsky
-#the first 12 columns (ra through dex_cont_err) are same as the T (local sky) table
-#the remaining columns (dex_g_ff and onward) are new
-T3 = Table(dtype=[('ra', float), ('dec', float), ('shotid', int),
-                 ('seeing',float),('response',float),('apcor',float),
-                 ('f50_3800',float),('f50_5000',float),
-                 ('dex_g',float),('dex_g_err',float),('dex_cont',float),('dex_cont_err',float),
-                 ('dex_g_ff',float),('dex_g_err_ff',float),('dex_cont_ff',float),('dex_cont_err_ff',float),
-                 ('fluxd_sum',float),('fluxd_sum_wide',float),('fluxd_median',float),('fluxd_median_wide',float),
-                 ('fluxd', (float, len(G.CALFIB_WAVEGRID))),
-                 ('fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('fiber_weights',(float,32)),
-                 ('fiber_weights_norm',(float,32)),
-                 ('fluxd_zero', (float, len(G.CALFIB_WAVEGRID))),
-                 ('fluxd_zero_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('dust_corr', (float, len(G.CALFIB_WAVEGRID))),
-                 ])
 
-#individual fibers (ffsky) if --bothsky
-T4 = Table(dtype=[('ra', float), ('dec', float), ('fiber_ra', float), ('fiber_dec', float),
-                 ('shotid', int),
-                 ('seeing',float),
-                 ('fluxd', (float, len(G.CALFIB_WAVEGRID))),
-                 ('fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('dust_corr', (float, len(G.CALFIB_WAVEGRID))),
-                 ])
 
-E = Extract()
-E.load_shot(shotid)
 
-sel = np.array(survey_table['shotid'] == shotid)
 
 if np.count_nonzero(sel) != 1:
     print(f"problem: {shotid} has {np.count_nonzero(sel)} hits")
     exit(0)
 
-seeing = float(survey_table['fwhm_virus'][sel])
-response = float(survey_table['response_4540'][sel])
+
 
 del survey_table
 
@@ -431,8 +429,8 @@ for f in super_tab: #these fibers are in a random order so just iterating over t
     if sequential_fails > fail_rate_max:
         if aper_ct > 50:
             break
-        # elif aper_ct > 10 and short_array:
-        #     break
+        elif aper_ct > 10 and short_array:
+            break
 
 
 
