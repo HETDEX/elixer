@@ -106,6 +106,9 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
         dw = (wave_range[1]-wave_range[0])/2.0 #this is +/-3 sigma and so this (dw) is now half that range to get the midpoint
         w = wave_range[0]+dw
 
+        if w == 0:
+            return None
+
         #now change to the dw that the phot_tools API wants
         if sigma is not None:
             dw = sigma #the call to phot_tools.xxx turns this into +/- 2*sigma

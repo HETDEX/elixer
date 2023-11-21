@@ -221,6 +221,69 @@ def split_spectra_into_bins(fluxd_2d, fluxd_err_2d, sort=True, trim=0.9):
     return rd
 
 
+def stack_by_wavebin_bw(fluxd_2d, fluxd_err_2d, trim=1.00, sc=None, ir=None):
+    """
+    stack down each wavelength bin, trimming under each
+
+    sc = sigma_clip (symmetric)
+    ir = internal ratio (e.g. interior 2/3)
+
+    """
+
+    stack = np.zeros(len(G.CALFIB_WAVEGRID))
+    stack_err = np.zeros(len(G.CALFIB_WAVEGRID))
+    contrib = np.zeros(len(G.CALFIB_WAVEGRID))
+    N = len(fluxd_2d)
+
+    for i in range(1036):
+        # only consider those that have an associated error
+        # errors of < 0 are flagged as bad pixels, cosmic strikes, etc
+        sel = np.array(fluxd_err_2d[:, i] > 0) & np.array(~np.isnan(fluxd_err_2d[:, i])) & np.array(
+            ~np.isnan(fluxd_2d[:, i]))
+        if np.count_nonzero(sel) == 0:
+            stack[i] = 0
+            stack_err[i] = 0
+            continue
+
+        if trim < 1.0:
+            idx = np.argsort(fluxd_2d[:, i][sel])
+            max_idx = int(len(idx) * trim)
+            column = fluxd_2d[:, i][sel][idx][0:max_idx]
+            column_err = fluxd_err_2d[:, i][sel][idx][0:max_idx]
+        elif sc is not None:
+            column = fluxd_2d[:, i][sel]
+            column_err = fluxd_err_2d[:, i][sel]
+            mask = sigma_clip(column, sigma=sc)
+            column = column[~mask.mask]
+            column_err = column_err[~mask.mask]
+        elif ir is not None:
+            if ir >= 1.0:
+                column = fluxd_2d[:, i][sel]
+                column_err = fluxd_err_2d[:, i][sel]
+            else:
+                er = (1.0 - ir) / 2.0  # exterior ratio, e.g. if ir = 2/3 then er = 1/6 ... trim away the upper and lower 1/6
+                idx = np.argsort(fluxd_2d[:, i][sel])
+                low_idx = int(len(idx) * er)
+                high_idx = int(len(idx) * (ir + er))
+                column = fluxd_2d[:, i][sel][idx][low_idx:high_idx]
+                column_err = fluxd_err_2d[:, i][sel][idx][low_idx:high_idx]
+        # print(ir,low_idx,high_idx)
+
+        elif trim == 1.0:
+            column = fluxd_2d[:, i][sel]
+            column_err = fluxd_err_2d[:, i][sel]
+        else:
+            return None, None, None
+
+        try:
+            stack[i] = biweight.biweight_location(column)
+            stack_err[i] = biweight.biweight_scale(column)/np.sqrt(len(column))
+            contrib[i] = len(column)
+        except:
+            stack[i] = 0
+            stack_err[i] = 0
+
+    return stack, stack_err, contrib
 
 
 #########################
@@ -257,18 +320,110 @@ acceptable_fluxd = [(-0.1/aper2fiber, 0.5/aper2fiber), #swing in the blue ... re
 
 
 
-##
-## grab all the fibers for this shot
-## go ahead and read the badamps for this shot
-##
-#sel = (ampflag_table['shotid'] == shotid) & (ampflag_table['flag'] == 0)  # here, 0 is bad , 1 is good
-#bad_amp_list = ampflag_table['multiframe'][sel] #using the fiber index values which includes the bad amp flag
+#############################################
+# out put tables
+#############################################
 
-# print("Building super table of fiberIDs ...")
-# idx = FibIndex.hdfile.root.FiberIndex.get_where_list("shotid==shot")
-# if len(idx) is None or len(idx) < 4000: #something is wrong
-#     print(f"{shot} too few fibers. Aborting.")
-#     exit(0)
+#local sky, ALL stacking statistics are biweight
+T = Table(dtype=[('shotid', int),
+
+                 ('raw_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep all AFTER flagged fibers removed
+                 ('raw_fluxd_err', (float, len(G.CALFIB_WAVEGRID))), #NO OTHER TRIMMING
+                 ('raw_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                 ### fixed continuum trim (applies to ALL below) ###
+                 #this might be the biggest differentiator ... what do we define as continuum level?
+                 #and should this be shot variable?
+
+                 ('trim_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #keep all AFTER flag trim and absolute flux cut
+                 ('trim_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('trim_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                 ### top percent trim (applies only to this section) ###
+
+                 ('t01_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 1% per wavelength bin
+                 ('t01_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('t01_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                 ('t02_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 2% per wavelength bin
+                 ('t02_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('t02_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                 ('t03_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 3% per wavelength bin
+                 ('t03_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('t03_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                 ('t04_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 4% per wavelength bin
+                 ('t04_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('t04_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                 ('t05_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 5% per wavelength bin
+                 ('t05_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('t05_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                 ### sigma clips (applies only to this section) ###
+                 #sigma clip of 1 is WAAAY too agreesive, 2 is maybe okay, but we'll just use 3,4,5
+
+                 ('sc3_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # 3-sigm clip per wavelength bin
+                 ('sc3_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('sc3_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                 ('sc4_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # 4-sigm clip per wavelength bin
+                 ('sc4_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('sc4_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                 ('sc5_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # 5-sigm clip per wavelength bin
+                 ('sc5_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('sc5_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                 ### interior fraction (applies only to this section) ###
+
+                 #these are all extememly similar; after trimming for continuum, the distributions
+                 #are extemely Gaussian, so this particular variation makes almost no difference
+
+                 # ('ir50_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 50% (trim off top and bottom 25%)
+                 # ('ir50_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 # ('ir50_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                 #roughly interior +/- 1 std (assuming a normal distro)
+                 ('ir67_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 2/3 (trim off top and bottom 1/6)
+                 ('ir67_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ir67_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                 #roughly interior +/- 2 std (assuming a normal distro)
+                 ('ir95_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 95% (trim off top and bottom 2.5%)
+                 ('ir95_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ir95_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                 # roughly interior +/- 3 std (assuming a normal distro)
+                 ('ir99_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 99% (trim off top and bottom 0.5%)
+                 ('ir99_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('ir99_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                 ('fluxd', (float, len(G.CALFIB_WAVEGRID))),
+                 ('fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('fiber_weights',(float,32)),
+                 ('fiber_weights_norm',(float,32)),
+                 ('fluxd_zero', (float, len(G.CALFIB_WAVEGRID))),
+                 ('fluxd_zero_err', (float, len(G.CALFIB_WAVEGRID))),
+
+                 ])
+
+#ffsky (if both)
+T2 = Table(dtype=[('shotid', int),
+                 ('seeing',float),('response',float),
+                 ('dex_g',float),('dex_g_err',float),('dex_cont',float),('dex_cont_err',float),
+                 ('fluxd', (float, len(G.CALFIB_WAVEGRID))),
+                 ('fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('fiber_weights',(float,32)),
+                 ('fiber_weights_norm',(float,32)),
+                 ('fluxd_zero', (float, len(G.CALFIB_WAVEGRID))),
+                 ('fluxd_zero_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('dust_corr', (float, len(G.CALFIB_WAVEGRID))),
+                 ])
+
+
+
 
 
 
@@ -293,6 +448,11 @@ sel = super_tab['flag'] & super_tab['amp_flag'] & super_tab['meteor_flag'] & sup
 super_tab = super_tab[sel]
 #and we do not need the flag columns anymore
 super_tab.remove_columns(['flag','amp_flag','meteor_flag','gal_flag','shot_flag','throughput_flag'])
+
+flux_stack, fluxe_stack = stack_by_wavebin_bw(super_tab[col], super_tab[cole], trim=1.00, sc=None, ir=None)
+
+T['raw_fluxd'] = flux_stack
+T['raw_fluxd_err'] = fluxe_stack
 
 ############################################################################
 # next, cut all fibers with obvious continuum or deeply negative problems
@@ -334,47 +494,6 @@ super_tab = super_tab[sel]
 
 
 
-#local sky, ALL stacking statistics are biweight
-T = Table(dtype=[('shotid', int),
-
-                 ('t00_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #keep all AFTER flag trim and absolute flux cut
-                 ('t00_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('t01_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 1% per wavelength bin
-                 ('t01_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('t02_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 2% per wavelength bin
-                 ('t02_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('t03_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 3% per wavelength bin
-                 ('t03_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('t04_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 4% per wavelength bin
-                 ('t04_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('t05_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 5% per wavelength bin
-                 ('t05_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-
-                 ('fluxd', (float, len(G.CALFIB_WAVEGRID))),
-                 ('fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('fiber_weights',(float,32)),
-                 ('fiber_weights_norm',(float,32)),
-                 ('fluxd_zero', (float, len(G.CALFIB_WAVEGRID))),
-                 ('fluxd_zero_err', (float, len(G.CALFIB_WAVEGRID))),
-
-                 ])
-
-#ffsky (if both)
-T2 = Table(dtype=[('shotid', int),
-                 ('seeing',float),('response',float),
-                 ('dex_g',float),('dex_g_err',float),('dex_cont',float),('dex_cont_err',float),
-                 ('fluxd', (float, len(G.CALFIB_WAVEGRID))),
-                 ('fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('fiber_weights',(float,32)),
-                 ('fiber_weights_norm',(float,32)),
-                 ('fluxd_zero', (float, len(G.CALFIB_WAVEGRID))),
-                 ('fluxd_zero_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('dust_corr', (float, len(G.CALFIB_WAVEGRID))),
-                 ])
-
-
-
-
 
 
 if np.count_nonzero(sel) != 1:
@@ -394,24 +513,6 @@ dex_ra = elix_h5.root.Detections.read_where("sn > 5.5",field='ra')
 dex_dec = elix_h5.root.Detections.read_where("sn > 5.5",field='dec')
 #dex_snr = elix_h5.root.Detections.read(field='sn')
 elix_h5.close()
-
-if min_gmag is None:
-    min_gmag = SU.estimated_depth(seeing)
-    min_gmag = max(min_gmag,24.3)
-
-min_gmag += mag_adjust
-
-
-reject_outname = "reject_"+str(shotid)+".coord"
-reject_file = open(op.join(tmppath,reject_outname), "w+")
-
-
-accepted_coords = []
-
-fail_rate_max = 100 #if fail 100 in a row, just quit if we have at least 50 spectra
-                    #or if there are too few to use
-
-sequential_fails = 0
 
 print(f"{shotid} main loop ....  {datetime.datetime.now()}")
 
