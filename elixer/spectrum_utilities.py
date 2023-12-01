@@ -3506,7 +3506,7 @@ def get_empty_fiber_residual(hdr=G.HDR_Version, rtype=None, shotid=None, seeing=
                         residual = np.array(T[col][idx])
                         residual_err = np.array(T[col_err][idx])
 
-                        return residual, residual_err
+                        return residual, residual_err, contributors
 
             # we don't have it already, so check the index to find the row we want to read
             if ffsky:
@@ -3572,7 +3572,7 @@ def get_empty_fiber_residual(hdr=G.HDR_Version, rtype=None, shotid=None, seeing=
         except:
             log.warning("Exception in get_empty_fiber_residual.", exc_info=True)
 
-        return residual, residual_err
+        return residual, residual_err, contributors
 
 
 def fetch_per_shot_single_fiber_sky_subtraction_residual(path,shotid,column,prefix=None,seeing=None):
