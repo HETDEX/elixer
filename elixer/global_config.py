@@ -25,7 +25,7 @@ if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
 #version
-__version__ = '1.22.0a3'
+__version__ = '1.22.0a4'
 
 
 #initial working dir
@@ -1456,8 +1456,12 @@ ZP_INTERCEPT = -1 * ZP_SLOPE * ZP_FAINT_FLUXD
 fz = False #temporary; if True prefer the compressed fits over the uncompressed fits
 
 
-#Background Residual Tables (LL (local) and FF sky)
 DEBLEND_MAG_LIMIT = -1 #-1 use estimated depth, 0 no limit, other the actual HETDEX gmag limit
+
+############################
+#Empty Aperture Residuals
+############################
+#Background Residual Tables (LL (local) and FF sky)
 BGR_RES_TAB_LL = None
 BGR_RES_TAB_FF = None
 
@@ -1466,7 +1470,6 @@ BGR_RES_TAB_FF_RUN = None
 
 BGR_RES_TAB_LL_IDX = None
 BGR_RES_TAB_FF_IDX = None
-#todo: need to add the columns for fibers from full shot
 
 # BGR_RES_TAB_LL_FN = op.join(op.dirname(op.realpath(__file__)),"sky_subtraction_residuals/BGR_RES_TAB_LL.fits")
 # BGR_RES_TAB_FF_FN = op.join(op.dirname(op.realpath(__file__)),"sky_subtraction_residuals/BGR_RES_TAB_FF.fits")
@@ -1476,3 +1479,27 @@ BGR_RES_TAB_FF_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BG
 #just ra, dec, shotid, seeing and respoonse ... not the full data
 BGR_RES_TAB_LL_IDX_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_TAB_LL_IDX.fits"
 BGR_RES_TAB_FF_IDX_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_TAB_FF_IDX.fits"
+
+############################
+#Empty Fiber Residuals
+############################
+
+#Background Residual Tables (LL (local) and FF sky)
+
+BGR_RES_FIBER_TAB_LL = None
+BGR_RES_FIBER_TAB_FF = None
+
+BGR_RES_FIBER_TAB_LL_RUN = None #running table, only has the rows we've used so far
+BGR_RES_FIBER_TAB_FF_RUN = None
+
+BGR_RES_FIBER_TAB_LL_IDX = None
+BGR_RES_FIBER_TAB_FF_IDX = None
+#todo: need to add the columns for fibers from full shot
+
+
+BGR_RES_FIBER_TAB_LL_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_FIBER_TAB_LL.fits"
+BGR_RES_FIBER_TAB_FF_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_FIBER_TAB_FF.fits"
+
+#just ra, dec, shotid, seeing and respoonse ... not the full data
+BGR_RES_FIBER_TAB_LL_IDX_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_FIBER_TAB_LL_IDX.fits"
+BGR_RES_FIBER_TAB_FF_IDX_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_FIBER_TAB_FF_IDX.fits"

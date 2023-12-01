@@ -1,5 +1,10 @@
 changes to elixer by version
 
+1.22.0a4 [2023-12-01]
+* added empty fiber databases (per shot). Selection via spectrum_utilities get_empty_fiber_residual()
+    + for testing this version, the databases are under /scratch/03261/polonius/hetdex/sky_subtraction_residuals/
+      they will be moved in an upcoming version under the hetdex account
+
 1.22.0a3 [2023-11-19]
 * fixed >,< typo in check for medium angular size galaxy with small-ish emission line FWHM
 * make sure "this" detectid is at the top of neighbors if only running neighbors and using a specific detectid;

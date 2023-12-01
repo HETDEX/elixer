@@ -311,8 +311,14 @@ for enum_i,files in enumerate(zip(aper_files,fiber_files)):
         i += 1
 
     # now stitch them all together into a single spectrum and error
-    ad["fluxd_stack"] = np.concatenate([ad[x] for x in ad.keys() if x[0:2] == "fs"])
-    ad["fluxe_stack"] = np.concatenate([ad[x] for x in ad.keys() if x[0:2] == "es"])
+    try:
+        ad["fluxd_stack"] = np.concatenate([ad[x] for x in ad.keys() if x[0:2] == "fs"])
+        ad["fluxe_stack"] = np.concatenate([ad[x] for x in ad.keys() if x[0:2] == "es"])
+    except Exception as e:
+        print(e,flush=True)
+        print(f"Failing {f1} and continue on ...")
+        continue
+
 
 
     #stack the apertures
