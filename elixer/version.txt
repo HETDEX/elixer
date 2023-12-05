@@ -1,5 +1,11 @@
 changes to elixer by version
 
+1.22.0a5 [in progress]
+* fixed typo in OIII-4959 wavelength (air); was 4958.111 instead of 4958.911
+* [off for testing] add HeI 4471 as rank 5 line. Shows up in, for example, bright LzG like 3003679733
+* [in progress] adding floating anchor line classifiction if passed anchor line does not produce a confident
+  classifiction and there are "good" ununsed emission lines
+
 1.22.0a4 [2023-12-01]
 * added empty fiber databases (per shot). Selection via spectrum_utilities get_empty_fiber_residual()
     + for testing this version, the databases are under /scratch/03261/polonius/hetdex/sky_subtraction_residuals/

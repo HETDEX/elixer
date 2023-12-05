@@ -879,7 +879,7 @@ OII_rest = 3727.8 #3726.032 + 3728.815  or  3727.319 + 3729.221 (27 + 14 weights
 
 
 #all other lines (in air) (from http://astronomy.nmsu.edu/drewski/tableofemissionlines.html)
-OIII_4959 = 4958.111
+OIII_4959 = 4958.911
 OIII_5007 = 5006.843
 OVI_1035 = 1034.7625  #*** vacuum 1031.912 + 1037.613, equal weight
 
@@ -897,6 +897,7 @@ Hzeta_3889 = 3889.064 #aka H8
 Heta_3835 = 3835.391 #aka H9
 
 HeI_3888 = 3888.647 #not currently used
+HeI_4471 = 4471.479 #not currently used
 
 NV_1241 = 1240.7077 #*** vacuum 1238.821 + 1242.804 (1000 + 900 weights, but close enough to be equal)
 SiII_1260 = 1263.40075 #*** vacuum 1260.422 +  1264.730 + 1265.002 (1000 + 2000 + 200 weights)

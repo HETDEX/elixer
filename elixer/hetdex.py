@@ -8564,10 +8564,26 @@ class DetObj:
                         if rows is None:
                             self.status = -1
                             log.error(f"Problem loading detectid {id}. None returned.")
+
+                            try:
+                                if str(id)[0] != G.HDR_Version:
+                                    warn = f"***** Warning ***** {id} prefix may be incompatible with current HDR Version {G.HDR_Version}"
+                                    print(warn)
+                                    log.warning(warn)
+                            except:
+                                pass
+
                             return
                         elif rows.size != 1:
                             self.status = -1
                             log.error(f"Problem loading detectid {id}. {rows.size} rows returned.")
+                            try:
+                                if str(id)[0] != G.HDR_Version:
+                                    warn = f"***** Warning ***** {id} prefix may be incompatible with current HDR Version {G.HDR_Version}"
+                                    print(warn)
+                                    log.warning(warn)
+                            except:
+                                pass
                             return
 
                         row = rows[0]  # should only be the one row
@@ -9937,6 +9953,17 @@ class HETDEX:
         if args is None:
             log.error("Cannot construct HETDEX object. No arguments provided.")
             return None
+
+
+        #sanity check HDR version vs detectID if passed in
+        try:
+            if hdf5_detectid_list is not None and len(hdf5_detectid_list) == 1:
+                if str(hdf5_detectid_list[0])[0] != G.HDR_Version:
+                    warn = f"***** Warning ***** {hdf5_detectid_list[0]} prefix may be incompatible with current HDR Version {G.HDR_Version}"
+                    print(warn)
+                    log.warning(warn)
+        except:
+            pass
 
         self.cli_args = args
 
@@ -11968,19 +11995,19 @@ class HETDEX:
             if ( good ):
                 # strong solution
                 sol = datakeep['detobj'].spec_obj.solutions[0]
-                title += "\n*Q(%0.2f) %s(%d) z = %0.4f  EW_r = %0.1f$\AA$" %(p_score, sol.name, int(sol.central_rest),sol.z,
+                title += "\n*Q(%0.2f) %s(%d) z = %0.4f  EW_r = %0.1f$\AA$" %(p_score, sol.name, round(sol.central_rest),sol.z,
                                                                             l_eqw_obs/(1.0+sol.z))
             elif (scale_score > G.MULTILINE_MIN_WEAK_SOLUTION_CONFIDENCE):
                 #weak solution ... for display only, not acceptabale as a solution
                 #do not set the solution (sol) to be recorded
                 sol = datakeep['detobj'].spec_obj.solutions[0]
                 title += "\nQ(%0.2f) %s(%d) z = %0.4f  EW_r = %0.1f$\AA$" % \
-                         ( p_score, sol.name, int(sol.central_rest), sol.z,l_eqw_obs / (1.0 + sol.z))
+                         ( p_score, sol.name, round(sol.central_rest), sol.z,l_eqw_obs / (1.0 + sol.z))
             else:
                 try:
                     sol = datakeep['detobj'].spec_obj.solutions[0]
                     title += "\nQ(%0.2f) %s(%d) z = %0.4f  EW_r = %0.1f$\AA$" % \
-                             (p_score, sol.name, int(sol.central_rest), sol.z, l_eqw_obs / (1.0 + sol.z))
+                             (p_score, sol.name, round(sol.central_rest), sol.z, l_eqw_obs / (1.0 + sol.z))
                 except:
                     title += "\n"  # just to keep the spacing
             # else:

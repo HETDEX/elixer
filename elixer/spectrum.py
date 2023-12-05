@@ -4986,6 +4986,7 @@ class Spectrum:
 
             #big in AGN, but never alone in our range
             EmissionLine("HeII".ljust(w), G.HeII_1640, "orange", solution=True,display=True,rank=3),
+            #EmissionLine("HeI".ljust(w), G.HeI_4471, "orange", solution=False, display=False, rank=5),
             ## maybe add HeII 2733 as well??? don't know how strong it is
 
             EmissionLine("NeIII".ljust(w), G.NeIII_3869, "deeppink", solution=False,display=False,rank=4),
@@ -6939,7 +6940,7 @@ class Spectrum:
         found_absorbers = []
         found_lines = []
 
-        if self.all_found_lines is None or len(self.all_found_lines == 0):
+        if self.all_found_lines is None or len(self.all_found_lines) == 0:
             try:
                 found_lines = peakdet(wavelengths,values,errors,values_units=values_units,spec_obj=self)
             except:
@@ -7224,6 +7225,7 @@ class Spectrum:
 
         solutions = self.classify_with_additional_lines(wavelengths,values,errors,central,values_units,known_z=known_z,
                                                         continuum_limit=continuum_limit,continuum_limit_err=continuum_limit_err)
+
         self.solutions = solutions
 
         #set the unmatched solution (i.e. the solution score IF all the extra lines were unmatched,
@@ -7234,9 +7236,50 @@ class Spectrum:
         except:
             log.debug("Exception computing unmatched solution count and score",exc_info=True)
 
+        # if there are no solutions returned, or only weak solutions AND there are multiple strong lines
+        # try again, but allow ELiXer to choose the anchor line
+        # It may well be that the line passed in is not in the ELiXer list and/or is not a real emission line
+
+        try:
+            if False and solutions is None or len(solutions) == 0 or solutions[0].score < G.MULTILINE_WEIGHT_SOLUTION_SCORE:
+                #todo: could be more selective and alsu use SNR and chi2
+                num_strong_lines = np.count_nonzero([x.raw_score > 10.0 for x in self.all_found_lines])
+                if num_strong_lines > 2: #3 or more
+                    #save off the original central, central eli, etc
+                    #todo: there is MORE to save off and restore
+                    saved_central = self.central
+                    saved_central_eli = None
+                    if self.central_eli is not None:
+                        saved_central_eli = copy.deepcopy(self.central_eli)
+                        del self.central_eli
+                        self.central_eli = None
+                    saved_solutions = None
+                    if self.solutions is not None:
+                        saved_solutions = copy.deepcopy(self.solutions)
+                        del self.solutions
+                        self.solutions = None
+
+                    self.central = self.all_found_lines[np.argmax([x.raw_line_score for x in self.all_found_lines])].fit_x0
+                    #self.central = self.find_central_wavelength(wavelengths, values, errors, values_units=values_units)
+
+                    alt_solutions =  self.classify_with_additional_lines(wavelengths,values,errors,
+                                                                         self.central,values_units,known_z=known_z,
+                                                                         continuum_limit=continuum_limit,
+                                                                         continuum_limit_err=continuum_limit_err)
+
+                    if alt_solutions is not None and len(alt_solutions) > 0:
+                        print("todo here, choose the best solution and line for the redshift?")
+
+                    #restore originals
+                    self.central = saved_central
+                    self.central_eli = saved_central_eli
+                    self.solutions = saved_solutions
+
+        except:
+            log.debug("Exception re-running classify_with_additional_lines() with free anchor line.", exc_info=True)
 
 
-        #if this has strong continuum AND there is no H&K solution already,
+            #if this has strong continuum AND there is no H&K solution already,
         # explicitly check for an H&K solution (which is not subject to
         #unmatched lines if z ~ 0 ... often a star and there are lots of unmatches lines
 
