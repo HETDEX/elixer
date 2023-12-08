@@ -5,6 +5,9 @@ changes to elixer by version
 * [off for testing] add HeI 4471 as rank 5 line. Shows up in, for example, bright LzG like 3003679733
 * [in progress] adding floating anchor line classifiction if passed anchor line does not produce a confident
   classifiction and there are "good" ununsed emission lines
+* empty fiber selection, add removal of full fibers with excessive (more than 100) zeros or NaNa
+* empty fiber stacking, add per-wavebin stacking equivalents but selecting ENTIRE fibers (not down each wavelength) under
+  the same cut top xx%, sigma clip and interior ration selections, based on the summed flux over a range of wavelengths
 
 1.22.0a4 [2023-12-01]
 * added empty fiber databases (per shot). Selection via spectrum_utilities get_empty_fiber_residual()
