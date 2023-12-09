@@ -309,10 +309,13 @@ def stack_by_waverange_bw(fluxd_2d, fluxd_err_2d, waverange = (3500,5500), trim=
     contrib = np.zeros(len(G.CALFIB_WAVEGRID))
     N = len(fluxd_2d)
     sel = None
+    waveidx = np.array([0,0])
+    waveidx[0],*_ = SU.getnearpos(G.CALFIB_WAVEGRID,waverange[0])
+    waveidx[1], *_ = SU.getnearpos(G.CALFIB_WAVEGRID, waverange[1])
 
     #make an array against which to select
     #since these are all top cuts or sigma clips or interior ratios, it does not matter if these are sums or averages
-    flux_sums = np.nansum(fluxd_2d[:,waverange[0]:waverange[1]+1],axis=1)
+    flux_sums = np.nansum(fluxd_2d[:,waveidx[0]:waveidx[1]+1],axis=1)
 
     if trim < 1.0:
         idx = np.argsort(flux_sums)
@@ -629,6 +632,7 @@ T2 = Table(dtype=[('shotid', int), ('seeing',float), ('response',float),
 
 
 if not TEST:
+#if True:
     print(f"{shotid} get_fibers_table() ....  {datetime.datetime.now()}")
     fibers_table = get_fibers_table(shot)
     print(f"{shotid} [DONE] get_fibers_table() ....  {datetime.datetime.now()}, # rows = {len(fibers_table)}")
@@ -674,51 +678,53 @@ if not TEST:
     except:
         pass
 
-
-    #######################################################################
-    # next, always cut all fibers (entire fibers) that have excessive NaNs
-    # (in data or error) or excessive zero errors
-    #######################################################################
-
-    print(f"{shotid} removing excessive nans or zeros fibers ....  {datetime.datetime.now()}")
-    try:
-        fd_bad = np.count_nonzero(np.isnan(super_tab["calfib"]),axis=1)
-        fe_bad = np.count_nonzero(np.isnan(super_tab["calfibe"]),axis=1)
-        ff_bad = np.count_nonzero(np.isnan(super_tab["calfib_ffsky"]),axis=1)
-
-        #want to KEEP these so, select low numbers of NaNs
-        sel = np.array(fd_bad < 100) & np.array(fe_bad < 100) & np.array(ff_bad < 100)
-
-        print(f"{shotid} removed {len(super_tab) - np.count_nonzero(sel)} excessive NaN fibers ....")
-        super_tab = super_tab[sel]
-
-        #now remove excessive zeroe
-        #NOTE: a zero in the calfib or calfib_ffsky is fine. There can be exactly zero flux (though rare, even
-        # with rounding. A zero in the error (calfibe) is NOT OKAY. That is a flag that there is something wrong.
-        # That said, there are often zero calfibe values at the very beginning and end of the rectified arrays where
-        # there really are no values to put in AND if there are a lot of exactly zero flux values, we also assume that is
-        # a problem.
-        sz = len(G.CALFIB_WAVEGRID)
-        fd_bad = sz - np.count_nonzero(super_tab["calfib"],axis=1)
-        fe_bad = sz - np.count_nonzero(super_tab["calfibe"],axis=1)
-        ff_bad = sz - np.count_nonzero(super_tab["calfib_ffsky"],axis=1)
-
-        #want to KEEP these so, select low numbers of NaNs
-        sel = np.array(fd_bad < 100) & np.array(fe_bad < 100) & np.array(ff_bad < 100)
-
-        print(f"{shotid} removed {len(super_tab) - np.count_nonzero(sel)} excessive number of zero valued fibers ....")
-        super_tab = super_tab[sel]
-
-
-    except:
-        pass
-
 ##############################
 # for testing only
 ##############################
 #print("!!!!! REMOVE ME !!!!!")
-#super_tab.write("super_tab_test.fits",format="fits",overwrite=False)
-#super_tab = Table.read("super_tab_test.fits",format="fits")
+#super_tab.write("super_tab_test.fits", format="fits", overwrite=False)
+super_tab = Table.read("super_tab_test.fits", format="fits")
+
+
+#######################################################################
+# next, always cut all fibers (entire fibers) that have excessive NaNs
+# (in data or error) or excessive zero errors
+#######################################################################
+
+print(f"{shotid} removing excessive nans or zeros fibers ....  {datetime.datetime.now()}")
+try:
+    fd_bad = np.count_nonzero(np.isnan(super_tab["calfib"]),axis=1)
+    fe_bad = np.count_nonzero(np.isnan(super_tab["calfibe"]),axis=1)
+    ff_bad = np.count_nonzero(np.isnan(super_tab["calfib_ffsky"]),axis=1)
+
+    #want to KEEP these so, select low numbers of NaNs
+    sel = np.array(fd_bad < 100) & np.array(fe_bad < 100) & np.array(ff_bad < 100)
+
+    print(f"{shotid} removed {len(super_tab) - np.count_nonzero(sel)} excessive NaN fibers ....")
+    super_tab = super_tab[sel]
+
+    #now remove excessive zeroe
+    #NOTE: a zero in the calfib or calfib_ffsky is fine. There can be exactly zero flux (though rare, even
+    # with rounding. A zero in the error (calfibe) is NOT OKAY. That is a flag that there is something wrong.
+    # That said, there are often zero calfibe values at the very beginning and end of the rectified arrays where
+    # there really are no values to put in AND if there are a lot of exactly zero flux values, we also assume that is
+    # a problem.
+    sz = len(G.CALFIB_WAVEGRID)
+    fd_bad = sz - np.count_nonzero(super_tab["calfib"],axis=1)
+    fe_bad = sz - np.count_nonzero(super_tab["calfibe"],axis=1)
+    ff_bad = sz - np.count_nonzero(super_tab["calfib_ffsky"],axis=1)
+
+    #want to KEEP these so, select low numbers of NaNs
+    sel = np.array(fd_bad < 100) & np.array(fe_bad < 100) & np.array(ff_bad < 100)
+
+    print(f"{shotid} removed {len(super_tab) - np.count_nonzero(sel)} excessive number of zero valued fibers ....")
+    super_tab = super_tab[sel]
+
+
+except:
+    pass
+
+
 
 
 flux_stack, fluxe_stack,contrib = stack_by_wavebin_bw(super_tab["calfib"], super_tab["calfibe"], trim=1.00, sc=None, ir=None)
@@ -757,6 +763,7 @@ sel = sel & np.array(super_tab['avg2'] > norm_min) & np.array(super_tab['avg2'] 
 sel = sel & np.array(super_tab['avg3'] > norm_min) & np.array(super_tab['avg3'] < norm_max) #4270-4860
 sel = sel & np.array(super_tab['avg4'] > norm_min) & np.array(super_tab['avg4'] < norm_max) #4860-5090
 sel = sel & np.array(super_tab['avg5'] > norm_min) & np.array(super_tab['avg5'] < norm_max) #5090-5500
+print(f"{shotid} removed {len(super_tab) - np.count_nonzero(sel)} continuum fibers ....")
 super_tab = super_tab[sel] #base for both local and ffsky
 
 ###########################################################################################
@@ -769,7 +776,6 @@ super_tab = super_tab[sel] #base for both local and ffsky
 
 
 # todo: ???? skip the emission line stuff
-
 
 
 #############################################################################
