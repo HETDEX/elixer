@@ -291,8 +291,34 @@ def stack_by_wavebin_bw(fluxd_2d, fluxd_err_2d, trim=1.00, sc=None, ir=None):
     return stack, stack_err, contrib
 
 
+def fiber_flux_sort_statistic(fluxd_2d, fluxd_err_2d, waverange = (3600,5400),statistic="sum"):
+    """
 
-def stack_by_waverange_bw(fluxd_2d, fluxd_err_2d, waverange = (3500,5500), trim=1.00, sc=None, ir=None):
+    sums, means, medians
+
+    :param fluxd_2d:
+    :param fluxd_err_2d:
+    :param waverange:
+    :param statistic: choose "sum", "mean", "median"
+    :return:
+    """
+
+    N = len(fluxd_2d)
+    sel = None
+    waveidx = np.array([0,0])
+    waveidx[0],*_ = SU.getnearpos(G.CALFIB_WAVEGRID,waverange[0])
+    waveidx[1], *_ = SU.getnearpos(G.CALFIB_WAVEGRID, waverange[1])
+
+    if statistic=="sum":
+        flux_stat = np.nansum(fluxd_2d[:,waveidx[0]:waveidx[1]+1],axis=1)
+    elif statistic == "mean":
+        flux_stat = np.nanmean(fluxd_2d[:,waveidx[0]:waveidx[1]+1],axis=1)
+    elif statistic == "median":
+        flux_stat = np.nanmedian(fluxd_2d[:, waveidx[0]:waveidx[1] + 1], axis=1) #this takes a long time
+
+    return flux_stat
+
+def stack_by_waverange_bw(fluxd_2d, fluxd_err_2d, flux_sort = None, waverange = (3600,5400), trim=1.00, sc=None, ir=None):
     """
 
     stack by selection over the specified waverange
@@ -301,37 +327,40 @@ def stack_by_waverange_bw(fluxd_2d, fluxd_err_2d, waverange = (3500,5500), trim=
 
     sc = sigma_clip (symmetric)
     ir = internal ratio (e.g. interior 2/3)
+    flux_sort ... can be passed in instead of computing flux_sums each time (see flux_sorts() function
 
     """
 
-    stack = np.zeros(len(G.CALFIB_WAVEGRID))
-    stack_err = np.zeros(len(G.CALFIB_WAVEGRID))
-    contrib = np.zeros(len(G.CALFIB_WAVEGRID))
-    N = len(fluxd_2d)
-    sel = None
-    waveidx = np.array([0,0])
-    waveidx[0],*_ = SU.getnearpos(G.CALFIB_WAVEGRID,waverange[0])
-    waveidx[1], *_ = SU.getnearpos(G.CALFIB_WAVEGRID, waverange[1])
 
-    #make an array against which to select
-    #since these are all top cuts or sigma clips or interior ratios, it does not matter if these are sums or averages
-    flux_sums = np.nansum(fluxd_2d[:,waveidx[0]:waveidx[1]+1],axis=1)
+    N = len(fluxd_2d)
+
+    if flux_sort is None or len(flux_sort) != N:
+        waveidx = np.array([0,0])
+        waveidx[0],*_ = SU.getnearpos(G.CALFIB_WAVEGRID,waverange[0])
+        waveidx[1], *_ = SU.getnearpos(G.CALFIB_WAVEGRID, waverange[1])
+
+        # make an array against which to select
+        # since these are all top cuts or sigma clips or interior ratios, it does not matter if these are sums or averages
+        flux_sums = np.nansum(fluxd_2d[:, waveidx[0]:waveidx[1] + 1], axis=1)
+    else:
+        flux_sums = flux_sort #might actually be means or medians, etc, but regardless can be sorted monotonically
+                              #such that the highest values correspond to the largest fluxes
 
     if trim < 1.0:
         idx = np.argsort(flux_sums)
         max_idx = int(N * trim)
-        sel = flux_sums < flux_sums[max_idx]
+        sel = np.array(flux_sums < flux_sums[idx[max_idx]])
     elif sc is not None:
         mask = sigma_clip(flux_sums, sigma=sc)
         sel = ~mask.mask
     elif ir is not None:
         er = (1.0 - ir) / 2.0  # exterior ratio, e.g. if ir = 2/3 then er = 1/6 ... trim away the upper and lower 1/6
-        idx = np.argsort(flux_sums)
+        idx = np.argsort(flux_sums) #sorts low to high
         low_idx = int(N * er)
         high_idx = int(N * (ir + er))
 
-        sel = np.array(flux_sums < flux_sums[high_idx])
-        sel = sel & np.array(flux_sums < flux_sums[low_idx])
+        sel = np.array(flux_sums < flux_sums[idx[high_idx]])
+        sel = sel & np.array(flux_sums > flux_sums[idx[low_idx]])
     elif trim == 1.0:
         sel = np.full(N,True)
     else:
@@ -782,6 +811,7 @@ super_tab = super_tab[sel] #base for both local and ffsky
 # make stack of ALL fibers that survived the flagging, Nans, zeros trims
 #############################################################################
 
+
 flux_stack, fluxe_stack,contrib = stack_by_wavebin_bw(super_tab["calfib"], super_tab["calfibe"], trim=1.00, sc=None, ir=None)
 
 D['trim_fluxd'] = flux_stack
@@ -927,63 +957,76 @@ D2['ir99_contrib'] = contrib
 #
 #################################################################
 
+ll_flux_sort = fiber_flux_sort_statistic(super_tab["calfib"], super_tab["calfibe"],statistic="median")
+ff_flux_sort = fiber_flux_sort_statistic(super_tab["calfib_ffsky"], super_tab["calfibe"],statistic="median")
+#sum or mean or median
+
 
 #########################################
 # trim top 1,2,3,4, & 5%
 #########################################
 
 #waverange = (3500,5500)
-
 print(f"{shotid} fiber top xx% trim ....  {datetime.datetime.now()}")
 
-flux_stack, fluxe_stack, contrib= stack_by_waverange_bw(super_tab['calfib'],super_tab['calfibe'],trim=0.99, sc=None, ir=None)
+flux_stack, fluxe_stack, contrib= stack_by_waverange_bw(super_tab['calfib'],super_tab['calfibe'],flux_sort=ll_flux_sort,
+                                                        trim=0.95, sc=None, ir=None)
 D['ft01_fluxd'] = flux_stack
 D['ft01_fluxd_err'] = fluxe_stack
 D['ft01_contrib'] = contrib
 
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'],super_tab['calfibe'],trim=0.98, sc=None, ir=None)
+flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'],super_tab['calfibe'],flux_sort=ll_flux_sort,
+                                                        trim=0.925, sc=None, ir=None)
 D['ft02_fluxd'] = flux_stack
 D['ft02_fluxd_err'] = fluxe_stack
 D['ft02_contrib'] = contrib
 
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'],super_tab['calfibe'],trim=0.97, sc=None, ir=None)
+flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'],super_tab['calfibe'],flux_sort=ll_flux_sort,
+                                                         trim=0.90, sc=None, ir=None)
 D['ft03_fluxd'] = flux_stack
 D['ft03_fluxd_err'] = fluxe_stack
 D['ft03_contrib'] = contrib
 
-flux_stack, fluxe_stack, contrib= stack_by_waverange_bw(super_tab['calfib'],super_tab['calfibe'],trim=0.96, sc=None, ir=None)
+flux_stack, fluxe_stack, contrib= stack_by_waverange_bw(super_tab['calfib'],super_tab['calfibe'],flux_sort=ll_flux_sort,
+                                                        trim=0.875, sc=None, ir=None)
 D['ft04_fluxd'] = flux_stack
 D['ft04_fluxd_err'] = fluxe_stack
 D['ft04_contrib'] = contrib
 
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'],super_tab['calfibe'],trim=0.95, sc=None, ir=None)
+flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'],super_tab['calfibe'],flux_sort=ll_flux_sort,
+                                                         trim=0.85, sc=None, ir=None)
 D['ft05_fluxd'] = flux_stack
 D['ft05_fluxd_err'] = fluxe_stack
 D['ft05_contrib'] = contrib
 
 
 #now for ffsky
-flux_stack, fluxe_stack, contrib= stack_by_waverange_bw(super_tab['calfib_ffsky'],super_tab['calfibe'],trim=0.99, sc=None, ir=None)
+flux_stack, fluxe_stack, contrib= stack_by_waverange_bw(super_tab['calfib_ffsky'],super_tab['calfibe'],flux_sort=ff_flux_sort,
+                                                        trim=0.95, sc=None, ir=None)
 D2['ft01_fluxd'] = flux_stack
 D2['ft01_fluxd_err'] = fluxe_stack
 D2['ft01_contrib'] = contrib
 
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'],super_tab['calfibe'],trim=0.98, sc=None, ir=None)
+flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'],super_tab['calfibe'],flux_sort=ff_flux_sort,
+                                                         trim=0.925, sc=None, ir=None)
 D2['ft02_fluxd'] = flux_stack
 D2['ft02_fluxd_err'] = fluxe_stack
 D2['ft02_contrib'] = contrib
 
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'],super_tab['calfibe'],trim=0.97, sc=None, ir=None)
+flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'],super_tab['calfibe'],flux_sort=ff_flux_sort,
+                                                         trim=0.90, sc=None, ir=None)
 D2['ft03_fluxd'] = flux_stack
 D2['ft03_fluxd_err'] = fluxe_stack
 D2['ft03_contrib'] = contrib
 
-flux_stack, fluxe_stack, contrib= stack_by_waverange_bw(super_tab['calfib_ffsky'],super_tab['calfibe'],trim=0.96, sc=None, ir=None)
+flux_stack, fluxe_stack, contrib= stack_by_waverange_bw(super_tab['calfib_ffsky'],super_tab['calfibe'],flux_sort=ff_flux_sort,
+                                                        trim=0.875, sc=None, ir=None)
 D2['ft04_fluxd'] = flux_stack
 D2['ft04_fluxd_err'] = fluxe_stack
 D2['ft04_contrib'] = contrib
 
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'],super_tab['calfibe'],trim=0.95, sc=None, ir=None)
+flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'],super_tab['calfibe'],flux_sort=ff_flux_sort,
+                                                         trim=0.85, sc=None, ir=None)
 D2['ft05_fluxd'] = flux_stack
 D2['ft05_fluxd_err'] = fluxe_stack
 D2['ft05_contrib'] = contrib
@@ -995,23 +1038,27 @@ D2['ft05_contrib'] = contrib
 ###################################
 print(f"{shotid} fiber sigma clip trim ....  {datetime.datetime.now()}")
 
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'], super_tab['calfibe'],trim=1.0,sc=3.0,ir=None)
+flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'], super_tab['calfibe'],flux_sort=ll_flux_sort,
+                                                         trim=1.0,sc=3.0,ir=None)
 D['fsc3_fluxd'] = flux_stack
 D['fsc3_fluxd_err'] = fluxe_stack
 D['fsc3_contrib'] = contrib
 
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'], super_tab['calfibe'],trim=1.0,sc=5.0,ir=None)
+flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'], super_tab['calfibe'],flux_sort=ll_flux_sort,
+                                                         trim=1.0,sc=5.0,ir=None)
 D['fsc5_fluxd'] = flux_stack
 D['fsc5_fluxd_err'] = fluxe_stack
 D['fsc5_contrib'] = contrib
 
 #ffsky
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'], super_tab['calfibe'],trim=1.0,sc=3.0,ir=None)
+flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'], super_tab['calfibe'],flux_sort=ff_flux_sort,
+                                                         trim=1.0,sc=3.0,ir=None)
 D2['fsc3_fluxd'] = flux_stack
 D2['fsc3_fluxd_err'] = fluxe_stack
 D2['fsc3_contrib'] = contrib
 
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'], super_tab['calfibe'],trim=1.0,sc=5.0,ir=None)
+flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'], super_tab['calfibe'],flux_sort=ff_flux_sort,
+                                                         trim=1.0,sc=5.0,ir=None)
 D2['fsc5_fluxd'] = flux_stack
 D2['fsc5_fluxd_err'] = fluxe_stack
 D2['fsc5_contrib'] = contrib
@@ -1022,33 +1069,39 @@ D2['fsc5_contrib'] = contrib
 ###################################
 print(f"{shotid} fiber internal fraction trim ....  {datetime.datetime.now()}")
 
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'], super_tab['calfibe'],trim=1.0,sc=None,ir=0.67)
+flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'], super_tab['calfibe'],flux_sort=ll_flux_sort,
+                                                         trim=1.0,sc=None,ir=0.67)
 D['fir67_fluxd'] = flux_stack
 D['fir67_fluxd_err'] = fluxe_stack
 D['fir67_contrib'] = contrib
 
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'], super_tab['calfibe'],trim=1.0,sc=None,ir=0.95)
+flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'], super_tab['calfibe'],flux_sort=ll_flux_sort,
+                                                         trim=1.0,sc=None,ir=0.95)
 D['fir95_fluxd'] = flux_stack
 D['fir95_fluxd_err'] = fluxe_stack
 D['fir95_contrib'] = contrib
 
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'], super_tab['calfibe'],trim=1.0,sc=None,ir=0.99)
+flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'], super_tab['calfibe'],flux_sort=ll_flux_sort,
+                                                         trim=1.0,sc=None,ir=0.99)
 D['fir99_fluxd'] = flux_stack
 D['fir99_fluxd_err'] = fluxe_stack
 D['fir99_contrib'] = contrib
 
 #ffsky
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'], super_tab['calfibe'],trim=1.0,sc=None,ir=0.67)
+flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'], super_tab['calfibe'],flux_sort=ff_flux_sort,
+                                                         trim=1.0,sc=None,ir=0.67)
 D2['fir67_fluxd'] = flux_stack
 D2['fir67_fluxd_err'] = fluxe_stack
 D2['fir67_contrib'] = contrib
 
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'], super_tab['calfibe'],trim=1.0,sc=None,ir=0.95)
+flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'], super_tab['calfibe'],flux_sort=ff_flux_sort,
+                                                         trim=1.0,sc=None,ir=0.95)
 D2['fir95_fluxd'] = flux_stack
 D2['fir95_fluxd_err'] = fluxe_stack
 D2['fir95_contrib'] = contrib
 
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'], super_tab['calfibe'],trim=1.0,sc=None,ir=0.99)
+flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'], super_tab['calfibe'],flux_sort=ff_flux_sort,
+                                                         trim=1.0,sc=None,ir=0.99)
 D2['fir99_fluxd'] = flux_stack
 D2['fir99_fluxd_err'] = fluxe_stack
 D2['fir99_contrib'] = contrib
