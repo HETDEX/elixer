@@ -229,15 +229,31 @@ def stack_by_wavebin_bw(fluxd_2d, fluxd_err_2d, trim=1.00, sc=None, ir=None):
     """
     stack down each wavelength bin, trimming under each
 
+    trim can be an array
+
     sc = sigma_clip (symmetric)
     ir = internal ratio (e.g. interior 2/3)
 
     """
 
-    stack = np.zeros(len(G.CALFIB_WAVEGRID))
-    stack_err = np.zeros(len(G.CALFIB_WAVEGRID))
-    contrib = np.zeros(len(G.CALFIB_WAVEGRID))
+    lw = len(G.CALFIB_WAVEGRID)
+    stack = np.zeros(lw)
+    stack_err = np.zeros(lw)
+    contrib = np.zeros(lw)
     N = len(fluxd_2d)
+
+
+    try:
+        lt = len(trim)
+        if lt == lw:
+            trim_array = True
+            if np.any(trim!=1.0): #there are any non-1's
+                trim_one = False
+        else:
+            print(f"Invalid trim array specified. Length ({lt}) does not match wavelength bins ({lw})")
+            return None, None, None
+    except:
+        trim_array = False
 
     for i in range(1036):
         # only consider those that have an associated error
@@ -249,7 +265,12 @@ def stack_by_wavebin_bw(fluxd_2d, fluxd_err_2d, trim=1.00, sc=None, ir=None):
             stack_err[i] = 0
             continue
 
-        if trim < 1.0:
+        if trim_array and not trim_one:
+            idx = np.argsort(fluxd_2d[:, i][sel])
+            max_idx = int(len(idx) * trim[i])
+            column = fluxd_2d[:, i][sel][idx][0:max_idx]
+            column_err = fluxd_err_2d[:, i][sel][idx][0:max_idx]
+        elif not trim_array and trim < 1.0:
             idx = np.argsort(fluxd_2d[:, i][sel])
             max_idx = int(len(idx) * trim)
             column = fluxd_2d[:, i][sel][idx][0:max_idx]
@@ -273,7 +294,7 @@ def stack_by_wavebin_bw(fluxd_2d, fluxd_err_2d, trim=1.00, sc=None, ir=None):
                 column_err = fluxd_err_2d[:, i][sel][idx][low_idx:high_idx]
         # print(ir,low_idx,high_idx)
 
-        elif trim == 1.0:
+        elif (trim_array and trim_one) or (not trim_array and trim == 1.0):
             column = fluxd_2d[:, i][sel]
             column_err = fluxd_err_2d[:, i][sel]
         else:
@@ -417,6 +438,16 @@ T = Table(dtype=[('shotid', int),('seeing',float),('response',float),
                  ('trim_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
                  ('trim_contrib', (float, len(G.CALFIB_WAVEGRID))),
 
+                 #variable trim
+
+                 ('vt13_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 1% in blue to 3% in red
+                 ('vt13_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('vt13_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                 ('vt15_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 1% in blue to 5% in red
+                 ('vt15_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 ('vt15_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
                  ### top percent trim (applies only to this section) ###
                  ('t01_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 1% per wavelength bin
                  ('t01_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
@@ -547,8 +578,18 @@ T2 = Table(dtype=[('shotid', int), ('seeing',float), ('response',float),
                   ('trim_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
                   ('trim_contrib', (float, len(G.CALFIB_WAVEGRID))),
 
-                  ### top percent trim (applies only to this section) ###
 
+                  ### variable trim
+
+                  ('vt13_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 1% in blue to 3% in red
+                  ('vt13_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('vt13_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('vt15_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 1% in blue to 5% in red
+                  ('vt15_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('vt15_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ### top percent trim (applies only to this section) ###
                   ('t01_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 1% per wavelength bin
                   ('t01_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
                   ('t01_contrib', (float, len(G.CALFIB_WAVEGRID))),
@@ -828,8 +869,74 @@ D2['trim_contrib'] = contrib
 # NOW apply the variable cuts:
 #########################################
 
+
+##########################################
+# variable trim
+##########################################
+
+print(f"{shotid} variable xx% trim ....  {datetime.datetime.now()}")
+
+#1% to 3%
+rwave = 4000.0
+rtrim = 0.97
+ridx,*_ = SU.getnearpos(G.CALFIB_WAVEGRID,rwave)
+
+bwave = 3750.0
+btrim = 0.99
+bidx,*_ = SU.getnearpos(G.CALFIB_WAVEGRID,bwave)
+ltrim = ridx-bidx+1
+
+#base amount, 4000AA and redward
+trim_array = np.full(len(G.CALFIB_WAVEGRID),rtrim)
+#rapidly decrease cut blueward to 3750
+
+trim_array[0:bidx] = btrim
+trim_array[bidx:ridx+1] = np.linspace(btrim,rtrim,ltrim)
+
+flux_stack, fluxe_stack, contrib= stack_by_wavebin_bw(super_tab['calfib'],super_tab['calfibe'],trim=trim_array, sc=None, ir=None)
+D['vt13_fluxd'] = flux_stack
+D['vt13_fluxd_err'] = fluxe_stack
+D['vt13_contrib'] = contrib
+
+
+#now for ffsky
+flux_stack, fluxe_stack, contrib= stack_by_wavebin_bw(super_tab['calfib_ffsky'],super_tab['calfibe'],trim=trim_array, sc=None, ir=None)
+D2['vt13_fluxd'] = flux_stack
+D2['vt13_fluxd_err'] = fluxe_stack
+D2['vt13_contrib'] = contrib
+
+
+# 1% to 5%
+rwave = 4000.0
+rtrim = 0.95
+ridx,*_ = SU.getnearpos(G.CALFIB_WAVEGRID,rwave)
+
+bwave = 3750.0
+btrim = 0.99
+bidx,*_ = SU.getnearpos(G.CALFIB_WAVEGRID,bwave)
+ltrim = ridx-bidx+1
+
+#base amount, 4000AA and redward
+trim_array = np.full(len(G.CALFIB_WAVEGRID),rtrim)
+#rapidly decrease cut blueward to 3750
+
+trim_array[0:bidx] = btrim
+trim_array[bidx:ridx+1] = np.linspace(btrim,rtrim,ltrim)
+
+flux_stack, fluxe_stack, contrib= stack_by_wavebin_bw(super_tab['calfib'],super_tab['calfibe'],trim=trim_array, sc=None, ir=None)
+D['vt15_fluxd'] = flux_stack
+D['vt15_fluxd_err'] = fluxe_stack
+D['vt15_contrib'] = contrib
+
+
+#now for ffsky
+flux_stack, fluxe_stack, contrib= stack_by_wavebin_bw(super_tab['calfib_ffsky'],super_tab['calfibe'],trim=trim_array, sc=None, ir=None)
+D2['vt15_fluxd'] = flux_stack
+D2['vt15_fluxd_err'] = fluxe_stack
+D2['vt15_contrib'] = contrib
+
 #########################################
-# trim top 1,2,3,4, & 5%
+# fixed trim top 1,2,3,4, & 5%
 #########################################
 
 print(f"{shotid} top xx% trim ....  {datetime.datetime.now()}")
@@ -1115,6 +1222,8 @@ print(f"{shotid} writing output tables ....  {datetime.datetime.now()}")
 T.add_row([ shotid,seeing,response,
             D['raw_fluxd'],D['raw_fluxd_err'],D['raw_contrib'],
             D['trim_fluxd'],D['trim_fluxd_err'],D['trim_contrib'],
+            D['vt13_fluxd'],D['vt13_fluxd_err'],D['vt13_contrib'],
+            D['vt15_fluxd'],D['vt15_fluxd_err'],D['vt15_contrib'],
             D['t01_fluxd'],D['t01_fluxd_err'],D['t01_contrib'],
             D['t02_fluxd'],D['t02_fluxd_err'],D['t02_contrib'],
             D['t03_fluxd'],D['t03_fluxd_err'],D['t03_contrib'],
@@ -1140,6 +1249,8 @@ T.add_row([ shotid,seeing,response,
 T2.add_row([shotid,seeing,response,
             D2['raw_fluxd'],D2['raw_fluxd_err'],D2['raw_contrib'],
             D2['trim_fluxd'],D2['trim_fluxd_err'],D2['trim_contrib'],
+            D2['vt13_fluxd'],D2['vt13_fluxd_err'],D2['vt13_contrib'],
+            D2['vt15_fluxd'],D2['vt15_fluxd_err'],D2['vt15_contrib'],
             D2['t01_fluxd'],D2['t01_fluxd_err'],D2['t01_contrib'],
             D2['t02_fluxd'],D2['t02_fluxd_err'],D2['t02_contrib'],
             D2['t03_fluxd'],D2['t03_fluxd_err'],D2['t03_contrib'],
