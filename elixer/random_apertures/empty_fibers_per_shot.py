@@ -191,7 +191,7 @@ def split_spectra_into_bins(fluxd_2d, fluxd_err_2d, sort=True, trim=0.9):
     full_idx_ranges = [(0, 195), (195, 400), (400, 605), (605, 810),
                        (810, 1036)]  # 1st and last different to cover full 1036
 
-    # todo: when appending, though need the full width, so 1st bin needs to be (0,195) and the last (810,1036)
+    # when appending, though need the full width, so 1st bin needs to be (0,195) and the last (810,1036)
 
     for i, ((left, right), (full_left, full_right)) in enumerate(zip(bin_idx_ranges, full_idx_ranges)):
         f = fluxd_2d[:, left:right]
@@ -753,7 +753,7 @@ if not TEST:
 ##############################
 #print("!!!!! REMOVE ME !!!!!")
 #super_tab.write("super_tab_test.fits", format="fits", overwrite=False)
-super_tab = Table.read("super_tab_test.fits", format="fits")
+#super_tab = Table.read("super_tab_test.fits", format="fits")
 
 
 #######################################################################
