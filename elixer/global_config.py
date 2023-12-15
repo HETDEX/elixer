@@ -1489,18 +1489,21 @@ BGR_RES_TAB_FF_IDX_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residual
 
 BGR_RES_FIBER_TAB_LL = None
 BGR_RES_FIBER_TAB_FF = None
+BGR_RES_FIBER_TAB_FFRC = None #extra residual correction (e.g. from Maja's work)
 
 BGR_RES_FIBER_TAB_LL_RUN = None #running table, only has the rows we've used so far
 BGR_RES_FIBER_TAB_FF_RUN = None
+BGR_RES_FIBER_TAB_FFRC_RUN = None
 
 BGR_RES_FIBER_TAB_LL_IDX = None
 BGR_RES_FIBER_TAB_FF_IDX = None
-#todo: need to add the columns for fibers from full shot
-
+BGR_RES_FIBER_TAB_FFRC_IDX = None
 
 BGR_RES_FIBER_TAB_LL_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_FIBER_TAB_LL.fits"
 BGR_RES_FIBER_TAB_FF_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_FIBER_TAB_FF.fits"
+BGR_RES_FIBER_TAB_FFRC_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_FIBER_TAB_FFRC.fits"
 
 #just ra, dec, shotid, seeing and respoonse ... not the full data
 BGR_RES_FIBER_TAB_LL_IDX_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_FIBER_TAB_LL_IDX.fits"
 BGR_RES_FIBER_TAB_FF_IDX_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_FIBER_TAB_FF_IDX.fits"
+BGR_RES_FIBER_TAB_FFRC_IDX_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_FIBER_TAB_FFRC_IDX.fits"

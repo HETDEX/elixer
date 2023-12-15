@@ -3428,7 +3428,7 @@ def get_empty_aperture_residual(hdr=G.HDR_Version,rtype=None,shotid=None,seeing=
     return residual, residual_err
 
 def get_empty_fiber_residual(hdr=G.HDR_Version, rtype=None, shotid=None, seeing=None, response=None,
-                                ffsky=False, persist=False):
+                                ffsky=False, add_rescor=False, persist=False):
         """
         Similar to fetch_xxx but deliberately renamed with different parameters to force caller to think about it and
         deliberately break old code if attempting to just substitute in as this behavior is different.
@@ -3454,6 +3454,7 @@ def get_empty_fiber_residual(hdr=G.HDR_Version, rtype=None, shotid=None, seeing=
         :param seeing: float
         :param response: float i.e response_4540
         :param ffsky: if True, return the ffsky version, else the local sky subtraction version
+        :param add_rescor: if True, use the extra residual correction (e.g. Maja's work). Affects ffsky=True ONLY
         :param persist: if True, keep the table of residuals open at a memory cost
         :return:
         """
@@ -3488,8 +3489,10 @@ def get_empty_fiber_residual(hdr=G.HDR_Version, rtype=None, shotid=None, seeing=
             idx = -1
             # try the running tables first
             if shotid is not None:
-                if ffsky and G.BGR_RES_FIBER_TAB_FF_RUN is not None:
+                if ffsky and not add_rescor and G.BGR_RES_FIBER_TAB_FF_RUN is not None:
                     T = G.BGR_RES_FIBER_TAB_FF_RUN
+                elif ffsky and add_rescor and BGR_RES_FIBER_TAB_FFRC_RUN is not None:
+                    T = G.BGR_RES_FIBER_TAB_FFRC_RUN
                 elif not ffsky and G.BGR_RES_FIBER_TAB_LL_RUN is not None:
                     T = G.BGR_RES_FIBER_TAB_LL_RUN
 
@@ -3509,7 +3512,7 @@ def get_empty_fiber_residual(hdr=G.HDR_Version, rtype=None, shotid=None, seeing=
                         return residual, residual_err, contributors
 
             # we don't have it already, so check the index to find the row we want to read
-            if ffsky:
+            if ffsky and not add_rescor:
                 if G.BGR_RES_FIBER_TAB_FF_IDX is None:
                     # load the table
                     T = Table.read(G.BGR_RES_FIBER_TAB_FF_IDX_FN)
@@ -3517,6 +3520,14 @@ def get_empty_fiber_residual(hdr=G.HDR_Version, rtype=None, shotid=None, seeing=
                         G.BGR_RES_FIBER_TAB_FF_IDX = T
                 else:
                     T = G.BGR_RES_FIBER_TAB_FF_IDX
+            elif ffsky and add_rescor:
+                if G.BGR_RES_FIBER_TAB_FFRC_IDX is None:
+                    # load the table
+                    T = Table.read(G.BGR_RES_FIBER_TAB_FFRC_IDX_FN)
+                    if persist:
+                        G.BGR_RES_FIBER_TAB_FFRC_IDX = T
+                else:
+                    T = G.BGR_RES_FIBER_TAB_FFRC_IDX
             else:
                 if G.BGR_RES_FIBER_TAB_LL_IDX is None:
                     # load the table
@@ -3550,12 +3561,18 @@ def get_empty_fiber_residual(hdr=G.HDR_Version, rtype=None, shotid=None, seeing=
                 return residual, residual_err,contributors
 
             # read in that one row
-            if ffsky:
+            if ffsky and not add_rescor:
                 Trow = Table.read(G.BGR_RES_FIBER_TAB_FF_FN, memmap=True)[idx]
                 if G.BGR_RES_FIBER_TAB_FF_RUN is None:
                     G.BGR_RES_FIBER_TAB_FF_RUN = Table(Trow)
                 else:
                     G.BGR_RES_FIBER_TAB_FF_RUN.add_row(Trow)
+            elif ffsky and add_rescor:
+                Trow = Table.read(G.BGR_RES_FIBER_TAB_FFRC_FN, memmap=True)[idx]
+                if G.BGR_RES_FIBER_TAB_FFRC_RUN is None:
+                    G.BGR_RES_FIBER_TAB_FFRC_RUN = Table(Trow)
+                else:
+                    G.BGR_RES_FIBER_TAB_FFRC_RUN.add_row(Trow)
             else:
                 Trow = Table.read(G.BGR_RES_FIBER_TAB_LL_FN, memmap=True)[idx]
                 if G.BGR_RES_FIBER_TAB_LL_RUN is None:

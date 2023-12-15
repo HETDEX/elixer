@@ -54,8 +54,15 @@ if "--bothsky" in args:
     bothsky = True
     ffsky = False
 else:
-    print("using local sky subtraction")
+    #print("using local sky subtraction")
     bothsky = False
+
+if "--add_rescor" in args:
+    print("Apply extra (Maja) ffsky residual correction")
+    add_rescor = True
+else:
+    print("Do Not apply extra (Maja) ffsky residual correction")
+    add_rescor = False
 
 if "--fiber_corr" in args:
     print("Apply per fiber residual correction")
@@ -78,7 +85,10 @@ else:
 print(f"{shotid} starting: {datetime.datetime.now()}")
 
 table_outname = "empty_fibers_"+str(shotid) + "_ll.fits"
-table_outname2 = "empty_fibers_"+str(shotid) + "_ff.fits"
+if add_rescor:
+    table_outname2 = "empty_fibers_" + str(shotid) + "_ffrc.fits"
+else:
+    table_outname2 = "empty_fibers_"+str(shotid) + "_ff.fits"
 
 
 #maybe this one was already done?
@@ -704,10 +714,21 @@ T2 = Table(dtype=[('shotid', int), ('seeing',float), ('response',float),
 if not TEST:
 #if True:
     print(f"{shotid} get_fibers_table() ....  {datetime.datetime.now()}")
-    fibers_table = get_fibers_table(shot)
+
+    if add_rescor:
+        fibers_table = get_fibers_table(shot,add_rescor=True)
+    else:
+        fibers_table = get_fibers_table(shot)
     print(f"{shotid} [DONE] get_fibers_table() ....  {datetime.datetime.now()}, # rows = {len(fibers_table)}")
     #drop the columns we don't care about to save memory
-    fibers_table.keep_columns(['fiber_id','calfib','calfib_ffsky','calfibe','fiber_to_fiber','trace','chi2']) #have to keep the fiber_id for the moment
+    if add_rescor:
+        fibers_table.keep_columns(['fiber_id', 'calfib', 'calfib_ffsky_rescor', 'calfibe', 'fiber_to_fiber',
+                                   'trace', 'chi2'])  # have to keep the fiber_id for the moment
+        #rename calfib_ffsky_rescor to calfib_ffsky so the rest of the code below executes the same way
+        fibers_table['calfib_ffsky_rescor'].name = 'calfib_ffsky'
+    else:
+        fibers_table.keep_columns(['fiber_id','calfib','calfib_ffsky','calfibe','fiber_to_fiber',
+                                   'trace','chi2']) #have to keep the fiber_id for the moment
 
     start = f'{shot}_0'
     stop = f'{shot}_9'
