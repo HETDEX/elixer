@@ -3474,6 +3474,10 @@ def get_empty_fiber_residual(hdr=G.HDR_Version, rtype=None, shotid=None, seeing=
                 log.warning("Invalid parameters passed to get_empty_fiber_residual()")
                 return residual, residual_err, contributors
 
+            #todo: update this for generic columns
+            col = rtype+"_fluxd"
+            col_err = rtype+"_fluxd_err"
+            col_contrib = rtype+"_contrib"
             # which column is wanted
             # if rtype in ['raw','trim','t01','t02','t03','t04','t05','sc3','sc5','ir67','ir95','ir99']:
             #     col = rtype+"_fluxd"
