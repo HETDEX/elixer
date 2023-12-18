@@ -3475,15 +3475,15 @@ def get_empty_fiber_residual(hdr=G.HDR_Version, rtype=None, shotid=None, seeing=
                 return residual, residual_err, contributors
 
             # which column is wanted
-            if rtype in ['raw','trim','t01','t02','t03','t04','t05','sc3','sc5','ir67','ir95','ir99']:
-                col = rtype+"_fluxd"
-                col_err = rtype+"_fluxd_err"
-                col_contrib = rtype+"_contrib"
-            else:
-                msg = f"Warning! Unable to find appropriate background residual. rtype not (yet) supported: {rtype}"
-                print(msg)
-                log.warning(msg)
-                return residual, residual_err, contributors
+            # if rtype in ['raw','trim','t01','t02','t03','t04','t05','sc3','sc5','ir67','ir95','ir99']:
+            #     col = rtype+"_fluxd"
+            #     col_err = rtype+"_fluxd_err"
+            #     col_contrib = rtype+"_contrib"
+            # else:
+            #     msg = f"Warning! Unable to find appropriate background residual. rtype not (yet) supported: {rtype}"
+            #     print(msg)
+            #     log.warning(msg)
+            #     return residual, residual_err, contributors
 
             T = None
             idx = -1
@@ -3491,7 +3491,7 @@ def get_empty_fiber_residual(hdr=G.HDR_Version, rtype=None, shotid=None, seeing=
             if shotid is not None:
                 if ffsky and not add_rescor and G.BGR_RES_FIBER_TAB_FF_RUN is not None:
                     T = G.BGR_RES_FIBER_TAB_FF_RUN
-                elif ffsky and add_rescor and BGR_RES_FIBER_TAB_FFRC_RUN is not None:
+                elif ffsky and add_rescor and G.BGR_RES_FIBER_TAB_FFRC_RUN is not None:
                     T = G.BGR_RES_FIBER_TAB_FFRC_RUN
                 elif not ffsky and G.BGR_RES_FIBER_TAB_LL_RUN is not None:
                     T = G.BGR_RES_FIBER_TAB_LL_RUN
@@ -3586,7 +3586,7 @@ def get_empty_fiber_residual(hdr=G.HDR_Version, rtype=None, shotid=None, seeing=
 
             return residual, residual_err,contributors
 
-        except:
+        except Exception as e:
             log.warning("Exception in get_empty_fiber_residual.", exc_info=True)
 
         return residual, residual_err, contributors
