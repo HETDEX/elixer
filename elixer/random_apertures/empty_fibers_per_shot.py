@@ -363,39 +363,43 @@ def stack_by_waverange_bw(fluxd_2d, fluxd_err_2d, flux_sort = None, waverange = 
     """
 
 
-    N = len(fluxd_2d)
+    try:
+        N = len(fluxd_2d)
 
-    if flux_sort is None or len(flux_sort) != N:
-        waveidx = np.array([0,0])
-        waveidx[0],*_ = SU.getnearpos(G.CALFIB_WAVEGRID,waverange[0])
-        waveidx[1], *_ = SU.getnearpos(G.CALFIB_WAVEGRID, waverange[1])
+        if flux_sort is None or len(flux_sort) != N:
+            waveidx = np.array([0,0])
+            waveidx[0],*_ = SU.getnearpos(G.CALFIB_WAVEGRID,waverange[0])
+            waveidx[1], *_ = SU.getnearpos(G.CALFIB_WAVEGRID, waverange[1])
 
-        # make an array against which to select
-        # since these are all top cuts or sigma clips or interior ratios, it does not matter if these are sums or averages
-        flux_sums = np.nansum(fluxd_2d[:, waveidx[0]:waveidx[1] + 1], axis=1)
-    else:
-        flux_sums = flux_sort #might actually be means or medians, etc, but regardless can be sorted monotonically
-                              #such that the highest values correspond to the largest fluxes
+            # make an array against which to select
+            # since these are all top cuts or sigma clips or interior ratios, it does not matter if these are sums or averages
+            flux_sums = np.nansum(fluxd_2d[:, waveidx[0]:waveidx[1] + 1], axis=1)
+        else:
+            flux_sums = flux_sort #might actually be means or medians, etc, but regardless can be sorted monotonically
+                                  #such that the highest values correspond to the largest fluxes
 
-    if trim < 1.0:
-        idx = np.argsort(flux_sums)
-        max_idx = int(N * trim)
-        sel = np.array(flux_sums < flux_sums[idx[max_idx]])
-    elif sc is not None:
-        mask = sigma_clip(flux_sums, sigma=sc)
-        sel = ~mask.mask
-    elif ir is not None:
-        er = (1.0 - ir) / 2.0  # exterior ratio, e.g. if ir = 2/3 then er = 1/6 ... trim away the upper and lower 1/6
-        idx = np.argsort(flux_sums) #sorts low to high
-        low_idx = int(N * er)
-        high_idx = int(N * (ir + er))
+        if trim < 1.0:
+            idx = np.argsort(flux_sums)
+            max_idx = min(int(N * trim),len(idx))
+            sel = np.array(flux_sums < flux_sums[idx[max_idx]])
+        elif sc is not None:
+            mask = sigma_clip(flux_sums, sigma=sc)
+            sel = ~mask.mask
+        elif ir is not None:
+            er = (1.0 - ir) / 2.0  # exterior ratio, e.g. if ir = 2/3 then er = 1/6 ... trim away the upper and lower 1/6
+            idx = np.argsort(flux_sums) #sorts low to high
+            low_idx = int(N * er)
+            high_idx = int(N * (ir + er))
 
-        sel = np.array(flux_sums < flux_sums[idx[high_idx]])
-        sel = sel & np.array(flux_sums > flux_sums[idx[low_idx]])
-    elif trim == 1.0:
-        sel = np.full(N,True)
-    else:
-        return None, None, None
+            sel = np.array(flux_sums < flux_sums[idx[high_idx]])
+            sel = sel & np.array(flux_sums > flux_sums[idx[low_idx]])
+        elif trim == 1.0:
+            sel = np.full(N,True)
+        else:
+            return None, None, 0
+    except Exception as E:
+        print(E)
+        return None, None, 0
 
     try:
 
@@ -405,8 +409,9 @@ def stack_by_waverange_bw(fluxd_2d, fluxd_err_2d, flux_sort = None, waverange = 
                                                         straight_error=False, std=False)
     except Exception as E:
         print(E)
-        stack[i] = 0
-        stack_err[i] = 0
+        stack = None
+        stack_err = None
+        contrib = 0
 
     return stack, stack_err, contrib
 
