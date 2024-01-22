@@ -24,7 +24,7 @@ import io
 
 import matplotlib
 import warnings
-warnings.filterwarnings("ignore",category=matplotlib.cbook.MatplotlibDeprecationWarning)
+#warnings.filterwarnings("ignore",category=matplotlib.cbook.MatplotlibDeprecationWarning)
 #matplotlib.use('agg')
 
 import pandas as pd
