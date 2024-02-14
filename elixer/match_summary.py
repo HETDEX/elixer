@@ -44,6 +44,8 @@ class BidTarget:
         self.catalog_name = None
         self.spec_z = None
         self.phot_z = None
+        self.phot_z_low = None #usually lower end of 68% conf. interval, if provided
+        self.phot_z_hi = None #usually higher end of 68% conf. interval, if provided
         self.phot_z_pdf_pz = [] #p(z) or y-axis #todo: future use? record in HDF5 catalog?
         self.phot_z_pdf_z = [] #z array or x-axis
         self.selected = False #Elixer chosen best

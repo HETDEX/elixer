@@ -3,147 +3,10 @@ from __future__ import print_function
 
 """
 This is for a special, restricted use of HSC data in the NEP
-################################################################
-IMAGES: 
-################################################################
-01/2021
 
-Hawaii Two-0 NEP subset of imaging 
+Updated 2024-02-xx
 
-image file names: 'H20_NEP_18211_B15_e.fits'
-      	   	: 'H20_NEP_18211_B16_e.fits'
-
-Included here are two sets of images, where each image is 3800*3800 pixels, with a pixel scale of 0.168"/pix. In the framework of the Farmer (Weaver, Zalesky et al. in prep) 
-photometry pipeline, each image is called a brick. A brick is a subset of a larger mosaic created to enable efficient multiprocessing. Each brick overlaps with its neighbors by 
-N pixels, where in this case N=100. This overlap region is called the brick-buffer. Sources which extend into the brick-buffer shared by bricks A & B, but have centroids 
-within brick A are considered to belong to brick A -- thus sources are not double counted nor are they improperly segmented. The total effective area across which sources can 
-be detected, not accounting for masking (e.g., bright star masks), is then 3600*3600 pixels = 10.08*10.08 arcminutes. 
-
-contact: Lukas Zalesky - zalesky@hawaii.edu
-
-########################################################
-IMAGE INFORMATION
-########################################################
-
-Images are included for the following bands: ['hsc_g', 'hsc_r', 'hsc_i', 'hsc_z', 'hsc_y']
-Each band has the following information contained in this multi-extension .fits file:
-
-        '###_IMAGE'                  # reduced science image. unit = 'uJy'
-        '###_WEIGHT                  # weight image obtained during reduction. unit = '1/variance'
-        '###_MASK'                   # bright star masks, obtained in a manner similar to that of the HSC-SSP survey. Masks do not cover 100% of all bright stars. Same for all bands. 
-
-
-
-#########################################################
-#CATALOGS
-#########################################################
-
-#\1;95;0c01/2021
-
-Hawaii Two-0 NEP subset catalog
-
-catalog file name: 'H20_NEP_subset_catalog.fits'
-
-This catalog contains photometry and output from the EAZY-py SED fitting code for 18164 detected sources. These sources were detected 
-in the two sets of images attached along with these files. Each image is square with approximately 10 arcminutes on one side. A brief description of 
-the source extraction and photometry method follows.
-
-Source extraction and photometry is performed using the new software called "The Farmer" (Weaver, Zalesky et al. in prep). This software utilizes the profile-fitting
-tools provided by Tractor (Lang et al. 2014, 2016). Sources are detected with pythonic source extractor (SEP) from an r+i+z CHIMEAN stack created with SWARP. Each 
-source is then modeled as either a point source or an extended source, with nearby sources modeled simultaneously. 
-Appropriate models are determined from the r, i, and z, bands collectively. Flux is measured by forcing the final model on to each source, convolving the model with 
-the appropriate PSF, and optimizing the flux which is left as a free parameter. 
-
-*** DISCLAIMER: all detected sources are reported, but not all detected sources have valid photometry. Some sources which are detected cannot be modeled, as they are near 
-    bright stars which were not masked out, artifacts, or they may be artifacts themselves, such as those created by scattered light. To identify sources with valid photometry,
-    use the flag below called 'VALID_SOURCE_MODELING'. Sources with 'VALID_SOURCE_MODELING' == False will not have FLUX, FLUXERR, MAG, MAGERR, nor photometric redshifts. 
-    However, it may be useful to determine whether or not a source was detected at all. For this reason, the detection parameters (e.g., position at source detection)
-    have been included even for sources that could not be modeled. 
-
-contact: Lukas Zalesky - zalesky@hawaii.edu
-
-########################################################
-History
-########################################################
-
-01/2021 -- catalog created and shared with Steve Finkelstein
-
-
-########################################################
-DETECTION 
-########################################################
-
-Except for the identifier ('id') which was added at the end of catalog creation, each parameter value provided here is measured directly with SEP. 
-Please keep the 'id' flag in tact, as it uniquely identifies the source in context of the entire region of the NEP completed to full-depth by H20.
-Note that these parameters are measured on the CHIMEAN detection image and thus do not correspond to physical units. 
-Nonetheless, the ratio of peak flux / convolved peak flux recorded here is still useful for separating stars from galaxies.
-
-        'id'                                  # identifier, arbitrary 
-        'cpeak'                               # convolved peak flux; unit = 'signal/noise' i.e., no unit, since this is measured from the CHIMEAN image
-        'peak'                                # peak flux; unit = 'signal/noise', i.e., no unit, since this is measured from the CHIMEAN image
-        'RA_DETECTION'                        # right ascension (J2000) of detected source; unit = 'deg' 
-        'DEC_DETECTION'                       # declination (J2000) of detected source; unit = 'deg'
-
-########################################################
-SOURCE MODELING
-########################################################
-
-        'N_BLOB'                              # number of sources modeled simultaneously with this source 
-        'VALID_SOURCE_MODELING'               # flag, True if model optimization succeeded, False if model optimization failed
-        'SOLMODEL_MODELING'                   # flag, indicates final model type for successful models (PointSource, SimpleGalaxy, ExpGalaxy, DevGalaxy, FixedCompositeGalaxy)
-        'CHISQ_MODELING_hsc_r'                # chi-squared statistic during modeling as measured in the hsc-r band 
-        'CHISQ_MODELING_hsc_i'                # chi-squared statistic during modeling as measured in the hsc-i band 
-        'CHISQ_MODELING_hsc_z'                # chi-squared statistic during modeling as measured in the hsc-z band 
-        'RA_MODELING'                         # right ascension (J2000) of source determined during model optimization; unit = 'deg' 
-        'DEC_MODELING'                        # declination (J2000) of source determined during model optimization; unit = 'deg' 
-
-########################################################
-PHOTOMETRY 
-########################################################
-
-Photometry is included for the following bands: ['hsc_g', 'hsc_r', 'hsc_i', 'hsc_z', 'hsc_y', 'irac_ch1', 'irac_ch2']
-Total model magnitudes and fluxes are reported -- no aperture corrections are needed!
-
-Catalog entries follow the convention below for each available band:
-
-        'MAG_###'                             # AB magnitude; unit = 'mag'
-        'MAGERR_###'                          # AB magnitude error; unit = 'mag'
-        'FLUX_###'                            # flux; unit = 'uJy'
-        'FLUXERR_###'                         # flux error; unit = 'uJy'
-        'CHISQ_###'                           # chi-squared statistic in given band during forced photometry
-
-########################################################
-SED FITTING 
-########################################################
-
-Photometric redshifts are calculated using EAZY-py, a pythonic implementation of EAZY (Brammer et al. 2008). 
-Github page: https://github.com/gbrammer/eazy-py
-
-The templates used are the same as those used in the new COSMOS2020 catalog. These templates are not available online, but may be available upon request (contact Gabe Brammer). 
-
-        'nusefilt'                            # number of filters used for photo-z
-        'lc_min'                              # minimum effective wavelength of valid filters, Angstrom    
-        'lc_max'                              # maximum effective wavelength of valid filters, Angstrom   
-        'z_raw_chi2'                          # redshift where chi2 is minimized
-        'z_phot_chi2'                         # min chi2 
-        'z025'                                # 2.5 percentile of pdf(z) (2-sigma)
-        'z160'                                # 16 percentile of pdf(z) (1-sigma) 
-        'z500'                                # 50 percentile of pdf(z)  
-        'z840'                                # 84 percentile of pdf(z) (1-sigma) 
-        'z975'                                # 97.5 percentile of pdf(z) (2-sigma) 
-
-        'PSTAR_chi2'                          # chi-squared of best stellar template, using the PHOENIX stellar library   
-        'LSTAR_chi2'                          # chi-squared of best stellar template, using the LePhare stellar library
-
-To compare the chi-squared of the fit with galaxy templates with that of stellar templates, one should use chi2/(nusefilt-1), if the goal is to compare the reduced chi-squared. 
-Also, note that z500 is typically more reliable than z_raw_chi2. 
-
-########################################################
-MISCELLANEOUS EXTRA COLUMNS
-########################################################
-
-        'EBV'                                 # E(B-V) values from Schlegel, Finkbeiner & Davis (1998) dust map, with 2011 recalibration; unit = 'mag'
-        'tract_id'                            # The tract id corresponds to a region of the sky pre-defined by the HSC-SSP team. 
+Substantial re-organization of prior early data. See bottom of this file for notes on that earlier version
 
 """
 
@@ -246,38 +109,24 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
     # HSC_IMAGE_PATH = G.HSC_IMAGE_PATH
 
     #todo: Oscar ... change to your path(here)
-    HSC_BASE_PATH = "/scratch/03261/polonius/nep" #"/media/dustin/Seagate8TB/nep/H20_VIRUS_EXCHANGE"
-    HSC_CAT_PATH = "/scratch/03261/polonius/nep"#"/media/dustin/Seagate8TB/nep/H20_VIRUS_EXCHANGE"
-    HSC_IMAGE_PATH = "/scratch/03261/polonius/nep"#"/media/dustin/Seagate8TB/nep/H20_VIRUS_EXCHANGE"
-    HSC_CATALOG_FILE = "H20_NEP_subset_catalog.fits"
+    HSC_BASE_PATH = None
+    HSC_CAT_PATH = HSC_BASE_PATH
+    HSC_IMAGE_PATH = HSC_BASE_PATH
+    HSC_CATALOG_FILE = None
+    # Note: the catalog is now a single large fits file (~ 5GB) (old catalog: H20_NEP_subset_catalog.fits")
+    # it would be more memory and time efficient to make a meta-file with an index on the RA, Dec
+    #  and find matches first, then load the matching row(s) from the fits, but
+    #  for the sake of code time and the limited use of this data, we just load the whole thing
+    #  and drop the columns we aren't using ... generally NEP is use exclusively here for NEP targets,
+    #  so the expectation is that the catalog is loaded once for many observations
 
     INCLUDE_KPNO_G = False
 
-
-    # Brick 15:  2" at 3 sigma (5 sigma) [will use 5-sigma]
-    # g - 27.7 (27.1)
-    # r - 27.3 (26.7)
-    # i - 26.9 (26.4)
-    # z - 26.6 (26.0)
-    # y - 25.5 (24.9)
-    # ch1 - 25.6 (25.0)  #not in the FITS (IRAC channel1 3.6 micron)
-    # ch2 - 25.6 (25.0)  #not in the FITS (IRAC channel2 4.8 micron)
-    #
-    # Brick 16:
-    # g - 27.7 (27.2)
-    # r - 27.3 (26.7)
-    # i - 26.9 (26.4)
-    # z - 26.5 (26.0)
-    # y - 25.4 (24.9)
-    # ch1 - 24.9 (24.3)  #not in the FITS (IRAC channel1 3.6 micron)
-    # ch2 - 25.1 (24.6)  #not in the FITS (IRAC channel2 4.8 micron)
-    #
-
     MAG_LIMIT = 27.3 #mostly care about r (this give a little slop for error and for smaller aperture before the limit kicks in)
 
+    #based off of average data from the prior version
     MAG_LIMIT_DICT = {'default':{'g':27.2,'r':26.7,'i':26.4,'z':26.0,'y':24.9},
-                      'H20_NEP_18211_B15_e.fits':{'g':27.1,'r':26.7,'i':26.9,'z':26.0,'y':24.9},
-                      'H20_NEP_18211_B16_e.fits':{'g':27.2,'r':26.7,'i':26.4,'z':26.0,'y':24.9}}
+                     }
 
     mean_FWHM = 1.0 #average 0.6 to 1.0
 
@@ -288,25 +137,6 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
     MainCatalog = None #there is no Main Catalog ... must load individual catalog tracts
     Name = "HSC-NEP"#"HyperSuprimeCam_NEP"
-
-
-#I hope all is well with you!! I found a little problema with the photometric catalog that the H20 team sent us.
-# I do not know if you need this for Elixer but just thought I should let you know about it. The photometric catalog
-# the H20 team sent us has two RA and DEC columns one for RA_DETECTIONS, DEC_DETECTION and the other RA_MODEL, DEC_MODEL
-# it turns out that something went wrong on their end for DETECTION RA and DEC and we should use the RA_MODEL, DEC_MODEL
-# instead for getting the proper RA and DEC.
-
-    #todo: HERE ... just define the coordrange, etc rather than load a meta file
-    #using the HETDEX HSC dictionary format, but filter, tract, and pos are not relevant
-    #the path is updated just below
-    # HSC_META_DICT = {
-    #     'H20_NEP_18211_B15_e.fits': {'RA_min':270.3579555,'RA_max':270.8344764,'Dec_min':67.5036877,'Dec_max':67.6853212,
-    #                                  'instrument':'HSC NEP','filter':'xx','tract':'18211','pos':(0,0),
-    #                                  'path':'H20_NEP_18211_B15_e.fits'},
-    #     'H20_NEP_18211_B16_e.fits': {'RA_min':270.3672660,'RA_max':270.84872930,'Dec_min':67.6716059,'Dec_max':67.8488075,
-    #                                  'instrument':'HSC NEP','filter':'xx','tract':'18211','pos':(0,0),
-    #                                  'path':'H20_NEP_18211_B16_e.fits'},
-    #  }
 
     Tile_Dict = hsc_nep_meta.HSC_META_DICT
     Image_Coord_Range = hsc_nep_meta.Image_Coord_Range
@@ -319,10 +149,13 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
         Tile_Dict[k]['path'] = op.join(HSC_IMAGE_PATH,op.basename(Tile_Dict[k]['path']))
 
 
-    Filters = ['g','r','i','z','y'] #case is important ... needs to be lowercase
-    Filter_HDU_Image_Idx = {'g':1,'r':4,'i':7,'z':10,'y':13}
-    Filter_HDU_Weight_Idx = {'g':2,'r':5,'i':8,'z':11,'y':14}
-    Filter_HDU_Mask_Idx = {'g':3,'r':6,'i':9,'z':12,'y':15}
+    # older version, not used anymore
+    # Filters = ['g','r','i','z','y'] #case is important ... needs to be lowercase
+    # Filter_HDU_Image_Idx = {'g':1,'r':4,'i':7,'z':10,'y':13}
+    # Filter_HDU_Weight_Idx = {'g':2,'r':5,'i':8,'z':11,'y':14}
+    # Filter_HDU_Mask_Idx = {'g':3,'r':6,'i':9,'z':12,'y':15}
+
+    Filters = ['g','r','i','z']
 
     Cat_Coord_Range = {'RA_min': None, 'RA_max': None, 'Dec_min': None, 'Dec_max': None}
 
@@ -356,208 +189,7 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
     # so 17.0 is 17 pixel diameter aperture (~ 2.86" diamter or 1.4" radius (about 2 touching HETDEX fibers))
     #
 
-    ##----------------------------
-    ## Catalog Format
-    ##----------------------------
-
-    # 1   unique IDs
-    # 2   position in X [pixel]
-    # 3   position in Y [pixel]
-    # 4   position in RA [degree]
-    # 5   position in Dec [degree]
-
-    # 6   flux within 3.000000-pixel aperture
-    # 7   1-sigma flux uncertainty
-    # 8   General Failure Flag
-    # 9   magnitude within 3.000000-pixel aperture
-    # 10  1-sigma magnitude uncertainty
-
-    # 11  flux within 4.500000-pixel aperture
-    # 12  1-sigma flux uncertainty
-    # 13  General Failure Flag
-    # 14  magnitude within 4.500000-pixel aperture
-    # 15  1-sigma magnitude uncertainty
-
-    # 16  flux within 6.000000-pixel aperture
-    # 17  1-sigma flux uncertainty
-    # 18  General Failure Flag
-    # 19  magnitude within 6.000000-pixel aperture
-    # 20  1-sigma magnitude uncertainty
-
-    # 21  flux within 9.000000-pixel aperture
-    # 22  1-sigma flux uncertainty
-    # 23  General Failure Flag
-    # 24  magnitude within 9.000000-pixel aperture
-    # 25  1-sigma magnitude uncertainty
-
-    # 26  flux within 12.000000-pixel aperture
-    # 27  1-sigma flux uncertainty
-    # 28  General Failure Flag
-    # 29  magnitude within 12.000000-pixel aperture
-    # 30  1-sigma magnitude uncertainty
-
-    # 31  flux within 17.000000-pixel aperture
-    # 32  1-sigma flux uncertainty
-    # 33  General Failure Flag
-    # 34  magnitude within 17.000000-pixel aperture
-    # 35  1-sigma magnitude uncertainty
-
-    # 36  flux within 25.000000-pixel aperture
-    # 37  1-sigma flux uncertainty
-    # 38  General Failure Flag
-    # 39  magnitude within 25.000000-pixel aperture
-    # 40  1-sigma magnitude uncertainty
-
-    # 41  flux within 35.000000-pixel aperture
-    # 42  1-sigma flux uncertainty
-    # 43  General Failure Flag
-    # 44  magnitude within 35.000000-pixel aperture
-    # 45  1-sigma magnitude uncertainty
-
-    # 46  flux within 50.000000-pixel aperture'
-    # 47  1-sigma flux uncertainty
-    # 48  General Failure Flag
-    # 49  magnitude within 50.000000-pixel aperture
-    # 50  1-sigma magnitude uncertainty
-
-    # 51  flux within 70.000000-pixel aperture
-    # 52  1-sigma flux uncertainty
-    # 53  General Failure Flag
-    # 54  magnitude within 70.000000-pixel aperture
-    # 55  1-sigma magnitude uncertainty
-
-    # 56  flux derived from linear least-squares fit of PSF model
-    # 57  1-sigma flux uncertainty
-    # 58  General Failure Flag
-    # 59  magnitude derived from linear least-squares fit of PSF model
-    # 60  1-sigma magnitude uncertainty
-
-    # 61  convolved Kron flux: seeing 3.500000
-    # 62  1-sigma flux uncertainty
-    # 63  convolved Kron flux failed: seeing 3.500000
-    # 64  convolved magnitude: seeing 3.500000
-    # 65  1-sigma magnitude uncertainty
-
-    # 66  convolved Kron flux: seeing 5.000000
-    # 67  1-sigma flux uncertainty
-    # 68  convolved Kron flux failed: seeing 5.000000
-    # 69  convolved magnitude: seeing 5.00000
-    # 70  1-sigma magnitude uncertainty
-
-    # 71  convolved Kron flux: seeing 6.500000
-    # 72  1-sigma flux uncertainty
-    # 73  convolved Kron flux failed: seeing 6.500000
-    # 74  convolved magnitude: seeing 6.500000
-    # 75  1-sigma magnitude uncertainty
-
-    # 76  convolved Kron flux: seeing 8.000000
-    # 77  1-sigma flux uncertainty
-    # 78  convolved Kron flux failed: seeing 8.000000
-    # 79  convolved magnitude: seeing 8.000000
-    # 80  1-sigma magnitude uncertainty
-
-    # 81  flux from the final cmodel fit
-    # 82  flux uncertainty from the final cmodel fit
-    # 83  flag set if the final cmodel fit (or any previous fit) failed
-    # 84  magnitude from the final cmodel fit
-    # 85  magnitude uncertainty from the final cmodel fit
-
-    # 86  Number of children this object has (defaults to 0)
-    # 87  Source is outside usable exposure region (masked EDGE or NO_DATA)
-    # 88  Interpolated pixel in the Source center
-    # 89  Saturated pixel in the Source center
-    # 90  Cosmic ray in the Source center
-
-    # 91  Bad pixel in the Source footprint
-    # 92  Source center is close to BRIGHT_OBJECT pixels
-    # 93  Source footprint includes BRIGHT_OBJECT pixels
-    # 94  General Failure Flag
-
-    # 95  true if source is in the inner region of a coadd tract
-    # 96  true if source is in the inner region of a coadd patch
-    # 97  Number of images contributing at center, not including anyclipping
-    # 98  original seeing (Gaussian sigma) at position [pixel]
-
-
-
-    BidCols = [
-        'id',
-        'cpeak',
-        'peak',
-        'RA_DETECTION', #DON'T USE, ... use RA_MODELING instead
-        'Dec_DETECTION', #DON'T USE, ... use DEC_MODELING instead
-
-        'N_BLOB',                              # number of sources modeled simultaneously with this source
-        'VALID_SOURCE_MODELING' ,              # flag, True if model optimization succeeded, False if model optimization failed
-        'SOLMODEL_MODELING' ,                  # flag, indicates final model type for successful models (PointSource, SimpleGalaxy, ExpGalaxy, DevGalaxy, FixedCompositeGalaxy)
-        'CHISQ_MODELING_hsc_r'  ,              # chi-squared statistic during modeling as measured in the hsc-r band
-        'CHISQ_MODELING_hsc_i'  ,              # chi-squared statistic during modeling as measured in the hsc-i band
-        'CHISQ_MODELING_hsc_z'  ,              # chi-squared statistic during modeling as measured in the hsc-z band
-
-
-        'RA_MODELING'      ,                   # right ascension (J2000) of source determined during model optimization; unit = 'deg'
-        'DEC_MODELING'  ,                      # declination (J2000) of source determined during model optimization; unit = 'de
-
-        'MAG_hsc_g'    ,                         # AB magnitude; unit = 'mag'
-        'MAGERR_hsc_g'  ,                        # AB magnitude error; unit = 'mag'
-        'FLUX_hsc_g'   ,                         # flux; unit = 'uJy'
-        'FLUXERR_hsc_g'  ,                       # flux error; unit = 'uJy'
-        'CHISQ_hsc_g',
-
-        'MAG_hsc_r'    ,                         # AB magnitude; unit = 'mag'
-        'MAGERR_hsc_r'  ,                        # AB magnitude error; unit = 'mag'
-        'FLUX_hsc_r'   ,                         # flux; unit = 'uJy'
-        'FLUXERR_hsc_r'  ,                       # flux error; unit = 'uJy'
-        'CHISQ_hsc_r',
-
-        'MAG_hsc_i'    ,                         # AB magnitude; unit = 'mag'
-        'MAGERR_hsc_i'  ,                        # AB magnitude error; unit = 'mag'
-        'FLUX_hsc_i'   ,                         # flux; unit = 'uJy'
-        'FLUXERR_hsc_i'  ,                       # flux error; unit = 'uJy'
-        'CHISQ_hsc_i',
-
-        'MAG_hsc_z'    ,                         # AB magnitude; unit = 'mag'
-        'MAGERR_hsc_z'  ,                        # AB magnitude error; unit = 'mag'
-        'FLUX_hsc_z'   ,                         # flux; unit = 'uJy'
-        'FLUXERR_hsc_z'  ,                       # flux error; unit = 'uJy'
-        'CHISQ_hsc_z',
-
-        'MAG_hsc_y'    ,                         # AB magnitude; unit = 'mag'
-        'MAGERR_hsc_y'  ,                        # AB magnitude error; unit = 'mag'
-        'FLUX_hsc_y'   ,                         # flux; unit = 'uJy'
-        'FLUXERR_hsc_y'  ,                       # flux error; unit = 'uJy'
-        'CHISQ_hsc_y',
-
-        'MAG_irac_ch1'    ,                         # AB magnitude; unit = 'mag'
-        'MAGERR_irac_ch1'  ,                        # AB magnitude error; unit = 'mag'
-        'FLUX_irac_ch1'   ,                         # flux; unit = 'uJy'
-        'FLUXERR_irac_ch1'  ,                       # flux error; unit = 'uJy'
-        'CHISQ_irac_ch1',
-
-
-        'MAG_irac_ch2'    ,                         # AB magnitude; unit = 'mag'
-        'MAGERR_irac_ch2'  ,                        # AB magnitude error; unit = 'mag'
-        'FLUX_irac_ch2'   ,                         # flux; unit = 'uJy'
-        'FLUXERR_irac_ch2'  ,                       # flux error; unit = 'uJy'
-        'CHISQ_irac_ch2',
-
-        'nusefilt' ,                           # number of filters used for photo-z
-        'lc_min'    ,                          # minimum effective wavelength of valid filters, Angstrom
-        'lc_max'     ,                         # maximum effective wavelength of valid filters, Angstrom
-        'z_raw_chi2'  ,                        # redshift where chi2 is minimized
-        'z_phot_chi2'  ,                       # min chi2
-        'z025',                                # 2.5 percentile of pdf(z) (2-sigma)
-        'z160',                                # 16 percentile of pdf(z) (1-sigma)
-        'z500',                                # 50 percentile of pdf(z)
-        'z840',                                # 84 percentile of pdf(z) (1-sigma)
-        'z975',                                # 97.5 percentile of pdf(z) (2-sigma)
-
-        'PSTAR_chi2',                          # chi-squared of best stellar template, using the PHOENIX stellar library
-        'LSTAR_chi2' ,                         # chi-squared of best stellar template, using the LePhare stellar librar
-        'EBV'  ,                               # E(B-V) values from Schlegel, Finkbeiner & Davis (1998) dust map, with 2011 recalibration; unit = 'mag'
-        'tract_id',                            # The tract id corresponds to a region of the sky pre-defined by the HSC-SSP team.
-        ]
-
+    #BidCols = [] not used for this catalog, see read_catalog()
 
     CatalogImages = [] #built in constructor
 
@@ -577,7 +209,7 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
         :param catalog_loc:
         :param name:
-        :param tract: list of string string as the HSC track id, ie. ['16814']
+        :param tract: list of string as the HSC track id, ie. ['16814']
         :param position: a tuple or array with exactly 2 elements as integers 0-9, i.e. (0,1) or (2,8), etc
         :return:
         """
@@ -585,7 +217,10 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
         if name is None:
             name = cls.Name
 
-        fqtract = [op.join(cls.HSC_CAT_PATH,cls.HSC_CATALOG_FILE),]
+        try:
+            fqtract = [op.join(cls.HSC_CAT_PATH,cls.HSC_CATALOG_FILE),]
+        except:
+            fqtract = []
 
         # fqtract =[] #fully qualified track (as a partial path)
         # if (tract is not None) and (len(tract) > 0) and (position is not None) and (len(position) == len(tract)): #should be a list of positions and the same length as tract
@@ -610,7 +245,8 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
             cat_name = t
             cat_loc = op.join(cls.HSC_CAT_PATH, cat_name)
-            header = cls.BidCols
+            #not used anymore
+            #header = cls.BidCols
 
             if not op.exists(cat_loc):
                 log.error("Cannot load catalog tract for HSC. File does not exist: %s" %cat_loc)
@@ -619,6 +255,46 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
             try:
                 table = astropy.table.Table.read(cat_loc)#,format='fits')
+
+                #all columns
+                #'ID', 'ALPHA_J2000', 'DELTA_J2000', 'X_MODEL', 'Y_MODEL', 'ERRX_MODEL', 'ERRY_MODEL',
+                # 'ALPHA_DETECTION', 'DELTA_DETECTION', 'FARMER_ID', 'GROUP_ID', 'N_GROUP',
+                # 'MODEL_FLAG', 'SOLUTION_MODEL', 'EBV_MW', 'FULL_DEPTH_DR1',
+                # 'CFHT_u_FLUX', 'CFHT_u_FLUXERR', 'CFHT_u_MAG', 'CFHT_u_MAGERR', 'CFHT_u_CHISQ', 'CFHT_u_DRIFT', 'CFHT_u_VALID',
+                # 'HSC_g_FLUX', 'HSC_g_FLUXERR', 'HSC_g_MAG', 'HSC_g_MAGERR', 'HSC_g_CHISQ', 'HSC_g_DRIFT', 'HSC_g_VALID',
+                # 'HSC_r_FLUX', 'HSC_r_FLUXERR', 'HSC_r_MAG', 'HSC_r_MAGERR', 'HSC_r_CHISQ', 'HSC_r_DRIFT', 'HSC_r_VALID',
+                # 'HSC_i_FLUX', 'HSC_i_FLUXERR', 'HSC_i_MAG', 'HSC_i_MAGERR', 'HSC_i_CHISQ', 'HSC_i_DRIFT', 'HSC_i_VALID',
+                # 'HSC_z_FLUX', 'HSC_z_FLUXERR', 'HSC_z_MAG', 'HSC_z_MAGERR', 'HSC_z_CHISQ', 'HSC_z_DRIFT', 'HSC_z_VALID',
+                # 'HSC_y_FLUX', 'HSC_y_FLUXERR', 'HSC_y_MAG', 'HSC_y_MAGERR', 'HSC_y_CHISQ', 'HSC_y_DRIFT', 'HSC_y_VALID',
+                # 'HSC_NB0816_MAG', 'HSC_NB0816_MAGERR', 'HSC_NB0816_FLUX', 'HSC_NB0816_FLUXERR', 'HSC_NB0816_CHISQ',
+                #     'HSC_NB0816_DRIFT', 'HSC_NB0816_VALID',
+                # 'HSC_NB0921_MAG', 'HSC_NB0921_MAGERR', 'HSC_NB0921_FLUX', 'HSC_NB0921_FLUXERR', 'HSC_NB0921_CHISQ',
+                #     'HSC_NB0921_DRIFT', 'HSC_NB0921_VALID',
+                # 'IRAC_CH1_FLUX', 'IRAC_CH1_FLUXERR', 'IRAC_CH1_MAG', 'IRAC_CH1_MAGERR', 'IRAC_CH1_CHISQ',
+                #     'IRAC_CH1_DRIFT', 'IRAC_CH1_VALID',
+                # 'IRAC_CH2_FLUX', 'IRAC_CH2_FLUXERR', 'IRAC_CH2_MAG', 'IRAC_CH2_MAGERR', 'IRAC_CH2_CHISQ',
+                #     'IRAC_CH2_DRIFT', 'IRAC_CH2_VALID',
+                # 'lp_zPDF', 'lp_zPDF_l68', 'lp_zPDF_u68', 'lp_zMinChi2', 'lp_chi2_best', 'lp_zp_2', 'lp_chi2_2',
+                # 'lp_NbFilt', 'lp_zq', 'lp_chiq', 'lp_modq', 'lp_mods', 'lp_chis', 'lp_model',
+                # 'lp_age', 'lp_dust', 'lp_Attenuation', 'lp_MNUV', 'lp_MR', 'lp_MJ',
+                # 'lp_mass_med', 'lp_mass_med_min68', 'lp_mass_med_max68', 'lp_mass_best',
+                # 'lp_SFR_med', 'lp_SFR_med_min68', 'lp_SFR_med_max68', 'lp_SFR_best', 'lp_sSFR_med',
+                #        'lp_sSFR_med_min68', 'lp_sSFR_med_max68', 'lp_sSFR_best',
+                # 'ez_z_phot', 'ez_z_phot_chi2', 'ez_z_phot_risk', 'ez_z_min_risk', 'ez_min_risk', 'ez_z_raw_chi2',
+                #    'ez_raw_chi2', 'ez_z_ml', 'ez_z_ml_chi2', 'ez_z_ml_risk', 'ez_z025', 'ez_z160', 'ez_z500', 'ez_z840',
+                #    'ez_z975', 'ez_nusefilt', 'ez_lc_min', 'ez_lc_max', 'ez_star_min_chi2', 'ez_star_teff'
+
+                #this table is too big, so only keep necessary columns
+                table.keep_columns(['ID', 'ALPHA_J2000', 'DELTA_J2000',  # ',
+                                    'HSC_g_FLUX', 'HSC_g_FLUXERR', 'HSC_g_MAG', 'HSC_g_MAGERR', 'HSC_g_VALID',
+                                    'HSC_r_FLUX', 'HSC_r_FLUXERR', 'HSC_r_MAG', 'HSC_r_MAGERR', 'HSC_r_VALID',
+                                    'lp_zPDF', 'lp_zPDF_l68', 'lp_zPDF_u68',])
+                                    #'ez_z_phot','ez_z_phot_chi2',
+                                    #'ez_z_ml','ez_z_ml_chi2'])
+
+                table['ALPHA_J2000'].name = 'RA'
+                table['DELTA_J2000'].name = 'DEC'
+
             except Exception as e:
                 if type(e) is astropy.io.registry.IORegistryError:
                     log.error(name + " Exception attempting to open catalog file: (IORegistryError, bad format)" + cat_loc, exc_info=False)
@@ -632,9 +308,9 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                 #df = pd.read_csv(cat_loc, names=header,
                 #                 delim_whitespace=True, header=None, index_col=None, skiprows=0)
 
-                old_names = ['RA_MODELING','DEC_MODELING']
-                new_names = ['RA','DEC']
-                df.rename(columns=dict(zip(old_names, new_names)), inplace=True)
+                # old_names = ['RA_MODELING','DEC_MODELING']
+                # new_names = ['RA','DEC']
+                # df.rename(columns=dict(zip(old_names, new_names)), inplace=True)
 
                # df['FILTER'] = 'r' #add the FILTER to the dataframe !!! case is important. must be lowercase
 
@@ -678,26 +354,27 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
     def build_catalog_of_images(self):
 
         for t in self.Tile_Dict.keys(): #tile is the key (the filename)
-            for f in self.Filters:
-                path = self.HSC_IMAGE_PATH #op.join(self.HSC_IMAGE_PATH,self.Tile_Dict[t]['tract'])
-                name = t
-                wcs_manual = False
+            #for f in self.Filters: # each image now only has one filter
+            path = self.HSC_IMAGE_PATH #op.join(self.HSC_IMAGE_PATH,self.Tile_Dict[t]['tract'])
+            name = t
+            wcs_manual = False
+            f = self.Tile_Dict[t]['filter']
 
-                self.CatalogImages.append(
-                    {'path': path,
-                     'name': name, #filename is the tilename
-                     'tile': t,
-                     'pos': self.Tile_Dict[t]['pos'], #the position tuple i.e. (0,3) or (2,8) ... in the name as 03 or 28
-                     'filter': f,
-                     'instrument': "HSC NEP",
-                     'cols': [],
-                     'labels': [],
-                     'image': None,
-                     'expanded': False,
-                     'wcs_manual': wcs_manual,
-                     'aperture': self.mean_FWHM * 0.5 + 0.5, #since a radius, half the FWHM + 0.5" for astrometric error
-                     'mag_func': hsc_count_to_mag
-                     })
+            self.CatalogImages.append(
+                {'path': path,
+                 'name': name, #filename is the tilename
+                 'tile': t,
+                 'pos': self.Tile_Dict[t]['pos'], #the position tuple i.e. (0,3) or (2,8) ... in the name as 03 or 28
+                 'filter': f,
+                 'instrument': "HSC NEP",
+                 'cols': [],
+                 'labels': [],
+                 'image': None,
+                 'expanded': False,
+                 'wcs_manual': wcs_manual,
+                 'aperture': self.mean_FWHM * 0.5 + 0.5, #since a radius, half the FWHM + 0.5" for astrometric error
+                 'mag_func': hsc_count_to_mag
+                 })
 
     def find_target_tile(self,ra,dec):
         #assumed to have already confirmed this target is at least in coordinate range of this catalog
@@ -709,13 +386,36 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
         positions = []
         keys = []
         for k in self.Tile_Dict.keys():
+
+            #20240212 DD: since the new version has just one filter per image, only check 'r'
+            if self.Tile_Dict[k]['filter'].lower() != 'r':
+                continue
+
             # don't bother to load if ra, dec not in range
+            # try:
+            #     if not ((ra >= self.Tile_Dict[k]['RA_min']) and (ra <= self.Tile_Dict[k]['RA_max']) and
+            #             (dec >= self.Tile_Dict[k]['Dec_min']) and (dec <= self.Tile_Dict[k]['Dec_max'])) :
+            #         continue
+            #     else:
+            #         keys.append(k)
+            # except:
+            #     pass
+
             try:
-                if not ((ra >= self.Tile_Dict[k]['RA_min']) and (ra <= self.Tile_Dict[k]['RA_max']) and
-                        (dec >= self.Tile_Dict[k]['Dec_min']) and (dec <= self.Tile_Dict[k]['Dec_max'])) :
-                    continue
-                else:
-                    keys.append(k)
+                if self.Tile_Dict[k]['RA_max'] - self.Tile_Dict[k]['RA_min'] < 30: #30 deg as a big value
+                                                                                   #ie. we are NOT crossing the 0 or 360 deg line
+                    if not ((ra >= self.Tile_Dict[k]['RA_min']) and (ra <= self.Tile_Dict[k]['RA_max']) and
+                            (dec >= self.Tile_Dict[k]['Dec_min']) and (dec <= self.Tile_Dict[k]['Dec_max'])) :
+                        continue
+                    else:
+                        keys.append(k)
+                else: # we are crossing the 0/360 boundary, so we need to be greater than the max (ie. between max and 360)
+                      # OR less than the min (between 0 and the minimum)
+                    if not ((ra <= self.Tile_Dict[k]['RA_min']) or (ra >= self.Tile_Dict[k]['RA_max']) and
+                            (dec >= self.Tile_Dict[k]['Dec_min']) and (dec <= self.Tile_Dict[k]['Dec_max'])) :
+                        continue
+                    else:
+                        keys.append(k)
             except:
                 pass
 
@@ -763,6 +463,8 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
             log.error("ERROR! len(keys) < 0 in cat_hsc::find_target_tile.")
             return None, None, None
 
+        #'H20_EDFN_v2.3_HSC-R.fits'
+        tile = tile.replace("HSC-R.fits", "HSC-?.fits")
         log.info("Selected tile: %s" % tile)
         #now we have the tile key (filename)
         #do we want to find the matching catalog and see if there is an entry in it?
@@ -832,27 +534,44 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
         mag_err_list = []
 
         filter_str=None
-        if G.BANDPASS_PREFER_G:
-            first_name = 'FLUX_hsc_g'
-            second_name = 'FLUX_hsc_r'
+
+        try:
+            valid_g = df[f'HSC_g_VALID'].values[0]
+            valid_r = df[f'HSC_r_VALID'].values[0]
+        except:
+            valid_g = True
+            valid_r = True
+
+        if G.BANDPASS_PREFER_G and valid_g or (not valid_r):
+            first_name = "HSC_g_FLUX" #'FLUX_hsc_g'
+            second_name = "HSC_r_FLUX" #'FLUX_hsc_r'
         else:
-            first_name = 'FLUX_hsc_r'
-            second_name = 'FLUX_hsc_g'
+            first_name = "HSC_r_FLUX" #'FLUX_hsc_r'
+            second_name = "HSC_g_FLUX" #'FLUX_hsc_g'
 
         try:
             if df[first_name].values[0]:
-                filter_str = first_name[-1]
+                filter_str = first_name.split("_")[1]
             elif df[second_name].values[0]:
-                filter_str = second_name[-1]
+                filter_str = second_name.split("_")[1]
             else:
                 log.info("Unable to use r or g filter flux.")
 
             if filter_str:
-                filter_fl = df['FLUX_hsc_'+filter_str].values[0]
-                filter_fl_err = df['FLUXERR_hsc_'+filter_str].values[0]
-                mag = df['MAG_hsc_'+filter_str].values[0]
-                mag_bright = mag - df['MAGERR_hsc_'+filter_str].values[0]
-                mag_faint = mag + df['MAGERR_hsc_'+filter_str].values[0]
+                filter_fl = df[f'HSC_{filter_str}_FLUX'].values[0] #df['FLUX_hsc_'+filter_str].values[0]
+                filter_fl_err = df[f'HSC_{filter_str}_FLUXERR'].values[0] #df['FLUXERR_hsc_'+filter_str].values[0]
+
+                #!!Notice: the flux HERE is a bit different than the image directly ... different zero
+                # flux to mag HERE is -2.5 * np.log10(filter_fl) + 23.9
+                # in the images it is -2.5 * np.log10(counts) + 27.0
+
+                mag = df[f'HSC_{filter_str}_MAG'].values[0]
+                mag_err =  df[f'HSC_{filter_str}_MAGERR'].values[0]
+                mag_bright = mag - mag_err
+                mag_faint = mag + mag_err
+                # mag = df['MAG_hsc_'+filter_str].values[0]
+                # mag_bright = mag - df['MAGERR_hsc_'+filter_str].values[0]
+                # mag_faint = mag + df['MAGERR_hsc_'+filter_str].values[0]
 
         except:
             log.error("Exception in cat_hsc_nep.get_filter_flux", exc_info=True)
@@ -865,6 +584,32 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
         return filter_fl, filter_fl_err, mag, mag_bright, mag_faint, filter_str
 
+    def get_photz(self, df):
+        """
+        similar to get_filter_flux
+
+        :param df:
+        :return:
+        """
+
+        lp_zPDF, lp_zPDF_low, lp_zPDF_hi = None, None, None
+        try:
+            lp_zPDF = df['lp_zPDF'].values[0]
+            lp_zPDF_low = df['lp_zPDF_l68'].values[0]
+            lp_zPDF_hi = df['lp_zPDF_u68'].values[0]
+
+            #todo: could also use other photz measures and decide based on risk or chi2, which is the "best"
+            #ez_z = df['ez_z_ml'].values[0]
+        except:
+            log.error("Exception in cat_hsc_nep.get_phot", exc_info=True)
+            return None, None, None
+
+        try:
+            log.debug(f"HSC NEP photz {lp_zPDF} [{lp_zPDF_low},{lp_zPDF_hi}]")
+        except:
+            pass
+
+        return lp_zPDF, lp_zPDF_low, lp_zPDF_hi
 
     def build_list_of_bid_targets(self, ra, dec, error):
         '''ra and dec in decimal degrees. error in arcsec.
@@ -936,7 +681,8 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                 self.num_targets = 0
 
         except:
-            log.error(self.Name + " Exception in build_list_of_bid_targets", exc_info=True)
+            if self.df is not None:
+                log.error(self.Name + " Exception in build_list_of_bid_targets", exc_info=True)
             self.num_targets = 0
 
 
@@ -1036,13 +782,7 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
             except:
                 wcs_manual = self.WCS_Manual
 
-            try:
-                if G.HSC_S15A:
-                    wcs_idx = 1
-                else:
-                    wcs_idx = 0
-            except:
-                wcs_idx = 0
+            wcs_idx = 1
 
             try:
                 if i['image'] is None:
@@ -1171,8 +911,12 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                             bid_target.bid_mag_err_faint = filter_mag_faint
                             bid_target.bid_flux_est_cgs_unc = filter_fl_cgs_unc
 
-                            if target_w:
+                            if G.CHECK_ALL_CATALOG_BID_Z: #only load if we are going to use it
+                                bid_target.phot_z, bid_target.phot_z_low, bid_target.phot_z_hi = \
+                                    self.get_photz(df)
+                                #notice for the 'tract' we want it as the array
 
+                            if target_w:
                                 lineFlux_err = 0.
                                 if detobj is not None:
                                     try:
@@ -1503,13 +1247,9 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                 aperture = 0.0
                 mag_func = None
 
-            try:
-                if G.HSC_S15A:
-                    wcs_idx = 1
-                else:
-                    wcs_idx = 0
-            except:
-                wcs_idx = 0
+
+            wcs_idx = 1
+
 
             if i['image'] is None:
                 i['image'] = science_image.science_image(wcs_manual=wcs_manual,wcs_idx=wcs_idx,
@@ -2197,10 +1937,13 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
             wcs_manual = self.WCS_Manual
             mag_func = None
 
-        try:
-            wcs_idx = self.Filter_HDU_Image_Idx[catalog_image['filter']]
-        except:
-            wcs_idx = 0
+        # 20240212 DD:  older tiles had multiple filters per tile, new ones are single large image per filter
+        # try:
+        #     wcs_idx = self.Filter_HDU_Image_Idx[catalog_image['filter']]
+        # except:
+        #     wcs_idx = 0
+
+        wcs_idx = 1
 
         try:
             if catalog_image['image'] is None:
@@ -2314,7 +2057,8 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
                     i = self.CatalogImages[
                         next(i for (i, d) in enumerate(self.CatalogImages)
-                             if ((d['filter'] == f) and (d['tile'] == tile)))]
+                             if ((d['filter'] == f) and (d['tile'] == tile.replace("?", f.upper()))))]
+                             #if ((d['filter'] == f) and (d['tile'] == tile)))]
                     if i is not None:
                         cutout = self.get_single_cutout(ra, dec, window, i, aperture,error,detobj=detobj)
 
@@ -2347,3 +2091,390 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                 l.append(self.get_single_cutout(ra,dec,window,i,aperture,detobj=detobj))
 
         return l
+
+
+
+
+
+
+#END ALL ... this is just as temporary prior notes
+"""
+This is for a special, restricted use of HSC data in the NEP
+################################################################
+IMAGES: 
+################################################################
+01/2021
+
+Hawaii Two-0 NEP subset of imaging 
+
+image file names: 'H20_NEP_18211_B15_e.fits'
+      	   	: 'H20_NEP_18211_B16_e.fits'
+
+Included here are two sets of images, where each image is 3800*3800 pixels, with a pixel scale of 0.168"/pix. In the framework of the Farmer (Weaver, Zalesky et al. in prep) 
+photometry pipeline, each image is called a brick. A brick is a subset of a larger mosaic created to enable efficient multiprocessing. Each brick overlaps with its neighbors by 
+N pixels, where in this case N=100. This overlap region is called the brick-buffer. Sources which extend into the brick-buffer shared by bricks A & B, but have centroids 
+within brick A are considered to belong to brick A -- thus sources are not double counted nor are they improperly segmented. The total effective area across which sources can 
+be detected, not accounting for masking (e.g., bright star masks), is then 3600*3600 pixels = 10.08*10.08 arcminutes. 
+
+contact: Lukas Zalesky - zalesky@hawaii.edu
+
+########################################################
+IMAGE INFORMATION
+########################################################
+
+Images are included for the following bands: ['hsc_g', 'hsc_r', 'hsc_i', 'hsc_z', 'hsc_y']
+Each band has the following information contained in this multi-extension .fits file:
+
+        '###_IMAGE'                  # reduced science image. unit = 'uJy'
+        '###_WEIGHT                  # weight image obtained during reduction. unit = '1/variance'
+        '###_MASK'                   # bright star masks, obtained in a manner similar to that of the HSC-SSP survey. Masks do not cover 100% of all bright stars. Same for all bands. 
+
+
+
+#########################################################
+#CATALOGS
+#########################################################
+
+#\1;95;0c01/2021
+
+Hawaii Two-0 NEP subset catalog
+
+catalog file name: 'H20_NEP_subset_catalog.fits'
+
+This catalog contains photometry and output from the EAZY-py SED fitting code for 18164 detected sources. These sources were detected 
+in the two sets of images attached along with these files. Each image is square with approximately 10 arcminutes on one side. A brief description of 
+the source extraction and photometry method follows.
+
+Source extraction and photometry is performed using the new software called "The Farmer" (Weaver, Zalesky et al. in prep). This software utilizes the profile-fitting
+tools provided by Tractor (Lang et al. 2014, 2016). Sources are detected with pythonic source extractor (SEP) from an r+i+z CHIMEAN stack created with SWARP. Each 
+source is then modeled as either a point source or an extended source, with nearby sources modeled simultaneously. 
+Appropriate models are determined from the r, i, and z, bands collectively. Flux is measured by forcing the final model on to each source, convolving the model with 
+the appropriate PSF, and optimizing the flux which is left as a free parameter. 
+
+*** DISCLAIMER: all detected sources are reported, but not all detected sources have valid photometry. Some sources which are detected cannot be modeled, as they are near 
+    bright stars which were not masked out, artifacts, or they may be artifacts themselves, such as those created by scattered light. To identify sources with valid photometry,
+    use the flag below called 'VALID_SOURCE_MODELING'. Sources with 'VALID_SOURCE_MODELING' == False will not have FLUX, FLUXERR, MAG, MAGERR, nor photometric redshifts. 
+    However, it may be useful to determine whether or not a source was detected at all. For this reason, the detection parameters (e.g., position at source detection)
+    have been included even for sources that could not be modeled. 
+
+contact: Lukas Zalesky - zalesky@hawaii.edu
+
+########################################################
+History
+########################################################
+
+01/2021 -- catalog created and shared with Steve Finkelstein
+
+
+########################################################
+DETECTION 
+########################################################
+
+Except for the identifier ('id') which was added at the end of catalog creation, each parameter value provided here is measured directly with SEP. 
+Please keep the 'id' flag in tact, as it uniquely identifies the source in context of the entire region of the NEP completed to full-depth by H20.
+Note that these parameters are measured on the CHIMEAN detection image and thus do not correspond to physical units. 
+Nonetheless, the ratio of peak flux / convolved peak flux recorded here is still useful for separating stars from galaxies.
+
+        'id'                                  # identifier, arbitrary 
+        'cpeak'                               # convolved peak flux; unit = 'signal/noise' i.e., no unit, since this is measured from the CHIMEAN image
+        'peak'                                # peak flux; unit = 'signal/noise', i.e., no unit, since this is measured from the CHIMEAN image
+        'RA_DETECTION'                        # right ascension (J2000) of detected source; unit = 'deg' 
+        'DEC_DETECTION'                       # declination (J2000) of detected source; unit = 'deg'
+
+########################################################
+SOURCE MODELING
+########################################################
+
+        'N_BLOB'                              # number of sources modeled simultaneously with this source 
+        'VALID_SOURCE_MODELING'               # flag, True if model optimization succeeded, False if model optimization failed
+        'SOLMODEL_MODELING'                   # flag, indicates final model type for successful models (PointSource, SimpleGalaxy, ExpGalaxy, DevGalaxy, FixedCompositeGalaxy)
+        'CHISQ_MODELING_hsc_r'                # chi-squared statistic during modeling as measured in the hsc-r band 
+        'CHISQ_MODELING_hsc_i'                # chi-squared statistic during modeling as measured in the hsc-i band 
+        'CHISQ_MODELING_hsc_z'                # chi-squared statistic during modeling as measured in the hsc-z band 
+        'RA_MODELING'                         # right ascension (J2000) of source determined during model optimization; unit = 'deg' 
+        'DEC_MODELING'                        # declination (J2000) of source determined during model optimization; unit = 'deg' 
+
+########################################################
+PHOTOMETRY 
+########################################################
+
+Photometry is included for the following bands: ['hsc_g', 'hsc_r', 'hsc_i', 'hsc_z', 'hsc_y', 'irac_ch1', 'irac_ch2']
+Total model magnitudes and fluxes are reported -- no aperture corrections are needed!
+
+Catalog entries follow the convention below for each available band:
+
+        'MAG_###'                             # AB magnitude; unit = 'mag'
+        'MAGERR_###'                          # AB magnitude error; unit = 'mag'
+        'FLUX_###'                            # flux; unit = 'uJy'
+        'FLUXERR_###'                         # flux error; unit = 'uJy'
+        'CHISQ_###'                           # chi-squared statistic in given band during forced photometry
+
+########################################################
+SED FITTING 
+########################################################
+
+Photometric redshifts are calculated using EAZY-py, a pythonic implementation of EAZY (Brammer et al. 2008). 
+Github page: https://github.com/gbrammer/eazy-py
+
+The templates used are the same as those used in the new COSMOS2020 catalog. These templates are not available online, but may be available upon request (contact Gabe Brammer). 
+
+        'nusefilt'                            # number of filters used for photo-z
+        'lc_min'                              # minimum effective wavelength of valid filters, Angstrom    
+        'lc_max'                              # maximum effective wavelength of valid filters, Angstrom   
+        'z_raw_chi2'                          # redshift where chi2 is minimized
+        'z_phot_chi2'                         # min chi2 
+        'z025'                                # 2.5 percentile of pdf(z) (2-sigma)
+        'z160'                                # 16 percentile of pdf(z) (1-sigma) 
+        'z500'                                # 50 percentile of pdf(z)  
+        'z840'                                # 84 percentile of pdf(z) (1-sigma) 
+        'z975'                                # 97.5 percentile of pdf(z) (2-sigma) 
+
+        'PSTAR_chi2'                          # chi-squared of best stellar template, using the PHOENIX stellar library   
+        'LSTAR_chi2'                          # chi-squared of best stellar template, using the LePhare stellar library
+
+To compare the chi-squared of the fit with galaxy templates with that of stellar templates, one should use chi2/(nusefilt-1), if the goal is to compare the reduced chi-squared. 
+Also, note that z500 is typically more reliable than z_raw_chi2. 
+
+########################################################
+MISCELLANEOUS EXTRA COLUMNS
+########################################################
+
+        'EBV'                                 # E(B-V) values from Schlegel, Finkbeiner & Davis (1998) dust map, with 2011 recalibration; unit = 'mag'
+        'tract_id'                            # The tract id corresponds to a region of the sky pre-defined by the HSC-SSP team. 
+
+"""
+
+
+#I hope all is well with you!! I found a little problema with the photometric catalog that the H20 team sent us.
+# I do not know if you need this for Elixer but just thought I should let you know about it. The photometric catalog
+# the H20 team sent us has two RA and DEC columns one for RA_DETECTIONS, DEC_DETECTION and the other RA_MODEL, DEC_MODEL
+# it turns out that something went wrong on their end for DETECTION RA and DEC and we should use the RA_MODEL, DEC_MODEL
+# instead for getting the proper RA and DEC.
+
+# Brick 15:  2" at 3 sigma (5 sigma) [will use 5-sigma]
+# g - 27.7 (27.1)
+# r - 27.3 (26.7)
+# i - 26.9 (26.4)
+# z - 26.6 (26.0)
+# y - 25.5 (24.9)
+# ch1 - 25.6 (25.0)  #not in the FITS (IRAC channel1 3.6 micron)
+# ch2 - 25.6 (25.0)  #not in the FITS (IRAC channel2 4.8 micron)
+#
+# Brick 16:
+# g - 27.7 (27.2)
+# r - 27.3 (26.7)
+# i - 26.9 (26.4)
+# z - 26.5 (26.0)
+# y - 25.4 (24.9)
+# ch1 - 24.9 (24.3)  #not in the FITS (IRAC channel1 3.6 micron)
+# ch2 - 25.1 (24.6)  #not in the FITS (IRAC channel2 4.8 micron)
+#
+# MAG_LIMIT_DICT = {'default': {'g': 27.2, 'r': 26.7, 'i': 26.4, 'z': 26.0, 'y': 24.9},
+#                   'H20_NEP_18211_B15_e.fits': {'g': 27.1, 'r': 26.7, 'i': 26.9, 'z': 26.0, 'y': 24.9},
+#                   'H20_NEP_18211_B16_e.fits': {'g': 27.2, 'r': 26.7, 'i': 26.4, 'z': 26.0, 'y': 24.9}}
+
+
+#20240214 old catalog format
+
+
+    ##----------------------------
+    ## Catalog Format
+    ##----------------------------
+
+    # 1   unique IDs
+    # 2   position in X [pixel]
+    # 3   position in Y [pixel]
+    # 4   position in RA [degree]
+    # 5   position in Dec [degree]
+
+    # 6   flux within 3.000000-pixel aperture
+    # 7   1-sigma flux uncertainty
+    # 8   General Failure Flag
+    # 9   magnitude within 3.000000-pixel aperture
+    # 10  1-sigma magnitude uncertainty
+
+    # 11  flux within 4.500000-pixel aperture
+    # 12  1-sigma flux uncertainty
+    # 13  General Failure Flag
+    # 14  magnitude within 4.500000-pixel aperture
+    # 15  1-sigma magnitude uncertainty
+
+    # 16  flux within 6.000000-pixel aperture
+    # 17  1-sigma flux uncertainty
+    # 18  General Failure Flag
+    # 19  magnitude within 6.000000-pixel aperture
+    # 20  1-sigma magnitude uncertainty
+
+    # 21  flux within 9.000000-pixel aperture
+    # 22  1-sigma flux uncertainty
+    # 23  General Failure Flag
+    # 24  magnitude within 9.000000-pixel aperture
+    # 25  1-sigma magnitude uncertainty
+
+    # 26  flux within 12.000000-pixel aperture
+    # 27  1-sigma flux uncertainty
+    # 28  General Failure Flag
+    # 29  magnitude within 12.000000-pixel aperture
+    # 30  1-sigma magnitude uncertainty
+
+    # 31  flux within 17.000000-pixel aperture
+    # 32  1-sigma flux uncertainty
+    # 33  General Failure Flag
+    # 34  magnitude within 17.000000-pixel aperture
+    # 35  1-sigma magnitude uncertainty
+
+    # 36  flux within 25.000000-pixel aperture
+    # 37  1-sigma flux uncertainty
+    # 38  General Failure Flag
+    # 39  magnitude within 25.000000-pixel aperture
+    # 40  1-sigma magnitude uncertainty
+
+    # 41  flux within 35.000000-pixel aperture
+    # 42  1-sigma flux uncertainty
+    # 43  General Failure Flag
+    # 44  magnitude within 35.000000-pixel aperture
+    # 45  1-sigma magnitude uncertainty
+
+    # 46  flux within 50.000000-pixel aperture'
+    # 47  1-sigma flux uncertainty
+    # 48  General Failure Flag
+    # 49  magnitude within 50.000000-pixel aperture
+    # 50  1-sigma magnitude uncertainty
+
+    # 51  flux within 70.000000-pixel aperture
+    # 52  1-sigma flux uncertainty
+    # 53  General Failure Flag
+    # 54  magnitude within 70.000000-pixel aperture
+    # 55  1-sigma magnitude uncertainty
+
+    # 56  flux derived from linear least-squares fit of PSF model
+    # 57  1-sigma flux uncertainty
+    # 58  General Failure Flag
+    # 59  magnitude derived from linear least-squares fit of PSF model
+    # 60  1-sigma magnitude uncertainty
+
+    # 61  convolved Kron flux: seeing 3.500000
+    # 62  1-sigma flux uncertainty
+    # 63  convolved Kron flux failed: seeing 3.500000
+    # 64  convolved magnitude: seeing 3.500000
+    # 65  1-sigma magnitude uncertainty
+
+    # 66  convolved Kron flux: seeing 5.000000
+    # 67  1-sigma flux uncertainty
+    # 68  convolved Kron flux failed: seeing 5.000000
+    # 69  convolved magnitude: seeing 5.00000
+    # 70  1-sigma magnitude uncertainty
+
+    # 71  convolved Kron flux: seeing 6.500000
+    # 72  1-sigma flux uncertainty
+    # 73  convolved Kron flux failed: seeing 6.500000
+    # 74  convolved magnitude: seeing 6.500000
+    # 75  1-sigma magnitude uncertainty
+
+    # 76  convolved Kron flux: seeing 8.000000
+    # 77  1-sigma flux uncertainty
+    # 78  convolved Kron flux failed: seeing 8.000000
+    # 79  convolved magnitude: seeing 8.000000
+    # 80  1-sigma magnitude uncertainty
+
+    # 81  flux from the final cmodel fit
+    # 82  flux uncertainty from the final cmodel fit
+    # 83  flag set if the final cmodel fit (or any previous fit) failed
+    # 84  magnitude from the final cmodel fit
+    # 85  magnitude uncertainty from the final cmodel fit
+
+    # 86  Number of children this object has (defaults to 0)
+    # 87  Source is outside usable exposure region (masked EDGE or NO_DATA)
+    # 88  Interpolated pixel in the Source center
+    # 89  Saturated pixel in the Source center
+    # 90  Cosmic ray in the Source center
+
+    # 91  Bad pixel in the Source footprint
+    # 92  Source center is close to BRIGHT_OBJECT pixels
+    # 93  Source footprint includes BRIGHT_OBJECT pixels
+    # 94  General Failure Flag
+
+    # 95  true if source is in the inner region of a coadd tract
+    # 96  true if source is in the inner region of a coadd patch
+    # 97  Number of images contributing at center, not including anyclipping
+    # 98  original seeing (Gaussian sigma) at position [pixel]
+
+
+    #
+    # BidCols = [
+    #     'id',
+    #     'cpeak',
+    #     'peak',
+    #     'RA_DETECTION', #DON'T USE, ... use RA_MODELING instead
+    #     'Dec_DETECTION', #DON'T USE, ... use DEC_MODELING instead
+    #
+    #     'N_BLOB',                              # number of sources modeled simultaneously with this source
+    #     'VALID_SOURCE_MODELING' ,              # flag, True if model optimization succeeded, False if model optimization failed
+    #     'SOLMODEL_MODELING' ,                  # flag, indicates final model type for successful models (PointSource, SimpleGalaxy, ExpGalaxy, DevGalaxy, FixedCompositeGalaxy)
+    #     'CHISQ_MODELING_hsc_r'  ,              # chi-squared statistic during modeling as measured in the hsc-r band
+    #     'CHISQ_MODELING_hsc_i'  ,              # chi-squared statistic during modeling as measured in the hsc-i band
+    #     'CHISQ_MODELING_hsc_z'  ,              # chi-squared statistic during modeling as measured in the hsc-z band
+    #
+    #
+    #     'RA_MODELING'      ,                   # right ascension (J2000) of source determined during model optimization; unit = 'deg'
+    #     'DEC_MODELING'  ,                      # declination (J2000) of source determined during model optimization; unit = 'de
+    #
+    #     'MAG_hsc_g'    ,                         # AB magnitude; unit = 'mag'
+    #     'MAGERR_hsc_g'  ,                        # AB magnitude error; unit = 'mag'
+    #     'FLUX_hsc_g'   ,                         # flux; unit = 'uJy'
+    #     'FLUXERR_hsc_g'  ,                       # flux error; unit = 'uJy'
+    #     'CHISQ_hsc_g',
+    #
+    #     'MAG_hsc_r'    ,                         # AB magnitude; unit = 'mag'
+    #     'MAGERR_hsc_r'  ,                        # AB magnitude error; unit = 'mag'
+    #     'FLUX_hsc_r'   ,                         # flux; unit = 'uJy'
+    #     'FLUXERR_hsc_r'  ,                       # flux error; unit = 'uJy'
+    #     'CHISQ_hsc_r',
+    #
+    #     'MAG_hsc_i'    ,                         # AB magnitude; unit = 'mag'
+    #     'MAGERR_hsc_i'  ,                        # AB magnitude error; unit = 'mag'
+    #     'FLUX_hsc_i'   ,                         # flux; unit = 'uJy'
+    #     'FLUXERR_hsc_i'  ,                       # flux error; unit = 'uJy'
+    #     'CHISQ_hsc_i',
+    #
+    #     'MAG_hsc_z'    ,                         # AB magnitude; unit = 'mag'
+    #     'MAGERR_hsc_z'  ,                        # AB magnitude error; unit = 'mag'
+    #     'FLUX_hsc_z'   ,                         # flux; unit = 'uJy'
+    #     'FLUXERR_hsc_z'  ,                       # flux error; unit = 'uJy'
+    #     'CHISQ_hsc_z',
+    #
+    #     'MAG_hsc_y'    ,                         # AB magnitude; unit = 'mag'
+    #     'MAGERR_hsc_y'  ,                        # AB magnitude error; unit = 'mag'
+    #     'FLUX_hsc_y'   ,                         # flux; unit = 'uJy'
+    #     'FLUXERR_hsc_y'  ,                       # flux error; unit = 'uJy'
+    #     'CHISQ_hsc_y',
+    #
+    #     'MAG_irac_ch1'    ,                         # AB magnitude; unit = 'mag'
+    #     'MAGERR_irac_ch1'  ,                        # AB magnitude error; unit = 'mag'
+    #     'FLUX_irac_ch1'   ,                         # flux; unit = 'uJy'
+    #     'FLUXERR_irac_ch1'  ,                       # flux error; unit = 'uJy'
+    #     'CHISQ_irac_ch1',
+    #
+    #
+    #     'MAG_irac_ch2'    ,                         # AB magnitude; unit = 'mag'
+    #     'MAGERR_irac_ch2'  ,                        # AB magnitude error; unit = 'mag'
+    #     'FLUX_irac_ch2'   ,                         # flux; unit = 'uJy'
+    #     'FLUXERR_irac_ch2'  ,                       # flux error; unit = 'uJy'
+    #     'CHISQ_irac_ch2',
+    #
+    #     'nusefilt' ,                           # number of filters used for photo-z
+    #     'lc_min'    ,                          # minimum effective wavelength of valid filters, Angstrom
+    #     'lc_max'     ,                         # maximum effective wavelength of valid filters, Angstrom
+    #     'z_raw_chi2'  ,                        # redshift where chi2 is minimized
+    #     'z_phot_chi2'  ,                       # min chi2
+    #     'z025',                                # 2.5 percentile of pdf(z) (2-sigma)
+    #     'z160',                                # 16 percentile of pdf(z) (1-sigma)
+    #     'z500',                                # 50 percentile of pdf(z)
+    #     'z840',                                # 84 percentile of pdf(z) (1-sigma)
+    #     'z975',                                # 97.5 percentile of pdf(z) (2-sigma)
+    #
+    #     'PSTAR_chi2',                          # chi-squared of best stellar template, using the PHOENIX stellar library
+    #     'LSTAR_chi2' ,                         # chi-squared of best stellar template, using the LePhare stellar librar
+    #     'EBV'  ,                               # E(B-V) values from Schlegel, Finkbeiner & Davis (1998) dust map, with 2011 recalibration; unit = 'mag'
+    #     'tract_id',                            # The tract id corresponds to a region of the sky pre-defined by the HSC-SSP team.
+    #     ]

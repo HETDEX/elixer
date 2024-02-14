@@ -1,6 +1,15 @@
 changes to elixer by version
 
-1.22.0a5 [in progress]
+1.22.0a6 [2024-02-14]
+* updated HSC NEP (move from multiple tiles with multiple filters per tile fits to large, images each with only
+  one filter); updated photometric catalog
+  (reminder, must uncomment the includes and list addition in catalogs.py and update paths in cat_hsc_nep.py to use)
+* empty fiber stacking
+    + remove all fibers associated with existing HETDEX detections
+    + remove fibers (post continuum and masking cuts) where 20%+ of wavelength bins are in the top 10% (about 1% of fibers)
+
+
+1.22.0a5 [N/A]
 * fixed typo in OIII-4959 wavelength (air); was 4958.111 instead of 4958.911
 * [off for testing] add HeI 4471 as rank 5 line. Shows up in, for example, bright LzG like 3003679733
 * [in progress] adding floating anchor line classifiction if passed anchor line does not produce a confident

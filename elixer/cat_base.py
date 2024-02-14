@@ -1711,7 +1711,10 @@ class Catalog:
                 text += "N/A\n"
 
             if counterpart.phot_z is not None:
-                text += "%g\n" % counterpart.phot_z
+                if counterpart.phot_z_low is not None and counterpart.phot_z_hi is not None:
+                    text += f"{counterpart.phot_z:0.4f} [{counterpart.phot_z_low:0.4f},{counterpart.phot_z_hi:0.4f}]\n"
+                else:
+                    text += "%g\n" % counterpart.phot_z
             else:
                 text += "N/A\n"
 

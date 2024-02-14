@@ -762,6 +762,18 @@ def get_fluxlimits(ra,dec,wave,datevobs,sncut=4.8,flim_model=None,ffsky=False,ra
         return None, None
 
 
+
+# a more compatible approach (compatible with broadband photometry) would be to collapse along the spectral direction
+# using the SDSS g-band tranmission filter (or maybe just the gband wavelength range since HETDEX transmission is different)
+# (sum the error (calfibe) in quadrature), scale by 16/9 (that is, 0.75" radius fiber to 1.0" radius for 2" diam aperture,
+# or (1/0.75)^2 or (4/3)^2 ) and use that as the sigma ... then 5*sigma
+# so .. something like: np.nanmedian(np.nansum(all_calfibe,axis=1))/len(all_calfibe[0])/2.0
+# where all_calfibe is trimmed to 3900-5400AA, axis 1 sums over each in spectral direction, and /2.0 gets to flux density
+# all_calfibe should also be down-selected to remove those from all_calfib that have continuum (see fiber selection in
+#   per_shot_residual_fibers)
+# ***note: this is NOT an optimal extraction (e.g. not 1.35x seeing FWHM), but forcing a 2" diameter aperture (approximately)
+
+
 def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=G.DEX_G_EFF_LAM,aper=3.5,ifu_fibid = None,
                      central_fiber=None, detectid=None):
     """
@@ -3468,11 +3480,12 @@ def get_empty_fiber_residual(hdr=G.HDR_Version, rtype=None, shotid=None, seeing=
         residual = None
         residual_err = None
         contributors = None
+        flags = 0
         try:
             if shotid is None and (seeing is None or response is None):
                 print("Invalid parameters passed to get_empty_fiber_residual()")
                 log.warning("Invalid parameters passed to get_empty_fiber_residual()")
-                return residual, residual_err, contributors
+                return residual, residual_err, contributors, G.EFR_FLAG_INVALID_PARAMETERS
 
             #todo: update this for generic columns
             col = rtype+"_fluxd"
@@ -3513,7 +3526,7 @@ def get_empty_fiber_residual(hdr=G.HDR_Version, rtype=None, shotid=None, seeing=
                         residual = np.array(T[col][idx])
                         residual_err = np.array(T[col_err][idx])
 
-                        return residual, residual_err, contributors
+                        return residual, residual_err, contributors, G.EFR_FLAG_NOT_UNIQUE
 
             # we don't have it already, so check the index to find the row we want to read
             if ffsky and not add_rescor:
@@ -3562,7 +3575,7 @@ def get_empty_fiber_residual(hdr=G.HDR_Version, rtype=None, shotid=None, seeing=
                 msg = f"Warning! Unable to find appropriate background residual."
                 print(msg)
                 log.warning(msg)
-                return residual, residual_err,contributors
+                return residual, residual_err,contributors, G.EFR_FLAG_NO_RESIDUAL
 
             # read in that one row
             if ffsky and not add_rescor:
@@ -3588,12 +3601,19 @@ def get_empty_fiber_residual(hdr=G.HDR_Version, rtype=None, shotid=None, seeing=
             residual_err = np.array(Trow[col_err])
             contributors = np.array(Trow[col_contrib])
 
-            return residual, residual_err,contributors
+            try: #older ones may not have the flags
+                flags = int(Trow['flags'])
+            except:
+                flags = 0
+
+
+            return residual, residual_err,contributors, flags
 
         except Exception as e:
             log.warning("Exception in get_empty_fiber_residual.", exc_info=True)
+            flags |= G.EFR_FLAG_FUNCTION_EXCEPTION
 
-        return residual, residual_err, contributors
+        return residual, residual_err, contributors, flags
 
 
 def fetch_per_shot_single_fiber_sky_subtraction_residual(path,shotid,column,prefix=None,seeing=None):

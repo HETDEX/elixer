@@ -1,6 +1,6 @@
 """
-simple script to collect the "empty" fibers for a single shot (all dithers) validating each against acceptance critieria,
-and save to an astropy table
+simple script to collect the "average empty" fibers for a single shot (all dithers) validating each against
+acceptance critieria, and save to an astropy table
 
 intended for use with SLURM
 
@@ -20,6 +20,8 @@ import os.path as op
 import datetime
 
 survey_name = "hdr4" #"hdr4" #"hdr2.1"
+remove_detection_fibers = True #remove the fibers (usually in 3.5" apertures) that are nominally included in
+                               #existing HETDEX detections (emission line or continuum)
 TEST = False
 
 ##################################
@@ -152,6 +154,7 @@ from hetdex_api.survey import Survey,FiberIndex
 #from hetdex_tools.get_spec import get_spectra
 from hetdex_api.extinction import *  #includes deredden_spectra
 from hetdex_api.extract import Extract
+from hetdex_api.detections import Detections
 
 from elixer import spectrum as elixer_spectrum
 from elixer import spectrum_utilities as SU
@@ -235,6 +238,7 @@ def split_spectra_into_bins(fluxd_2d, fluxd_err_2d, sort=True, trim=0.9):
     return rd
 
 
+
 def stack_by_wavebin_bw(fluxd_2d, fluxd_err_2d, trim=1.00, sc=None, ir=None):
     """
     stack down each wavelength bin, trimming under each
@@ -266,7 +270,7 @@ def stack_by_wavebin_bw(fluxd_2d, fluxd_err_2d, trim=1.00, sc=None, ir=None):
         trim_array = False
 
     for i in range(1036):
-        # only consider those that have an associated error
+        # only consider those that have an associated error (uncertainty)
         # errors of < 0 are flagged as bad pixels, cosmic strikes, etc
         sel = np.array(fluxd_err_2d[:, i] > 0) & np.array(~np.isnan(fluxd_err_2d[:, i])) & np.array(
             ~np.isnan(fluxd_2d[:, i]))
@@ -415,9 +419,23 @@ def stack_by_waverange_bw(fluxd_2d, fluxd_err_2d, flux_sort = None, waverange = 
 
     return stack, stack_err, contrib
 
+
+def threshold_value(values, percent):
+    idx = np.argsort(values)
+    max_idx = int(len(idx) * percent)  # the index in idx at the keep % value
+    max_val = values[idx[max_idx]]  # the value of idx[max_idx]
+    return max_val
+
 #########################
 # Main Logic
 #########################
+
+flags = 0 #flags for this shot  (see global_config for list of flags)
+
+
+
+
+
 
 if not TEST:
     hetdex_api_config = HDRconfig(survey_name)
@@ -440,6 +458,7 @@ else:
 #local sky, ALL stacking statistics are biweight
 D = {} #dummy dict for Table T
 T = Table(dtype=[('shotid', int),('seeing',float),('response',float),
+                 ('flags', int),
 
                  ('raw_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep all AFTER flagged fibers removed
                  ('raw_fluxd_err', (float, len(G.CALFIB_WAVEGRID))), #NO OTHER TRIMMING
@@ -486,93 +505,93 @@ T = Table(dtype=[('shotid', int),('seeing',float),('response',float),
 
                  ### sigma clips (applies only to this section) ###
                  #sigma clip of 1 is WAAAY too agreesive, 2 is maybe okay, but we'll just use 3,4,5
-
-                 ('sc3_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # 3-sigm clip per wavelength bin
-                 ('sc3_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('sc3_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
-                 ('sc5_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # 5-sigm clip per wavelength bin
-                 ('sc5_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('sc5_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
-                 ### interior fraction (applies only to this section) ###
-
-                 #these are all extememly similar; after trimming for continuum, the distributions
-                 #are extemely Gaussian, so this particular variation makes almost no difference
-
-                 # ('ir50_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 50% (trim off top and bottom 25%)
-                 # ('ir50_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 # ('ir50_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
-                 #roughly interior +/- 1 std (assuming a normal distro)
-                 ('ir67_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 2/3 (trim off top and bottom 1/6)
-                 ('ir67_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ir67_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
-                 #roughly interior +/- 2 std (assuming a normal distro)
-                 ('ir95_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 95% (trim off top and bottom 2.5%)
-                 ('ir95_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ir95_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
-                 # roughly interior +/- 3 std (assuming a normal distro)
-                 ('ir99_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 99% (trim off top and bottom 0.5%)
-                 ('ir99_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ir99_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
-
                  #
-                 # whole fiber selection
+                 # ('sc3_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # 3-sigm clip per wavelength bin
+                 # ('sc3_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 # ('sc3_contrib', (float, len(G.CALFIB_WAVEGRID))),
                  #
-
-                 ### top percent trim (applies only to this section) ###
-                 ('ft01_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 1% per wavelength bin
-                 ('ft01_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ft01_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
-                 ('ft02_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 2% per wavelength bin
-                 ('ft02_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ft02_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
-                 ('ft03_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 3% per wavelength bin
-                 ('ft03_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ft03_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
-                 ('ft04_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 4% per wavelength bin
-                 ('ft04_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ft04_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
-                 ('ft05_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 5% per wavelength bin
-                 ('ft05_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('ft05_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
-                 ### sigma clips (applies only to this section) ###
-                 #sigma clip of 1 is WAAAY too agreesive, 2 is maybe okay, but we'll just use 3,4,5
-
-                 ('fsc3_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # 3-sigm clip per wavelength bin
-                 ('fsc3_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('fsc3_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
-                 ('fsc5_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # 5-sigm clip per wavelength bin
-                 ('fsc5_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('fsc5_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
-                 ### interior fraction (applies only to this section) ###
-
-                 #roughly interior +/- 1 std (assuming a normal distro)
-                 ('fir67_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 2/3 (trim off top and bottom 1/6)
-                 ('fir67_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('fir67_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
-                 #roughly interior +/- 2 std (assuming a normal distro)
-                 ('fir95_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 95% (trim off top and bottom 2.5%)
-                 ('fir95_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('fir95_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
-                 # roughly interior +/- 3 std (assuming a normal distro)
-                 ('fir99_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 99% (trim off top and bottom 0.5%)
-                 ('fir99_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('fir99_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
+                 # ('sc5_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # 5-sigm clip per wavelength bin
+                 # ('sc5_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 # ('sc5_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                 #
+                 # ### interior fraction (applies only to this section) ###
+                 #
+                 # #these are all extememly similar; after trimming for continuum, the distributions
+                 # #are extemely Gaussian, so this particular variation makes almost no difference
+                 #
+                 # # ('ir50_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 50% (trim off top and bottom 25%)
+                 # # ('ir50_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 # # ('ir50_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                 #
+                 # #roughly interior +/- 1 std (assuming a normal distro)
+                 # ('ir67_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 2/3 (trim off top and bottom 1/6)
+                 # ('ir67_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 # ('ir67_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                 #
+                 # #roughly interior +/- 2 std (assuming a normal distro)
+                 # ('ir95_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 95% (trim off top and bottom 2.5%)
+                 # ('ir95_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 # ('ir95_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                 #
+                 # # roughly interior +/- 3 std (assuming a normal distro)
+                 # ('ir99_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 99% (trim off top and bottom 0.5%)
+                 # ('ir99_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 # ('ir99_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                 #
+                 #
+                 # #
+                 # # whole fiber selection
+                 # #
+                 #
+                 # ### top percent trim (applies only to this section) ###
+                 # ('ft01_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 1% per wavelength bin
+                 # ('ft01_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 # ('ft01_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                 #
+                 # ('ft02_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 2% per wavelength bin
+                 # ('ft02_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 # ('ft02_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                 #
+                 # ('ft03_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 3% per wavelength bin
+                 # ('ft03_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 # ('ft03_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                 #
+                 # ('ft04_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 4% per wavelength bin
+                 # ('ft04_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 # ('ft04_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                 #
+                 # ('ft05_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 5% per wavelength bin
+                 # ('ft05_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 # ('ft05_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                 #
+                 # ### sigma clips (applies only to this section) ###
+                 # #sigma clip of 1 is WAAAY too agreesive, 2 is maybe okay, but we'll just use 3,4,5
+                 #
+                 # ('fsc3_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # 3-sigm clip per wavelength bin
+                 # ('fsc3_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 # ('fsc3_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                 #
+                 # ('fsc5_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # 5-sigm clip per wavelength bin
+                 # ('fsc5_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 # ('fsc5_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                 #
+                 # ### interior fraction (applies only to this section) ###
+                 #
+                 # #roughly interior +/- 1 std (assuming a normal distro)
+                 # ('fir67_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 2/3 (trim off top and bottom 1/6)
+                 # ('fir67_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 # ('fir67_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                 #
+                 # #roughly interior +/- 2 std (assuming a normal distro)
+                 # ('fir95_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 95% (trim off top and bottom 2.5%)
+                 # ('fir95_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 # ('fir95_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                 #
+                 # # roughly interior +/- 3 std (assuming a normal distro)
+                 # ('fir99_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 99% (trim off top and bottom 0.5%)
+                 # ('fir99_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                 # ('fir99_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                 #
 
                  ])
 
@@ -580,7 +599,7 @@ T = Table(dtype=[('shotid', int),('seeing',float),('response',float),
 #T2 = copy.deepcopy(T)
 D2 = {} #dummy dict for Table T2
 T2 = Table(dtype=[('shotid', int), ('seeing',float), ('response',float),
-
+                  ('flags', int),
                   ('raw_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep all AFTER flagged fibers removed
                   ('raw_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),  #NO OTHER TRIMMING
                   ('raw_contrib', (float, len(G.CALFIB_WAVEGRID))),
@@ -627,97 +646,97 @@ T2 = Table(dtype=[('shotid', int), ('seeing',float), ('response',float),
 
                   ### sigma clips (applies only to this section) ###
                   #sigma clip of 1 is WAAAY too agreesive, 2 is maybe okay, but we'll just use 3,4,5
-
-                  ('sc3_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # 3-sigm clip per wavelength bin
-                  ('sc3_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                  ('sc3_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
-                  ('sc5_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # 5-sigm clip per wavelength bin
-                  ('sc5_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                  ('sc5_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
-                  ### interior fraction (applies only to this section) ###
-
-                  #these are all extememly similar; after trimming for continuum, the distributions
-                  #are extemely Gaussian, so this particular variation makes almost no difference
-
-                  # ('ir50_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 50% (trim off top and bottom 25%)
-                  # ('ir50_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                  # ('ir50_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
-                  #roughly interior +/- 1 std (assuming a normal distro)
-                  ('ir67_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 2/3 (trim off top and bottom 1/6)
-                  ('ir67_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                  ('ir67_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
-                  #roughly interior +/- 2 std (assuming a normal distro)
-                  ('ir95_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 95% (trim off top and bottom 2.5%)
-                  ('ir95_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                  ('ir95_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
-                  # roughly interior +/- 3 std (assuming a normal distro)
-                  ('ir99_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 99% (trim off top and bottom 0.5%)
-                  ('ir99_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                  ('ir99_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
                   #
-                  # whole fiber selection
+                  # ('sc3_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # 3-sigm clip per wavelength bin
+                  # ('sc3_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  # ('sc3_contrib', (float, len(G.CALFIB_WAVEGRID))),
                   #
-
-                  ### top percent trim (applies only to this section) ###
-                  ('ft01_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 1% per wavelength bin
-                  ('ft01_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                  ('ft01_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
-                  ('ft02_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 2% per wavelength bin
-                  ('ft02_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                  ('ft02_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
-                  ('ft03_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 3% per wavelength bin
-                  ('ft03_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                  ('ft03_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
-                  ('ft04_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 4% per wavelength bin
-                  ('ft04_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                  ('ft04_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
-                  ('ft05_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 5% per wavelength bin
-                  ('ft05_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                  ('ft05_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
-                  ### sigma clips (applies only to this section) ###
-                  # sigma clip of 1 is WAAAY too agreesive, 2 is maybe okay, but we'll just use 3,4,5
-
-                  ('fsc3_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # 3-sigm clip per wavelength bin
-                  ('fsc3_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                  ('fsc3_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
-                  ('fsc5_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # 5-sigm clip per wavelength bin
-                  ('fsc5_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                  ('fsc5_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
-                  ### interior fraction (applies only to this section) ###
-
-                  # roughly interior +/- 1 std (assuming a normal distro)
-                  ('fir67_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 2/3 (trim off top and bottom 1/6)
-                  ('fir67_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                  ('fir67_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
-                  # roughly interior +/- 2 std (assuming a normal distro)
-                  ('fir95_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 95% (trim off top and bottom 2.5%)
-                  ('fir95_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                  ('fir95_contrib', (float, len(G.CALFIB_WAVEGRID))),
-
-                  # roughly interior +/- 3 std (assuming a normal distro)
-                  ('fir99_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 99% (trim off top and bottom 0.5%)
-                  ('fir99_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                  ('fir99_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                  # ('sc5_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # 5-sigm clip per wavelength bin
+                  # ('sc5_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  # ('sc5_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                  #
+                  # ### interior fraction (applies only to this section) ###
+                  #
+                  # #these are all extememly similar; after trimming for continuum, the distributions
+                  # #are extemely Gaussian, so this particular variation makes almost no difference
+                  #
+                  # # ('ir50_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 50% (trim off top and bottom 25%)
+                  # # ('ir50_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  # # ('ir50_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                  #
+                  # #roughly interior +/- 1 std (assuming a normal distro)
+                  # ('ir67_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 2/3 (trim off top and bottom 1/6)
+                  # ('ir67_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  # ('ir67_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                  #
+                  # #roughly interior +/- 2 std (assuming a normal distro)
+                  # ('ir95_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 95% (trim off top and bottom 2.5%)
+                  # ('ir95_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  # ('ir95_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                  #
+                  # # roughly interior +/- 3 std (assuming a normal distro)
+                  # ('ir99_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 99% (trim off top and bottom 0.5%)
+                  # ('ir99_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  # ('ir99_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                  #
+                  # #
+                  # # whole fiber selection
+                  # #
+                  #
+                  # ### top percent trim (applies only to this section) ###
+                  # ('ft01_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 1% per wavelength bin
+                  # ('ft01_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  # ('ft01_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                  #
+                  # ('ft02_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 2% per wavelength bin
+                  # ('ft02_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  # ('ft02_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                  #
+                  # ('ft03_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 3% per wavelength bin
+                  # ('ft03_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  # ('ft03_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                  #
+                  # ('ft04_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 4% per wavelength bin
+                  # ('ft04_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  # ('ft04_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                  #
+                  # ('ft05_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 5% per wavelength bin
+                  # ('ft05_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  # ('ft05_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                  #
+                  # ### sigma clips (applies only to this section) ###
+                  # # sigma clip of 1 is WAAAY too agreesive, 2 is maybe okay, but we'll just use 3,4,5
+                  #
+                  # ('fsc3_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # 3-sigm clip per wavelength bin
+                  # ('fsc3_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  # ('fsc3_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                  #
+                  # ('fsc5_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # 5-sigm clip per wavelength bin
+                  # ('fsc5_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  # ('fsc5_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                  #
+                  # ### interior fraction (applies only to this section) ###
+                  #
+                  # # roughly interior +/- 1 std (assuming a normal distro)
+                  # ('fir67_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 2/3 (trim off top and bottom 1/6)
+                  # ('fir67_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  # ('fir67_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                  #
+                  # # roughly interior +/- 2 std (assuming a normal distro)
+                  # ('fir95_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 95% (trim off top and bottom 2.5%)
+                  # ('fir95_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  # ('fir95_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                  #
+                  # # roughly interior +/- 3 std (assuming a normal distro)
+                  # ('fir99_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep innermost 99% (trim off top and bottom 0.5%)
+                  # ('fir99_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  # ('fir99_contrib', (float, len(G.CALFIB_WAVEGRID))),
                   ])
 
 
 
-if not TEST:
-#if True:
+#if not TEST:
+if True:
     print(f"{shotid} get_fibers_table() ....  {datetime.datetime.now()}")
 
     if add_rescor:
@@ -725,12 +744,122 @@ if not TEST:
     else:
         fibers_table = get_fibers_table(shot)
     print(f"{shotid} [DONE] get_fibers_table() ....  {datetime.datetime.now()}, # rows = {len(fibers_table)}")
+
+
+
+    ###########################################################################################################
+    # todo: cut out the fibers that are within 3.5" of an existing HETDEX continuum or emission line detection
+    ###########################################################################################################
+
+    #need to load the detections for this shot (emission and continuum ... though, oustensibly continuum detections
+    #would also get removed just with our continuum cuts in this script
+
+    #then either need the fibers associated with each (directly) or use their PSF weighted RA, Dec centers and
+    #select fibers with centers within 3.5"
+
+    if remove_detection_fibers:
+        ###################################################
+        # remove fibers included in HETDEX detections
+        ###################################################
+
+        # load the detetctions for THIS shot (all detections, continuum and line)
+        print(f"Loading detections catalog index ... {datetime.datetime.now()}")
+        DI = Detections(catalog_type='index', searchable=True)
+        q_shotid = shotid
+
+        # sn 4.8 as lower limit for lines, sn==0.0 are for the continuum detections
+        #print(f"Fetching detections for shotid {q_shotid} ...")
+        shot_dets = DI.hdfile.root.DetectIndex.read_where("(shotid==q_shotid) & ((sn > 4.8) | (sn==0.0))",
+                                                          field="detectid")
+
+        #print(f"Num dets {len(shot_dets)}")
+
+        fibers = []
+        print(f"Fetching fiber_ids ... {datetime.datetime.now()}")
+
+        shot_dets = np.array(shot_dets)
+        # HDR3 Lines
+        sel_det = np.array(shot_dets < 3090000000)
+        if np.count_nonzero(sel_det) > 0:
+            #print(np.count_nonzero(sel_det))
+            dcat = Detections("hdr3", catalog_type="lines")
+            for d in shot_dets[sel_det]:
+                try:
+                    fibers += [x[4] for x in dcat.get_fiber_info(d)]
+                except:
+                    pass
+
+        # HDR3 Continuum
+        sel_det = np.array(shot_dets >= 3090000000) & np.array(shot_dets < 4000000000)
+        if np.count_nonzero(sel_det) > 0:
+            #print(np.count_nonzero(sel_det))
+            dcat = Detections("hdr3", catalog_type="continuum")
+            for d in shot_dets[sel_det]:
+                try:
+                    fibers += [x[4] for x in dcat.get_fiber_info(d)]
+                except:
+                    pass
+
+        # HDR4 Lines
+        sel_det = np.array(shot_dets >= 4000000000) & np.array(shot_dets < 4090000000)
+        if np.count_nonzero(sel_det) > 0:
+            #print(np.count_nonzero(sel_det))
+            dcat = Detections("hdr4", catalog_type="lines")
+            for d in shot_dets[sel_det]:
+                try:
+                    fibers += [x[4] for x in dcat.get_fiber_info(d)]
+                except:
+                    pass
+
+        # HDR4 Continuum
+        sel_det = np.array(shot_dets >= 4090000000)
+        if np.count_nonzero(sel_det) > 0:
+            #print(np.count_nonzero(sel_det))
+            dcat = Detections("hdr4", catalog_type="continuum")
+            for d in shot_dets[sel_det]:
+                try:
+                    fibers += [x[4] for x in dcat.get_fiber_info(d)]
+                except:
+                    pass
+
+        ###################################
+        # now, remove the fibers
+        ###################################
+
+        # remove fiber ids included in detections
+        print(f"Checking for matching fiber_ids ... {datetime.datetime.now()}")
+        u_fibers = np.unique(fibers).astype(str)
+        sel_fibid = [x in u_fibers for x in fibers_table['fiber_id']]
+
+        fibers_to_remove = np.count_nonzero(sel_fibid)
+
+        #
+        # if there are a huge fraction to be removed, say, more than 1/2 or 2/3? flag this as a problem and don't do it?
+        #
+
+        if fibers_to_remove/len(fibers_table) > 0.66:
+            print(f"Warning! Unexpectedly large number of detection fibers: {fibers_to_remove/len(fibers_table)*100.:0.2}%. "
+                  f"Will flag and NOT remove those fibers.")
+            flags = flags | G.EFR_FLAG_TOO_MANY_DETECTION_FIBERS
+        else:
+            print(f"Removing {fibers_to_remove} fibers ...")
+
+            print(f"Table size before: {len(fibers_table)}")
+            fibers_table = fibers_table[~np.array(sel_fibid)]
+            print(f"Table size after: {len(fibers_table)}")
+
+
     #drop the columns we don't care about to save memory
     if add_rescor:
         fibers_table.keep_columns(['fiber_id', 'calfib', 'calfib_ffsky_rescor', 'calfibe', 'fiber_to_fiber',
                                    'trace', 'chi2'])  # have to keep the fiber_id for the moment
         #rename calfib_ffsky_rescor to calfib_ffsky so the rest of the code below executes the same way
         fibers_table['calfib_ffsky_rescor'].name = 'calfib_ffsky'
+        try:
+            fibers_table['calfib_ffsky'] = np.array(fibers_table['calfib_ffsky'].data)
+        except Exception as e:
+            print(e)
+
     else:
         fibers_table.keep_columns(['fiber_id','calfib','calfib_ffsky','calfibe','fiber_to_fiber',
                                    'trace','chi2']) #have to keep the fiber_id for the moment
@@ -751,10 +880,17 @@ if not TEST:
         super_tab = fibers_table
     del fibers_table #don't need it anymore
     del mask_table
-    try:
-        super_tab.remove_columns(['fiber_id']) #don't need it anymore
-    except:
-        pass
+
+
+    #  no ... 20240206 ... need to keep the fiber_id column now as we will use it to remove
+    #  fibers that are part of existing HETDEX detections
+    # try:
+    #     super_tab.remove_columns(['fiber_id']) #don't need it anymore
+    # except:
+    #     pass
+
+
+
 
 
     #######################################################################
@@ -823,6 +959,7 @@ except:
 
 
 
+
 flux_stack, fluxe_stack,contrib = stack_by_wavebin_bw(super_tab["calfib"], super_tab["calfibe"], trim=1.00, sc=None, ir=None)
 
 D['raw_fluxd'] = flux_stack
@@ -872,6 +1009,81 @@ super_tab = super_tab[sel] #base for both local and ffsky
 
 
 # todo: ???? skip the emission line stuff
+# I think this is mostly okay since an emission line would affect only a few wavelengths and a few fibers
+# (generally) and will have little impact SINCE we are trying to additionally screen out almost detectable
+# continuum in the next step
+
+
+
+###############################################################################################
+#
+# Next cut "almost" detected continuum sources, under the assumption that fibers with
+# the most high flux values compared to the other fibers probably have faint objects in them
+# (here the ~ 1% of fibers that have 20% or more of bins in the top 10% of fluxes)
+###############################################################################################
+
+if True:
+    # MARK fiber+wavelength bin to be removed based on a fractional cut, but do not remove
+    # after iterating over all wavelength bins, remove entire fibers that have large numbers of marks
+
+    # REMOVE FROM THE TABLE!, so this will produce a selection to apply to the table
+    # So, we must maintain the fiber ordering as it is in the table
+
+    #prefer basing this one off of calfib_ffsky since it is over the entire array
+    flux_col = "calfib_ffsky" #"calfib"
+    #temporary storage as 2D array fibers x wavelenths, if True then we would keep that fiber[wavelength] based on
+    #whatever criteria we adopt
+    keep_matrix = np.full(super_tab[flux_col].shape, False)
+    fixed_percent_keep = 0.90 # or mark those in the top 10% of flux for each wavelength bin
+                              #or, as coded, we are keeping the wavelength flux bins in the bottom 90%
+
+    for i in range(1036): #len(G.CALFIB_WAVEGRID)
+        # only consider those that have an associated error (uncertainty)
+        # errors of < 0 are flagged as bad pixels, cosmic strikes, etc
+
+        # treat NaNs or fluxd_err == 0 as BAD and flag them ... excessive numbers of these should cause
+        # a fiber to removed just as well
+        # However, "excessive" zero and nans have ALREADY been removed, so just igore these
+
+        # So ... find the max allowed flux value (based on a % cut or clip)
+        # then flag all values that are above the max
+
+        sel = np.array(super_tab["calfibe"][:, i] > 0) & \
+              np.array(~np.isnan(super_tab["calfibe"][:, i])) & \
+              np.array(~np.isnan(super_tab[flux_col][:, i]))
+
+        if np.count_nonzero(sel) == 0:
+            keep_matrix[:, i] = True
+            continue
+
+        idx = np.argsort(super_tab[flux_col][:, i][sel])
+        max_idx = int(len(idx) * fixed_percent_keep)  # the index in idx at the keep % value
+
+        max_val = super_tab[flux_col][:, i][sel][idx[max_idx]]  # the value of idx[max_idx]
+
+        # flag to keep ALL flux values in the column (not just the 'sel' subselection)
+        # that are less than the max_val
+        keep_matrix[:, i][super_tab[flux_col][:, i] < max_val] = True
+
+    keep_fibers = np.count_nonzero(keep_matrix, axis=1)
+
+    del keep_matrix
+
+    #keep the fibers where 80% or more of their wavelength bins are NOT in the most extreme 10%
+    min_keep_ct = int(0.80*len(G.CALFIB_WAVEGRID))
+    sel = keep_fibers >= min_keep_ct
+
+    print(f"Table size before fiber cut: {len(super_tab)}")
+    print(f"Table size AFTER fiber cut: {np.count_nonzero(sel)} fibers.  ({len(super_tab)-np.count_nonzero(sel) })")
+
+    super_tab = super_tab[sel]
+   # print(f"Table size after fiber cut: {len(super_tab)}")
+
+    #it is extremely unlikely that a fiber has 20% or more of its bins in the top 10%
+    # (binomial distro, assuming Gaussian random, is has a prob in the e-22 range)
+    # can use other cuts ... like fibers with 1/8 or more of bins in the top 5% is similar, etc.
+    # I like having a larger fraction of a fibers bins, so I like 20% or more in the top 10%
+    # This removes around 1% of fibers (at this point ... after the other selections)
 
 
 #############################################################################
@@ -1021,223 +1233,229 @@ D2['t05_contrib'] = contrib
 
 
 
-###################################
-# sigma clip 3, 5 sigma
-###################################
-print(f"{shotid} sigma clip trim ....  {datetime.datetime.now()}")
+if False:
+    ###################################
+    # sigma clip 3, 5 sigma
+    ###################################
 
-flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib'], super_tab['calfibe'],trim=1.0,sc=3.0,ir=None)
-D['sc3_fluxd'] = flux_stack
-D['sc3_fluxd_err'] = fluxe_stack
-D['sc3_contrib'] = contrib
+    print(f"{shotid} sigma clip trim ....  {datetime.datetime.now()}")
 
-flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib'], super_tab['calfibe'],trim=1.0,sc=5.0,ir=None)
-D['sc5_fluxd'] = flux_stack
-D['sc5_fluxd_err'] = fluxe_stack
-D['sc5_contrib'] = contrib
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib'], super_tab['calfibe'],trim=1.0,sc=3.0,ir=None)
+    D['sc3_fluxd'] = flux_stack
+    D['sc3_fluxd_err'] = fluxe_stack
+    D['sc3_contrib'] = contrib
 
-#ffsky
-flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky'], super_tab['calfibe'],trim=1.0,sc=3.0,ir=None)
-D2['sc3_fluxd'] = flux_stack
-D2['sc3_fluxd_err'] = fluxe_stack
-D2['sc3_contrib'] = contrib
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib'], super_tab['calfibe'],trim=1.0,sc=5.0,ir=None)
+    D['sc5_fluxd'] = flux_stack
+    D['sc5_fluxd_err'] = fluxe_stack
+    D['sc5_contrib'] = contrib
 
-flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky'], super_tab['calfibe'],trim=1.0,sc=5.0,ir=None)
-D2['sc5_fluxd'] = flux_stack
-D2['sc5_fluxd_err'] = fluxe_stack
-D2['sc5_contrib'] = contrib
+    #ffsky
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky'], super_tab['calfibe'],trim=1.0,sc=3.0,ir=None)
+    D2['sc3_fluxd'] = flux_stack
+    D2['sc3_fluxd_err'] = fluxe_stack
+    D2['sc3_contrib'] = contrib
 
-###################################
-# inter keep roughly 1,2,3 sigma
-# assuming Normal Distro (so 67%, 95%, 99%)
-###################################
-print(f"{shotid} internal fraction trim ....  {datetime.datetime.now()}")
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky'], super_tab['calfibe'],trim=1.0,sc=5.0,ir=None)
+    D2['sc5_fluxd'] = flux_stack
+    D2['sc5_fluxd_err'] = fluxe_stack
+    D2['sc5_contrib'] = contrib
 
-flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib'], super_tab['calfibe'],trim=1.0,sc=None,ir=0.67)
-D['ir67_fluxd'] = flux_stack
-D['ir67_fluxd_err'] = fluxe_stack
-D['ir67_contrib'] = contrib
+    ###################################
+    # inter keep roughly 1,2,3 sigma
+    # assuming Normal Distro (so 67%, 95%, 99%)
+    ###################################
+    print(f"{shotid} internal fraction trim ....  {datetime.datetime.now()}")
 
-flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib'], super_tab['calfibe'],trim=1.0,sc=None,ir=0.95)
-D['ir95_fluxd'] = flux_stack
-D['ir95_fluxd_err'] = fluxe_stack
-D['ir95_contrib'] = contrib
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib'], super_tab['calfibe'],trim=1.0,sc=None,ir=0.67)
+    D['ir67_fluxd'] = flux_stack
+    D['ir67_fluxd_err'] = fluxe_stack
+    D['ir67_contrib'] = contrib
 
-flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib'], super_tab['calfibe'],trim=1.0,sc=None,ir=0.99)
-D['ir99_fluxd'] = flux_stack
-D['ir99_fluxd_err'] = fluxe_stack
-D['ir99_contrib'] = contrib
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib'], super_tab['calfibe'],trim=1.0,sc=None,ir=0.95)
+    D['ir95_fluxd'] = flux_stack
+    D['ir95_fluxd_err'] = fluxe_stack
+    D['ir95_contrib'] = contrib
 
-#ffsky
-flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky'], super_tab['calfibe'],trim=1.0,sc=None,ir=0.67)
-D2['ir67_fluxd'] = flux_stack
-D2['ir67_fluxd_err'] = fluxe_stack
-D2['ir67_contrib'] = contrib
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib'], super_tab['calfibe'],trim=1.0,sc=None,ir=0.99)
+    D['ir99_fluxd'] = flux_stack
+    D['ir99_fluxd_err'] = fluxe_stack
+    D['ir99_contrib'] = contrib
 
-flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky'], super_tab['calfibe'],trim=1.0,sc=None,ir=0.95)
-D2['ir95_fluxd'] = flux_stack
-D2['ir95_fluxd_err'] = fluxe_stack
-D2['ir95_contrib'] = contrib
+    #ffsky
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky'], super_tab['calfibe'],trim=1.0,sc=None,ir=0.67)
+    D2['ir67_fluxd'] = flux_stack
+    D2['ir67_fluxd_err'] = fluxe_stack
+    D2['ir67_contrib'] = contrib
 
-flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky'], super_tab['calfibe'],trim=1.0,sc=None,ir=0.99)
-D2['ir99_fluxd'] = flux_stack
-D2['ir99_fluxd_err'] = fluxe_stack
-D2['ir99_contrib'] = contrib
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky'], super_tab['calfibe'],trim=1.0,sc=None,ir=0.95)
+    D2['ir95_fluxd'] = flux_stack
+    D2['ir95_fluxd_err'] = fluxe_stack
+    D2['ir95_contrib'] = contrib
 
-#################################################################
-#
-# now repeat for ENTIRE FIBER (rather than per wavelength)
-#
-#################################################################
-
-ll_flux_sort = fiber_flux_sort_statistic(super_tab["calfib"], super_tab["calfibe"],statistic="median")
-ff_flux_sort = fiber_flux_sort_statistic(super_tab["calfib_ffsky"], super_tab["calfibe"],statistic="median")
-#sum or mean or median
-
-
-#########################################
-# trim top 1,2,3,4, & 5%
-#########################################
-
-#waverange = (3500,5500)
-print(f"{shotid} fiber top xx% trim ....  {datetime.datetime.now()}")
-
-flux_stack, fluxe_stack, contrib= stack_by_waverange_bw(super_tab['calfib'],super_tab['calfibe'],flux_sort=ll_flux_sort,
-                                                        trim=0.95, sc=None, ir=None)
-D['ft01_fluxd'] = flux_stack
-D['ft01_fluxd_err'] = fluxe_stack
-D['ft01_contrib'] = contrib
-
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'],super_tab['calfibe'],flux_sort=ll_flux_sort,
-                                                        trim=0.925, sc=None, ir=None)
-D['ft02_fluxd'] = flux_stack
-D['ft02_fluxd_err'] = fluxe_stack
-D['ft02_contrib'] = contrib
-
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'],super_tab['calfibe'],flux_sort=ll_flux_sort,
-                                                         trim=0.90, sc=None, ir=None)
-D['ft03_fluxd'] = flux_stack
-D['ft03_fluxd_err'] = fluxe_stack
-D['ft03_contrib'] = contrib
-
-flux_stack, fluxe_stack, contrib= stack_by_waverange_bw(super_tab['calfib'],super_tab['calfibe'],flux_sort=ll_flux_sort,
-                                                        trim=0.875, sc=None, ir=None)
-D['ft04_fluxd'] = flux_stack
-D['ft04_fluxd_err'] = fluxe_stack
-D['ft04_contrib'] = contrib
-
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'],super_tab['calfibe'],flux_sort=ll_flux_sort,
-                                                         trim=0.85, sc=None, ir=None)
-D['ft05_fluxd'] = flux_stack
-D['ft05_fluxd_err'] = fluxe_stack
-D['ft05_contrib'] = contrib
-
-
-#now for ffsky
-flux_stack, fluxe_stack, contrib= stack_by_waverange_bw(super_tab['calfib_ffsky'],super_tab['calfibe'],flux_sort=ff_flux_sort,
-                                                        trim=0.95, sc=None, ir=None)
-D2['ft01_fluxd'] = flux_stack
-D2['ft01_fluxd_err'] = fluxe_stack
-D2['ft01_contrib'] = contrib
-
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'],super_tab['calfibe'],flux_sort=ff_flux_sort,
-                                                         trim=0.925, sc=None, ir=None)
-D2['ft02_fluxd'] = flux_stack
-D2['ft02_fluxd_err'] = fluxe_stack
-D2['ft02_contrib'] = contrib
-
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'],super_tab['calfibe'],flux_sort=ff_flux_sort,
-                                                         trim=0.90, sc=None, ir=None)
-D2['ft03_fluxd'] = flux_stack
-D2['ft03_fluxd_err'] = fluxe_stack
-D2['ft03_contrib'] = contrib
-
-flux_stack, fluxe_stack, contrib= stack_by_waverange_bw(super_tab['calfib_ffsky'],super_tab['calfibe'],flux_sort=ff_flux_sort,
-                                                        trim=0.875, sc=None, ir=None)
-D2['ft04_fluxd'] = flux_stack
-D2['ft04_fluxd_err'] = fluxe_stack
-D2['ft04_contrib'] = contrib
-
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'],super_tab['calfibe'],flux_sort=ff_flux_sort,
-                                                         trim=0.85, sc=None, ir=None)
-D2['ft05_fluxd'] = flux_stack
-D2['ft05_fluxd_err'] = fluxe_stack
-D2['ft05_contrib'] = contrib
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky'], super_tab['calfibe'],trim=1.0,sc=None,ir=0.99)
+    D2['ir99_fluxd'] = flux_stack
+    D2['ir99_fluxd_err'] = fluxe_stack
+    D2['ir99_contrib'] = contrib
 
 
 
-###################################
-# sigma clip 3, 5 sigma
-###################################
-print(f"{shotid} fiber sigma clip trim ....  {datetime.datetime.now()}")
+if False:
 
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'], super_tab['calfibe'],flux_sort=ll_flux_sort,
-                                                         trim=1.0,sc=3.0,ir=None)
-D['fsc3_fluxd'] = flux_stack
-D['fsc3_fluxd_err'] = fluxe_stack
-D['fsc3_contrib'] = contrib
+    #################################################################
+    #
+    # now repeat for ENTIRE FIBER (rather than per wavelength)
+    #
+    #################################################################
 
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'], super_tab['calfibe'],flux_sort=ll_flux_sort,
-                                                         trim=1.0,sc=5.0,ir=None)
-D['fsc5_fluxd'] = flux_stack
-D['fsc5_fluxd_err'] = fluxe_stack
-D['fsc5_contrib'] = contrib
+    ll_flux_sort = fiber_flux_sort_statistic(super_tab["calfib"], super_tab["calfibe"],statistic="median")
+    ff_flux_sort = fiber_flux_sort_statistic(super_tab["calfib_ffsky"], super_tab["calfibe"],statistic="median")
+    #sum or mean or median
 
-#ffsky
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'], super_tab['calfibe'],flux_sort=ff_flux_sort,
-                                                         trim=1.0,sc=3.0,ir=None)
-D2['fsc3_fluxd'] = flux_stack
-D2['fsc3_fluxd_err'] = fluxe_stack
-D2['fsc3_contrib'] = contrib
 
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'], super_tab['calfibe'],flux_sort=ff_flux_sort,
-                                                         trim=1.0,sc=5.0,ir=None)
-D2['fsc5_fluxd'] = flux_stack
-D2['fsc5_fluxd_err'] = fluxe_stack
-D2['fsc5_contrib'] = contrib
+    #########################################
+    # trim top 1,2,3,4, & 5%
+    #########################################
 
-###################################
-# inter keep roughly 1,2,3 sigma
-# assuming Normal Distro (so 67%, 95%, 99%)
-###################################
-print(f"{shotid} fiber internal fraction trim ....  {datetime.datetime.now()}")
+    #waverange = (3500,5500)
+    print(f"{shotid} fiber top xx% trim ....  {datetime.datetime.now()}")
 
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'], super_tab['calfibe'],flux_sort=ll_flux_sort,
-                                                         trim=1.0,sc=None,ir=0.67)
-D['fir67_fluxd'] = flux_stack
-D['fir67_fluxd_err'] = fluxe_stack
-D['fir67_contrib'] = contrib
+    flux_stack, fluxe_stack, contrib= stack_by_waverange_bw(super_tab['calfib'],super_tab['calfibe'],flux_sort=ll_flux_sort,
+                                                            trim=0.95, sc=None, ir=None)
+    D['ft01_fluxd'] = flux_stack
+    D['ft01_fluxd_err'] = fluxe_stack
+    D['ft01_contrib'] = contrib
 
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'], super_tab['calfibe'],flux_sort=ll_flux_sort,
-                                                         trim=1.0,sc=None,ir=0.95)
-D['fir95_fluxd'] = flux_stack
-D['fir95_fluxd_err'] = fluxe_stack
-D['fir95_contrib'] = contrib
+    flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'],super_tab['calfibe'],flux_sort=ll_flux_sort,
+                                                            trim=0.925, sc=None, ir=None)
+    D['ft02_fluxd'] = flux_stack
+    D['ft02_fluxd_err'] = fluxe_stack
+    D['ft02_contrib'] = contrib
 
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'], super_tab['calfibe'],flux_sort=ll_flux_sort,
-                                                         trim=1.0,sc=None,ir=0.99)
-D['fir99_fluxd'] = flux_stack
-D['fir99_fluxd_err'] = fluxe_stack
-D['fir99_contrib'] = contrib
+    flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'],super_tab['calfibe'],flux_sort=ll_flux_sort,
+                                                             trim=0.90, sc=None, ir=None)
+    D['ft03_fluxd'] = flux_stack
+    D['ft03_fluxd_err'] = fluxe_stack
+    D['ft03_contrib'] = contrib
 
-#ffsky
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'], super_tab['calfibe'],flux_sort=ff_flux_sort,
-                                                         trim=1.0,sc=None,ir=0.67)
-D2['fir67_fluxd'] = flux_stack
-D2['fir67_fluxd_err'] = fluxe_stack
-D2['fir67_contrib'] = contrib
+    flux_stack, fluxe_stack, contrib= stack_by_waverange_bw(super_tab['calfib'],super_tab['calfibe'],flux_sort=ll_flux_sort,
+                                                            trim=0.875, sc=None, ir=None)
+    D['ft04_fluxd'] = flux_stack
+    D['ft04_fluxd_err'] = fluxe_stack
+    D['ft04_contrib'] = contrib
 
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'], super_tab['calfibe'],flux_sort=ff_flux_sort,
-                                                         trim=1.0,sc=None,ir=0.95)
-D2['fir95_fluxd'] = flux_stack
-D2['fir95_fluxd_err'] = fluxe_stack
-D2['fir95_contrib'] = contrib
+    flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'],super_tab['calfibe'],flux_sort=ll_flux_sort,
+                                                             trim=0.85, sc=None, ir=None)
+    D['ft05_fluxd'] = flux_stack
+    D['ft05_fluxd_err'] = fluxe_stack
+    D['ft05_contrib'] = contrib
 
-flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'], super_tab['calfibe'],flux_sort=ff_flux_sort,
-                                                         trim=1.0,sc=None,ir=0.99)
-D2['fir99_fluxd'] = flux_stack
-D2['fir99_fluxd_err'] = fluxe_stack
-D2['fir99_contrib'] = contrib
+
+    #now for ffsky
+    flux_stack, fluxe_stack, contrib= stack_by_waverange_bw(super_tab['calfib_ffsky'],super_tab['calfibe'],flux_sort=ff_flux_sort,
+                                                            trim=0.95, sc=None, ir=None)
+    D2['ft01_fluxd'] = flux_stack
+    D2['ft01_fluxd_err'] = fluxe_stack
+    D2['ft01_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'],super_tab['calfibe'],flux_sort=ff_flux_sort,
+                                                             trim=0.925, sc=None, ir=None)
+    D2['ft02_fluxd'] = flux_stack
+    D2['ft02_fluxd_err'] = fluxe_stack
+    D2['ft02_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'],super_tab['calfibe'],flux_sort=ff_flux_sort,
+                                                             trim=0.90, sc=None, ir=None)
+    D2['ft03_fluxd'] = flux_stack
+    D2['ft03_fluxd_err'] = fluxe_stack
+    D2['ft03_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib= stack_by_waverange_bw(super_tab['calfib_ffsky'],super_tab['calfibe'],flux_sort=ff_flux_sort,
+                                                            trim=0.875, sc=None, ir=None)
+    D2['ft04_fluxd'] = flux_stack
+    D2['ft04_fluxd_err'] = fluxe_stack
+    D2['ft04_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'],super_tab['calfibe'],flux_sort=ff_flux_sort,
+                                                             trim=0.85, sc=None, ir=None)
+    D2['ft05_fluxd'] = flux_stack
+    D2['ft05_fluxd_err'] = fluxe_stack
+    D2['ft05_contrib'] = contrib
+
+
+
+    ###################################
+    # sigma clip 3, 5 sigma
+    ###################################
+    print(f"{shotid} fiber sigma clip trim ....  {datetime.datetime.now()}")
+
+    flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'], super_tab['calfibe'],flux_sort=ll_flux_sort,
+                                                             trim=1.0,sc=3.0,ir=None)
+    D['fsc3_fluxd'] = flux_stack
+    D['fsc3_fluxd_err'] = fluxe_stack
+    D['fsc3_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'], super_tab['calfibe'],flux_sort=ll_flux_sort,
+                                                             trim=1.0,sc=5.0,ir=None)
+    D['fsc5_fluxd'] = flux_stack
+    D['fsc5_fluxd_err'] = fluxe_stack
+    D['fsc5_contrib'] = contrib
+
+    #ffsky
+    flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'], super_tab['calfibe'],flux_sort=ff_flux_sort,
+                                                             trim=1.0,sc=3.0,ir=None)
+    D2['fsc3_fluxd'] = flux_stack
+    D2['fsc3_fluxd_err'] = fluxe_stack
+    D2['fsc3_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'], super_tab['calfibe'],flux_sort=ff_flux_sort,
+                                                             trim=1.0,sc=5.0,ir=None)
+    D2['fsc5_fluxd'] = flux_stack
+    D2['fsc5_fluxd_err'] = fluxe_stack
+    D2['fsc5_contrib'] = contrib
+
+    ###################################
+    # inter keep roughly 1,2,3 sigma
+    # assuming Normal Distro (so 67%, 95%, 99%)
+    ###################################
+    print(f"{shotid} fiber internal fraction trim ....  {datetime.datetime.now()}")
+
+    flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'], super_tab['calfibe'],flux_sort=ll_flux_sort,
+                                                             trim=1.0,sc=None,ir=0.67)
+    D['fir67_fluxd'] = flux_stack
+    D['fir67_fluxd_err'] = fluxe_stack
+    D['fir67_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'], super_tab['calfibe'],flux_sort=ll_flux_sort,
+                                                             trim=1.0,sc=None,ir=0.95)
+    D['fir95_fluxd'] = flux_stack
+    D['fir95_fluxd_err'] = fluxe_stack
+    D['fir95_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib'], super_tab['calfibe'],flux_sort=ll_flux_sort,
+                                                             trim=1.0,sc=None,ir=0.99)
+    D['fir99_fluxd'] = flux_stack
+    D['fir99_fluxd_err'] = fluxe_stack
+    D['fir99_contrib'] = contrib
+
+    #ffsky
+    flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'], super_tab['calfibe'],flux_sort=ff_flux_sort,
+                                                             trim=1.0,sc=None,ir=0.67)
+    D2['fir67_fluxd'] = flux_stack
+    D2['fir67_fluxd_err'] = fluxe_stack
+    D2['fir67_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'], super_tab['calfibe'],flux_sort=ff_flux_sort,
+                                                             trim=1.0,sc=None,ir=0.95)
+    D2['fir95_fluxd'] = flux_stack
+    D2['fir95_fluxd_err'] = fluxe_stack
+    D2['fir95_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_waverange_bw(super_tab['calfib_ffsky'], super_tab['calfibe'],flux_sort=ff_flux_sort,
+                                                             trim=1.0,sc=None,ir=0.99)
+    D2['fir99_fluxd'] = flux_stack
+    D2['fir99_fluxd_err'] = fluxe_stack
+    D2['fir99_contrib'] = contrib
 
 
 
@@ -1245,7 +1463,7 @@ D2['fir99_contrib'] = contrib
 print(f"{shotid} writing output tables ....  {datetime.datetime.now()}")
 
 
-T.add_row([ shotid,seeing,response,
+T.add_row([ shotid,seeing,response,flags,
             D['raw_fluxd'],D['raw_fluxd_err'],D['raw_contrib'],
             D['trim_fluxd'],D['trim_fluxd_err'],D['trim_contrib'],
             D['vt13_fluxd'],D['vt13_fluxd_err'],D['vt13_contrib'],
@@ -1255,24 +1473,24 @@ T.add_row([ shotid,seeing,response,
             D['t03_fluxd'],D['t03_fluxd_err'],D['t03_contrib'],
             D['t04_fluxd'],D['t04_fluxd_err'],D['t04_contrib'],
             D['t05_fluxd'],D['t05_fluxd_err'],D['t05_contrib'],
-            D['sc3_fluxd'],D['sc3_fluxd_err'],D['sc3_contrib'],
-            D['sc5_fluxd'],D['sc5_fluxd_err'],D['sc5_contrib'],
-            D['ir67_fluxd'],D['ir67_fluxd_err'],D['ir67_contrib'],
-            D['ir95_fluxd'],D['ir95_fluxd_err'],D['ir95_contrib'],
-            D['ir99_fluxd'],D['ir99_fluxd_err'],D['ir99_contrib'],
-            D['ft01_fluxd'], D['ft01_fluxd_err'], D['ft01_contrib'],
-            D['ft02_fluxd'], D['ft02_fluxd_err'], D['ft02_contrib'],
-            D['ft03_fluxd'], D['ft03_fluxd_err'], D['ft03_contrib'],
-            D['ft04_fluxd'], D['ft04_fluxd_err'], D['ft04_contrib'],
-            D['ft05_fluxd'], D['ft05_fluxd_err'], D['ft05_contrib'],
-            D['fsc3_fluxd'], D['fsc3_fluxd_err'], D['fsc3_contrib'],
-            D['fsc5_fluxd'], D['fsc5_fluxd_err'], D['fsc5_contrib'],
-            D['fir67_fluxd'], D['fir67_fluxd_err'], D['fir67_contrib'],
-            D['fir95_fluxd'], D['fir95_fluxd_err'], D['fir95_contrib'],
-            D['fir99_fluxd'], D['fir99_fluxd_err'], D['fir99_contrib'],
+            # D['sc3_fluxd'],D['sc3_fluxd_err'],D['sc3_contrib'],
+            # D['sc5_fluxd'],D['sc5_fluxd_err'],D['sc5_contrib'],
+            # D['ir67_fluxd'],D['ir67_fluxd_err'],D['ir67_contrib'],
+            # D['ir95_fluxd'],D['ir95_fluxd_err'],D['ir95_contrib'],
+            # D['ir99_fluxd'],D['ir99_fluxd_err'],D['ir99_contrib'],
+            # D['ft01_fluxd'], D['ft01_fluxd_err'], D['ft01_contrib'],
+            # D['ft02_fluxd'], D['ft02_fluxd_err'], D['ft02_contrib'],
+            # D['ft03_fluxd'], D['ft03_fluxd_err'], D['ft03_contrib'],
+            # D['ft04_fluxd'], D['ft04_fluxd_err'], D['ft04_contrib'],
+            # D['ft05_fluxd'], D['ft05_fluxd_err'], D['ft05_contrib'],
+            # D['fsc3_fluxd'], D['fsc3_fluxd_err'], D['fsc3_contrib'],
+            # D['fsc5_fluxd'], D['fsc5_fluxd_err'], D['fsc5_contrib'],
+            # D['fir67_fluxd'], D['fir67_fluxd_err'], D['fir67_contrib'],
+            # D['fir95_fluxd'], D['fir95_fluxd_err'], D['fir95_contrib'],
+            # D['fir99_fluxd'], D['fir99_fluxd_err'], D['fir99_contrib'],
 ])
 
-T2.add_row([shotid,seeing,response,
+T2.add_row([shotid,seeing,response,flags,
             D2['raw_fluxd'],D2['raw_fluxd_err'],D2['raw_contrib'],
             D2['trim_fluxd'],D2['trim_fluxd_err'],D2['trim_contrib'],
             D2['vt13_fluxd'],D2['vt13_fluxd_err'],D2['vt13_contrib'],
@@ -1282,21 +1500,21 @@ T2.add_row([shotid,seeing,response,
             D2['t03_fluxd'],D2['t03_fluxd_err'],D2['t03_contrib'],
             D2['t04_fluxd'],D2['t04_fluxd_err'],D2['t04_contrib'],
             D2['t05_fluxd'],D2['t05_fluxd_err'],D2['t05_contrib'],
-            D2['sc3_fluxd'],D2['sc3_fluxd_err'],D2['sc3_contrib'],
-            D2['sc5_fluxd'],D2['sc5_fluxd_err'],D2['sc5_contrib'],
-            D2['ir67_fluxd'],D2['ir67_fluxd_err'],D2['ir67_contrib'],
-            D2['ir95_fluxd'],D2['ir95_fluxd_err'],D2['ir95_contrib'],
-            D2['ir99_fluxd'],D2['ir99_fluxd_err'],D2['ir99_contrib'],
-            D2['ft01_fluxd'], D2['ft01_fluxd_err'], D2['ft01_contrib'],
-            D2['ft02_fluxd'], D2['ft02_fluxd_err'], D2['ft02_contrib'],
-            D2['ft03_fluxd'], D2['ft03_fluxd_err'], D2['ft03_contrib'],
-            D2['ft04_fluxd'], D2['ft04_fluxd_err'], D2['ft04_contrib'],
-            D2['ft05_fluxd'], D2['ft05_fluxd_err'], D2['ft05_contrib'],
-            D2['fsc3_fluxd'], D2['fsc3_fluxd_err'], D2['fsc3_contrib'],
-            D2['fsc5_fluxd'], D2['fsc5_fluxd_err'], D2['fsc5_contrib'],
-            D2['fir67_fluxd'], D2['fir67_fluxd_err'], D2['fir67_contrib'],
-            D2['fir95_fluxd'], D2['fir95_fluxd_err'], D2['fir95_contrib'],
-            D2['fir99_fluxd'], D2['fir99_fluxd_err'], D2['fir99_contrib'],
+            # D2['sc3_fluxd'],D2['sc3_fluxd_err'],D2['sc3_contrib'],
+            # D2['sc5_fluxd'],D2['sc5_fluxd_err'],D2['sc5_contrib'],
+            # D2['ir67_fluxd'],D2['ir67_fluxd_err'],D2['ir67_contrib'],
+            # D2['ir95_fluxd'],D2['ir95_fluxd_err'],D2['ir95_contrib'],
+            # D2['ir99_fluxd'],D2['ir99_fluxd_err'],D2['ir99_contrib'],
+            # D2['ft01_fluxd'], D2['ft01_fluxd_err'], D2['ft01_contrib'],
+            # D2['ft02_fluxd'], D2['ft02_fluxd_err'], D2['ft02_contrib'],
+            # D2['ft03_fluxd'], D2['ft03_fluxd_err'], D2['ft03_contrib'],
+            # D2['ft04_fluxd'], D2['ft04_fluxd_err'], D2['ft04_contrib'],
+            # D2['ft05_fluxd'], D2['ft05_fluxd_err'], D2['ft05_contrib'],
+            # D2['fsc3_fluxd'], D2['fsc3_fluxd_err'], D2['fsc3_contrib'],
+            # D2['fsc5_fluxd'], D2['fsc5_fluxd_err'], D2['fsc5_contrib'],
+            # D2['fir67_fluxd'], D2['fir67_fluxd_err'], D2['fir67_contrib'],
+            # D2['fir95_fluxd'], D2['fir95_fluxd_err'], D2['fir95_contrib'],
+            # D2['fir99_fluxd'], D2['fir99_fluxd_err'], D2['fir99_contrib'],
 ])
 
 T.write(table_outname, format='fits', overwrite=True)

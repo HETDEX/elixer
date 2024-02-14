@@ -15,7 +15,8 @@ import os
 import glob2 #easier to search for files
 
 #basepath = "/home1/07446/astroboi/work2/project/Project_NEP/data/processed/HSC_Files/current_overlap"
-basepath = "/scratch/03261/polonius/nep/"
+#basepath = "/scratch/03261/polonius/nep/"
+basepath = "/scratch/07446/astroboi/H20_Mosiacs"
 
 
 mag_depth = {'g':26.6,
@@ -71,15 +72,20 @@ def parse_hsc_image_name(name):
     #   parse out the filter (R) and the tile position (4,3) and catalog_tract (16666)
 
     #H20_NEP_T18212_B83_MULTIBAND.fits
+    #H20_EDFN_v2.3_HSC-R.fits
+
     toks = name.split("_")
-    instrument = "HSC HEP" #toks[1] #'HSC'
-    filter = "xx"# toks[2] #'R'
-    cat_tract = toks[2][1:] #'16666'
+    instrument = "HSC NEP" #toks[1] #'HSC'
+    #old  H20_NEP_T18212_B83_MULTIBAND.fits  style
+    #filter = toks[2] #'R'
+    #cat_tract = toks[2][1:] #'16666'
     #tile_pos = eval(toks[4].split('.')[0]) #so we get a tuple of ints
 
+    #newer H20_EDFN_v2.3_HSC-R.fits style
+    filter =toks[3][4].lower()
+    cat_tract = "xxx"
+    tile_pos = "xxx"
     pos = (0,0) #toks[4].split('.')[0].split(",") #ie. "16.fits" --> 1 6   # so we get a tuple of ints
-
-    tile_pos = toks[3]#[int(pos[0]),int(pos[1])]
 
     return instrument,filter,cat_tract,tile_pos
 
@@ -122,8 +128,10 @@ def main():
 
     #can be one or more directories between the image files
     #files = os.listdir(img_path)
-    files = glob2.glob(img_path + "/**/*.fits")
+    files = sorted(glob2.glob(img_path + "/**/*.fits"))
+    exclude_files = sorted(glob2.glob(img_path + "/**/*.var.fits"))
 
+    files = np.setdiff1d(files,exclude_files)
     #any tiles that are bad and should not be loaded go in this list
     bad_list = []
 
@@ -154,8 +162,13 @@ def main():
 
         instrument,filter,cat_tract,tile_pos = parse_hsc_image_name(os.path.basename(f))
 
-        print("'%s': {'RA_min':%f,'RA_max':%f,'Dec_min':%f,'Dec_max':%f,'instrument':'HSC NEP','filter':'xx','tract':'%s','pos':'%s','path':'%s'},"
-              %(fname,ra_lo,ra_hi,dec_lo,dec_hi,cat_tract,tile_pos,f))
+        #20240212 DD: older verion had multiple extensions with mulitple filters per Tile
+        #newer version has single large images per filter
+        #print("'%s': {'RA_min':%f,'RA_max':%f,'Dec_min':%f,'Dec_max':%f,'instrument':'HSC NEP','filter':'xx','tract':'%s','pos':'%s','path':'%s'},"
+        #      %(fname,ra_lo,ra_hi,dec_lo,dec_hi,cat_tract,tile_pos,f))
+
+        print("'%s': {'RA_min':%f,'RA_max':%f,'Dec_min':%f,'Dec_max':%f,'instrument':'HSC NEP','filter':'%s','tract':'%s','pos':'%s','path':'%s'},"
+              %(fname,ra_lo,ra_hi,dec_lo,dec_hi,filter,cat_tract,tile_pos,f))
 
 
             #img.close()

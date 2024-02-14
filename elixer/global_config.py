@@ -25,7 +25,7 @@ if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
 #version
-__version__ = '1.22.0a5'
+__version__ = '1.22.0a6'
 
 
 #initial working dir
@@ -952,6 +952,8 @@ USE_MASKED_CONTINUUM_FOR_BEST_EW = False #if true use the emission/aborption mas
 Fiber_Radius = 0.75 #arcsec
 IFU_Width = 47.26 #arcsec ... includes 2x fiber radius ... more narrow part fiber 1 - 19, else is 49.8
 IFU_Height = 49.98 #arcsec
+#IFUs approx 51" square (full side)
+#an exposure is approx 18' in diameter (9' radius)
 # Fiber_1_X = -22.88
 # Fiber_1_Y = -24.24
 # Fiber_19_X = 22.88
@@ -1507,3 +1509,25 @@ BGR_RES_FIBER_TAB_FFRC_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_resi
 BGR_RES_FIBER_TAB_LL_IDX_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_FIBER_TAB_LL_IDX.fits"
 BGR_RES_FIBER_TAB_FF_IDX_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_FIBER_TAB_FF_IDX.fits"
 BGR_RES_FIBER_TAB_FFRC_IDX_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_FIBER_TAB_FFRC_IDX.fits"
+
+
+#######################################
+# Empty Fiber Residual (EFR) Flags
+#######################################
+
+EFR_FLAG_NO_RESIDUAL                    = 0x00000001
+                                        #set if ELiXer could not find or load an empty fiber for this shot
+
+EFR_FLAG_NOT_UNIQUE                     = 0x00000002
+                                        #set if ELiXer found multiple matching shots
+
+EFR_FLAG_INVALID_PARAMETERS             = 0x00000004
+                                        #set if ELiXer found multiple matching shots?
+
+EFR_FLAG_FUNCTION_EXCEPTION             = 0x00000008
+                                        #some exception occured in the request
+
+EFR_FLAG_TOO_MANY_DETECTION_FIBERS      = 0x00000010
+                               #set if more than 2/3 of fibers are in detections
+                               #this is either something like M101 -OR- a bad shot? maybe lots of satellites or meteors
+                               #but that seems unlikely
