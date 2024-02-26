@@ -124,14 +124,17 @@ def get_cutout(coord, side, image, imgidx=0, wcsidx=None, wcs=None):
         return None, status
 
 
-def find_objects(cutout, fixed_radius=None):
+def find_objects(cutout, fixed_radius=None, det_thresh= 1.5, kron_mux = 2.5, correct_loss = False):
     """
     Basically, Source extractor.
 
     :param cutout: this is an astropy Cutout2D object
     :param fixed_radius: radius (in arcsec, as float) for a fixed circular aperture under which to take counts centered
                          at each detected object's barycenter
-
+    :param det_thresh: multiple of the global background rms as minimum detection threshold trigger
+    :param kron_mux: number of kron radii for the aperture; explicitly suported 2.0 and 2.5 (common to source extractor)
+    :param correct_loss: adjust counts to approximate for aperture lost light. Optional ONLY for kron_mux 2.5 and 2.0.
+                         otherwise is off. Always off for fixed radius (forced aperture).
     :return: array of source extractor dictionary objects, array of status messages
     """
 
@@ -160,8 +163,20 @@ def find_objects(cutout, fixed_radius=None):
     img_objects = []  # array of dictionaries
     objects = None
     status = []
+    # 2.5 should capture 94%+ of galaxy light with possibly larger error for faint sources
+    # 2.0 should capture 90%+ of galaxy light with less errror
 
-    #status.append("Scanning cutout with source extractor ...")
+    if correct_loss:
+        if kron_mux == 2.0:
+            lost_light_correction = 1.0 / 0.90 #written this way to be clear and so can multiply later
+        elif kron_mux == 2.5:
+            lost_light_correction = 1.0 / 0.94 #written this way to be clear and so can multiply later
+        else:
+            lost_light_correction = 1.0
+            status.append(f"Unsupported kron_mux ({kron_mux}). Lost light correction turned off.")
+    else:
+        lost_light_correction = 1.0
+    # #status.append("Scanning cutout with source extractor ...")
 
     try:
         if (cutout is None) or (cutout.data is None):
@@ -200,14 +215,16 @@ def find_objects(cutout, fixed_radius=None):
 
         data_sub = data - bkg
         data_err = bkg.globalrms  # use the background RMS as the error (assume sky dominated)
-        objects = sep.extract(data_sub, 1.5, err=bkg.globalrms)
+        #using 1.5x globalrms
+        objects = sep.extract(data_sub, det_thresh, err=bkg.globalrms)
 
         selected_idx = -1
         inside_objs = []  # (index, dist_to_barycenter)
         outside_objs = []  # (index, dist_to_barycenter, dist_to_curve)
 
-        map_idx = np.full(len(objects),
-                          -1)  # holds the index of img_objects for each objects entry (if no image object, the value is -1)
+        map_idx = np.full(len(objects), -1)
+        # holds the index of img_objects for each object's entry (if no image object, the value is -1)
+
         idx = -1
 
         pixel_size,*_ = calc_pixel_size(cutout.wcs)
@@ -217,8 +234,8 @@ def find_objects(cutout, fixed_radius=None):
             # NOTE: #3.* applied for the same reason as above ... a & b are given in kron isophotal diameters
             # so 6a/2 == 3a == radius needed for function
 
-            success, dist2curve, dist2bary, pt = utilities.dist_to_ellipse(cx, cy, obj['x'], obj['y'], 3. * obj['a'],
-                                                                           3. * obj['b'], obj['theta'])
+            success, dist2curve, dist2bary, pt = utilities.dist_to_ellipse(cx, cy, obj['x'], obj['y'],
+                                                                           3. * obj['a'], 3. * obj['b'], obj['theta'])
 
             # copy to ELiXer img_objects
             d = initialize_dict()
@@ -255,13 +272,16 @@ def find_objects(cutout, fixed_radius=None):
                     radius = 1.75
                     flux, fluxerr, flag = sep.sum_circle(data_sub, [obj['x']], [obj['y']],
                                                          [radius], subpix=1, err=data_err)
+
+                    lost_light_correction = 1.0
+                    status.append(f"idx [{idx}] minimum radius set to {radius}. Lost light correction turned off.")
                 else:
                     flux, fluxerr, flag = sep.sum_ellipse(data_sub, [obj['x']], [obj['y']],
                                                           [obj['a']], [obj['b']], [obj['theta']],
-                                                          [2.5 * kronrad], subpix=1, err=data_err)
+                                                          [kron_mux * kronrad], subpix=1, err=data_err)
 
-                flux = flux[0]
-                fluxerr = fluxerr[0]
+                flux = flux[0] * lost_light_correction
+                fluxerr = fluxerr[0] * lost_light_correction
                 flag = flag[0]
 
             except Exception as e:
@@ -270,9 +290,9 @@ def find_objects(cutout, fixed_radius=None):
                         # log.debug(f"+++++ invalid aperture parameters")
                         pass  # do nothing ... not important
                     else:
-                        status.append(f"Exception! {e}")
+                        status.append(f"idx [{idx}] Exception! {e}")
                 except Exception as e:
-                    status.append(f"Exception with source extractor. {e}")
+                    status.append(f"idx [{idx}] Exception with source extractor. {e}")
                 continue
 
             # flux, fluxerr, flag may be ndarrays but of size zero (a bit weird)
@@ -280,7 +300,7 @@ def find_objects(cutout, fixed_radius=None):
             fluxerr = float(fluxerr)
             flag = int(flag)
 
-            d['flux_cts'] = flux
+            d['flux_cts'] = flux  #lost light correction already applied above
             d['flux_cts_err'] = fluxerr
             d['flags'] = flag
 
@@ -293,12 +313,13 @@ def find_objects(cutout, fixed_radius=None):
                     flux, fluxerr, flag = sep.sum_circle(data_sub, [obj['x']], [obj['y']],
                                                          [radius], subpix=1, err=data_err)
 
+                    # reminder, you don't do lost light correction for forced aperture (that is up to the caller)
                     flux = flux[0]
                     fluxerr = fluxerr[0]
                     flag = flag[0]
 
                 except Exception as e:
-                    status.append("Exception with source extractor {e}")
+                    status.append("idx [{idx}] Exception with source extractor {e}")
                     continue
 
                 flux = float(flux)
