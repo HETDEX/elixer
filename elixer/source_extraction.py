@@ -2,12 +2,9 @@
 
 """
 
-
 try:
-    from elixer import global_config as G
     from elixer import utilities
 except:
-    import global_config as G
     import utilities
 
 import sys
@@ -15,31 +12,11 @@ import numpy as np
 
 import sep #source extractor python module
 
-import scipy.ndimage
-import scipy.stats as stats
-
-from astropy.visualization import ZScaleInterval
 import astropy.io.fits as fits
 from astropy.coordinates import SkyCoord
-#from astropy.coordinates import match_coordinates_sky
 from astropy.nddata import Cutout2D
 from astropy.wcs import WCS
-from astropy.wcs import utils as wcs_utils
-from astropy.wcs import Wcsprm
-from astropy.wcs.utils import skycoord_to_pixel
-from astropy.nddata.utils import NoOverlapError
-from astropy import units as ap_units
-from astropy.stats import sigma_clipped_stats, sigma_clip
-import astropy.stats.biweight as biweight
 import astropy.wcs #need constants
-
-from photutils import CircularAperture #pixel coords
-from photutils import SkyCircularAperture, SkyCircularAnnulus,SkyEllipticalAperture #sky coords
-from photutils import aperture_photometry
-try:
-    from photutils.centroids import centroid_2dg
-except:
-    from photutils import centroid_2dg
 
 
 #todo: various known counts to flux conversions based on the survey ??
