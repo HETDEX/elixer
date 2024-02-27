@@ -1,26 +1,130 @@
 """
+Basic source extraction, derived from ELiXer implementation, but completely independent of ELiXer
+
+Based on source extraction for python (sep)
+
+Primarily two user interfaces (last functions defined):
+  get_cutout(...)   : optional for the user to provide a fits from which to make a smaller 2D cutout and then pass
+                    that cutout to find_objects()
+
+  find_objects(...) : basically source extraction with a few limited options. Works on a 2D cutout and returns
+                      a list of dictionaries that define positions, extents, orientations, and counts for detections.
+                      The caller is responsible for converting counts to mags or fluxes as per the 2DCutout or FITS.
+                      (note: for multiple catalogs, ELiXer does already have the conversions, so take a look at the
+                       various cat_*.py files in the ELiXer project.)
 
 """
 
-try:
-    from elixer import utilities
-except:
-    import utilities
-
 import sys
 import numpy as np
+import math
 
 import sep #source extractor python module
 
 import astropy.io.fits as fits
 from astropy.coordinates import SkyCoord
 from astropy.nddata import Cutout2D
-from astropy.wcs import WCS
-import astropy.wcs #need constants
+import astropy.wcs
 
 
-#todo: various known counts to flux conversions based on the survey ??
-# e.g. like HSC_SSP, etc that would normally be called from ELiXer
+#######################################
+# Helper functions
+#######################################
+
+def dist_to_ellipse(xp,yp,xc,yc,a,b,angle):
+    """
+    Find the distance to the nearest point ON the ellipse for point OUTSIDE the ellipse.
+
+    NOTICE: this is COORDINATE DISTANCE ... does not attempt to adjust for underlying metric (i.e does not adjust
+    for projection on sphere with RA distances as function of cos(declination).).
+
+    :param xp: x coord of point
+    :param yp: y coord of point
+    :param xc: x coord of ellipse center
+    :param yc: y coord of ellipse center
+    :param a: major axis (radius)
+    :param b: minor axis (radius)
+    :param angle: rotation angle in radians from positive x axis (counter clockwise)
+    Assumes lower left is 0,0
+    :return: outside (True/False), distance to curve, distance to barycenter, nearest point on curve as (x,y)
+            where outside also proxies for success ... if True, this should have worked, if False, not
+    """
+
+    try:
+        #translate to center ellipse at 0,0
+        original_xc = xc
+        original_yc = yc
+        xp = xp - xc
+        yp = yp - yc
+        xc,yc = 0,0
+
+        #rotate to major axis along x
+        angle = 2.*math.pi - angle   #want in clock-wise from positive x axis (rotation matrix below is clock-wise)
+        cosa = math.cos(angle)
+        sina = math.sin(angle)
+
+        #xt = transformed xp coord where major axis is positive x-axis and minor is positive y-axis
+        #yt = transformed yp coord
+        xt = xp*cosa-yp*sina
+        yt = xp*sina+yp*cosa
+
+
+        dist_to_barycenter = np.sqrt(xt*xt+yt*yt)
+        dist_to_curve = None
+        inside = (((xt * xt) / (a * a)) + ((yt * yt) / (b * b))) <= 1
+
+        if inside:
+            #log.info("Point to ellipse, point is INSIDE the ellipse.")
+            return not inside, None,dist_to_barycenter,(None,None)
+
+        #calculate and return distance
+        #no analytical solution? so approximate
+        #modified from Johannes Peter (https://gist.github.com/JohannesMP)
+        px = abs(xt)
+        py = abs(yt)
+
+        tx = 0.707
+        ty = 0.707
+
+        for x in range(0, 3):
+            x = a * tx
+            y = b * ty
+
+            ex = (a * a - b * b) * tx ** 3 / a
+            ey = (b * b - a * a) * ty ** 3 / b
+
+            rx = x - ex
+            ry = y - ey
+
+            qx = px - ex
+            qy = py - ey
+
+            r = math.hypot(rx, ry)
+            q = math.hypot(qx, qy)
+
+            tx = min(1, max(0, (qx * r / q + ex) / a))
+            ty = min(1, max(0, (qy * r / q + ey) / b))
+            t = math.hypot(tx, ty)
+            tx /= t
+            ty /= t
+
+        pt_on_curve =  (math.copysign(a * tx, xt), math.copysign(b * ty, yt))
+        curve_to_barycenter = np.sqrt(pt_on_curve[0] * pt_on_curve[0] + pt_on_curve[1] * pt_on_curve[1])
+        dist_to_curve = dist_to_barycenter - curve_to_barycenter
+
+        #transform pt_on_curve back to ORIGINAL coordinate system
+        #inverse rotation
+        xt = pt_on_curve[0]*cosa+pt_on_curve[1]*sina
+        yt = -1*pt_on_curve[0]*sina+pt_on_curve[1]*cosa
+        #translate back
+        xt += original_xc
+        yt += original_yc
+        pt_on_curve = (xt,yt)
+
+        return not inside, dist_to_curve,dist_to_barycenter,pt_on_curve
+    except Exception as E:
+        #print(f"Exception in utilities. {E}")
+        return False,None, None, None
 
 
 def calc_pixel_size(wcs):
@@ -30,6 +134,13 @@ def calc_pixel_size(wcs):
         return abs(wcs.wcs.cdelt[0]) * 3600.0, []
     else:  # we have a problem
         return None, ["Warning! Unable to determine pixel scale. WCS does not have cd or cdelt keywords."]
+
+
+
+
+#######################################
+# Primary User Functions
+#######################################
 
 def get_cutout(coord, side, image, imgidx=0, wcsidx=None, wcs=None):
     """
@@ -76,7 +187,7 @@ def get_cutout(coord, side, image, imgidx=0, wcsidx=None, wcs=None):
 
         # get the wcs (automatically)
         try:
-            wcs = WCS(hdulist[wcsidx].header, relax=astropy.wcs.WCSHDR_CD00i00j | astropy.wcs.WCSHDR_PC00i00j)
+            wcs = astropy.wcs.WCS(hdulist[wcsidx].header, relax=astropy.wcs.WCSHDR_CD00i00j | astropy.wcs.WCSHDR_PC00i00j)
         except:
             wcs = None
 
@@ -211,8 +322,8 @@ def find_objects(cutout, fixed_radius=None, det_thresh= 1.5, kron_mux = 2.5, cor
             # NOTE: #3.* applied for the same reason as above ... a & b are given in kron isophotal diameters
             # so 6a/2 == 3a == radius needed for function
 
-            success, dist2curve, dist2bary, pt = utilities.dist_to_ellipse(cx, cy, obj['x'], obj['y'],
-                                                                           3. * obj['a'], 3. * obj['b'], obj['theta'])
+            success, dist2curve, dist2bary, pt = dist_to_ellipse(cx, cy, obj['x'], obj['y'],
+                                                                 3. * obj['a'], 3. * obj['b'], obj['theta'])
 
             # copy to ELiXer img_objects
             d = initialize_dict()
