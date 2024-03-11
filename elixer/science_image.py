@@ -885,6 +885,23 @@ class science_image():
                 log.debug("+++++ bad cutout")
                 return img_objects, None
 
+            # 2.5 should capture 94%+ of galaxy light with possibly larger error for faint sources
+            # 2.0 should capture 90%+ of galaxy light with less errror
+
+            kron_mux = G.SEP_KRON_MUX
+            det_thresh = G.SEP_DET_THRESH
+
+            if G.SEP_CORRECT_LOST_LIGHT:
+                if kron_mux == 2.0:
+                    lost_light_correction = 1.0 / 0.90  # written this way to be clear and so can multiply later
+                elif kron_mux == 2.5:
+                    lost_light_correction = 1.0 / 0.94  # written this way to be clear and so can multiply later
+                else:
+                    lost_light_correction = 1.0
+                    log.warning(f"Unsupported kron_mux ({kron_mux}). Lost light correction turned off.")
+            else:
+                lost_light_correction = 1.0
+
             cx, cy = cutout.center_cutout
 
             if not G.BIG_ENDIAN:
@@ -912,7 +929,7 @@ class science_image():
 
             data_sub = data - bkg
             data_err = bkg.globalrms #use the background RMS as the error (assume sky dominated)
-            objects = sep.extract(data_sub, 1.5, err=bkg.globalrms)
+            objects = sep.extract(data_sub, det_thresh, err=bkg.globalrms)
 
             selected_idx = -1
             inside_objs = []  # (index, dist_to_barycenter)
@@ -964,13 +981,16 @@ class science_image():
                         radius = 1.75
                         flux, fluxerr, flag = sep.sum_circle(data_sub, [obj['x']], [obj['y']],
                                                              [radius], subpix=1,err=data_err)
+
+                        lost_light_correction = 1.0
+                        log.debug(f"idx [{idx}] minimum radius set to {radius}. Lost light correction turned off.")
                     else:
                         flux, fluxerr, flag = sep.sum_ellipse(data_sub, [obj['x']], [obj['y']],
                                                               [obj['a']], [obj['b']], [obj['theta']],
-                                                              [2.5 * kronrad], subpix=1,err=data_err)
+                                                              [kron_mux * kronrad], subpix=1,err=data_err)
 
-                    flux = flux[0]
-                    fluxerr = fluxerr[0]
+                    flux = flux[0] * lost_light_correction
+                    fluxerr = fluxerr[0] * lost_light_correction
                     flag = flag[0]
 
                 # except:
@@ -994,7 +1014,7 @@ class science_image():
                 except:
                     log.debug("Exception casting results from sep.sum", exc_info=True)
 
-                d['flux_cts'] = flux
+                d['flux_cts'] = flux  #reminder, don't adjust for lost light AGAIN, it was already done
                 d['flux_cts_err'] = fluxerr
                 d['flags'] = flag
                 d['selected'] = False
@@ -1027,7 +1047,7 @@ class science_image():
                         flux, fluxerr, flag = sep.sum_circle(data_sub, [obj['x']], [obj['y']],
                                                          [radius], subpix=1,err=data_err)
 
-                    flux = flux[0]
+                    flux = flux[0] #reminder, fixed (forced) aperture does NOT get a lost light correction
                     fluxerr = fluxerr[0]
                     flag = flag[0]
 

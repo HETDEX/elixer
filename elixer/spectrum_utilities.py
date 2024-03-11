@@ -3352,10 +3352,10 @@ def get_empty_aperture_residual(hdr=G.HDR_Version,rtype=None,shotid=None,seeing=
         idx = -1
         #try the running tables first
         if shotid is not None:
-            if ffsky and G.BGR_RES_TAB_FF_RUN is not None:
-                T = G.BGR_RES_TAB_FF_RUN
-            elif not ffsky and G.BGR_RES_TAB_LL_RUN is not None:
-                T = G.BGR_RES_TAB_LL_RUN
+            if ffsky and G.BGR_RES_APER_TAB_FF_RUN is not None:
+                T = G.BGR_RES_APER_TAB_FF_RUN
+            elif not ffsky and G.BGR_RES_APER_TAB_LL_RUN is not None:
+                T = G.BGR_RES_APER_TAB_LL_RUN
 
             if T is not None:
                 sel = np.array(T['shotid']==shotid)
@@ -3374,21 +3374,21 @@ def get_empty_aperture_residual(hdr=G.HDR_Version,rtype=None,shotid=None,seeing=
 
         #we don't have it already, so check the index to find the row we want to read
         if ffsky:
-            if G.BGR_RES_TAB_FF_IDX is None:
+            if G.BGR_RES_APER_TAB_FF_IDX is None:
                 #load the table
-                T = Table.read(G.BGR_RES_TAB_FF_IDX_FN)
+                T = Table.read(G.BGR_RES_APER_TAB_FF_IDX_FN)
                 if persist:
-                    G.BGR_RES_TAB_FF_IDX = T
+                    G.BGR_RES_APER_TAB_FF_IDX = T
             else:
-                T = G.BGR_RES_TAB_FF_IDX
+                T = G.BGR_RES_APER_TAB_FF_IDX
         else:
-            if G.BGR_RES_TAB_LL_IDX is None:
+            if G.BGR_RES_APER_TAB_LL_IDX is None:
                 #load the table
-                T = Table.read(G.BGR_RES_TAB_LL_IDX_FN)
+                T = Table.read(G.BGR_RES_APER_TAB_LL_IDX_FN)
                 if persist:
-                    G.BGR_RES_TAB_LL_IDX = T
+                    G.BGR_RES_APER_TAB_LL_IDX = T
             else:
-                T = G.BGR_RES_TAB_LL_IDX
+                T = G.BGR_RES_APER_TAB_LL_IDX
 
 
         if shotid is not None:
@@ -3417,17 +3417,17 @@ def get_empty_aperture_residual(hdr=G.HDR_Version,rtype=None,shotid=None,seeing=
 
         #read in that one row
         if ffsky:
-            Trow = Table.read(G.BGR_RES_TAB_FF_FN,memmap=True)[idx]
-            if G.BGR_RES_TAB_FF_RUN is None:
-                G.BGR_RES_TAB_FF_RUN = Table(Trow)
+            Trow = Table.read(G.BGR_RES_APER_TAB_FF_FN,memmap=True)[idx]
+            if G.BGR_RES_APER_TAB_FF_RUN is None:
+                G.BGR_RES_APER_TAB_FF_RUN = Table(Trow)
             else:
-                G.BGR_RES_TAB_FF_RUN.add_row(Trow)
+                G.BGR_RES_APER_TAB_FF_RUN.add_row(Trow)
         else:
-            Trow = Table.read(G.BGR_RES_TAB_LL_FN, memmap=True)[idx]
-            if G.BGR_RES_TAB_LL_RUN is None:
-                G.BGR_RES_TAB_LL_RUN = Table(Trow)
+            Trow = Table.read(G.BGR_RES_APER_TAB_LL_FN, memmap=True)[idx]
+            if G.BGR_RES_APER_TAB_LL_RUN is None:
+                G.BGR_RES_APER_TAB_LL_RUN = Table(Trow)
             else:
-                G.BGR_RES_TAB_LL_RUN.add_row(Trow)
+                G.BGR_RES_APER_TAB_LL_RUN.add_row(Trow)
 
         residual = np.array(Trow[col])
         residual_err =  np.array(Trow[col_err])

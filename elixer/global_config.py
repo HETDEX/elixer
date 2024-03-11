@@ -178,6 +178,11 @@ HETDEX_API_Detections = None #per detections query object; bound to a single HDR
 LOCAL_DEV_HOSTNAMES = ["z50","dg5"]
 
 
+
+#RAW TAR FILE LOCATIONS
+HETDEX_WORK_TAR_BASEPATH = f"/work/03946/hetdex/maverick/"
+HETDEX_CORRAL_TAR_BASEPATH = f"/corral-repl/utexas/Hobby-Eberly-Telesco/het_raw/"
+
 BUILD_REPORT_BY_FILTER = True #if True, multiple catalogs are used to build the report, with the deepest survey by filter
                            #if False, then the single deepest catalog that overlaps is used with what ever filters it has
 
@@ -1241,6 +1246,9 @@ LINEWIDTH_SIGMA_MAX_OII = 6.5 #there just are not any larger than this (FWHM > 1
 
 SEP_FIXED_APERTURE_RADIUS = 1.0 #RADIUS in arcsec ... used at the barycenter position of SEP objects
 SEP_FIXED_APERTURE_PSF = False #if true apply the HETDEX seeing PSF
+SEP_KRON_MUX = 2.5 #source extractor recommend 2.0 or 2.5 (where 2.5 has a 94%+ light recovery vs 90% for 2.0, but is more noisy)
+SEP_DET_THRESH = 1.5 #that is 1.5x background RMS for detection threshold
+SEP_CORRECT_LOST_LIGHT = True #apply the estimated lost light correction
 SHOT_SEEING = None #temporay usage for HSC-g comparison
 
 FWHM_TYPE1_AGN_VELOCITY_THRESHOLD = 1500.0 #km/s #FWHM velocity in emission line above this value might be a type 1 AGN
@@ -1258,6 +1266,11 @@ PLYA_VOTE_THRESH_LIST = np.array([PLYA_VOTE_THRESH_1,PLYA_VOTE_THRESH_2,PLYA_VOT
 #PLYA_VOTE_HI = PLYA_VOTE_THRESH + (1 - PLYA_VOTE_THRESH) * 0.2 # upper bound for a somewhat "uncertain" region
 PLYA_VOTE_LO = lambda thresh : thresh - thresh * 0.2 # lower bound for a somewhat "uncertain" region
 PLYA_VOTE_HI =  lambda thresh : thresh + (1 - thresh) * 0.2 # upper bound for a somewhat "uncertain" region
+
+
+FFSKY = False #if False, then local sky subtraction is the default
+FFSKY_RESCOR = True #rescor == True does NOT imply ffsky == True HERE. If it is explicitly passed on the command line, it does though.
+FIBER_SPEC_ELEM_MASKING = True #apply HETDEX API per fiber per wavelength bin masking
 
 ##################################
 #Detection Flags (DF) (32 bit)
@@ -1465,29 +1478,31 @@ DEBLEND_MAG_LIMIT = -1 #-1 use estimated depth, 0 no limit, other the actual HET
 #Empty Aperture Residuals
 ############################
 #Background Residual Tables (LL (local) and FF sky)
-BGR_RES_TAB_LL = None
-BGR_RES_TAB_FF = None
+BGR_RES_APER_TAB_LL = None
+BGR_RES_APER_TAB_FF = None
 
-BGR_RES_TAB_LL_RUN = None #running table, only has the rows we've used so far
-BGR_RES_TAB_FF_RUN = None
+BGR_RES_APER_TAB_LL_RUN = None #running table, only has the rows we've used so far
+BGR_RES_APER_TAB_FF_RUN = None
 
-BGR_RES_TAB_LL_IDX = None
-BGR_RES_TAB_FF_IDX = None
+BGR_RES_APER_TAB_LL_IDX = None
+BGR_RES_APER_TAB_FF_IDX = None
 
-# BGR_RES_TAB_LL_FN = op.join(op.dirname(op.realpath(__file__)),"sky_subtraction_residuals/BGR_RES_TAB_LL.fits")
-# BGR_RES_TAB_FF_FN = op.join(op.dirname(op.realpath(__file__)),"sky_subtraction_residuals/BGR_RES_TAB_FF.fits")
-BGR_RES_TAB_LL_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_TAB_LL.fits"
-BGR_RES_TAB_FF_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_TAB_FF.fits"
+# BGR_RES_APER_TAB_LL_FN = op.join(op.dirname(op.realpath(__file__)),"sky_subtraction_residuals/BGR_RES_APER_TAB_LL.fits")
+# BGR_RES_APER_TAB_FF_FN = op.join(op.dirname(op.realpath(__file__)),"sky_subtraction_residuals/BGR_RES_APER_TAB_FF.fits")
+BGR_RES_APER_TAB_LL_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_APER_TAB_LL.fits"
+BGR_RES_APER_TAB_FF_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_APER_TAB_FF.fits"
 
 #just ra, dec, shotid, seeing and respoonse ... not the full data
-BGR_RES_TAB_LL_IDX_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_TAB_LL_IDX.fits"
-BGR_RES_TAB_FF_IDX_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_TAB_FF_IDX.fits"
+BGR_RES_APER_TAB_LL_IDX_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_APER_TAB_LL_IDX.fits"
+BGR_RES_APER_TAB_FF_IDX_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_APER_TAB_FF_IDX.fits"
 
 ############################
 #Empty Fiber Residuals
 ############################
 
 #Background Residual Tables (LL (local) and FF sky)
+#BGR_BASEPATH = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/"
+BGR_BASEPATH = f"/scratch/projects/hetdex/{HDR_Latest_Str}/catalogs/avg_empty_fibers"
 
 BGR_RES_FIBER_TAB_LL = None
 BGR_RES_FIBER_TAB_FF = None
@@ -1501,16 +1516,16 @@ BGR_RES_FIBER_TAB_LL_IDX = None
 BGR_RES_FIBER_TAB_FF_IDX = None
 BGR_RES_FIBER_TAB_FFRC_IDX = None
 
-BGR_RES_FIBER_TAB_LL_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_FIBER_TAB_LL.fits"
-BGR_RES_FIBER_TAB_FF_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_FIBER_TAB_FF.fits"
-BGR_RES_FIBER_TAB_FFRC_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_FIBER_TAB_FFRC.fits"
+BGR_RES_FIBER_TAB_LL_FN = op.join(BGR_BASEPATH,"BGR_RES_FIBER_TAB_LL.fits")
+BGR_RES_FIBER_TAB_FF_FN = op.join(BGR_BASEPATH,"BGR_RES_FIBER_TAB_FF.fits")
+BGR_RES_FIBER_TAB_FFRC_FN = op.join(BGR_BASEPATH,"BGR_RES_FIBER_TAB_FFRC.fits")
 
 #just ra, dec, shotid, seeing and respoonse ... not the full data
-BGR_RES_FIBER_TAB_LL_IDX_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_FIBER_TAB_LL_IDX.fits"
-BGR_RES_FIBER_TAB_FF_IDX_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_FIBER_TAB_FF_IDX.fits"
-BGR_RES_FIBER_TAB_FFRC_IDX_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/BGR_RES_FIBER_TAB_FFRC_IDX.fits"
+BGR_RES_FIBER_TAB_LL_IDX_FN = op.join(BGR_BASEPATH,"BGR_RES_FIBER_TAB_LL_IDX.fits")
+BGR_RES_FIBER_TAB_FF_IDX_FN = op.join(BGR_BASEPATH,"BGR_RES_FIBER_TAB_FF_IDX.fits")
+BGR_RES_FIBER_TAB_FFRC_IDX_FN = op.join(BGR_BASEPATH,"BGR_RES_FIBER_TAB_FFRC_IDX.fits")
 
-
+BGR_RES_FIBER_DEFAULT_RTYPE = "trim"
 #######################################
 # Empty Fiber Residual (EFR) Flags
 #######################################

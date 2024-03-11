@@ -8,6 +8,8 @@ import math
 import os.path as op
 import tarfile as tar
 from datetime import date
+import fnmatch
+
 
 import sqlite3
 from sqlite3 import Error
@@ -390,14 +392,55 @@ def saferound(value,precision,fail=0):
 
 
 #this is very painful (time costly)
-def open_file_from_tar(tarfn,fqfn=None,fn=None):
+# def open_file_from_tar(tarfn,fqfn=None,fn=None):
+#     """
+#
+#     one of fqfn must be supplied
+#
+#     :param tarfn: tar filename (fully qualified if necessary
+#     :param fqfn: fully qualified filename inside the tarfile
+#     :param fn:  filename only inside the tarfile (i.e. tar-file internal path is unknown)
+#     :return:
+#     """
+#
+#     try:
+#
+#         if fqfn is None and fn is None:
+#             log.debug(f"utilities, open tarfile, no subfile specified")
+#             return None
+#
+#         if not op.exists(tarfn):
+#             log.debug(f"utilities, open tarfile {tarfn} does not exist")
+#             return None
+#
+#         if not tar.is_tarfile(tarfn):
+#             log.debug(f"utilities, open tarfile {tarfn} is not a tar file")
+#             return None
+#
+#         tarfile = tar.open(name=tarfn)
+#
+#         if fqfn is not None:
+#             file = tarfile.extractfile(fqfn)
+#         elif fn is not None:
+#             file = tarfile.extractfile(fn)
+#
+#         if file is not None:
+#             return file
+#
+#     except:
+#         log.debug(f"Exception attempting to fetch sub-file {fqfn} or {fn} from {tarfn}")
+#         return None
+
+
+def open_file_from_tar(tarfn, fqfn=None, fn=None): #, close_tar=True):
     """
 
     one of fqfn must be supplied
 
-    :param tarfn: tar filename (fully qualified if necessary
+    :param tarfn: tar filename (fully qualified if necessary) or a tarfile handle
     :param fqfn: fully qualified filename inside the tarfile
     :param fn:  filename only inside the tarfile (i.e. tar-file internal path is unknown)
+    #:param close_tar: if True, explcitly close the tarfile handle.
     :return:
     """
 
@@ -407,28 +450,126 @@ def open_file_from_tar(tarfn,fqfn=None,fn=None):
             log.debug(f"utilities, open tarfile, no subfile specified")
             return None
 
-        if not op.exists(tarfn):
-            log.debug(f"utilities, open tarfile {tarfn} does not exist")
-            return None
+        if isinstance(tarfn, str):
+            if not op.exists(tarfn):
+                log.debug(f"utilities, open tarfile {tarfn} does not exist")
+                return None
 
-        if not tar.is_tarfile(tarfn):
-            log.debug(f"utilities, open tarfile {tarfn} is not a tar file")
-            return None
+            if not tar.is_tarfile(tarfn):
+                log.debug(f"utilities, open tarfile {tarfn} is not a tar file")
+                return None
 
-        tarfile = tar.open(name=tarfn)
+            _tarfile = tar.open(name=tarfn)
+        else:
+            _tarfile = tar.open(fileobj=tarfn)
 
         if fqfn is not None:
-            file = tarfile.extractfile(fqfn)
+            file = _tarfile.extractfile(fqfn)
         elif fn is not None:
-            file = tarfile.extractfile(fn)
 
-        if file is not None:
-            return file
+            all_fqfn = np.array(_tarfile.getnames())
 
-    except:
-        log.debug(f"Exception attempting to fetch sub-file {fqfn} or {fn} from {tarfn}")
+            if '?' in fn or '*' in fn:  # wildcards
+                match_fn = fnmatch.filter(all_fqfn, fn)
+                if len(match_fn) == 0:
+                    file = None
+                    log.debug(f"No matching files in tar.")
+                elif len(match_fn) == 1:
+                    log.debug(f"Found 1 match: {match_fn[0]}")
+                    file = _tarfile.extractfile(match_fn[0])
+                else:
+                    log.debug(f"{len(match_fn)} matching files in tar: {match_fn}")
+                    file = None
+            else:
+                sel = np.array([fn in fqfn for fqfn in all_fqfn])
+                ct = np.count_nonzero(sel)
+                if ct == 0:  # no matches
+                    file = None
+                    log.debug("No matching files in tar.")
+                elif ct == 1:
+                    file = _tarfile.extractfile(all_fqfn[sel][0])
+                else:  # more than one
+                    log.debug(f"{ct} matching files in tar: {all_fqfn[sel]}")
+                    file = None
+
+        #NO. This is a stream. Need to keep it open. Let the GC take care of it.
+        # try:
+        #     if close_tar:
+        #         _tarfile.close()
+        # except:
+        #     pass
+
+        return file
+
+    except Exception as E:
+        log.error(f"Exception attempting to fetch sub-file {fqfn} or {fn} from {tarfn}:\n {E}")
         return None
 
+
+
+def get_raw_multifits(date,shot,exp,ifuid=None,amp=None,longfn=None):#,close_tar=True):
+    """
+    load a single multi*fits file from original raw data
+
+    Must always supply date, shot, exp and either ifuid and amp OR longfn (example below)
+
+    Note: first load of the base .tar file can be costly, especially if it is from the corral-repl path
+          which has tarred up all data (and not just HETDEX) for an entire day, but subsequent extractions
+          are much faster as the tar file is cached (e.g. if calling for other IFUs or other exposures on the same
+          datevshot)
+
+    :param date:   (int) as YYYYMMDD
+    :param shot:   (int)
+    :param exp:    (int) exposure ID
+    :param ifuid:  (int)
+    :param amp:    (str) one of "LL","LU","RL","RU"
+    :param longfn: (str) example: "20230103T105730.2_105LL_sci.fits"
+   ## :param close_tar: (bool) if True, explcitly close the tarfile handle.
+    :return:
+    """
+
+    try:
+
+        #todo: could add more parameter validation and have nicer error handling
+
+        #must supply ifuid and amp OR longfn
+        if ifuid is None or amp is None:
+            if longfn is None:
+                #give feedback
+                log.warning("Must supply date,shot,exp AND ifuid, amp OR longfn")
+                return False
+            else:
+                multifn = f"virus{str(shot).zfill(7)}/exp{str(exp).zfill(2)}/virus/{longfn}"
+        else:
+            multifn = f"virus{str(shot).zfill(7)}/exp{str(exp).zfill(2)}/virus/*_{str(ifuid).zfill(3)}{amp}_*.fits"
+
+        tarfile = op.join(G.HETDEX_WORK_TAR_BASEPATH, str(date), f"virus/virus{str(shot).zfill(7)}.tar")
+        if op.exists(tarfile):
+            log.debug(f"Using {G.HETDEX_WORK_TAR_BASEPATH} basepath ...")
+        elif op.exists(op.join(G.HETDEX_CORRAL_TAR_BASEPATH, f"{date}.tar")):
+            log.debug(f"Using {G.HETDEX_CORRAL_TAR_BASEPATH} basepath ...")
+            # we need to fetch a sub-tar file
+            tarfile = open_file_from_tar(tarfn=op.join(corral_tar_path, f"{date}.tar"),
+                                         fqfn=op.join(str(date), f"virus/virus{str(shot).zfill(7)}.tar"))
+                                         #close_tar=False) #need to keep it open, at least for now
+            # in this case, tarfile is no longer a filename but an actual file ... either way works
+        else:
+            log.debug("No viable path.")
+
+        multifits = open_file_from_tar(tarfile, fn=multifn)#,close_tar=close_tar)
+
+        # No. This is a steam, so, if you close it here, you can't use multifits
+        # try:
+        #     if close_tar:
+        #         tarfile.close()
+        # except:
+        #     pass
+
+        return multifits
+
+    except Exception as E:
+        log.error(f"Exception attempting to load single multifits file:\n {E}")
+        return None
 
 def open_sqlite_file(sqlfn,key):
     """
