@@ -1,11 +1,18 @@
 from __future__ import print_function
 import logging
+import os
+
 import numpy as np
 from astropy.visualization import ZScaleInterval
 from astropy import units
 from astropy.coordinates import SkyCoord
+import astropy.io.fits as fits
 import math
+import os
 import os.path as op
+import shutil
+import subprocess
+import glob
 import tarfile as tar
 from datetime import date
 import fnmatch
@@ -432,51 +439,54 @@ def saferound(value,precision,fail=0):
 #         return None
 
 
-def open_file_from_tar(tarfn, fqfn=None, fn=None): #, close_tar=True):
+def open_file_from_tar(tarfn, fqfn=None, fn=None,workdir=None): #, close_tar=True):
     """
 
     one of fqfn must be supplied
+    Notice: There is some file I/O, so you may want to change to a temporary directory (see change_wd())
 
     :param tarfn: tar filename (fully qualified if necessary) or a tarfile handle
     :param fqfn: fully qualified filename inside the tarfile
     :param fn:  filename only inside the tarfile (i.e. tar-file internal path is unknown)
     #:param close_tar: if True, explcitly close the tarfile handle.
-    :return:
+    :return: file handle to the fits file and its path
     """
 
     try:
 
         if fqfn is None and fn is None:
             log.debug(f"utilities, open tarfile, no subfile specified")
-            return None
+            return None, None
 
         if isinstance(tarfn, str):
             if not op.exists(tarfn):
                 log.debug(f"utilities, open tarfile {tarfn} does not exist")
-                return None
+                return None, None
 
             if not tar.is_tarfile(tarfn):
                 log.debug(f"utilities, open tarfile {tarfn} is not a tar file")
-                return None
+                return None, None
 
             _tarfile = tar.open(name=tarfn)
         else:
             _tarfile = tar.open(fileobj=tarfn)
 
+        file_path = None
         if fqfn is not None:
             file = _tarfile.extractfile(fqfn)
         elif fn is not None:
 
             all_fqfn = np.array(_tarfile.getnames())
-
             if '?' in fn or '*' in fn:  # wildcards
                 match_fn = fnmatch.filter(all_fqfn, fn)
                 if len(match_fn) == 0:
                     file = None
                     log.debug(f"No matching files in tar.")
                 elif len(match_fn) == 1:
-                    log.debug(f"Found 1 match: {match_fn[0]}")
-                    file = _tarfile.extractfile(match_fn[0])
+                    file_path = match_fn[0]
+                    log.debug(f"Found 1 match: {file_path}")
+                    file = _tarfile.extractfile(file_path)
+
                 else:
                     log.debug(f"{len(match_fn)} matching files in tar: {match_fn}")
                     file = None
@@ -499,17 +509,22 @@ def open_file_from_tar(tarfn, fqfn=None, fn=None): #, close_tar=True):
         # except:
         #     pass
 
-        return file
+        return file, file_path
 
     except Exception as E:
         log.error(f"Exception attempting to fetch sub-file {fqfn} or {fn} from {tarfn}:\n {E}")
-        return None
+        return None, None
 
 
 
-def get_raw_multifits(date,shot,exp,ifuid=None,amp=None,longfn=None):#,close_tar=True):
+def get_multifits(date,shot,exp,ifuid=None,amp=None,longfn=None,flatfile_path=None,raw=False):
     """
     load a single multi*fits file from original raw data
+
+    Notice: There is some file I/O, so you may want to change to a temporary directory (see change_wd())
+
+    !Warning! This operates in its own directory. If you are running multiple calls in paralle with raw=False,
+             you MUST run each under its own unique directory. (see change_wd())
 
     Must always supply date, shot, exp and either ifuid and amp OR longfn (example below)
 
@@ -523,14 +538,17 @@ def get_raw_multifits(date,shot,exp,ifuid=None,amp=None,longfn=None):#,close_tar
     :param exp:    (int) exposure ID
     :param ifuid:  (int)
     :param amp:    (str) one of "LL","LU","RL","RU"
-    :param longfn: (str) example: "20230103T105730.2_105LL_sci.fits"
-   ## :param close_tar: (bool) if True, explcitly close the tarfile handle.
-    :return:
+    :param longfn: (str) example: "20230103T105730.2_105LL_sci.fits" ... a "raw" file
+    :param raw:    (bool) If True, return as an unprocessed (raw) frame from the telescope.
+                          If False (default), rectify and return processed frame.
+
+    :return: stream handle to the fits file (raw or processed) (ExFileObject or BufferedReader)
     """
 
     try:
 
         #todo: could add more parameter validation and have nicer error handling
+        multifits = None
 
         #must supply ifuid and amp OR longfn
         if ifuid is None or amp is None:
@@ -540,8 +558,29 @@ def get_raw_multifits(date,shot,exp,ifuid=None,amp=None,longfn=None):#,close_tar
                 return False
             else:
                 multifn = f"virus{str(shot).zfill(7)}/exp{str(exp).zfill(2)}/virus/{longfn}"
+                #assuming this is of the standard form, get the ifuid and amp ... if this fails, just let it bomb
+                #and have the outer try trap it and inform the caller
+                toks = longfn.split("_")
+                ifuid = int(toks[1][0:3])
+                amp = toks[1][3:5]
         else:
             multifn = f"virus{str(shot).zfill(7)}/exp{str(exp).zfill(2)}/virus/*_{str(ifuid).zfill(3)}{amp}_*.fits"
+
+        if flatfile_path is not None:
+            try:
+                files = glob.glob(op.join(flatfile_path,f"{date}/virus/virus{str(shot).zfill(7)}/exp{str(exp).zfill(2)}/"
+                                                        f"virus/multi_*_{str(ifuid).zfill(3)}_*_{amp}.fits"))
+                if len(files)==0:
+                    log.debug(f"Not found as flat file. Moving on to check tar files.")
+                elif len(files)==1:
+                    log.debug(f"Found as flat file: {files[0]}")
+                    multifits = open(files[0],"rb")
+                    return multifits
+                else:
+                    log.debug(f"Unexpected number of matches {len(files)} found. Ignoring and moving on to check tar files.")
+
+            except Exception as E:
+                log.error(f"Exception checking for flat file:\n {E}")
 
         tarfile = op.join(G.HETDEX_WORK_TAR_BASEPATH, str(date), f"virus/virus{str(shot).zfill(7)}.tar")
         if op.exists(tarfile):
@@ -549,27 +588,114 @@ def get_raw_multifits(date,shot,exp,ifuid=None,amp=None,longfn=None):#,close_tar
         elif op.exists(op.join(G.HETDEX_CORRAL_TAR_BASEPATH, f"{date}.tar")):
             log.debug(f"Using {G.HETDEX_CORRAL_TAR_BASEPATH} basepath ...")
             # we need to fetch a sub-tar file
-            tarfile = open_file_from_tar(tarfn=op.join(corral_tar_path, f"{date}.tar"),
+            tarfile, file_path = open_file_from_tar(tarfn=op.join(corral_tar_path, f"{date}.tar"),
                                          fqfn=op.join(str(date), f"virus/virus{str(shot).zfill(7)}.tar"))
                                          #close_tar=False) #need to keep it open, at least for now
             # in this case, tarfile is no longer a filename but an actual file ... either way works
         else:
             log.debug("No viable path.")
 
-        multifits = open_file_from_tar(tarfile, fn=multifn)#,close_tar=close_tar)
+        #this is the raw fits ... needs to be processed ... (e.g. rback script)
+        multifits, file_path = open_file_from_tar(tarfile, fn=multifn)#,close_tar=close_tar)
 
-        # No. This is a steam, so, if you close it here, you can't use multifits
-        # try:
-        #     if close_tar:
-        #         tarfile.close()
-        # except:
-        #     pass
+        if raw: #we're done. caller only wanted the unprocessed file
+            return multifits
+
+        #else continue to processing
+        try:
+            hdulist = fits.open(multifits)
+            hdulist.writeto("in.fits", overwrite=True)  # work on this with Karl's vred
+            hdulist.close()
+
+            # vred needs a vred.in file
+            with open("vred.in", "w+") as f:
+                f.write(f"{str(date)[0:6]} 2\n")  # always use '2'
+
+            # vred also wants 'list' (seems to just use it to set the NAME0 card in the HDU, but pukes if it (list) is not there)
+            # I don't know how important (if at all, this card is)
+            with open("list", "w+") as f:
+                f.write(f"{str(date)}/virus/{file_path}\n")
+
+            # print ...make full path to vred? or dynamic
+            if not os.path.isfile("./vred"):
+                log.debug("Copying vred ...")
+                shutil.copy(G.HETDEX_VRED_FQFN, "./vred")
+                log.debug("Done copy")
+
+            #see if there is any left over output from the last run
+            try:
+                os.remove("out5.fits")
+                os.remove("out")
+                rmfiles = glob.glob(f"multi*{str(ifuid).zfill(3)}*{amp}.fits")
+                for fn in rmfiles:
+                    os.remove(fn)
+            except Exception as E:
+                log.debug(f"**** {E}")
+
+            p1 = subprocess.run(["vred"])
+
+            if p1.returncode == 0:
+                #need the multifits name:
+                files = glob.glob(f"multi_*_{str(ifuid).zfill(3)}_*_{amp}.fits")
+                if len(files)==0:
+                    log.error(f"Failure to process raw file. multi*fits output not found.")
+                    multifits = None
+                elif len(files)==1:
+                    #with open(files[0],"rb") as f:
+                    #    multifits = f.read()
+                    multifits =  open(op.realpath(files[0]),"rb")
+                else:
+                    log.error(f"Failure to process raw file. Unexpected number of matches {len(files)} found.")
+                    multifits = None
+            else:
+                log.error(f"Failure to process multi*fits file. vred rc = {p1.returncode}:")
+                multifits = None
+        except Exception as E:
+            log.error(f"Exception attempting to process raw multifits file:\n {E}")
 
         return multifits
 
     except Exception as E:
         log.error(f"Exception attempting to load single multifits file:\n {E}")
         return None
+
+
+def change_wd(workdir,create=True):
+    """
+
+    :param workdir:
+    :param create:
+    :return: True if successful, False, if fail; previous wd, new wd (workdir)
+    """
+    try:
+        prev_cwd, cwd = None, None
+        if workdir is not None:
+            prev_cwd = os.getcwd()
+            if cwd != os.path.realpath(workdir):
+                if not op.isdir(workdir):
+                    if create:
+                        try:
+                            os.mkdir(workdir)
+                        except Exception as E:
+                            log.error(f"Cannot create {workdir} \n {E}")
+                            return False, prev_cwd, prev_cwd
+                    else:
+                        log.error(f"Directory does not exist and not set to create: {workdir}")
+                        return False, prev_cwd, prev_cwd
+                try:
+                    os.chdir(workdir)
+                    cwd = os.getcwd()
+                except Exception as E:
+                    log.error(f"Cannot cd to {workdir} \n {E}")
+                    return False, prev_cwd, prev_cwd
+
+        return True, prev_cwd, cwd
+
+    except Exception as E:
+        log.error(f"Exception in change_wd\n {E}")
+        return False, None, None
+
+
 
 def open_sqlite_file(sqlfn,key):
     """

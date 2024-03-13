@@ -180,8 +180,10 @@ LOCAL_DEV_HOSTNAMES = ["z50","dg5"]
 
 
 #RAW TAR FILE LOCATIONS
+HETDEX_SCRATCH_MULTIFITS_BASEPATHS = [f"/scratch/03261/polonius/red1/reductions",]
 HETDEX_WORK_TAR_BASEPATH = f"/work/03946/hetdex/maverick/"
 HETDEX_CORRAL_TAR_BASEPATH = f"/corral-repl/utexas/Hobby-Eberly-Telesco/het_raw/"
+HETDEX_VRED_FQFN = f"/home1/00115/gebhardt/bin/vred"
 
 BUILD_REPORT_BY_FILTER = True #if True, multiple catalogs are used to build the report, with the deepest survey by filter
                            #if False, then the single deepest catalog that overlaps is used with what ever filters it has
