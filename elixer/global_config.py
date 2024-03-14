@@ -184,7 +184,7 @@ HETDEX_SCRATCH_MULTIFITS_BASEPATHS = [f"/scratch/03261/polonius/red1/reductions"
 HETDEX_WORK_TAR_BASEPATH = f"/work/03946/hetdex/maverick/"
 HETDEX_CORRAL_TAR_BASEPATH = f"/corral-repl/utexas/Hobby-Eberly-Telesco/het_raw/"
 HETDEX_VRED_FQFN = f"/home1/00115/gebhardt/bin/vred"
-
+HETDEX_VRED_FIBERLOC_BASEPATH = f"/scratch/projects/hetdex/lib_calib/Fiber_Locations/current/"
 BUILD_REPORT_BY_FILTER = True #if True, multiple catalogs are used to build the report, with the deepest survey by filter
                            #if False, then the single deepest catalog that overlaps is used with what ever filters it has
 
@@ -655,17 +655,22 @@ def select_hdr_version(version):
 select_hdr_version(HDR_Version)
 
 
-VIRUS_CONFIG = op.join(CONFIG_BASEDIR,"virus_config")
-FPLANE_LOC = op.join(CONFIG_BASEDIR,"virus_config/fplane")
-IFUCEN_LOC = op.join(CONFIG_BASEDIR,"virus_config/IFUcen_files")
-DIST_LOC = op.join(CONFIG_BASEDIR,"virus_config/DeformerDefaults")
+VIRUS_CONFIG = op.join(CONFIG_BASEDIR,"virus_config") #no longer valid? HDR3+
+#FPLANE_LOC = op.join(CONFIG_BASEDIR,"virus_config/fplane")
+FPLANE_LOC = op.join(CONFIG_BASEDIR,f"karlspipe/hdr/hdr{HDR_Version}/vdrp/")
+IFUCEN_LOC = op.join(CONFIG_BASEDIR,"virus_config/IFUcen_files") #No longer valid
+DIST_LOC = op.join(CONFIG_BASEDIR,"virus_config/DeformerDefaults") #No longer valid
 
-if PIXFLT_LOC is None:
-    if HDR_Version_float != 1:
-        print("***** temporary hard code pixel flat location *****")
-        PIXFLT_LOC = "/data/00115/gebhardt/lib_calib/lib_pflat"
-    else:
-        PIXFLT_LOC = op.join(CONFIG_BASEDIR, "virus_config/PixelFlats")
+FPLANE_SPECID_DICT = None #aka cam_ifu_dict
+FPLANE_IFUID_DICT = None #aka ca
+FPLANE_IFUSLOT_DICT = None
+
+# if PIXFLT_LOC is None:
+#     if HDR_Version_float != 1:
+#         print("***** temporary hard code pixel flat location *****")
+#         PIXFLT_LOC = "/data/00115/gebhardt/lib_calib/lib_pflat"
+#     else:
+#         PIXFLT_LOC = op.join(CONFIG_BASEDIR, "virus_config/PixelFlats")
 
 
 REPORT_ELIXER_MCMC_FIT = False

@@ -390,74 +390,78 @@ def rms(data, fit):
 
     return np.sqrt(((f - d) ** 2).mean())
 
-def find_fplane(date): #date as yyyymmdd string
-    """Locate the fplane file to use based on the observation date
 
-        Parameters
-        ----------
-            date : string
-                observation date as YYYYMMDD
-
-        Returns
-        -------
-            fully qualified filename of fplane file
-    """
-    #todo: validate date
-
-    filepath = FPLANE_LOC
-    if filepath[-1] != "/":
-        filepath += "/"
-    files = glob.glob(filepath + "fplane*.txt")
-
-    if len(files) > 0:
-        target_file = filepath + "fplane" + date + ".txt"
-
-        if target_file in files: #exact match for date, use this one
-            fplane = target_file
-        else:                   #find nearest earlier date
-            files.append(target_file)
-            files = sorted(files)
-            #sanity check the index
-            i = files.index(target_file)-1
-            if i < 0: #there is no valid fplane
-                log.info("Warning! No valid fplane file found for the given date. Will use oldest available.", exc_info=True)
-                i = 0
-            fplane = files[i]
-    else:
-        log.error("Error. No fplane files found.", exc_info = True)
-
-    return fplane
-
-def build_fplane_dicts(fqfn):
-    """Build the dictionaries maping IFUSLOTID, SPECID and IFUID
-
-        Parameters
-        ----------
-        fqfn : string
-            fully qualified file name of the fplane file to use
-
-        Returns
-        -------
-            ifuslotid to specid, ifuid dictionary
-            specid to ifuid dictionary
-        """
-    # IFUSLOT X_FP   Y_FP   SPECID SPECSLOT IFUID IFUROT PLATESC
-    if fqfn is None:
-        log.error("Error! Cannot build fplane dictionaries. No fplane file.", exc_info=True)
-        return {},{}
-
-    ifuslot, specid, ifuid = np.loadtxt(fqfn, comments='#', usecols=(0, 3, 5), dtype = int, unpack=True)
-    ifuslot_dict = {}
-    cam_ifu_dict = {}
-    cam_ifuslot_dict = {}
-
-    for i in range(len(ifuslot)):
-        if (ifuid[i] < 900) and (specid[i] < 900):
-            ifuslot_dict[str("%03d" % ifuslot[i])] = [str("%03d" % specid[i]),str("%03d" % ifuid[i])]
-            cam_ifu_dict[str("%03d" % specid[i])] = str("%03d" % ifuid[i])
-            cam_ifuslot_dict[str("%03d" % specid[i])] = str("%03d" % ifuslot[i])
-
-    return ifuslot_dict, cam_ifu_dict, cam_ifuslot_dict
+# --moved to utilities.py
+# def find_fplane(date): #date as yyyymmdd string
+#     """Locate the fplane file to use based on the observation date
+#
+#         Parameters
+#         ----------
+#             date : string
+#                 observation date as YYYYMMDD
+#
+#         Returns
+#         -------
+#             fully qualified filename of fplane file
+#     """
+#     #todo: validate date
+#
+#     filepath = FPLANE_LOC
+#     if filepath[-1] != "/":
+#         filepath += "/"
+#     files = glob.glob(filepath + "fplane*.txt")
+#
+#     if len(files) > 0:
+#         target_file = filepath + "fplane" + date + ".txt"
+#
+#         if target_file in files: #exact match for date, use this one
+#             fplane = target_file
+#         else:                   #find nearest earlier date
+#             files.append(target_file)
+#             files = sorted(files)
+#             #sanity check the index
+#             i = files.index(target_file)-1
+#             if i < 0: #there is no valid fplane
+#                 log.info("Warning! No valid fplane file found for the given date. Will use oldest available.", exc_info=True)
+#                 i = 0
+#             fplane = files[i]
+#     else:
+#         log.error("Error. No fplane files found.", exc_info = True)
+#
+#     return fplane
+#
+#
+# # --moved to utilities.py
+# def build_fplane_dicts(fqfn):
+#     """Build the dictionaries maping IFUSLOTID, SPECID and IFUID
+#
+#         Parameters
+#         ----------
+#         fqfn : string
+#             fully qualified file name of the fplane file to use
+#
+#         Returns
+#         -------
+#             ifuslotid to specid, ifuid dictionary
+#             specid to ifuid dictionary
+#         """
+#     # IFUSLOT X_FP   Y_FP   SPECID SPECSLOT IFUID IFUROT PLATESC
+#     if fqfn is None:
+#         log.error("Error! Cannot build fplane dictionaries. No fplane file.", exc_info=True)
+#         return {},{}
+#
+#     ifuslot, specid, ifuid = np.loadtxt(fqfn, comments='#', usecols=(0, 3, 5), dtype = int, unpack=True)
+#     ifuslot_dict = {}
+#     cam_ifu_dict = {}
+#     cam_ifuslot_dict = {}
+#
+#     for i in range(len(ifuslot)):
+#         if (ifuid[i] < 900) and (specid[i] < 900):
+#             ifuslot_dict[str("%03d" % ifuslot[i])] = [str("%03d" % specid[i]),str("%03d" % ifuid[i])]
+#             cam_ifu_dict[str("%03d" % specid[i])] = str("%03d" % ifuid[i])
+#             cam_ifuslot_dict[str("%03d" % specid[i])] = str("%03d" % ifuslot[i])
+#
+#     return ifuslot_dict, cam_ifu_dict, cam_ifuslot_dict
 
 
 class EmissionLine():
@@ -7401,14 +7405,36 @@ class DetObj:
 
 
             if self.fiber_sky_subtraction_residual is None and G.APPLY_SKY_RESIDUAL_TYPE == 1:
-                if G.ZEROFLAT:
-                    self.fiber_sky_subtraction_residual, self.fiber_sky_subtraction_residual_flat = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
-                                                self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
-                                                zeroflat=True,response=self.survey_response, xfrac=G.SKY_RESIDUAL_XFRAC)
-                else:
-                    self.fiber_sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
-                                                self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
-                                                zeroflat=False,response=self.survey_response, xfrac=G.SKY_RESIDUAL_XFRAC)
+
+                ##DD 2024-03-07 updated
+                # note: if ffsky also always apply rescor
+                try:
+                    empty_fiber, empty_fiber_err, contrib, status = SU.get_empty_fiber_residual(hdr=G.HDR_Version,
+                                                                                                rtype=G.BGR_RES_FIBER_DEFAULT_RTYPE,
+                                                                                                shotid=self.survey_shotid,
+                                                                                                seeing=self.survey_fwhm,
+                                                                                                response=self.survey_response,
+                                                                                                ffsky=self.extraction_ffsky,
+                                                                                                add_rescor=self.extraction_ffsky,
+                                                                                                persist=True)
+
+                    self.fiber_sky_subtraction_residual = copy(empty_fiber)
+                    self.fiber_sky_subtraction_residual_err = copy(empty_fiber_err)
+
+                    if status:
+                        log.warning(f"Warning! get_empty_fiber_residual() returned status: 0x{status:8x}")
+                except:
+                    log.error("Exception calling get_empty_fiber_residual().", exc_info=True)
+                    self.fiber_sky_subtraction_residual = None
+
+                # if G.ZEROFLAT:
+                #     self.fiber_sky_subtraction_residual, self.fiber_sky_subtraction_residual_flat = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
+                #                                 self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
+                #                                 zeroflat=True,response=self.survey_response, xfrac=G.SKY_RESIDUAL_XFRAC)
+                # else:
+                #     self.fiber_sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
+                #                                 self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
+                #                                 zeroflat=False,response=self.survey_response, xfrac=G.SKY_RESIDUAL_XFRAC)
 
                 # if G.SKY_RESIDUAL_PER_SHOT:
                 #     self.fiber_sky_subtraction_residual = SU.fetch_per_shot_single_fiber_sky_subtraction_residual(G.SKY_RESIDUAL_FITS_PATH,
@@ -7592,26 +7618,28 @@ class DetObj:
                 get_spectra_loglevel = "ERROR"
 
             if self.fiber_sky_subtraction_residual is None and G.APPLY_SKY_RESIDUAL_TYPE == 1:
-                if G.ZEROFLAT:
-                    self.fiber_sky_subtraction_residual, self.fiber_sky_subtraction_residual_flat = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
-                                                self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
-                                                zeroflat=True,response=self.survey_response, xfrac=G.SKY_RESIDUAL_XFRAC)
-                else:
-                    self.fiber_sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
-                                                self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version,
-                                                zeroflat=False,response=self.survey_response, xfrac=G.SKY_RESIDUAL_XFRAC)
 
-                # if G.SKY_RESIDUAL_PER_SHOT:
-                #     self.fiber_sky_subtraction_residual = SU.fetch_per_shot_single_fiber_sky_subtraction_residual(
-                #                                                                G.SKY_RESIDUAL_FITS_PATH,
-                #                                                                self.survey_shotid,
-                #                                                                G.SKY_RESIDUAL_FITS_COL)
-                # else:
-                    #self.fiber_sky_subtraction_residual = SU.fetch_universal_single_fiber_sky_subtraction_residual(
-                    #                                                                   ffsky=self.extraction_ffsky,
-                    #                                                                    hdr=G.HDR_Version)
-                    # self.fiber_sky_subtraction_residual = SU.interpolate_universal_single_fiber_sky_subtraction_residual(
-                    #     self.survey_fwhm, ffsky=self.extraction_ffsky, hdr=G.HDR_Version)
+                ##DD 2024-03-07 updated
+                #note: if ffsky also always apply rescor
+                try:
+                    empty_fiber, empty_fiber_err, contrib, status = SU.get_empty_fiber_residual(hdr=G.HDR_Version,
+                                                                                            rtype=G.BGR_RES_FIBER_DEFAULT_RTYPE,
+                                                                                            shotid=self.survey_shotid,
+                                                                                            seeing=self.survey_fwhm,
+                                                                                            response=self.survey_response,
+                                                                                            ffsky=self.extraction_ffsky,
+                                                                                            add_rescor=self.extraction_ffsky,
+                                                                                            persist=True)
+
+                    self.fiber_sky_subtraction_residual = copy(empty_fiber)
+                    self.fiber_sky_subtraction_residual_err = copy(empty_fiber_err)
+
+                    if status:
+                        log.warning(f"Warning! get_empty_fiber_residual() returned status: 0x{status:8x}")
+                except:
+                    log.error("Exception calling get_empty_fiber_residual().",exc_info=True)
+                    self.fiber_sky_subtraction_residual = None
+
 
             if self.fiber_sky_subtraction_residual is None:
                 fiber_flux_offset = None
@@ -7629,10 +7657,17 @@ class DetObj:
             #     else:
             #         fiber_flux_offset = -1 * self.fiber_sky_subtraction_residual
 
+
+            #todo:  Add ffsky_rescor,  apply_mask (both booleans)
+            #todo: maybe add keep_bad_shots if want to be explicit (always False for ELiXer)?
+            log.debug("Calling get_spectra()")
             apt = hda_get_spectra(coord, survey=f"hdr{G.HDR_Version}", shotid=self.survey_shotid,
                                   ffsky=self.extraction_ffsky, multiprocess=G.GET_SPECTRA_MULTIPROCESS, rad=self.extraction_aperture,
                                   tpmin=0.0,fiberweights=True,loglevel=get_spectra_loglevel,
-                                  fiber_flux_offset = fiber_flux_offset)
+                                  fiber_flux_offset = fiber_flux_offset,
+                                  ffsky_rescor=G.FFSKY_RESCOR,
+                                  apply_mask=G.FIBER_SPEC_ELEM_MASKING)
+            log.debug("Calling get_spectra() ... Done.")
 
         except:
             log.info("hetdex.py forced_extraction(). Exception calling HETDEX_API get_spectra",exc_info=True)
@@ -10189,11 +10224,11 @@ class HETDEX:
         #build fplane (find the correct file from the exposure date collected above)
         #for possible future use (could specify fplane_fn on commandline)
         if (self.fplane_fn is None) and (args.obsdate is not None):
-            self.fplane_fn = find_fplane(self.ymd)
+            self.fplane_fn = utils.find_fplane(self.ymd)
 
         if self.fplane_fn is not None:
             self.fplane = FPlane(self.fplane_fn)
-            self.ifuslot_dict, self.cam_ifu_dict, self.cam_ifuslot_dict = build_fplane_dicts(self.fplane_fn)
+            self.ifuslot_dict, self.cam_ifu_dict, self.cam_ifuslot_dict = utils.build_fplane_dicts(self.fplane_fn)
 
 
         #read the detect line file if specified. Build a list of targets based on sigma and chi2 cuts

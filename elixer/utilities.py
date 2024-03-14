@@ -29,6 +29,80 @@ except:
 log = G.Global_Logger('utilities')
 log.setlevel(G.LOG_LEVEL)
 
+
+
+
+def find_fplane(date): #date as yyyymmdd string
+    """Locate the fplane file to use based on the observation date
+
+        Parameters
+        ----------
+            date : string
+                observation date as YYYYMMDD
+
+        Returns
+        -------
+            fully qualified filename of fplane file
+    """
+    #todo: validate date
+
+    filepath = G.FPLANE_LOC
+    fplane = None
+    if filepath[-1] != "/":
+        filepath += "/"
+    files = glob.glob(filepath + "fplane*.txt")
+
+    if len(files) > 0:
+        target_file = filepath + "fplane" + date + ".txt"
+
+        if target_file in files: #exact match for date, use this one
+            fplane = target_file
+        else:                   #find nearest earlier date
+            files.append(target_file)
+            files = sorted(files)
+            #sanity check the index
+            i = files.index(target_file)-1
+            if i < 0: #there is no valid fplane
+                log.info("Warning! No valid fplane file found for the given date. Will use oldest available.", exc_info=True)
+                i = 0
+            fplane = files[i]
+    else:
+        log.error("Error. No fplane files found.", exc_info = True)
+
+    return fplane
+
+def build_fplane_dicts(fqfn):
+    """Build the dictionaries maping IFUSLOTID, SPECID and IFUID
+
+        Parameters
+        ----------
+        fqfn : string
+            fully qualified file name of the fplane file to use
+
+        Returns
+        -------
+            ifuslotid to specid, ifuid dictionary
+            specid to ifuid dictionary
+        """
+    # IFUSLOT X_FP   Y_FP   SPECID SPECSLOT IFUID IFUROT PLATESC
+    if fqfn is None:
+        log.error("Error! Cannot build fplane dictionaries. No fplane file.", exc_info=True)
+        return {},{}
+
+    ifuslot, specid, ifuid = np.loadtxt(fqfn, comments='#', usecols=(0, 3, 5), dtype = int, unpack=True)
+    ifuslot_dict = {}
+    cam_ifu_dict = {}
+    cam_ifuslot_dict = {}
+
+    for i in range(len(ifuslot)):
+        if (ifuid[i] < 900) and (specid[i] < 900):
+            ifuslot_dict[str("%03d" % ifuslot[i])] = [str("%03d" % specid[i]),str("%03d" % ifuid[i])]
+            cam_ifu_dict[str("%03d" % specid[i])] = str("%03d" % ifuid[i])
+            cam_ifuslot_dict[str("%03d" % specid[i])] = str("%03d" % ifuslot[i])
+
+    return ifuslot_dict, cam_ifu_dict, cam_ifuslot_dict
+
+
 def id_from_coord(ra,dec,shot=None):
     """
     limited to 19 digits with leading char 8 to fit in a signed int64
@@ -616,6 +690,23 @@ def get_multifits(date,shot,exp,ifuid=None,amp=None,longfn=None,flatfile_path=No
             with open("list", "w+") as f:
                 f.write(f"{str(date)}/virus/{file_path}\n")
 
+            try:
+                cpfiles = glob.glob(os.path.join(G.HETDEX_VRED_FIBERLOC_BASEPATH,f"fiber_loc_???_{str(ifuid).zfill(3)}_???_{amp}.txt"))
+
+                if len(cpfiles) > 0:
+                    #there might be more than one match, a different specid for the given ifuid at different times
+                    #just copy them all and let vred choose the right one
+                    for fn in cpfiles:
+                        try:
+                            shutil.copy(fn, "./")
+                        except Exception as E:
+                            log.warning(f"Unable to copy fiber loc file {fn}. Not fatal.\n {E}")
+                else:# len(cpfiles) == 0:
+                    log.warning(f"Unable to copy fiber loc file. No file found. Not fatal.")
+
+            except Exception as E:
+                log.warning(f"Unable to copy fiber loc file. Not fatal.\n {E}")
+
             # print ...make full path to vred? or dynamic
             if not os.path.isfile("./vred"):
                 log.debug("Copying vred ...")
@@ -624,13 +715,15 @@ def get_multifits(date,shot,exp,ifuid=None,amp=None,longfn=None,flatfile_path=No
 
             #see if there is any left over output from the last run
             try:
+                #must remove out5.fits and out otherwise vred will complain and abend on next run in same location
                 os.remove("out5.fits")
                 os.remove("out")
+                #also remove any of the multi fits that we are going to replace
                 rmfiles = glob.glob(f"multi*{str(ifuid).zfill(3)}*{amp}.fits")
                 for fn in rmfiles:
                     os.remove(fn)
-            except Exception as E:
-                log.debug(f"**** {E}")
+            except:# Exception as E:
+                pass #log.debug(f"**** {E}")
 
             p1 = subprocess.run(["vred"])
 
