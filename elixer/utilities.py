@@ -591,6 +591,47 @@ def open_file_from_tar(tarfn, fqfn=None, fn=None,workdir=None): #, close_tar=Tru
 
 
 
+def get_ifus_in_shot(date,shot):
+    """
+    Grab the tar file for the datevshot and enumerate the IFUs. Return list of IFUID integers
+
+    :param date:
+    :param shot:
+
+    :return:
+    """
+
+    try:
+        ifulist = []
+
+        tarfn = op.join(G.HETDEX_WORK_TAR_BASEPATH, str(date), f"virus/virus{str(shot).zfill(7)}.tar")
+        if op.exists(tarfn):
+            log.debug(f"Using {G.HETDEX_WORK_TAR_BASEPATH} basepath ...")
+        elif op.exists(op.join(G.HETDEX_CORRAL_TAR_BASEPATH, f"{date}.tar")):
+            log.debug(f"Using {G.HETDEX_CORRAL_TAR_BASEPATH} basepath ...")
+            # we need to fetch a sub-tar file
+            tarfn, file_path = open_file_from_tar(tarfn=op.join(corral_tar_path, f"{date}.tar"),
+                                         fqfn=op.join(str(date), f"virus/virus{str(shot).zfill(7)}.tar"))
+                                         #close_tar=False) #need to keep it open, at least for now
+        else:
+            log.debug("No viable path.")
+
+        tarfile = tar.open(name=tarfn)
+        all_fqfn = np.array(tarfile.getnames())
+
+        for fn in all_fqfn:
+            ifu = int(fn.split("_")[1][0:3])
+            ifulist.append(ifu)
+
+        tarfile.close()
+        ifulist = np.unique(ifulist)
+
+    except Exception as E:
+        log.error(f"Exception attempting to process raw multifits file:\n {E}")
+
+    return ifulist
+
+
 def get_multifits(date,shot,exp,ifuid=None,amp=None,longfn=None,flatfile_path=None,raw=False):
     """
     load a single multi*fits file from original raw data
