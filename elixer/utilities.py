@@ -7,6 +7,7 @@ from astropy.visualization import ZScaleInterval
 from astropy import units
 from astropy.coordinates import SkyCoord
 import astropy.io.fits as fits
+from astropy.table import Table
 import math
 import os
 import os.path as op
@@ -16,6 +17,7 @@ import glob
 import tarfile as tar
 from datetime import date
 import fnmatch
+from tqdm import tqdm
 
 
 import sqlite3
@@ -588,6 +590,72 @@ def open_file_from_tar(tarfn, fqfn=None, fn=None,workdir=None): #, close_tar=Tru
     except Exception as E:
         log.error(f"Exception attempting to fetch sub-file {fqfn} or {fn} from {tarfn}:\n {E}")
         return None, None
+
+def list_shot_types(yyyymmdd,count_exp=False,path="/work/03946/hetdex/maverick/"):
+    """
+
+    :param yyyymmdd:
+    :param count_exp: if True, report the number of exposures and total number of files. Takes much longer to run.
+    :param path: 
+    :return:
+    """
+
+    try:
+
+        #T = Table(dtype=[('type', str), ('shotid',int), ('num_exp', int), ('num_fits', int), ('path',str),('file',str)])
+        T = Table(dtype=[('type', str), ('shotid', int), ('num_exp', int), ('num_fits', int), ('file', str)])
+
+        if type(yyyymmdd) is int:
+            yyyymmdd = str(yyyymmdd)
+
+        tarfns = glob.glob(os.path.join(path, yyyymmdd, "virus/*.tar"))
+
+        stl = []
+       # pth = []
+        typ = []
+        nex = []
+        nfi = []
+        sid = []
+
+        for fn in tqdm(tarfns):
+            with tar.open(fn, 'r') as tarf:
+                nextname = tarf.next().path
+
+                stl.append(os.path.basename(fn))
+                typ.append(nextname[-8:-5])
+                #pth.append(os.path.dirname(nextname))
+               # print(nextname.split("/"))
+                sid.append(int(nextname.split("/")[0][5:]))
+
+                if count_exp:
+                    all_names = tarf.getnames()  # this is SLOW
+                    nfi.append(len(all_names))
+                    lx = [n.split("/")[1] for n in all_names]
+                    nex.append(len(np.unique(lx)))
+                else:
+                    nex.append(-1)
+                    nfi.append(-1)
+
+        #sort by shotid
+        st = np.argsort(stl)
+        stl = np.array(stl)[st]
+       # pth = np.array(pth)[st]
+        typ = np.array(typ)[st]
+        sid = np.array(sid)[st]
+        nfi = np.array(nfi)[st]
+        nex = np.array(nex)[st]
+
+        #for t, f, x, i,s,p in zip(typ, stl, nex, nfi,sid,pth):
+        #    T.add_row([t,s,x,i,p,f])
+        for t, f, x, i,s in zip(typ, stl, nex, nfi,sid):
+            T.add_row([t,s,x,i,f])
+
+        return T
+
+    except Exception as E:
+        log.error(f"Exception in list_shot_types\n{E}")
+        return None
+
 
 
 
