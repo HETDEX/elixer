@@ -1,4 +1,9 @@
 """
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!! Largely DEFUNCT                                       !!!!!!!
+!!!!! Superceded by empty_fibers_per_shot.py                !!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 
 This is an alternate way to compute the background or sky residual for a shot. It is a similar to
 reandom_apertures in purpose, but collects all "empty" fibers for a single shot without the use of random apertures.

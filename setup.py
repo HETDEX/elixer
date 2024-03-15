@@ -1,16 +1,22 @@
 from setuptools import setup, find_packages
 
-install_requires = ['numpy>=1.18.2', 'astropy>=4.0', 'scipy>=1.4',
-                    'tables>=3.6.1', 'speclite>=0.8', 'emcee>=3.0.2',
-                    'photutils>=0.7.1','astroquery>=0.3.10','pandas>=1.1.0',
-                    'pdf2image>=1.16.0', 'pyhetdex>=0.10', 'sep>=1.0.3',
-                    'specutils>=1.0']
+install_requires = ['numpy>=1.18.2', 'astropy>=5.0', 'scipy>=1.6',
+                    'tables>=3.8', 'speclite>=0.16', 'emcee>=3.1',
+                    'photutils>=1.8','astroquery>=0.3.10','pandas>=1.3',
+                    'pdf2image>=1.16.0', 'sep>=1.2',
+                    'specutils>=1.11']
+
+###########################################################################################################
+#note: also needs pyhetdex >= 0.14, but it has an unusual install and causes
+#problems here
+#to install manually: pip install --extra-index-url https://gate.mpe.mpg.de/pypi/simple/ pyhetdex
+###########################################################################################################
 
 extras = {}
 
 setup(
     name="elixer",
-    version="1.13.0",
+    version="1.22.0",
     author="Dustin Davis",
     author_email="dustin.davis@utexas.edu",
     description="HETDEX Emission Line eXplorer tool",
@@ -33,3 +39,7 @@ setup(
                  "Topic :: Utilities",
                  ]
 )
+
+print("You may need to manually install pyhetdex")
+print("run: pip install --extra-index-url https://gate.mpe.mpg.de/pypi/simple/ pyhetdex ")
+

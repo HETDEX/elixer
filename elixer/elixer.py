@@ -415,6 +415,9 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--ffsky', help='Use Full Field sky subtraction. Default=False.',
                         required=False,action='store_true', default=False)
 
+    parser.add_argument('--ffsky_rescor', help='Use Full Field sky subtraction with rescor applied. Auto implies --ffsky. Default=False.',
+                        required=False,action='store_true', default=False)
+
     parser.add_argument('--wavelength', help="Target wavelength (observed) in angstroms. Used with --annulus or --aperture",
                         required=False, type=float)
 
@@ -1086,6 +1089,14 @@ def parse_commandline(auto_force=False):
             args.known_z = None
             args.known_z = None
 
+
+    if args.ffsky_rescor:
+        args.ffsky = True #args.ffsky_rescor automatically implies ffsky
+        G.FFSKY_RESCOR = True #however, G.FFSKY_RESCOR does NOT imply ffsky is true
+        #see global_config.h ... if FFSKY_RESCOR defaults to True then you CANNOT get ffsky subtraction without rescor
+        #if FFSKY_RESCOR does not default to true, then you must set --ffsky_rescor to apply it
+
+
     # if args.sky_residual:
     #     if args.ffsky:
     #         G.SUBTRACT_HETDEX_SKY_RESIDUAL = True
@@ -1096,9 +1107,11 @@ def parse_commandline(auto_force=False):
     #     G.SUBTRACT_HETDEX_SKY_RESIDUAL = False
 
     if args.ffsky:
+        G.FFSKY = True
         G.SKY_RESIDUAL_XFRAC = G.SKY_RESIDUAL_XFRAC_FF
     else:
         G.SKY_RESIDUAL_XFRAC = G.SKY_RESIDUAL_XFRAC_LL
+        G.FFSKY_RESCOR = False #can ONLY by True IF ffsky is also True
 
     if args.gridsearch:
 
