@@ -27,6 +27,7 @@ from astropy.nddata import Cutout2D
 import astropy.wcs
 
 
+
 #######################################
 # Helper functions
 #######################################
@@ -331,6 +332,19 @@ def find_objects(cutout, fixed_radius=None, det_thresh= 1.5, kron_mux = 2.5, cor
             # convert to image center as 0,0 (needed later in plotting) and to arcsecs
             d['x'] = (obj['x'] - cx) * pixel_size  # want as distance in arcsec so pixels * arcsec/pixel
             d['y'] = (obj['y'] - cy) * pixel_size
+
+            try:
+                # this assumes lower-left is 0,0 but the object x,y uses center as 0,0
+                # sobj['x'] and y ARE IN ARCSEC ... need to be in pixels for this cal
+                sc = astropy.wcs.utils.pixel_to_skycoord(d['x'] / pixel_size + cutout.center_cutout[0],
+                                                 d['y'] / pixel_size + cutout.center_cutout[1],
+                                                 cutout.wcs, origin=0)
+                d['ra'] = sc.ra.value
+                d['dec'] = sc.dec.value
+            except Exception as E:
+                status.append(f"wcs [{idx}] Exception! {E}")
+
+
             # the 6.* factor is from source extractor using 6 isophotal diameters
             d['a'] = 6. * obj['a'] * pixel_size
             d['b'] = 6. * obj['b'] * pixel_size
