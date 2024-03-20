@@ -11,7 +11,7 @@ Not the most efficient, but is fast to slap together and a big improvment over t
 import glob
 import os
 import sys
-import time
+import time as pytime
 import numpy as np
 
 try:
@@ -169,7 +169,7 @@ def main():
             merge_list = get_base_merge_files(temp_wd, "dispatch_*/*intermediate_merge.working")
             if len(merge_list) > 0:
                 print(f"Waiting on *working files to complete ...")
-                time.sleep(10.0) #sleep 10 secs
+                pytime.sleep(10.0) #sleep 10 secs
                 timeout_wait = 90.0 #seconds #reset to full timeout
             else:
                 #get the final list FROM THE ORIGINAL cwd() as each sub-task copies back to there when done
@@ -178,7 +178,7 @@ def main():
                 #merge_list = get_base_merge_files(temp_wd, "dispatch_*/*intermediate_merge.h5")
                 if len(merge_list) < merge_count: #the final job could get kicked off before all the prior jobs are complete or even started
                     print(f"Waiting on merge_count to match. Current {len(merge_list)}, expected {merge_count}. Current timer: {timeout_wait:0.1f} ...")
-                    time.sleep(10.0)             #so all the .working files might not even have been created yet
+                    pytime.sleep(10.0)             #so all the .working files might not even have been created yet
                     timeout_wait -= 10.0
                 else:
                     still_waiting = False

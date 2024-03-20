@@ -19,7 +19,7 @@ except:
 import numpy as np
 import tables
 import os
-import time
+import time as pytime
 
 
 UNSET_FLOAT = -999.999
@@ -703,7 +703,7 @@ def get_hdf5_filehandle(fname,append=False,allow_overwrite=True,must_exist=False
 
                     #make under a different name?
                     make_new = True
-                    fname += "_" + str(int(time.time())) + ".h5"
+                    fname += "_" + str(int(pytime.time())) + ".h5"
                     log.error('Making alternate ELiXer HDF5 Catalog (%s).' %(fname))
                 else:
                     log.debug("ELiXer HDF5 exists (%s). Versions match (%s), will append." %(fname,__version__))
