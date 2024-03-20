@@ -26,6 +26,8 @@ from astropy.coordinates import SkyCoord
 from astropy.nddata import Cutout2D
 import astropy.wcs
 
+import traceback
+
 
 
 #######################################
@@ -230,13 +232,18 @@ def find_objects(cutout, fixed_radius=None, det_thresh= 1.5, kron_mux = 2.5, cor
     def initialize_dict():
         d = {}
         d['idx'] = None  # an index
-        d['x'] = None  # x position in pixels (center is 0,0)
+        d['x'] = None  # x position in delta-arcsecs (center is defined as 0,0)
         d['y'] = None  # y position
+        d['x_pix'] = None  # x position in pixels from python origin (NOT the center) (for simpler matplotlib ploting)
+        d['y_pix'] = None  # y position
         d['ra'] = None  # decimal degrees
         d['dec'] = None  # decimal degrees
         d['a'] = None  # major axis (arcsec)
         d['b'] = None
-        d['theta'] = None
+        d['a_pix'] = None  # major axis (pixels) (for simpler matplotlib ploting)
+        d['b_pix'] = None
+        d['theta'] = None #ellipse rotation in radians CCW from horizontal
+        d['theta_deg'] = None #ellipse rotation in degees CCW from horizontal (for simpler matplotlib ploting)
         d['background'] = None
         d['background_rms'] = None
         d['dist_baryctr'] = None  # distance in arcsec from the center of the image to the center of object ellipse
@@ -330,6 +337,8 @@ def find_objects(cutout, fixed_radius=None, det_thresh= 1.5, kron_mux = 2.5, cor
             d = initialize_dict()
             d['idx'] = idx
             # convert to image center as 0,0 (needed later in plotting) and to arcsecs
+            d['x_pix'] = obj['x']   #in pixels relative to the original (python is lower left?)
+            d['y_pix'] = obj['y']
             d['x'] = (obj['x'] - cx) * pixel_size  # want as distance in arcsec so pixels * arcsec/pixel
             d['y'] = (obj['y'] - cy) * pixel_size
 
@@ -348,7 +357,10 @@ def find_objects(cutout, fixed_radius=None, det_thresh= 1.5, kron_mux = 2.5, cor
             # the 6.* factor is from source extractor using 6 isophotal diameters
             d['a'] = 6. * obj['a'] * pixel_size
             d['b'] = 6. * obj['b'] * pixel_size
+            d['a_pix'] = 6. * obj['a']
+            d['b_pix'] = 6. * obj['b']
             d['theta'] = obj['theta']
+            d['theta_deg'] = obj['theta'] * 180./np.pi
             d['background'] = bkg.globalback
             d['background_rms'] = bkg.globalrms
             d['dist_baryctr'] = dist2bary * pixel_size
@@ -445,3 +457,153 @@ def find_objects(cutout, fixed_radius=None, det_thresh= 1.5, kron_mux = 2.5, cor
         status.append(f"Source Extractor call failed {e}")
 
     return img_objects, status
+
+
+#todo: should we allow ra,dec to be arrays?
+#todo: or use an array of SkyCoords?
+def forced_aperture(cutout,ra,dec,radius):
+    """
+
+    Perform forced aperture photometry
+
+    :param cutout:  this is an astropy Cutout2D object
+    :param ra: decimal degrees, can be an array
+    :param dec: decimal degrees, can be an array
+    :param radius:
+    :return:
+    """
+
+    def initialize_dict():
+        d = {}
+        d['idx'] = None  # an index
+        d['x'] = None  # x position in pixels (center is 0,0)
+        d['y'] = None  # y position
+        d['ra'] = None  # decimal degrees
+        d['dec'] = None  # decimal degrees
+        d['background'] = None
+        d['background_rms'] = None
+        d['flags'] = None
+        d['fixed_aper_radius'] = None #in arcsec
+        d['fixed_aper_radius_pix'] = None #in pixels
+        d['fixed_aper_flux_cts'] = None
+        d['fixed_aper_flux_cts_err'] = None
+        d['fixed_aper_flags'] = None
+
+        return d
+
+    phot_array = []
+    status = []
+
+    try:
+
+        pixel_size, *_ = calc_pixel_size(cutout.wcs)
+
+        try:
+            _ = len(radius) #this has a length so is an array or list
+            radius_pix = np.array(radius) / pixel_size
+        except:
+            radius_pix = np.array([radius / pixel_size])
+
+        coords = SkyCoord(ra,dec,unit="deg")
+        if coords.size == 1:
+            coords = [coords]
+
+        if len(coords) != len(radius_pix):
+            if len(radius_pix) == 1: #this is okay ... use the same radius for all
+                radius_pix = np.full(len(coords),radius_pix[0])
+            else: #this is a problem
+                status.append(f"Error. Must have either a single radius OR one radius for each RA, Dec.")
+                return phot_array, status
+
+
+        for idx,(coord,r_pix) in enumerate(zip(coords,radius_pix)):
+            try:
+
+                #todo: this is incomplete ... should use photutils? and get backgronud in annulus, etc
+                # see existing ELiXer code
+
+                #todo: should use annulus based on radius size as is ELiXer proper, but if the cutout is not big enough
+                # add a warning to the status output
+                # alternately, could use an RMS background? like SEP?
+
+                cx, cy = cutout.center_cutout
+
+                # the endianness of THIS system ... may not
+                # necessarily be the endian encoding of the cutout data
+                if sys.byteorder == 'big':
+                    data = cutout.data
+                    big_endian = True
+                else:
+                    data = cutout.data.byteswap().newbyteorder()
+                    big_endian = False
+
+                try:
+                    bkg = sep.Background(data)
+                except Exception as e:
+                    if type(e) == ValueError:
+                        # status.append("sep.Background() value error. May be ENDIAN issue. Swapping...")
+                        try:
+                            if not big_endian:
+                                # the inverse of the above assignment (for zipped data the decompression may already handle the
+                                # flip so doing it again would have put it in the wrong ENDIAN order
+                                data = cutout.data
+                            else:
+                                data = cutout.data.byteswap().newbyteorder()
+
+                            bkg = sep.Background(data)
+
+                        except Exception as e:
+                            status.append(f"Exception {e}")
+                            return img_objects, status
+
+                data_sub = data - bkg
+                data_err = bkg.globalrms  # use the background RMS as the error (assume sky dominated)
+
+
+                #go from RA, Dec to pixels
+                x,y = astropy.wcs.utils.skycoord_to_pixel(coord,cutout.wcs)
+
+                flux, fluxerr, flag = sep.sum_circle(data_sub, [x], [y], [r_pix], subpix=1, err=data_err)
+
+                # reminder, you don't do lost light correction for forced aperture (that is up to the caller)
+                flux = flux[0]
+                fluxerr = fluxerr[0]
+                flag = flag[0]
+
+
+            except Exception as e:
+                status.append(f"forced_aperture call failed for idx {idx}, ra,dec ({ra},{dec}): {e}\n\n{traceback.format_exc()}")
+                continue
+
+            try:  # flux, fluxerr, flag may be ndarrays but of size zero (a bit weird)
+                flux = float(flux)
+                fluxerr = float(fluxerr)
+                flag = int(flag)
+            except:
+                pass
+
+            d = initialize_dict()
+            d['idx'] = idx
+            d['x_pix'] = x   #in pixels relative to the original (python is lower left?)
+            d['y_pix'] = y
+            d['x'] = (x - cx) * pixel_size  # want as distance in arcsec so pixels * arcsec/pixel
+            d['y'] = (y - cy) * pixel_size
+            d['ra'] = coord.ra.value
+            d['dec'] = coord.dec.value
+            d['background'] = bkg.globalback
+            d['background_rms'] = bkg.globalrms
+            d['fixed_aper_radius'] = r_pix * pixel_size
+            d['fixed_aper_radius_pix'] = r_pix
+            d['fixed_aper_flux_cts'] = flux
+            d['fixed_aper_flux_cts_err'] = fluxerr
+            d['fixed_aper_flags'] = flag
+
+
+            phot_array.append(d)
+
+        #end for loop
+
+    except Exception as e:
+        status.append(f"forced_aperture call failed {e}\n{traceback.format_exc()}")
+
+    return phot_array, status
