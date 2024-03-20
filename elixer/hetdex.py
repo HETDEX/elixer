@@ -43,7 +43,7 @@ import astropy.units as U
 
 import matplotlib
 #matplotlib.use('agg')
-import time
+import time as pytime
 import dateutil.parser
 
 import matplotlib.pyplot as plt
@@ -611,7 +611,7 @@ class DetObj:
         #fcsdir is more specific
         #skip NR (0)
         self.elixer_version = G.__version__
-        self.elixer_datetime = time.strftime("%Y-%m-%d %H:%M:%S")
+        self.elixer_datetime = pytime.strftime("%Y-%m-%d %H:%M:%S")
 
         self.nei_mini_buf = None #image holder for neighborhood
         self.line_mini_buf = None
@@ -8583,7 +8583,7 @@ class DetObj:
                         retry -= 1
                         t2sleep = np.random.random_integers(0, 5000) / 1000.  # sleep up to 5 sec
                         log.info(f"+++++ Memory issue? Random sleep {t2sleep:0.4f}s. Retries remaining {retry}")
-                        time.sleep(t2sleep)
+                        pytime.sleep(t2sleep)
                     except:
                         hda_detobj = None
                         log.warning("Exception attempting to load spectra through hetdex_api",exc_info=True)
@@ -8628,7 +8628,7 @@ class DetObj:
                         retry -= 1
                         t2sleep = np.random.random_integers(0, 5000) / 1000.  # sleep up to 5 sec
                         log.info(f"+++++ Memory issue? Random sleep {t2sleep:0.4f}s. Retries remaining {retry}")
-                        time.sleep(t2sleep)
+                        pytime.sleep(t2sleep)
                     except:
                         log.error("Exception in hetdex::DetObj::load_hdf5_fluxcalibrated_spectra reading rows from detection_table",
                                   exc_info=True)
@@ -11462,7 +11462,7 @@ class HETDEX:
         plt.subplot(gs[0,0]) #all (again, probably won't end up using grid_spec for this case)
         plt.text(0, 1.0, title, ha='left', va='top', fontproperties=font)
         if not G.ZEROTH_ROW_HEADER:
-            plt.suptitle(time.strftime("%Y-%m-%d %H:%M:%S") +
+            plt.suptitle(pytime.strftime("%Y-%m-%d %H:%M:%S") +
                      "  Version " + G.__version__ +"  ", fontsize=8,x=1.0,y=0.98,
                      horizontalalignment='right',verticalalignment='top')
         plt.gca().set_frame_on(False)
@@ -12054,7 +12054,7 @@ class HETDEX:
         plt.subplot(gs[0:2, 0:25])
         plt.text(0, 0.5, title, ha='left', va='center', fontproperties=font)
         if not G.ZEROTH_ROW_HEADER:
-            plt.suptitle(time.strftime("%Y-%m-%d %H:%M:%S") +
+            plt.suptitle(pytime.strftime("%Y-%m-%d %H:%M:%S") +
                      "  Version " + G.__version__ +"  ", fontsize=8,x=1.0,y=0.98,
                      horizontalalignment='right',verticalalignment='top')
         plt.gca().set_frame_on(False)

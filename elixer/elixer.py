@@ -68,7 +68,7 @@ import glob
 import os
 import fnmatch
 import errno
-import time
+import time as pytime
 import numpy as np
 import gc
 
@@ -239,7 +239,7 @@ def make_zeroth_row_header(left_text,show_version=True,redtext=False):
         if show_version:
             plt.subplot(gs[0, 2])
             plt.gca().axis('off')
-            title = time.strftime("%Y-%m-%d %H:%M:%S") + "  Version " + G.__version__  # + "  "
+            title = pytime.strftime("%Y-%m-%d %H:%M:%S") + "  Version " + G.__version__  # + "  "
             plt.text(1.0, 0.5, title, ha='right', va='bottom', fontproperties=font)
             # plt.suptitle(, fontsize=8, x=1.0, y=0.98,
             #              horizontalalignment='right', verticalalignment='bottom')
@@ -2062,7 +2062,7 @@ def write_fibers_file(filename,hd_list):
 
         # write help (header) part
         f.write("# version " + str(G.__version__) + "\n")
-        f.write("# date time " + time.strftime("%Y-%m-%d %H:%M:%S") + "\n" )
+        f.write("# date time " + pytime.strftime("%Y-%m-%d %H:%M:%S") + "\n" )
         f.write("# each row contains one emission line with accompanying fiber information\n")
         col_num = 0
         for h in headers:
@@ -2181,7 +2181,7 @@ def convert_pdf(filename, resolution=150, jpeg=False, png=True):
         if not os.path.isfile(filename):
             log.info("Error converting (%s) to image type. File not found (may be filesystem lag. Will sleep and retry."
                      %(filename) )
-            time.sleep(5.0) #5 sec should be plenty
+            pytime.sleep(5.0) #5 sec should be plenty
 
             if not os.path.isfile(filename):
                 log.info(
@@ -2221,7 +2221,7 @@ def convert_pdf(filename, resolution=150, jpeg=False, png=True):
                             #this is a good sized image, but is blank where there should be data
                             log.info(f"Blank fiber section in conversion for {image_name}. Will assume missing data and retry.")
                             os.remove(image_name)
-                            time.sleep(1.0 * retry_ct)  # sleep in increasing chunks of 5 seconds to let memory clear
+                            pytime.sleep(1.0 * retry_ct)  # sleep in increasing chunks of 5 seconds to let memory clear
                         else:
                             retry_ct = 99
                             break
@@ -2234,7 +2234,7 @@ def convert_pdf(filename, resolution=150, jpeg=False, png=True):
                             # could still be okay, but we will retry anyway .. if retries are exhausted, it will stick
                             log.info(f"Small filesize ({size}) for {image_name}. Will assume missing data and retry.")
                             os.remove(image_name)
-                            time.sleep(5.0 * retry_ct)  #sleep in increasing chunks of 5 seconds to let memory clear
+                            pytime.sleep(5.0 * retry_ct)  #sleep in increasing chunks of 5 seconds to let memory clear
                         else:
                             log.debug(f"Conversion filesize ({size}) good for {image_name}. Incomplete report, reduced size {img_dim}).")
                             retry_ct = 99
@@ -2334,7 +2334,7 @@ def run_convert_pdf(filename, resolution=150, jpeg=False, png=True,systemcall="p
         if not os.path.isfile(filename):
             log.info("Error converting (%s) to image type. File not found (may be filesystem lag. Will sleep and retry."
                      %(filename) )
-            time.sleep(5.0) #5 sec should be plenty
+            pytime.sleep(5.0) #5 sec should be plenty
 
             if not os.path.isfile(filename):
                 log.info(
@@ -4617,7 +4617,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                         retry -= 1
                         t2sleep = np.random.random_integers(0, 5000) / 1000.  # sleep up to 5 sec
                         log.info(f"+++++ Memory issue? Random sleep {t2sleep:0.4f}s. Retries remaining {retry}")
-                        time.sleep(t2sleep)
+                        pytime.sleep(t2sleep)
 
                     except Exception as E:
                         spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
@@ -4662,7 +4662,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                         retry -= 1
                         t2sleep = np.random.random_integers(0, 5000) / 1000.  # sleep up to 5 sec
                         log.info(f"+++++ Memory issue? Random sleep {t2sleep:0.4f}s. Retries remaining {retry}")
-                        time.sleep(t2sleep)
+                        pytime.sleep(t2sleep)
 
                     except Exception as E:
                         spec.append(np.zeros(len(G.CALFIB_WAVEGRID)))
