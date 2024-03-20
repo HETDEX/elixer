@@ -464,12 +464,13 @@ def find_objects(cutout, fixed_radius=None, det_thresh= 1.5, kron_mux = 2.5, cor
 def forced_aperture(cutout,ra,dec,radius):
     """
 
-    Perform forced aperture photometry
+    Perform forced aperture photometry, using the same RMS Background as find_objects()
+    (That is, does NOT use annulus for background)
 
     :param cutout:  this is an astropy Cutout2D object
-    :param ra: decimal degrees, can be an array
-    :param dec: decimal degrees, can be an array
-    :param radius:
+    :param ra: decimal degrees, can be an array or a single value
+    :param dec: decimal degrees, can be an array or a single value
+    :param radius: decinmal arcsecs, can be an array or a single value (if array, must be same length as ra, dec)
     :return:
     """
 
