@@ -777,10 +777,17 @@ if not MERGE:
     os.chdir(basename)
 
 ### elixer.run
+elixer_basepath = os.path.dirname(sys.argv[0])
+try:
+    #might be a relative path, but for SLURM we will want an absolute path
+    elixer_basepath = os.path.realpath(elixer_basepath)
+except:
+    pass #will just have to deal with the relative path and hope it works
+
 if not MERGE:
-    path = os.path.join(os.path.dirname(sys.argv[0]),"elixer.py")
+    path = os.path.join(elixer_basepath,"elixer.py")
 else:
-    path = os.path.join(os.path.dirname(sys.argv[0]),"smerge.py")
+    path = os.path.join(elixer_basepath,"smerge.py")
 nodes = 1
 if ntasks_per_node < 1:
     ntasks_per_node = 1
