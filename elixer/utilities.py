@@ -684,7 +684,11 @@ def get_ifus_in_shot(date,shot):
         else:
             log.debug("No viable path.")
 
-        tarfile = tar.open(name=tarfn)
+        if isinstance(tarfn, str):
+            tarfile = tar.open(name=tarfn)
+        else:
+            tarfile = tar.open(fileobj=tarfn)
+
         all_fqfn = np.array(tarfile.getnames())
 
         for fn in all_fqfn:
@@ -858,7 +862,7 @@ def get_multifits(date,shot,exp,ifuid=None,amp=None,longfn=None,flatfile_path=No
         return multifits
 
     except Exception as E:
-        log.error(f"Exception attempting to load single multifits file:\n {E}")
+        log.error(f"Exception attempting to load single multifits file (get_multifits()):\n {E}")
         return None
 
 
