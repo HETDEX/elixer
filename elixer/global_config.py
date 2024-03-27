@@ -90,6 +90,8 @@ HDR_Version_float = 4.0
 HDR_Latest_Str = "hdr4" #latest available, not necessarily the default or what is being used
 HDR_Latest_Float = 4.0
 
+ALWAYS_USE_LATEST_FOR_REEXTRACTION = True
+
 WORK_BASEPATH = "/work"
 try:
     WORK_BASEPATH = getenv("WORK_BASEPATH")

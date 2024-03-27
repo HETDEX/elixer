@@ -678,7 +678,7 @@ def get_ifus_in_shot(date,shot):
         elif op.exists(op.join(G.HETDEX_CORRAL_TAR_BASEPATH, f"{date}.tar")):
             log.debug(f"Using {G.HETDEX_CORRAL_TAR_BASEPATH} basepath ...")
             # we need to fetch a sub-tar file
-            tarfn, file_path = open_file_from_tar(tarfn=op.join(corral_tar_path, f"{date}.tar"),
+            tarfn, file_path = open_file_from_tar(tarfn=op.join(G.HETDEX_CORRAL_TAR_BASEPATH, f"{date}.tar"),
                                          fqfn=op.join(str(date), f"virus/virus{str(shot).zfill(7)}.tar"))
                                          #close_tar=False) #need to keep it open, at least for now
         else:
@@ -771,7 +771,7 @@ def get_multifits(date,shot,exp,ifuid=None,amp=None,longfn=None,flatfile_path=No
         elif op.exists(op.join(G.HETDEX_CORRAL_TAR_BASEPATH, f"{date}.tar")):
             log.debug(f"Using {G.HETDEX_CORRAL_TAR_BASEPATH} basepath ...")
             # we need to fetch a sub-tar file
-            tarfile, file_path = open_file_from_tar(tarfn=op.join(corral_tar_path, f"{date}.tar"),
+            tarfile, file_path = open_file_from_tar(tarfn=op.join(G.HETDEX_CORRAL_TAR_BASEPATH, f"{date}.tar"),
                                          fqfn=op.join(str(date), f"virus/virus{str(shot).zfill(7)}.tar"))
                                          #close_tar=False) #need to keep it open, at least for now
             # in this case, tarfile is no longer a filename but an actual file ... either way works
