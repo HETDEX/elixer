@@ -695,7 +695,7 @@ def get_ifus_in_shot(date,shot):
         ifulist = np.unique(ifulist)
 
     except Exception as E:
-        log.error(f"Exception attempting to process raw multifits file:\n {E}")
+        log.error(f"Exception attempting to process raw multifits file (get_ifus_in_shot()):\n {E}")
 
     return ifulist
 
@@ -853,7 +853,7 @@ def get_multifits(date,shot,exp,ifuid=None,amp=None,longfn=None,flatfile_path=No
                 log.error(f"Failure to process multi*fits file. vred rc = {p1.returncode}:")
                 multifits = None
         except Exception as E:
-            log.error(f"Exception attempting to process raw multifits file:\n {E}")
+            log.error(f"Exception attempting to process raw multifits file (get_multifits()):\n {E}")
 
         return multifits
 
