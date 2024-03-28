@@ -26,6 +26,9 @@ from astropy.coordinates import SkyCoord
 from astropy.nddata import Cutout2D
 import astropy.wcs
 
+from photutils.segmentation import make_2dgaussian_kernel
+from scipy.stats import chi2
+
 import traceback
 
 
@@ -455,6 +458,209 @@ def find_objects(cutout, fixed_radius=None, det_thresh= 1.5, kron_mux = 2.5, cor
 
     except Exception as e:
         status.append(f"Source Extractor call failed {e}")
+
+    return img_objects, status
+
+
+
+
+def find_objects_fixed_kernel(cutout, kernel_fwhm = 3.0, kernel_size = 9, thresh=None, min_area=8,
+                 deblend_nthresh=64, deblend_cont=0.001):
+    """
+    Basically, Source extractor, but with a user specified Gaussian Kernel.
+
+    :param cutout: this is an astropy Cutout2D object
+.
+    :return: array of source extractor dictionary objects, array of status messages
+    """
+
+    def initialize_dict():
+        d = {}
+        d['idx'] = None  # an index
+        d['x'] = None  # x position in delta-arcsecs (center is defined as 0,0)
+        d['y'] = None  # y position
+        d['x_pix'] = None  # x position in pixels from python origin (NOT the center) (for simpler matplotlib ploting)
+        d['y_pix'] = None  # y position
+        d['ra'] = None  # decimal degrees
+        d['dec'] = None  # decimal degrees
+        d['a'] = None  # major axis (arcsec)
+        d['b'] = None
+        d['a_pix'] = None  # major axis (pixels) (for simpler matplotlib ploting)
+        d['b_pix'] = None
+        d['theta'] = None #ellipse rotation in radians CCW from horizontal
+        d['theta_deg'] = None #ellipse rotation in degees CCW from horizontal (for simpler matplotlib ploting)
+        d['dist_baryctr'] = None  # distance in arcsec from the center of the image to the center of object ellipse
+        d['dist_curve'] = None  # distance in arcsec from the center of the image to the nearest point on object ellipse
+        d['flux_cts'] = None
+        d['flux_cts_err'] = None
+        d['flags'] = None
+
+        return d
+
+
+
+    img_objects = []  # array of dictionaries
+    objects = None
+    status = []
+
+    try:
+        if (cutout is None) or (cutout.data is None):
+            status.append("bad cutout")
+            return img_objects, status
+
+        cx, cy = cutout.center_cutout
+
+        # the endianness of THIS system ... may not
+        # necessarily be the endian encoding of the cutout data
+        if sys.byteorder == 'big':
+            data = cutout.data
+            big_endian = True
+        else:
+            data = cutout.data.byteswap().newbyteorder()
+            big_endian = False
+
+        try:
+            #note: not going to use the background, but this is a good way to check for the endian-ness
+            _ = sep.Background(data)
+        except Exception as e:
+            if type(e) == ValueError:
+                #status.append("sep.Background() value error. May be ENDIAN issue. Swapping...")
+                try:
+                    if not big_endian:
+                        # the inverse of the above assignment (for zipped data the decompression may already handle the
+                        # flip so doing it again would have put it in the wrong ENDIAN order
+                        data = cutout.data
+                    else:
+                        data = cutout.data.byteswap().newbyteorder()
+
+                    #bkg = sep.Background(data)
+
+                except Exception as e:
+                    status.append(f"Exception {e}")
+                    return img_objects, status
+
+        try:
+            # use the Gaussian kernel
+
+            kernel_size = int(kernel_size)
+
+            kernel = make_2dgaussian_kernel(fwhm=kernel_fwhm, size=kernel_size).array
+
+            objects = sep.extract(data,
+                            thresh=thresh, # for PRIMER; equivalent to 2.3sigma, i.e. ~1% prob of a pixel being sky
+                            # thresh=13.1, # for COSMOS-Web;
+                            minarea=min_area,
+                            deblend_nthresh=deblend_nthresh,
+                            deblend_cont=deblend_cont,
+                            filter_type='conv',
+                            filter_kernel=kernel,
+                            clean=True,
+                            clean_param=0.5,
+                            segmentation_map=False) #I don't need the segmap back
+        except Exception as e:
+            status.append(
+                f"Exception: {e}\n\n{traceback.format_exc()}")
+
+            return img_objects, status
+
+        selected_idx = -1
+        inside_objs = []  # (index, dist_to_barycenter)
+        outside_objs = []  # (index, dist_to_barycenter, dist_to_curve)
+
+        map_idx = np.full(len(objects), -1)
+        # holds the index of img_objects for each object's entry (if no image object, the value is -1)
+
+        idx = -1
+
+        pixel_size,*_ = calc_pixel_size(cutout.wcs)
+
+        for obj in objects:
+            idx += 1
+            # NOTE: #3.* applied for the same reason as above ... a & b are given in kron isophotal diameters
+            # so 6a/2 == 3a == radius needed for function
+
+            success, dist2curve, dist2bary, pt = dist_to_ellipse(cx, cy, obj['x'], obj['y'],
+                                                                 3. * obj['a'], 3. * obj['b'], obj['theta'])
+
+            # copy to ELiXer img_objects
+            d = initialize_dict()
+            d['idx'] = idx
+            # convert to image center as 0,0 (needed later in plotting) and to arcsecs
+            d['x_pix'] = obj['x']   #in pixels relative to the original (python is lower left?)
+            d['y_pix'] = obj['y']
+            d['x'] = (obj['x'] - cx) * pixel_size  # want as distance in arcsec so pixels * arcsec/pixel
+            d['y'] = (obj['y'] - cy) * pixel_size
+
+            try:
+                # this assumes lower-left is 0,0 but the object x,y uses center as 0,0
+                # sobj['x'] and y ARE IN ARCSEC ... need to be in pixels for this cal
+                sc = astropy.wcs.utils.pixel_to_skycoord(d['x'] / pixel_size + cutout.center_cutout[0],
+                                                 d['y'] / pixel_size + cutout.center_cutout[1],
+                                                 cutout.wcs, origin=0)
+                d['ra'] = sc.ra.value
+                d['dec'] = sc.dec.value
+            except Exception as E:
+                status.append(f"wcs [{idx}] Exception! {E}")
+
+
+            # the 6.* factor is from source extractor using 6 isophotal diameters
+            d['a'] = 6. * obj['a'] * pixel_size
+            d['b'] = 6. * obj['b'] * pixel_size
+            d['a_pix'] = 6. * obj['a']
+            d['b_pix'] = 6. * obj['b']
+            d['theta'] = obj['theta']
+            d['theta_deg'] = obj['theta'] * 180./np.pi
+            d['dist_baryctr'] = dist2bary * pixel_size
+
+            if success:
+                d['dist_curve'] = dist2curve * pixel_size
+            else:
+                d['dist_curve'] = -1.0
+
+            try:
+                # now, get the flux
+
+                flux, fluxerr, flag = sep.sum_ellipse(data,
+                                                      [obj['x']], [obj['y']],
+                                                      [obj['a']], [obj['b']], [obj['theta']],
+                                                      r =[1.0], segmap=None,subpix=1, err=None)
+
+                flux = flux[0]
+                fluxerr = fluxerr[0]
+                flag = flag[0]
+
+            except Exception as e:
+                try:
+                    if e.args[0] == "invalid aperture parameters":
+                        # log.debug(f"+++++ invalid aperture parameters")
+                        pass  # do nothing ... not important
+                    else:
+                        status.append(f"idx [{idx}] Exception! {e}")
+                except Exception as e:
+                    status.append(f"idx [{idx}] Exception with source extractor. {e}")
+                continue
+
+            # flux, fluxerr, flag may be ndarrays but of size zero (a bit weird)
+            flux = float(flux)
+            fluxerr = float(fluxerr)
+            flag = int(flag)
+
+            d['flux_cts'] = flux  #lost light correction already applied above
+            d['flux_cts_err'] = fluxerr
+            d['flags'] = flag
+
+
+            img_objects.append(d)
+            map_idx[idx] = len(img_objects) - 1
+
+            if success:  # this is outside
+                outside_objs.append((idx, dist2bary, dist2curve))
+            elif dist2bary is not None:
+                inside_objs.append((idx, dist2bary))
+
+    except Exception as e:
+        status.append(
+            f"Source Extractor call failed: {e}\n\n{traceback.format_exc()}")
 
     return img_objects, status
 
