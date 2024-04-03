@@ -1,3 +1,5 @@
+import os.path
+
 from astropy.wcs import WCS
 import astropy.io.fits as fits
 import astropy
@@ -58,6 +60,115 @@ def build_wcs_manually(img, idx=0):
 
     return wcs
 
+
+def find_target_image(image_dict,ra,dec):
+    """
+
+    :param image_dict:
+    :param ra:
+    :param dec:
+    :param basepath:
+    :return:
+    """
+
+    keys = []
+
+    for k in image_dict:
+        # don't bother to load if ra, dec not in range
+        try:
+
+            if image_dict[k]['RA_max'] - image_dict[k]['RA_min'] < 30:  # 30 deg as a big value
+                # ie. we are NOT crossing the 0 or 360 deg line
+                if not ((ra >= image_dict[k]['RA_min']) and (ra <= image_dict[k]['RA_max']) and
+                        (dec >= image_dict[k]['Dec_min']) and (dec <= image_dict[k]['Dec_max'])):
+                    continue
+                else:
+                    keys.append(k)
+            else:  # we are crossing the 0/360 boundary, so we need to be greater than the max (ie. between max and 360)
+                # OR less than the min (between 0 and the minimum)
+                if not ((ra <= image_dict[k]['RA_min']) or (ra >= image_dict[k]['RA_max']) and
+                        (dec >= image_dict[k]['Dec_min']) and (dec <= image_dict[k]['Dec_max'])):
+                    continue
+                else:
+                    keys.append(k)
+
+        except:
+            pass
+
+
+    if len(keys) == 0:  # we're done ... did not find any
+        return None
+    elif len(keys) == 1:  # found exactly one
+        tile = keys  # remember tile is a string ... there can be only one
+    elif len(keys) > 1:  # find the best one
+        max_dist = 0
+        tiles_dist = []
+        for k in keys:
+            # should not be negative, but could be?
+            # in any case, the min is the smallest distance to an edge in RA and Dec
+            inside_ra = abs(min((ra - image_dict[k]['RA_min']), (image_dict[k]['RA_max'] - ra)))
+            inside_dec = min((dec - image_dict[k]['Dec_min']), (image_dict[k]['Dec_max'] - dec))
+
+            tiles_dist.append(min(inside_dec, inside_ra))
+            # we want the tile with the largest minium edge distance
+
+
+        idx = np.argsort(tiles_dist)[::-1]
+        tile = np.array(keys)[idx]
+
+    else:
+        return None
+
+    return tile
+
+def build_simple_dictionary(filenames):
+    """
+    iterate over filenames and return a dictionary keyed by the filename (just the basename) with the min,max of RA, Dec
+
+    :param filenames: an array of filenames or fqpn
+    :return: dictionary
+    """
+
+    try:
+
+        the_dict={}
+        for fn in filenames:
+            try:
+                bn = os.path.basename(fn)
+
+                img = fits.open(fn)
+                footprint = None
+
+                for idx in range(len(img)):
+                    try:
+                        # footprint = WCS.calc_footprint(build_wcs_manually(img,idx))
+                        footprint = WCS.calc_footprint(build_wcs_automatically(fn))
+                        break
+                    except:
+                        print("Img[%d] failed. Trying next ..." % idx)
+                        print(sys.exc_info())
+
+                img.close()
+
+                if footprint is None:
+                    the_dict[bn] = {'RA_min': None,
+                                    'RA_max': None,
+                                    'Dec_min': None,
+                                    'Dec_max': None}
+                else:
+                    the_dict[bn] = {'RA_min': np.min(footprint[:, 0]),
+                                    'RA_max': np.max(footprint[:, 0]),
+                                    'Dec_min': np.min(footprint[:, 1]),
+                                    'Dec_max': np.max(footprint[:, 1])}
+
+
+            except Exception as e:
+                print(e)
+
+
+        return the_dict
+    except Exception as e:
+        print(e)
 
 
 def main():

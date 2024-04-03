@@ -27,7 +27,6 @@ from astropy.nddata import Cutout2D
 import astropy.wcs
 
 from photutils.segmentation import make_2dgaussian_kernel
-from scipy.stats import chi2
 
 import traceback
 
@@ -142,7 +141,17 @@ def calc_pixel_size(wcs):
         return None, ["Warning! Unable to determine pixel scale. WCS does not have cd or cdelt keywords."]
 
 
+def estimate_chi2_thresh(desired_prob_real=0.99, num_filters=None):
+    """
+    Used with find_objects_fixed_kernel()
 
+    :param desired_prob_real:
+    :param num_filters: number of filters (or sources of chi2 in stack)
+    :return: the chi2 threhold to pass into find_objects_fixed_kernel()
+    """
+    from scipy.stats import chi2
+
+    return chi2.ppf(desired_prob_real, num_filters)
 
 #######################################
 # Primary User Functions
@@ -468,6 +477,7 @@ def find_objects_fixed_kernel(cutout, kernel_fwhm = 3.0, kernel_size = 9, thresh
                  deblend_nthresh=64, deblend_cont=0.001):
     """
     Basically, Source extractor, but with a user specified Gaussian Kernel.
+    Defaults are set for JWST PRIMER
 
     :param cutout: this is an astropy Cutout2D object
 .
