@@ -6622,8 +6622,8 @@ class Spectrum:
         # wx is the array of wavelengths (e.g the x coords)
         # hat width in angstroms
         try:
-            w_rest = np.float(w_rest)
-            w_obs = np.float(w_obs)
+            w_rest = float(w_rest)
+            w_obs = float(w_obs)
             num_hats = 0
 
             if negative:
@@ -6631,7 +6631,7 @@ class Spectrum:
             else:
                 filter = np.zeros(np.shape(wx))
 
-            pix_size = np.float(wx[1]-wx[0]) #assume to be evenly spaced
+            pix_size = float(wx[1]-wx[0]) #assume to be evenly spaced
 
 
             if hat_width is None:

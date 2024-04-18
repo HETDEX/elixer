@@ -629,13 +629,13 @@ def prob_LAE(wl_obs,lineFlux,lineFlux_err=None, ew_obs=None, ew_obs_err=None, c_
     for posterior_odds in posterior_odds_list:
 
         if (posterior_odds is not None) and (posterior_odds != 0):
-            pogd = np.float(prob_lae_given_data) / posterior_odds
+            pogd = float(prob_lae_given_data) / posterior_odds
         else:
             pogd = 0.
 
-        plgd = np.float(prob_lae_given_data)
-        ratio_LAE = np.float(min(MAX_PLAE_POII, posterior_odds))
-        ratio_LAE = np.float(max(ratio_LAE,MIN_PLAE_POII))
+        plgd = float(prob_lae_given_data)
+        ratio_LAE = float(min(MAX_PLAE_POII, posterior_odds))
+        ratio_LAE = float(max(ratio_LAE,MIN_PLAE_POII))
 
         ratio_LAE_list.append(ratio_LAE)
         plgd_list.append(plgd)
@@ -890,12 +890,12 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
                         log.info("Weird. prob_lae_given_data %s" %(prob_lae_given_data))
 
                 if (posterior_odds is not None) and (posterior_odds != 0):
-                    pogd = np.float(prob_lae_given_data) / posterior_odds
+                    pogd = float(prob_lae_given_data) / posterior_odds
                 else:
                     pogd = 0.
 
-                plgd = np.float(prob_lae_given_data)
-                pogd = np.float(pogd)
+                plgd = float(prob_lae_given_data)
+                pogd = float(pogd)
 
                 #the base code can limit this to 1000.0 (explicitly) if P(OII|Data) == 0,
                 #so we DO need to force these to the max of 1000.0 (which could otherwise be exceeded
@@ -946,12 +946,12 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
                         log.info("Weird. prob_lae_given_data %s" %(prob_lae_given_data))
 
                 if (posterior_odds is not None) and (posterior_odds != 0):
-                    pogd = np.float(prob_lae_given_data) / posterior_odds
+                    pogd = float(prob_lae_given_data) / posterior_odds
                 else:
                     pogd = 0.
 
-                plgd = np.float(prob_lae_given_data)
-                pogd = np.float(pogd)
+                plgd = float(prob_lae_given_data)
+                pogd = float(pogd)
 
                 log.debug("Sampling (%d) PLAE/POII ... done. Unable to sample. No details returned." % (num_mc))
                 return float(posterior_odds), plgd, pogd, None
