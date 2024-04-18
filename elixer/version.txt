@@ -1,5 +1,9 @@
 changes to elixer by version
 
+1.22.0a7 [2024-04-18]
+* update call to hetdex_api make_narrowband_image() to set the new fill_value option to 0 (vs default NaN)
+
+
 1.22.0a6 [2024-02-14]
 * updated HSC NEP (move from multiple tiles with multiple filters per tile fits to large, images each with only
   one filter); updated photometric catalog

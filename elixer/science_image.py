@@ -132,10 +132,15 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
                 wave_range=wave_range,
                 include_error=True,
                 ffsky=False,
-                dcont=50.)
+                dcont=50.,
+                fill_value=0.0)
+
+
+            # for i in range(len(hdu_big)):
+            #     hdu_big[i].data = np.nan_to_num(hdu_big[i].data)
 
             hdu_median = np.nanmedian(np.where(hdu_big[0].data == 0, np.nan,hdu_big[0].data))#np.median(hdu[0].data)
-            hud_std = np.std(hdu_big[0].data)
+            hud_std = np.nanstd(hdu_big[0].data)
 
         else:
             hdu_median = None
@@ -154,7 +159,11 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
             wave_range=wave_range,
             include_error=True,
             ffsky=False,
-            dcont=50.)
+            dcont=50.,
+            fill_value=0.0)
+
+        # for i in range(len(hdu)):
+        #     hdu[i].data = np.nan_to_num(hdu[i].data)
 
         cutout = cp.deepcopy(hdu[0])
 
