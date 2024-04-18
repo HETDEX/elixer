@@ -7455,12 +7455,23 @@ class DetObj:
             else:
                 fiber_flux_offset = None
 
-            apt = hda_get_spectra(coord, survey=f"hdr{G.HDR_Version}", shotid=self.survey_shotid,
+
+            if G.ALWAYS_USE_LATEST_FOR_REEXTRACTION:
+                get_spectra_survey = G.HDR_Latest_Str
+                if G.HDR_Latest_Str != f"hdr{G.HDR_Version}":
+                    log.warning(f"Warning! get_spectra using latest data release ({G.HDR_Latest_Str}) instead of "
+                                f"command line specified release (hdr{G.HDR_Version})")
+            else:
+                get_spectra_survey = f"hdr{G.HDR_Version}"
+
+            apt = hda_get_spectra(coord, survey=get_spectra_survey, shotid=self.survey_shotid,
                                   ffsky=self.extraction_ffsky, multiprocess=G.GET_SPECTRA_MULTIPROCESS, rad=aper,
                                   tpmin=0.0,fiberweights=False,loglevel=get_spectra_loglevel,
-                                  fiber_flux_offset = fiber_flux_offset) #don't need the fiber weights
+                                  fiber_flux_offset = fiber_flux_offset,
+                                  ffsky_rescor=G.FFSKY_RESCOR, apply_mask=G.FIBER_SPEC_ELEM_MASKING)
+                                  #don't need the fiber weights
         except:
-            log.info("hetdex.py forced_extraction(). Exception calling HETDEX_API get_spectra",exc_info=True)
+            log.info("hetdex.py neighbor_forced_extraction(). Exception calling HETDEX_API get_spectra",exc_info=True)
 
         try:
             #always make the flat flux
@@ -7661,12 +7672,19 @@ class DetObj:
             #todo:  Add ffsky_rescor,  apply_mask (both booleans)
             #todo: maybe add keep_bad_shots if want to be explicit (always False for ELiXer)?
             log.debug("Calling get_spectra()")
-            apt = hda_get_spectra(coord, survey=f"hdr{G.HDR_Version}", shotid=self.survey_shotid,
-                                  ffsky=self.extraction_ffsky, multiprocess=G.GET_SPECTRA_MULTIPROCESS, rad=self.extraction_aperture,
-                                  tpmin=0.0,fiberweights=True,loglevel=get_spectra_loglevel,
-                                  fiber_flux_offset = fiber_flux_offset,
-                                  ffsky_rescor=G.FFSKY_RESCOR,
-                                  apply_mask=G.FIBER_SPEC_ELEM_MASKING)
+            if G.ALWAYS_USE_LATEST_FOR_REEXTRACTION:
+                get_spectra_survey = G.HDR_Latest_Str
+                if G.HDR_Latest_Str != f"hdr{G.HDR_Version}":
+                    log.warning(f"Warning! get_spectra using latest data release ({G.HDR_Latest_Str}) instead of "
+                                f"command line specified release (hdr{G.HDR_Version})")
+            else:
+                get_spectra_survey = f"hdr{G.HDR_Version}"
+
+            apt = hda_get_spectra(coord, survey=get_spectra_survey, shotid=self.survey_shotid,
+                                  ffsky=self.extraction_ffsky, multiprocess=G.GET_SPECTRA_MULTIPROCESS,
+                                  rad=self.extraction_aperture, tpmin=0.0,fiberweights=True,return_fiber_info=True,
+                                  loglevel=get_spectra_loglevel, fiber_flux_offset = fiber_flux_offset,
+                                  ffsky_rescor=G.FFSKY_RESCOR, apply_mask=G.FIBER_SPEC_ELEM_MASKING)
             log.debug("Calling get_spectra() ... Done.")
 
         except:

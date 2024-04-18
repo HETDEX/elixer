@@ -390,7 +390,7 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--merge', help='Merge all cat and fib txt files in disapatch_xxxx dirs only.',
                         required=False, action='store_true', default=False)
 
-    parser.add_argument('--merge_local', help='Merge all cat.h5 files in the current directory or in any dispatch_xxxx dirs.',
+    parser.add_argument('--merge_local', help='Merge all *cat.h5 files in the current directory or in any dispatch_xxxx dirs.',
                         required=False, action='store_true', default=False)
 
     parser.add_argument('--remove_duplicates', help='Remove duplicate rows in specified elixer HDF5 catalog file.',
@@ -5739,10 +5739,13 @@ def main():
                         hd_list.append(hd)
                 else:
                     if G.the_Survey is None:
-                        G.the_Survey = hda_survey.Survey(survey=f"hdr{G.HDR_Version}")
+                        try:
+                            G.the_Survey = hda_survey.Survey(survey=f"hdr{G.HDR_Version}")
+                        except:
+                            G.the_Survey = None
                     if not G.the_Survey:
-                        log.error(f"Cannot build hetdex_api survey object to determine shotid for {d}")
-                        print(f"Cannot build hetdex_api survey object to determine shotid for {d}")
+                        log.error(f"Fatal! Cannot build hetdex_api survey object for hdr{G.HDR_Version}")
+                        print(f"Fatal! Cannot build hetdex_api survey object for hdr{G.HDR_Version}")
                         exit(-1)
 
                     # this is only looking at the pointing, not checking individual fibers, so

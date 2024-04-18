@@ -146,11 +146,12 @@ def estimate_chi2_thresh(desired_prob_real=0.99, num_filters=None):
     Used with find_objects_fixed_kernel()
 
     :param desired_prob_real:
-    :param num_filters: number of filters (or sources of chi2 in stack)
+    :param num_filters: number of filters (or sources of chi2 in stack) aka degrees of freedom here
     :return: the chi2 threhold to pass into find_objects_fixed_kernel()
     """
     from scipy.stats import chi2
 
+    #hmmm .. should the degrees of freedom (df ... second parameter) be num_filters - 1?
     return chi2.ppf(desired_prob_real, num_filters)
 
 #######################################

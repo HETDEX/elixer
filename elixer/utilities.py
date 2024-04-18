@@ -661,7 +661,7 @@ def list_shot_types(yyyymmdd,count_exp=False,path="/work/03946/hetdex/maverick/"
 
 def get_ifus_in_shot(date,shot):
     """
-    Grab the tar file for the datevshot and enumerate the IFUs. Return list of IFUID integers
+    Grab the tar file for the datevshot and enumerate the IFUs. Return list of IFU SLOT ID integers
 
     :param date:
     :param shot:
@@ -726,7 +726,7 @@ def get_multifits(date,shot,exp,ifuid=None,amp=None,longfn=None,flatfile_path=No
     :param ifuid:  (int)
     :param amp:    (str) one of "LL","LU","RL","RU"
     :param longfn: (str) example: "20230103T105730.2_105LL_sci.fits" ... a "raw" file
-    :param raw:    (bool) If True, return as an unprocessed (raw) frame from the telescope.
+    :param raw:    (bool) If True, return as a skysubtracted but otherwise unprocessed (raw) frame from the telescope.
                           If False (default), rectify and return processed frame.
 
     :return: stream handle to the fits file (raw or processed) (ExFileObject or BufferedReader)
