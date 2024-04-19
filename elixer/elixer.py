@@ -2143,7 +2143,24 @@ def which(file):
         log.info("Exception in which",exc_info=True)
         return None
 
+def check_png(png_name,pdf_name = None):
+    """"
+    checks is the two files are the same .. sometimes happens on TACC ... the pdftoppm or convert can fail silently
+    """
 
+    #todo: if pdf_name is provided, check the png vs the pdf
+    try:
+        okay = True #assume okay unless otherwise shown
+        # are they the same size and or does the png have a PDF header
+        with open(png_name,"rb") as f:
+            if f.read(5)[1:4] != b'PNG':
+                #good, at least it says its a PNG
+                okay = False
+
+
+        return okay
+    except:
+        log.warning("Exception in check_pdf_vs_png",exc_info=True)
 
 def convert_pdf(filename, resolution=150, jpeg=False, png=True):
     """
@@ -2211,6 +2228,10 @@ def convert_pdf(filename, resolution=150, jpeg=False, png=True):
                 try:
                     size = os.path.getsize(image_name)
                     if OS_PNG_ONLY:
+                        if image_name[-3:] == "png":
+                            if not check_png(image_name):
+                                log.warning(f"Conversion assumed failed at ({size}) for {image_name}. Failed check_png(). May retry")
+                                break
                         log.debug(f"Conversion assumed good at ({size}) for {image_name}. Only OS conversions allowed.")
                         retry_ct = 99
                         break
