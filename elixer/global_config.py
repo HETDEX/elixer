@@ -1511,7 +1511,12 @@ BGR_RES_APER_TAB_FF_IDX_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_res
 
 #Background Residual Tables (LL (local) and FF sky)
 #BGR_BASEPATH = "/scratch/03261/polonius/hetdex/sky_subtraction_residuals/"
-BGR_BASEPATH = f"/scratch/projects/hetdex/{HDR_Latest_Str}/catalogs/avg_empty_fibers"
+
+try:
+    BGR_BASEPATH =  os.path.join(HDR_BASEPATH,"catalogs/avg_empty_fibers")
+except:
+    log.warning("Unable to configure BGR_BASEPATH. Using default.")
+    BGR_BASEPATH = f"/scratch/projects/hetdex/{HDR_Latest_Str}/catalogs/avg_empty_fibers"
 
 BGR_RES_FIBER_TAB_LL = None
 BGR_RES_FIBER_TAB_FF = None
