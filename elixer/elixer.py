@@ -431,7 +431,7 @@ def parse_commandline(auto_force=False):
                         required=False, action='store_true', default=False)
 
     parser.add_argument('--hdf5', help="HDF5 Detections File (see also --dets)", required=False,
-                        default=G.HDF5_DETECT_FN)
+                        default=None) #G.HDF5_DETECT_FN
 
 
     parser.add_argument('--recover', help='Recover/continue from previous run. Will append to and NOT overwrite exsiting output.',
@@ -1013,14 +1013,17 @@ def parse_commandline(auto_force=False):
     if args.continuum and args.broadline:
         print("Illegal combination of options. Cannot specify both --continuum and --broadline")
         exit(-1)
-    elif args.continuum:
-        log.info("Setting CONTINUUM_RULES (args.continuum is set)")
-        args.hdf5 = G.HDF5_CONTINUUM_FN
-        G.CONTINUUM_RULES = True
-        G.MAX_SCORE_ABSORPTION_LINES = 9999.9
-        G.DISPLAY_ABSORPTION_LINES = True
-    elif args.broadline:
-        args.hdf5 = G.HDF5_BROAD_DETECT_FN
+    elif args.hdf5 is None:
+        if args.continuum:
+            log.info("Setting CONTINUUM_RULES (args.continuum is set)")
+            args.hdf5 = G.HDF5_CONTINUUM_FN
+            G.CONTINUUM_RULES = True
+            G.MAX_SCORE_ABSORPTION_LINES = 9999.9
+            G.DISPLAY_ABSORPTION_LINES = True
+        elif args.broadline:
+            args.hdf5 = G.HDF5_BROAD_DETECT_FN
+        else:
+            args.hdf5 = G.HDF5_DETECT_FN
 
     if args.annulus:
         try:

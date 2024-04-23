@@ -1,5 +1,11 @@
 changes to elixer by version
 
+1.22.0a8 [2024-04-23]
+* allow --hdf5 option to fully override the --hdr option to specify which detections h5 file to use
+  + will pull shot information (seeing, response, etc) from shot h5 if survey file does not contain this detection
+* revise preferred emission line fit selection for a given wavelength as:
+    the largest score with chi2 < 2.5 followed by the lowest chi2 with score > 10
+
 1.22.0a7 [2024-04-18]
 * update call to hetdex_api make_narrowband_image() to set the new fill_value option to 0 (vs default NaN)
 

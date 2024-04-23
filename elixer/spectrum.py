@@ -2249,8 +2249,32 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                             except:
                                 pass
 
+        fd_idx = None
 
-        fd_idx = np.argmax([fd["score"] for fd in fit_dict_array])
+        #get the largest line score of lines with chi2 < 2.5
+        try:
+            fit_dict_array = np.array(fit_dict_array)
+            sel_ls = [fd["chi2"] <=2.5 for fd in fit_dict_array]
+            if np.count_nonzero(sel_ls) > 0:
+                fd_idx = np.argmax([fd["score"] for fd in fit_dict_array[sel_ls]])
+                fd_idx = np.argwhere([fd['type'] == fit_dict_array[sel_ls][fd_idx]['type'] for fd in fit_dict_array])[0][0]
+        except:
+            fd_idx = None
+
+        #if that did not yeild a result, then select line scores above 10 or 15 and then the lowest chi2 in that set ... if there are none, then
+        #choose the largest line score
+        if fd_idx is None or fit_dict_array[fd_idx]['score'] < 10:
+            try:
+                fit_dict_array = np.array(fit_dict_array)
+                sel_ls = [fd["score"] >= 10 for fd in fit_dict_array]
+                if np.count_nonzero(sel_ls) > 0:
+                    fd_idx = np.argmin([fd["chi2"] for fd in fit_dict_array[sel_ls]])
+                    fd_idx = np.argwhere([fd['type'] == fit_dict_array[sel_ls][fd_idx]['type'] for fd in fit_dict_array])[0][0]
+            except:
+                fd_idx = None
+
+        if fd_idx is None:
+            fd_idx = np.argmax([fd["score"] for fd in fit_dict_array])
 
         if fit_dict_array[fd_idx]['score'] <=0:
             #nothing at all here

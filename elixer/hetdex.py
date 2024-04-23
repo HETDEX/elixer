@@ -6955,7 +6955,7 @@ class DetObj:
         # rsp1 (when t5all was provided and we want to load specific fibers for a single detection)
 
 
-    def load_hdf5_shot_info(self,hdf5_fn,shotid):
+    def load_hdf5_shot_info(self,hdf5_fn,shotid,shot_specific_h5=None):
         try:
             id = np.int64(copy(shotid))
         except:
@@ -6976,6 +6976,17 @@ class DetObj:
                 log.error("Exception in hetdex::DetObj::load_hdf5_shot_info reading rows from Survey table",
                           exc_info=True)
                 rows = None
+
+            #usually we get this from the survey file, but if that fails, it may be in the shot h5 file, if provided
+            if (rows is None) or (rows.size != 1) and shot_specific_h5 is not None:
+                try:
+                    shot_h5 = tables.open_file(shot_specific_h5)
+                    rows = shot_h5.root.Shot.read()
+                    shot_h5.close()
+                except:
+                    log.error("Exception in hetdex::DetObj::load_hdf5_shot_info reading rows from shot specific h5 file",
+                              exc_info=True)
+                    rows = None
 
             if (rows is None) or (rows.size != 1):
                 log.error(f"Problem loading info for shot {shotid} from {hdf5_fn}. Setting out of range values for shot.")
@@ -8602,6 +8613,12 @@ class DetObj:
                         t2sleep = np.random.random_integers(0, 5000) / 1000.  # sleep up to 5 sec
                         log.info(f"+++++ Memory issue? Random sleep {t2sleep:0.4f}s. Retries remaining {retry}")
                         pytime.sleep(t2sleep)
+
+                    except (ValueError,IndexError):
+                        hda_detobj = None
+                        #log.warning("Exception attempting to load spectra through hetdex_api",exc_info=True)
+                        log.warning(f"{id} not found in HETDEX_API. Will attempt direct load from h5 file.")
+                        retry = 0
                     except:
                         hda_detobj = None
                         log.warning("Exception attempting to load spectra through hetdex_api",exc_info=True)
@@ -8692,7 +8709,7 @@ class DetObj:
             self.ifu_y = row['y_ifu']
 
             if hdf5_survey_fqfn is not None:
-                self.load_hdf5_shot_info(hdf5_survey_fqfn, self.survey_shotid)
+                self.load_hdf5_shot_info(hdf5_survey_fqfn, self.survey_shotid, shot_specific_h5=None)
 
             if basic_only: #we're done, this is all we need
                 return
@@ -9334,6 +9351,16 @@ class DetObj:
             print("Warning! Duplicate Fibers found %d / %d" %(duplicate_count, count))
             log.warning("Warning! Duplicate Fibers found %d / %d" %(duplicate_count, count))
             self.duplicate_fibers_removed = 1
+
+
+        #if we were unable to load the shot info from the survey file, try to do so now from the first fiber shot file
+        if self.survey_fwhm == 999:
+            try:
+                self.load_hdf5_shot_info(hdf5_survey_fqfn, self.survey_shotid, shot_specific_h5=self.fibers[0].fits_fn)
+            except:
+                pass
+
+
 
         #more to do here ... get the weights, etc (see load_flux_calibrated spectra)
         if True: #go ahead and do this anyway, may want to plot central object info/spectra
