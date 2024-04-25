@@ -2196,7 +2196,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
 
                         ]
-                if max_sigma > 55.0:
+                if 55.0 < max_sigma < 80.0:
                     fit_dict_array.append(
                         {"type": "xxlrg", "fit_range_AA": fit_range_AA * 10.0, "wave_fit_side_aa": max_sigma*3.3,
                          "min_fit_sigma": max_sigma/3.0, "max_fit_sigma": max_sigma,
@@ -2254,7 +2254,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         #get the largest line score of lines with chi2 < 2.5
         try:
             fit_dict_array = np.array(fit_dict_array)
-            sel_ls = [fd["chi2"] <=2.5 for fd in fit_dict_array]
+            sel_ls = [ (fd["chi2"] <=2.5) and (fd["fit_sigma"]) for fd in fit_dict_array]
             if np.count_nonzero(sel_ls) > 0:
                 fd_idx = np.argmax([fd["score"] for fd in fit_dict_array[sel_ls]])
                 fd_idx = np.argwhere([fd['type'] == fit_dict_array[sel_ls][fd_idx]['type'] for fd in fit_dict_array])[0][0]
