@@ -1444,7 +1444,7 @@ class EmissionLineInfo:
                 self.line_flux_err = 0.25*(mcmc.mcmc_A_2[1]+mcmc.mcmc_A_2[2])* 10**values_units
 
                 self.fit_x0 = mcmc.mcmc_mu_2[0]
-                self.w_obs = mcmc.mcmc_mu_2[0]
+                #self.w_obs = mcmc.mcmc_mu_2[0] #not using w_obs in EmissionLineInfo object (just in EmissionLine object)
 
 
             else: #use 1st mcmc
@@ -1467,7 +1467,7 @@ class EmissionLineInfo:
                 self.line_flux_err = 0.25*(mcmc.mcmc_A[1]+mcmc.mcmc_A[2])* 10**values_units
 
                 self.fit_x0 = hk_mcmc.mcmc_mu[0]
-                self.w_obs = hk_mcmc.mcmc_mu[0]
+                #self.w_obs = hk_mcmc.mcmc_mu[0] #not using w_obs in EmissionLineInfo object (just in EmissionLine object)
 
 
 
@@ -7217,7 +7217,7 @@ class Spectrum:
                             #NOTE 0.25* since 0.5 * for the average and /2.0 for the 2AA
                             h.fit_x0 = hk_mcmc.mcmc_mu_2[0]
                             h.fit_dx0 = self.h_and_k_waves[1] - hk_mcmc.mcmc_mu_2[0]/(hk_mcmc.mcmc_mu[0]/self.h_and_k_waves[0])
-                            h.w_obs = hk_mcmc.mcmc_mu_2[0]
+                            #h.w_obs = hk_mcmc.mcmc_mu_2[0] #not using w_obs in EmissionLineInfo object (just in EmissionLine object)
                             h.snr = hk_mcmc.mcmc_snr #technically the SNR for the combined lines, but since
                             #these are fit as two, keep this value and maybe boost the score
 
@@ -7498,7 +7498,7 @@ class Spectrum:
             #NOTE 0.25* since 0.5 * for the average and /2.0 for the 2AA
             eli.fit_x0 = hk_mcmc.mcmc_mu_2[0]
             eli.fit_dx0 = self.h_and_k_waves[1] - hk_mcmc.mcmc_mu_2[0]/(sol.z+1)
-            eli.w_obs = hk_mcmc.mcmc_mu_2[0]
+            #eli.w_obs = hk_mcmc.mcmc_mu_2[0] #not using w_obs in EmissionLineInfo object (just in EmissionLine object)
             eli.snr = hk_mcmc.mcmc_snr #technically the SNR for the combined lines, but since
             #these are fit as two, keep this value and maybe boost the score
             eli.build(values_units=hk_mcmc.values_units,allow_broad=False,broadfit=False,override_continuum_rules=True)

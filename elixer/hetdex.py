@@ -9132,8 +9132,10 @@ class DetObj:
                     (self.cont_cgs_unc / self.cont_cgs) ** 2))
 
 
+            if (self.w is None or self.w == 0.0) and self.target_wavelength is not None:
+                self.w = self.target_wavelength
 
-            if (G.CONTINUUM_RULES or self.cont_cgs > G.CONTNIUUM_RULES_THRESH) and (self.w is None) or (self.w == 0.0):
+            if (G.CONTINUUM_RULES or self.cont_cgs > G.CONTNIUUM_RULES_THRESH) and ((self.w is None) or (self.w == 0.0)):
 
                 # find the "best" wavelength to use as the central peak
                 #spectrum = elixer_spectrum.Spectrum()
@@ -9694,7 +9696,7 @@ class DetObj:
 
 
             #this can cause problems with plottint, etc
-            if True and central_wave_volatile and (abs(self.spec_obj.central_eli.w_obs - self.w) > 4.0):
+            if True and central_wave_volatile and (abs(self.spec_obj.central_eli.fit_x0 - self.w) > 4.0):
                 try:
                     #todo: since we are moving the central location, need to also update the sumspec_wavelength_zoom, etc
                     log.info(f"[{self.entry_id}] updating original anchor wavelength. Was {self.w :0.2f}, now {self.spec_obj.central_eli.w_obs:0.2f}.")
