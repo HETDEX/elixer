@@ -2833,6 +2833,9 @@ class DetObj:
             #first scan existing z solutions and see if they have a matching photz with zPDF; if yes, then boost their
             #scores by the zPDF in the z-region AND mark them as already phitz boosted so we don't double boost below
             #with the same single value photz
+            if self.spec_obj.solutions is None:
+                self.spec_obj.solutions = []
+
             for s in self.spec_obj.solutions:
                 for b in self.bid_target_list:
                     try:
@@ -9689,54 +9692,86 @@ class DetObj:
                                    continuum_limit=max(self.best_gmag_cgs_cont, G.HETDEX_CONTINUUM_FLUX_LIMIT),
                                    continuum_limit_err=self.best_gmag_cgs_cont_unc,detobj=self) #solutions can be returned, also stored in spec_obj.solutions
 
-            # if central_wave_volatile and (self.spec_obj.central_eli.w_obs != self.w):
-            #     try:
-            #         self.estflux = self.spec_obj.central_eli.mcmc_line_flux
-            #         self.eqw_obs = self.spec_obj.central_eli.mcmc_ew_obs[0]
-            #         self.cont_cgs = self.spec_obj.central_eli.mcmc_continuum
-            #         #self.snr = self.spec_obj.central_eli.mcmc_snr
-            #         self.snr = self.spec_obj.central_eli.snr
-            #         self.snr_unc = self.spec_obj.central_eli.snr_err
-            #
-            #         self.spec_obj.estflux = self.estflux
-            #         self.spec_obj.eqw_obs = self.eqw_obs
-            #
-            #         #self.estflux = self.spec_obj.central_eli.line_flux
-            #         #self.cont = self.spec_obj.central_eli.cont
-            #         #self.eqw_obs = self.estflux / self.cont
-            #         #self.snr = self.spec_obj.central_eli.snr
-            #
-            #         #if no mcmc try the fit?
-            #         self.w = self.spec_obj.central_eli.mcmc_x0[0]
-            #         self.w_unc = 0.5 * (self.spec_obj.central_eli.mcmc_x0[1] + self.spec_obj.central_eli.mcmc_x0[2])
-            #         self.sigma = self.spec_obj.central_eli.mcmc_sigma[0]
-            #         self.sigma_unc = 0.5 * (self.spec_obj.central_eli.mcmc_sigma[1]+self.spec_obj.central_eli.mcmc_sigma[2])
-            #         self.chi2 = self.spec_obj.central_eli.mcmc_chi2
-            #         self.estflux = self.spec_obj.central_eli.mcmc_line_flux
-            #         self.estflux_unc = 0.5 * (self.spec_obj.central_eli.mcmc_line_flux_tuple[1] + self.spec_obj.central_eli.mcmc_line_flux_tuple[2])
-            #
-            #
-            #         self.cont_cgs = self.spec_obj.central_eli.mcmc_continuum
-            #         self.cont_cgs_unc = 0.5 * (self.spec_obj.central_eli.mcmc_continuum_tuple[1]+self.spec_obj.central_eli.mcmc_continuum_tuple[2])
-            #         self.cont_cgs_narrow = self.spec_obj.central_eli.mcmc_continuum
-            #         self.cont_cgs_unc_narrow = self.cont_cgs_unc
-            #
-            #         self.snr = self.spec_obj.central_eli.mcmc_snr
-            #         self.snr_unc = self.spec_obj.central_eli.mcmc_snr_err
-            #
-            #         self.eqw_obs = self.spec_obj.central_eli.mcmc_ew_obs[0]
-            #         self.eqw_obs_unc = 0.5 * (self.spec_obj.central_eli.mcmc_ew_obs[1]+self.spec_obj.central_eli.mcmc_ew_obs[2])
-            #
-            #         #fluxes are in e-17
-            #         self.line_gaussfit_parms = (self.w,self.sigma,self.estflux*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,
-            #                                     self.cont_cgs/G.HETDEX_FLUX_BASE_CGS,G.FLUX_WAVEBIN_WIDTH)
-            #         self.line_gaussfit_unc = (self.w_unc,self.sigma_unc,self.estflux_unc*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,
-            #                                   self.cont_cgs_unc/G.HETDEX_FLUX_BASE_CGS,0.0)
-            #
-            #
-            #     except:
-            #         log.warning("Exception! Unable to update central line following classification.",exc_info=True)
-            #
+
+            #this can cause problems with plottint, etc
+            if True and central_wave_volatile and (abs(self.spec_obj.central_eli.w_obs - self.w) > 4.0):
+                try:
+                    #todo: since we are moving the central location, need to also update the sumspec_wavelength_zoom, etc
+                    log.info(f"[{self.entry_id}] updating original anchor wavelength. Was {self.w :0.2f}, now {self.spec_obj.central_eli.w_obs:0.2f}.")
+                    idx = elixer_spectrum.getnearpos(self.sumspec_wavelength, self.spec_obj.central_eli.fit_x0)
+                    left = idx - 25  # 2AA steps so +/- 50AA
+                    right = idx + 25
+
+                    if left < 0:
+                        left = 0
+                    if right > len(self.sumspec_flux):
+                        right = len(self.sumspec_flux)
+
+                    self.sumspec_wavelength_zoom = self.sumspec_wavelength[left:right]
+                    self.sumspec_flux_zoom = self.sumspec_flux[left:right]
+                    self.sumspec_fluxerr_zoom = self.sumspec_fluxerr[left:right]
+
+
+                    self.estflux = self.spec_obj.central_eli.fit_line_flux
+                    self.eqw_obs = self.spec_obj.central_eli.eqw_obs
+                    self.cont_cgs = self.spec_obj.central_eli.cont
+                    self.cont_cgs_unc = self.spec_obj.central_eli.cont_err
+
+                    #self.snr = self.spec_obj.central_eli.mcmc_snr
+                    self.snr = self.spec_obj.central_eli.snr
+                    self.snr_unc = self.spec_obj.central_eli.snr_err
+
+                    self.spec_obj.estflux = self.estflux
+                    self.spec_obj.eqw_obs = self.eqw_obs
+
+                    #self.estflux = self.spec_obj.central_eli.line_flux
+                    #self.cont = self.spec_obj.central_eli.cont
+                    #self.eqw_obs = self.estflux / self.cont
+                    #self.snr = self.spec_obj.central_eli.snr
+
+                    #if no mcmc try the fit?
+                    self.w = self.spec_obj.central_eli.fit_x0
+                    self.w_unc = self.spec_obj.central_eli.fit_x0_err
+
+                    self.sigma = self.spec_obj.central_eli.fit_sigma
+                    self.sigma_unc = self.spec_obj.central_eli.fit_sigma_err
+                    self.chi2 = self.spec_obj.central_eli.fit_chi2
+                    self.estflux = self.spec_obj.central_eli.fit_line_flux
+                    self.estflux_unc =self.spec_obj.central_eli.fit_line_flux_err
+
+
+                    self.cont_cgs_narrow = self.spec_obj.central_eli.fit_continuum
+                    self.cont_cgs_unc_narrow =self.spec_obj.central_eli.fit_continuum_err
+
+                    self.snr = self.spec_obj.central_eli.snr
+                    self.snr_unc = self.spec_obj.central_eli.snr_err
+
+
+                    self.line_gaussfit_parms = (self.w,self.sigma,self.estflux*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,
+                                                self.cont_cgs*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,G.FLUX_WAVEBIN_WIDTH)
+                    self.line_gaussfit_unc = (self.w_unc,self.sigma_unc,self.estflux_unc*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,
+                                              self.cont_cgs_unc*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,0.0)
+
+                    #reset the spec_obj
+                    # self.spec_obj.set_spectra(self.sumspec_wavelength, self.sumspec_flux, self.sumspec_fluxerr, self.w,
+                    #                       values_units=-17, estflux=self.estflux, estflux_unc=self.estflux_unc,
+                    #                       eqw_obs=self.eqw_obs, eqw_obs_unc=self.eqw_obs_unc,
+                    #                       estcont=self.cont_cgs, estcont_unc=self.cont_cgs_unc,
+                    #                       fwhm=self.fwhm, fwhm_unc=self.fwhm_unc,
+                    #                       continuum_g=self.best_gmag_cgs_cont,
+                    #                       continuum_g_unc=self.best_gmag_cgs_cont_unc,
+                    #                       gmag=self.best_gmag, gmag_err=self.best_gmag_unc, detobj=self)
+
+
+                    self.spec_obj.absorber = self.spec_obj.central_eli.absorber
+
+                    # if self.spec_obj.solutions is None:
+                    #     self.spec_obj.solutions = []
+                    # if self.spec_obj.solutions == 0
+
+                except:
+                    log.warning("Exception! Unable to update central line following classification.",exc_info=True)
+
 
         if (self.w is None or self.w == 0) and (self.spec_obj is not None):
             try:
@@ -15092,13 +15127,17 @@ class HETDEX:
                     y_pos = textplot.axis()[2]
 
                     #if good and not absorber and (p_score > 0.7):
-                    if good and (p_score > 0.7):
-                        textplot.text(cwave, y_pos, sol.name + " {", rotation=-90, ha='center', va='bottom',
-                                      fontsize=20, color=sol.color)  # use the e color for this family
+                    if (sol is not None) and np.isclose(sol.central_rest,cwave,atol=4.0):
+                        if good and (p_score > 0.7):
+                            textplot.text(cwave, y_pos, sol.name + " {", rotation=-90, ha='center', va='bottom',
+                                          fontsize=20, color=sol.color)  # use the e color for this family
 
-                    else: #weak solution, use standard font size
-                        textplot.text(cwave, y_pos, sol.name + " {", rotation=-90, ha='center', va='bottom',
-                                      color=sol.color,fontsize=10)  # use the e color for this family
+                        else: #weak solution, use standard font size
+                            textplot.text(cwave, y_pos, sol.name + " {", rotation=-90, ha='center', va='bottom',
+                                          color=sol.color,fontsize=10)  # use the e color for this family
+                    else:  #the top solution does not match THIS line
+                        #do not label the line
+                        pass
 
                     #highlight the matched lines
                     yl, yh = specplot.get_ylim()

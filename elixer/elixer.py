@@ -1024,6 +1024,12 @@ def parse_commandline(auto_force=False):
             args.hdf5 = G.HDF5_BROAD_DETECT_FN
         else:
             args.hdf5 = G.HDF5_DETECT_FN
+    else:
+        if args.continuum:
+            log.info("Setting CONTINUUM_RULES (args.continuum is set)")
+            G.CONTINUUM_RULES = True
+            G.MAX_SCORE_ABSORPTION_LINES = 9999.9
+            G.DISPLAY_ABSORPTION_LINES = True
 
     if args.annulus:
         try:

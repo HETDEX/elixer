@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.22.0a9 [2024-04-26]
+* update continuum source handling for H&K line -- in progress
+
 1.22.0a8 [2024-04-23]
 * allow --hdf5 option to fully override the --hdr option to specify which detections h5 file to use
   + will pull shot information (seeing, response, etc) from shot h5 if survey file does not contain this detection

@@ -1350,7 +1350,7 @@ class EmissionLineInfo:
 
             #if recommend_mcmc: #this was a marginal LSQ fit, so replace key the "fit_xxx" with the mcmc values
             if self.mcmc_x0 is not None:
-                fit_scale = 1/(10 ** values_units)
+                fit_scale = 10.0**(-1*values_units)
 
                 self.fit_x0 = self.mcmc_x0[0]
                 self.fit_x0_err = 0.5*(self.mcmc_x0[1]+self.mcmc_x0[2])
@@ -1387,6 +1387,156 @@ class EmissionLineInfo:
         except:
             log.error("Exception! Exception mapping MCMC fit parms to fit_xxx parms.",exc_info=True)
 
+
+    def hk_mcmc_to_fit(self,mcmc,values_units,values_dx,use_2=True):
+        """
+
+        based on mcmc_to_fit but special cased to H&K which as two mcmcs in it
+
+        translate mcmc found parms to fit_xxx parms
+        :param mcmc = the MCMC object from the mcmc run
+        :param values_units = 0, None, 1,  -17, -18 ... per usual
+        :param values_dx = wavebin size (usuall 2AA per bin)
+        :param use_2 = use the second mcmc fit
+        :return:
+        """
+        try:
+            if mcmc is None or mcmc.mcmc_mu is None:
+                log.info("Invalid (None) mcmc passed to EmissionLineInfo::mcmc_to_fit")
+                return
+
+            # 3-tuple [0] = fit, [1] = fit +16%,  [2] = fit - 16%
+
+            #common to both 1st and 2nd mcmc
+            self.mcmc_snr = mcmc.mcmc_snr
+            self.mcmc_snr_err = mcmc.mcmc_snr_err
+
+            if mcmc.mcmc_y is not None:
+                self.mcmc_y = np.array(mcmc.mcmc_y)
+                if (values_dx is not None) and (values_dx > 0):
+                    self.mcmc_dx = values_dx
+                    self.mcmc_continuum = self.mcmc_y[0] / self.mcmc_dx
+                    self.mcmc_continuum_tuple = np.array(mcmc.mcmc_y) / self.mcmc_dx
+            else:
+                self.mcmc_y = np.array((0., 0., 0.))
+                self.mcmc_continuum = self.mcmc_y[0]  # / self.mcmc_dx  just a 0 / anything
+                self.mcmc_continuum_tuple = np.array(self.mcmc_y)  # / self.mcmc_dx
+
+            if use_2:
+                self.mcmc_x0 = mcmc.mcmc_mu_2
+                self.mcmc_sigma = mcmc.mcmc_sigma_2
+
+
+                if mcmc.mcmc_A_2 is not None:
+                    self.mcmc_a = np.array(mcmc.mcmc_A_2)
+                    if (values_dx is not None) and (values_dx > 0):
+                        self.mcmc_dx = values_dx
+                        self.mcmc_line_flux = self.mcmc_a[0] / values_dx
+                        self.mcmc_line_flux_tuple = np.array(mcmc.mcmc_A_2) / values_dx
+                else:
+                    self.mcmc_a = np.array((0., 0., 0.))
+                    self.mcmc_line_flux = self.mcmc_a[0]
+                    self.mcmc_line_flux_tuple = np.array((0., 0., 0.))
+
+
+                self.line_flux = mcmc.mcmc_A_2[0]/self.mcmc_dx * 10**values_units
+                # NOTE 0.25* since 0.5 * for the average and /2.0 for the 2AA
+                self.line_flux_err = 0.25*(mcmc.mcmc_A_2[1]+mcmc.mcmc_A_2[2])* 10**values_units
+
+                self.fit_x0 = mcmc.mcmc_mu_2[0]
+                self.w_obs = mcmc.mcmc_mu_2[0]
+
+
+            else: #use 1st mcmc
+                self.mcmc_x0 = mcmc.mcmc_mu
+                self.mcmc_sigma = mcmc.mcmc_sigma
+
+                if mcmc.mcmc_A is not None:
+                    self.mcmc_a = np.array(mcmc.mcmc_A)
+                    if (values_dx is not None) and (values_dx > 0):
+                        self.mcmc_dx = values_dx
+                        self.mcmc_line_flux = self.mcmc_a[0]/values_dx
+                        self.mcmc_line_flux_tuple =  np.array(mcmc.mcmc_A)/values_dx
+                else:
+                    self.mcmc_a = np.array((0.,0.,0.))
+                    self.mcmc_line_flux = self.mcmc_a[0]
+                    self.mcmc_line_flux_tuple = np.array((0.,0.,0.))
+
+                self.line_flux = mcmc.mcmc_A[0]/self.mcmc_dx * 10**values_units
+                # NOTE 0.25* since 0.5 * for the average and /2.0 for the 2AA
+                self.line_flux_err = 0.25*(mcmc.mcmc_A[1]+mcmc.mcmc_A[2])* 10**values_units
+
+                self.fit_x0 = hk_mcmc.mcmc_mu[0]
+                self.w_obs = hk_mcmc.mcmc_mu[0]
+
+
+
+            if values_units < 0:
+                self.mcmc_a *= 10**values_units
+                self.mcmc_y *= 10**values_units
+                self.mcmc_continuum  *= 10**values_units
+                self.mcmc_line_flux *= 10**values_units
+                try:
+                    self.mcmc_line_flux_tuple *= 10 ** values_units
+                    self.mcmc_continuum_tuple *= 10 ** values_units
+                except:
+                    log.error("*** Exception!", exc_info=True)
+
+            # calc EW and error with approximate symmetric error on area and continuum
+            if self.mcmc_y[0] != 0 and self.mcmc_a[0] != 0:
+                ew = self.mcmc_a[0] / self.mcmc_y[0]
+                ew_err = ew * np.sqrt((mcmc.approx_symmetric_error(self.mcmc_a) / self.mcmc_a[0]) ** 2 +
+                                      (mcmc.approx_symmetric_error(self.mcmc_y) / self.mcmc_y[0]) ** 2)
+            else:
+                ew = self.mcmc_a[0]
+                ew_err = mcmc.approx_symmetric_error(self.mcmc_a)
+
+
+            #todo: could add an uncertainty on this since we have MCMC uncertainties on the parameters (mu, sigma, y)
+
+            #def gaussian(x,x0,sigma,a=1.0,y=0.0):
+            #could do this by say +/- 3 sigma (Karl uses +/- 50 AA)
+            self.fit_chi2 = mcmc.mcmc_chi2
+
+            #if recommend_mcmc: #this was a marginal LSQ fit, so replace key the "fit_xxx" with the mcmc values
+            if self.mcmc_x0 is not None:
+                fit_scale = 10.0**(-1*values_units)
+
+                self.fit_x0 = self.mcmc_x0[0]
+                self.fit_x0_err = 0.5*(self.mcmc_x0[1]+self.mcmc_x0[2])
+
+                self.fit_sigma = self.mcmc_sigma[0]
+                self.fit_sigma_err = 0.5*(self.mcmc_sigma[1]+self.mcmc_sigma[2])
+
+                self.fit_a = self.mcmc_a[0] * fit_scale
+                self.fit_a_err = 0.5*(self.mcmc_a[1]+self.mcmc_a[2]) * fit_scale
+
+                #this needs to be flux level for plotting (not flux density) and in e-17 units
+                self.fit_y = self.mcmc_y[0] * fit_scale
+                self.fit_y_err = 0.5*(self.mcmc_y[1]+self.mcmc_y[2])* fit_scale
+
+
+                #MCMC is preferred to update key values
+                self.line_flux = self.mcmc_line_flux
+                self.line_flux_err = 0.5*(self.mcmc_line_flux_tuple[1]+self.mcmc_line_flux_tuple[2])
+
+
+                if self.mcmc_snr is not None and self.mcmc_snr > 0:
+                    log.debug(f"MCMC SNR update: old {self.snr}+/-{self.snr_err}, new {self.mcmc_snr}+/-{self.mcmc_snr_err}")
+                    self.snr = self.mcmc_snr
+                    self.snr_err = self.mcmc_snr_err
+
+                self.fwhm = self.mcmc_sigma[0]*2.355
+
+                self.mcmc_ew_obs = [ew, ew_err, ew_err]
+                #log.debug("MCMC Peak height = %f" % ())
+                log.debug("MCMC calculated EW_obs for main line = %0.3g +/- %0.3g" % (ew, ew_err))
+                log.debug(f"MCMC line flux = {self.mcmc_line_flux}")
+                log.debug(f"MCMC line SNR = {self.mcmc_snr}")
+
+                #log.debug(f"Calc SNR line_flux/data err: {self.line_flux/np.sqrt(np.sum(narrow_wave_errors))}")
+        except:
+            log.error("Exception! Exception mapping MCMC fit parms to fit_xxx parms.",exc_info=True)
 
     @property
     def flux_unc(self):
@@ -1481,7 +1631,7 @@ class EmissionLineInfo:
     #     return rat
 
 
-    def build(self,values_units=0,allow_broad=False, broadfit=1):
+    def build(self,values_units=0,allow_broad=False, broadfit=1, override_continuum_rules=False):
         """
 
         :param values_units:
@@ -1701,12 +1851,15 @@ class EmissionLineInfo:
                 self.raw_line_score = 0
 
             if self.absorber:
-                if G.MAX_SCORE_ABSORPTION_LINES: #if not scoring absorption, should never actually get here ... this is a safety
+                if G.MAX_SCORE_ABSORPTION_LINES or override_continuum_rules: #if not scoring absorption, should never actually get here ... this is a safety
                     # as hand-wavy correction, reduce the score as an absorber
                     # to do this correctly, need to NOT invert the values and treat as a proper absorption line
                     #   and calucate a true flux and width down from continuum
                     if ((self.cont - self.cont_err) < 2e-17) or (self.snr < 5.0): #if this has significant continuum, keep the score as is
-                        new_score = min(G.MAX_SCORE_ABSORPTION_LINES, self.line_score * ABSORPTION_LINE_SCORE_SCALE_FACTOR)
+                        if override_continuum_rules:
+                            new_score = self.line_score * ABSORPTION_LINE_SCORE_SCALE_FACTOR
+                        else:
+                            new_score = min(G.MAX_SCORE_ABSORPTION_LINES, self.line_score * ABSORPTION_LINE_SCORE_SCALE_FACTOR)
                         log.info(f"Rescalling line_score for absorption line: {self.line_score} to {new_score} @ {self.fit_x0:0.2f}AA")
                         self.line_score = new_score
                         self.raw_line_score = self.line_score
@@ -6696,7 +6849,7 @@ class Spectrum:
             self.all_found_lines = None
             self.all_found_absorbs = None
 
-        self.solutions = None
+        self.solutions = []
         #self.central_eli = None
 
         if self.noise_estimate is None or len(self.noise_estimate) == 0:
@@ -7074,7 +7227,7 @@ class Spectrum:
                             h.mcmc_snr = hk_mcmc.mcmc_snr
                             h.mcmc_snr_err = hk_mcmc.mcmc_snr_err
                             h.mcmc_a = np.array(hk_mcmc.mcmc_A_2) #yes, a 3-tuple
-                            h.mcmc_y = np.array(hk_mcmc.mcmc_y)
+                            h.mcmc_y = np.array(hk_mcmc.mcmc_y) #this is probably in the e-18 units but as a flux density
                             h.mcmc_dx = h.fit_dx0
                             h.mcmc_line_flux = h.fit_a/h.fit_bin_dx*(10**hk_mcmc.values_units)
                             lineflux_err = 0.5*(h.mcmc_a[1]+h.mcmc_a[2])/h.fit_bin_dx*10**hk_mcmc.values_units
@@ -7281,7 +7434,7 @@ class Spectrum:
                     if self.solutions is not None:
                         saved_solutions = copy.deepcopy(self.solutions)
                         del self.solutions
-                        self.solutions = None
+                        self.solutions = []
 
                     self.central = self.all_found_lines[np.argmax([x.raw_line_score for x in self.all_found_lines])].fit_x0
                     #self.central = self.find_central_wavelength(wavelengths, values, errors, values_units=values_units)
@@ -7330,7 +7483,8 @@ class Spectrum:
             eli.absorber = True
 
 
-            eli.mcmc_to_fit(hk_mcmc,hk_mcmc.values_units,2.0)
+            eli.hk_mcmc_to_fit(hk_mcmc,hk_mcmc.values_units,G.FLUX_WAVEBIN_WIDTH,use_2=True)
+            #eli.mcmc_to_fit(hk_mcmc,hk_mcmc.values_units,2.0)
 
             eli.fit_sigma = hk_mcmc.mcmc_sigma_2[0]
             eli.fit_sigma_err = (hk_mcmc.mcmc_sigma_2[1] + hk_mcmc.mcmc_sigma_2[1])/2.0
@@ -7347,7 +7501,7 @@ class Spectrum:
             eli.w_obs = hk_mcmc.mcmc_mu_2[0]
             eli.snr = hk_mcmc.mcmc_snr #technically the SNR for the combined lines, but since
             #these are fit as two, keep this value and maybe boost the score
-            eli.build(values_units=hk_mcmc.values_units,allow_broad=False,broadfit=False)
+            eli.build(values_units=hk_mcmc.values_units,allow_broad=False,broadfit=False,override_continuum_rules=True)
             eli.raw_score = eli.line_score
             eli.score = signal_calc_scaled_score(eli.line_score)
 
@@ -7385,6 +7539,7 @@ class Spectrum:
             sol.score = eli.line_score
             sol.prob_noise *= eli.prob_noise
             sol.lines.append(hline)
+            sol.eli = eli
 
             return sol
 
@@ -7445,7 +7600,12 @@ class Spectrum:
 
                             if (good is not None) and good:
                                sol =  h_and_k_to_solution(hk_mcmc,h_reference)
-                               self.h_and_k_mcmc = hk_mcmc
+                               if self.h_and_k_mcmc is None:
+                                   self.h_and_k_mcmc = copy.deepcopy(hk_mcmc)
+                               else:
+                                   if self.h_and_k_mcmc.mcmc_snr < self.h_and_k_mcmc.mcmc_snr:
+                                       del self.h_and_k_mcmc
+                                       self.h_and_k_mcmc = copy.deepcopy(hk_mcmc)
                                if sol is not None:
                                    self.solutions.append(sol)
                                    h_and_k_found = True
@@ -7456,34 +7616,53 @@ class Spectrum:
                 self.rescore()#undo_absorb_penalty=True)
                 #todo: if the h or k line is now the top score, set the central wavelength to that solution??
                 if self.solutions[0].central_rest in self.h_and_k_waves: #can't that is in hetdex object?
+
+                    if self.h_and_k_mcmc is not None:
+                        hk_mcmc = self.h_and_k_mcmc
+
                     self.central = hk_mcmc.mcmc_mu_2[0]
 
-                    eli = EmissionLineInfo() #this will become the new central_eli so needs to be fully populated
-                    eli.pix_size = 2.0
-                    eli.fit_bin_dx = 2.0
-                    eli.sn_pix = hk_mcmc.mcmc_snr_pix
-                    eli.absorber = True
-                    eli.fit_sigma = hk_mcmc.mcmc_sigma_2[0]
-                    eli.fit_sigma_err = (hk_mcmc.mcmc_sigma_2[1] + hk_mcmc.mcmc_sigma_2[1])/2.0
-                    eli.fit_a = hk_mcmc.mcmc_A_2[0]
-                    eli.fit_a_err = 0.5 * (hk_mcmc.mcmc_A_2[1] + hk_mcmc.mcmc_A_2[2])
-                    eli.fit_y = hk_mcmc.mcmc_y[0]
-                    eli.fit_y_err = 0.5 * (hk_mcmc.mcmc_y[1]+hk_mcmc.mcmc_y[2])
+                    try:
+                        eli = self.solutions[0].eli
+                    except:
+                        eli = None
 
-                    #eli.line_flux = hk_mcmc.mcmc_A_2[0]/2.0 * 10**values_units
-                    #eli.line_flux_err = 0.25*(hk_mcmc.mcmc_A_2[1]+hk_mcmc.mcmc_A_2[2])* 10**values_units
-                    #NOTE 0.25* since 0.5 * for the average and /2.0 for the 2AA
-                    eli.fit_x0 = hk_mcmc.mcmc_mu_2[0]
-                    eli.fit_dx0 = self.h_and_k_waves[1] - hk_mcmc.mcmc_mu_2[0]/(hk_mcmc.mcmc_mu_2[0]/self.h_and_k_waves[1])
-                    eli.w_obs = hk_mcmc.mcmc_mu_2[0]
-                    eli.snr = hk_mcmc.mcmc_snr #technically the SNR for the combined lines, but since
-                    #these are fit as two, keep this value and maybe boost the score
+                    if eli is None:
+
+                        eli = EmissionLineInfo() #this will become the new central_eli so needs to be fully populated
+
+                        eli.hk_mcmc_to_fit(hk_mcmc, hk_mcmc.values_units, values_dx=G.FLUX_WAVEBIN_WIDTH,use_2=True)
+
+                        eli.pix_size = 2.0
+                        eli.fit_bin_dx = 2.0
+                        eli.sn_pix = hk_mcmc.mcmc_snr_pix
+                        eli.absorber = True
+                        #eli.fit_sigma = hk_mcmc.mcmc_sigma_2[0]
+                        #eli.fit_sigma_err = (hk_mcmc.mcmc_sigma_2[1] + hk_mcmc.mcmc_sigma_2[1])/2.0
+                        #eli.fit_a = hk_mcmc.mcmc_A_2[0]
+                        #eli.fit_a_err = 0.5 * (hk_mcmc.mcmc_A_2[1] + hk_mcmc.mcmc_A_2[2])
+                        #eli.fit_y = hk_mcmc.mcmc_y[0]
+                        #eli.fit_y_err = 0.5 * (hk_mcmc.mcmc_y[1]+hk_mcmc.mcmc_y[2])
+
+
+                        #eli.fit_chi2 = hk_mcmc.mcmc_chi2
+
+                        #eli.line_flux = hk_mcmc.mcmc_A_2[0]/2.0 * 10**values_units
+                        #eli.line_flux_err = 0.25*(hk_mcmc.mcmc_A_2[1]+hk_mcmc.mcmc_A_2[2])* 10**values_units
+                        #NOTE 0.25* since 0.5 * for the average and /2.0 for the 2AA
+                        #eli.fit_x0 = hk_mcmc.mcmc_mu_2[0]
+                        #still need this one ... how far off is our fitted x0?
+                        eli.fit_dx0 = self.h_and_k_waves[1] - hk_mcmc.mcmc_mu_2[0]/(hk_mcmc.mcmc_mu[0]/self.h_and_k_waves[0])
+                        #eli.w_obs = hk_mcmc.mcmc_mu_2[0]
+                        #eli.snr = hk_mcmc.mcmc_snr #technically the SNR for the combined lines, but since
+                        #these are fit as two, keep this value and maybe boost the score
 
 
 
-                    eli.build(values_units=values_units,allow_broad=False,broadfit=False)
-                    eli.raw_score = eli.line_score
-                    eli.score = signal_calc_scaled_score(eli.line_score)
+                        eli.build(values_units=values_units,allow_broad=False,broadfit=False,override_continuum_rules=True)
+                        eli.raw_score = eli.line_score
+                        eli.score = signal_calc_scaled_score(eli.line_score)
+
 
                     self.central_eli = eli
             except:
