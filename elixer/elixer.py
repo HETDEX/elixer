@@ -418,7 +418,8 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--ffsky_rescor', help='Use Full Field sky subtraction with rescor applied. Auto implies --ffsky. Default=False.',
                         required=False,action='store_true', default=False)
 
-    parser.add_argument('--wavelength', help="Target wavelength (observed) in angstroms. Used with --annulus or --aperture",
+    parser.add_argument('--wavelength', help="Target wavelength (observed) in angstroms. Used with --annulus or --aperture"
+                                             " or to override the HETDEX specified wavelength.",
                         required=False, type=float)
 
     parser.add_argument('--delta_wave',

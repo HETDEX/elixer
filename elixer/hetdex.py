@@ -908,7 +908,19 @@ class DetObj:
 
                 self.x = float(tokens[2]) #sky x
                 self.y = float(tokens[3]) #sky y
-                self.w = float(tokens[4]) #wavelength
+
+                if self.target_wavelength is None:  # normal case, use the wavelength specified in HETDEX data
+                    self.w = float(tokens[4]) #wavelength
+                    self.w_unc = 0
+                elif self.target_wavelength <= 0:  # user does not know the anchor wavelength, but does not want to use HETDEX value
+                    self.w = 0
+                    self.w_unc = 0
+                else:  # user specified anchor (target) wavelength
+                    self.w = self.target_wavelength
+                    self.w_unc = 0
+
+
+
                 self.la_z = float(tokens[5])
                 self.dataflux = float(tokens[6])
                 self.modflux = float(tokens[7])
@@ -8699,8 +8711,18 @@ class DetObj:
             ############################
             #get basic detection info
             ############################
-            self.w = row['wave']
-            self.w_unc = row['wave_err']
+
+            if self.target_wavelength is None: #normal case, use the wavelength specified in HETDEX data
+                self.w = row['wave']
+                self.w_unc = row['wave_err']
+            elif self.target_wavelength <= 0: #user does not know the anchor wavelength, but does not want to use HETDEX value
+                self.w = 0
+                self.w_unc = 0
+            else: #user specified anchor (target) wavelength
+                self.w = self.target_wavelength
+                self.w_unc = 0
+
+
             self.wra = row['ra']
             self.wdec = row['dec']
             if self.ra is None:
