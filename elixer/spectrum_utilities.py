@@ -3517,7 +3517,7 @@ def get_empty_fiber_residual(hdr=G.HDR_Version, rtype=None, shotid=None, seeing=
                     sel = np.array(T['shotid'] == shotid)
                     ct = np.count_nonzero(sel)
                     if ct > 1:
-                        msg = f"Warning! Unexpected number of shot matches {ct}"
+                        msg = f"Warning #1! Unexpected number of shot matches {ct}"
                         print(msg)
                         log.warning(msg)
                         return residual, residual_err, contributors, G.EFR_FLAG_NOT_UNIQUE
@@ -3560,7 +3560,7 @@ def get_empty_fiber_residual(hdr=G.HDR_Version, rtype=None, shotid=None, seeing=
                 sel = np.array(T['shotid'] == shotid)
                 ct = np.count_nonzero(sel)
                 if ct > 1:
-                    msg = f"Warning! Unexpected number of shot matches {ct}"
+                    msg = f"Warning #2! Unexpected number of shot matches {ct}"
                     print(msg)
                     log.warning(msg)
                     return residual, residual_err, contributors, G.EFR_FLAG_NOT_UNIQUE
