@@ -3573,6 +3573,8 @@ def get_empty_fiber_residual(hdr=G.HDR_Version, rtype=None, shotid=None, seeing=
                 # todo: could be a bit smarter and take the nearest few and then select by nearest date?
                 # would require the shotid be passed and then used in combination
                 idx = np.nanargmin(d)
+                persist = False #override the persist flag and do not add this in to our persisting table
+                                 #as it can duplicate the shot in this case
 
             if idx < 0:
                 msg = f"Warning! Unable to find appropriate background residual."
@@ -3583,22 +3585,25 @@ def get_empty_fiber_residual(hdr=G.HDR_Version, rtype=None, shotid=None, seeing=
             # read in that one row
             if ffsky and not add_rescor:
                 Trow = Table.read(G.BGR_RES_FIBER_TAB_FF_FN, memmap=True)[idx]
-                if G.BGR_RES_FIBER_TAB_FF_RUN is None:
-                    G.BGR_RES_FIBER_TAB_FF_RUN = Table(Trow)
-                else:
-                    G.BGR_RES_FIBER_TAB_FF_RUN.add_row(Trow)
+                if persist:
+                    if G.BGR_RES_FIBER_TAB_FF_RUN is None:
+                        G.BGR_RES_FIBER_TAB_FF_RUN = Table(Trow)
+                    else:
+                        G.BGR_RES_FIBER_TAB_FF_RUN.add_row(Trow)
             elif ffsky and add_rescor:
                 Trow = Table.read(G.BGR_RES_FIBER_TAB_FFRC_FN, memmap=True)[idx]
-                if G.BGR_RES_FIBER_TAB_FFRC_RUN is None:
-                    G.BGR_RES_FIBER_TAB_FFRC_RUN = Table(Trow)
-                else:
-                    G.BGR_RES_FIBER_TAB_FFRC_RUN.add_row(Trow)
+                if persist:
+                    if G.BGR_RES_FIBER_TAB_FFRC_RUN is None:
+                        G.BGR_RES_FIBER_TAB_FFRC_RUN = Table(Trow)
+                    else:
+                        G.BGR_RES_FIBER_TAB_FFRC_RUN.add_row(Trow)
             else:
                 Trow = Table.read(G.BGR_RES_FIBER_TAB_LL_FN, memmap=True)[idx]
-                if G.BGR_RES_FIBER_TAB_LL_RUN is None:
-                    G.BGR_RES_FIBER_TAB_LL_RUN = Table(Trow)
-                else:
-                    G.BGR_RES_FIBER_TAB_LL_RUN.add_row(Trow)
+                if persist:
+                    if G.BGR_RES_FIBER_TAB_LL_RUN is None:
+                        G.BGR_RES_FIBER_TAB_LL_RUN = Table(Trow)
+                    else:
+                        G.BGR_RES_FIBER_TAB_LL_RUN.add_row(Trow)
 
             residual = np.array(Trow[col])
             residual_err = np.array(Trow[col_err])
