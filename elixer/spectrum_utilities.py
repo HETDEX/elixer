@@ -3520,13 +3520,15 @@ def get_empty_fiber_residual(hdr=G.HDR_Version, rtype=None, shotid=None, seeing=
                         msg = f"Warning! Unexpected number of shot matches {ct}"
                         print(msg)
                         log.warning(msg)
+                        return residual, residual_err, contributors, G.EFR_FLAG_NOT_UNIQUE
                     elif ct == 1:
                         idx = np.where(sel)[0][0]
                         # we have what we want already,so just return it
                         residual = np.array(T[col][idx])
                         residual_err = np.array(T[col_err][idx])
-
-                        return residual, residual_err, contributors, G.EFR_FLAG_NOT_UNIQUE
+                        contributors = np.array(T[col_contrib][idx])
+                        flags = np.array(T['flags'][idx])
+                        return residual, residual_err, contributors, flags
 
             # we don't have it already, so check the index to find the row we want to read
             if ffsky and not add_rescor:
@@ -3561,6 +3563,7 @@ def get_empty_fiber_residual(hdr=G.HDR_Version, rtype=None, shotid=None, seeing=
                     msg = f"Warning! Unexpected number of shot matches {ct}"
                     print(msg)
                     log.warning(msg)
+                    return residual, residual_err, contributors, G.EFR_FLAG_NOT_UNIQUE
                 elif ct == 1:
                     idx = np.where(sel)[0][0]
                 # else == 0 and we fall down to the next block
