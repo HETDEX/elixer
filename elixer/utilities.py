@@ -935,6 +935,7 @@ def run_vred(date,shot,exp,ifuslot,amp):
             try:
                 specid_str = hdulist[0].header['SPECID']
                 ifuid_str = hdulist[0].header['IFUID']
+                log.debug(f"Full IFU ID: {specid_str}_{str(ifuslot).zfill(3)}_{ifuid_str}")
             except:
                 specid_str = "???"
                 ifuid_str = "???"
