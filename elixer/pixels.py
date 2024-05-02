@@ -32,7 +32,8 @@ def relative_fibnum(fnum_448,amp):
     #input is the fiber number as 1-448
     #amp is LU, LL, RU, RL
     #output is the fiber number 1-112 for the amp
-    return fnum_448 - AMP_OFFSET[amp]
+    #return fnum_448 - AMP_OFFSET[amp] + 1
+    return AMP_OFFSET[amp] + 112 - fnum_448
 
 def parse_line(line):
     if line[0] == '#':

@@ -3364,6 +3364,7 @@ def get_empty_aperture_residual(hdr=G.HDR_Version,rtype=None,shotid=None,seeing=
                     msg = f"Warning! Unexpected number of shot matches {ct}"
                     print(msg)
                     log.warning(msg)
+                    return None, None
                 elif ct == 1:
                     idx = np.where(sel)[0][0]
                     #we have what we want already,so just return it
@@ -3407,6 +3408,8 @@ def get_empty_aperture_residual(hdr=G.HDR_Version,rtype=None,shotid=None,seeing=
             #todo: could be a bit smarter and take the nearest few and then select by nearest date?
             # would require the shotid be passed and then used in combination
             idx = np.nanargmin(d)
+            persist = False #override the persist option in this case as we will attemp to find a similar match
+                            # but not the actual shot id, so this can result in duplicate shotids being persisted
 
         if idx < 0:
             msg = f"Warning! Unable to find appropriate background residual."
@@ -3418,16 +3421,18 @@ def get_empty_aperture_residual(hdr=G.HDR_Version,rtype=None,shotid=None,seeing=
         #read in that one row
         if ffsky:
             Trow = Table.read(G.BGR_RES_APER_TAB_FF_FN,memmap=True)[idx]
-            if G.BGR_RES_APER_TAB_FF_RUN is None:
-                G.BGR_RES_APER_TAB_FF_RUN = Table(Trow)
-            else:
-                G.BGR_RES_APER_TAB_FF_RUN.add_row(Trow)
+            if persist:
+                if G.BGR_RES_APER_TAB_FF_RUN is None:
+                    G.BGR_RES_APER_TAB_FF_RUN = Table(Trow)
+                else:
+                    G.BGR_RES_APER_TAB_FF_RUN.add_row(Trow)
         else:
             Trow = Table.read(G.BGR_RES_APER_TAB_LL_FN, memmap=True)[idx]
-            if G.BGR_RES_APER_TAB_LL_RUN is None:
-                G.BGR_RES_APER_TAB_LL_RUN = Table(Trow)
-            else:
-                G.BGR_RES_APER_TAB_LL_RUN.add_row(Trow)
+            if persist:
+                if G.BGR_RES_APER_TAB_LL_RUN is None:
+                    G.BGR_RES_APER_TAB_LL_RUN = Table(Trow)
+                else:
+                    G.BGR_RES_APER_TAB_LL_RUN.add_row(Trow)
 
         residual = np.array(Trow[col])
         residual_err =  np.array(Trow[col_err])

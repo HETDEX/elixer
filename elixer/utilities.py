@@ -704,7 +704,7 @@ def get_ifus_in_shot(date,shot):
     return ifulist
 
 
-def get_multifits(date,shot,exp,ifuid=None,amp=None,longfn=None,flatfile_path=None,raw=False):
+def get_multifits(date,shot,exp,ifuslot=None,amp=None,longfn=None,flatfile_path=None,raw=False):
     """
     load a single multi*fits file from original raw data
 
@@ -723,7 +723,7 @@ def get_multifits(date,shot,exp,ifuid=None,amp=None,longfn=None,flatfile_path=No
     :param date:   (int) as YYYYMMDD
     :param shot:   (int)
     :param exp:    (int) exposure ID
-    :param ifuid:  (int)
+    :param ifuslot:  (int)
     :param amp:    (str) one of "LL","LU","RL","RU"
     :param longfn: (str) example: "20230103T105730.2_105LL_sci.fits" ... a "raw" file
     :param raw:    (bool) If True, return as a skysubtracted but otherwise unprocessed (raw) frame from the telescope.
@@ -737,26 +737,26 @@ def get_multifits(date,shot,exp,ifuid=None,amp=None,longfn=None,flatfile_path=No
         #todo: could add more parameter validation and have nicer error handling
         multifits = None
 
-        #must supply ifuid and amp OR longfn
-        if ifuid is None or amp is None:
+        #must supply ifuslot and amp OR longfn
+        if ifuslot is None or amp is None:
             if longfn is None:
                 #give feedback
-                log.warning("Must supply date,shot,exp AND ifuid, amp OR longfn")
+                log.warning("Must supply date,shot,exp AND ifuslot, amp OR longfn")
                 return False
             else:
                 multifn = f"virus{str(shot).zfill(7)}/exp{str(exp).zfill(2)}/virus/{longfn}"
-                #assuming this is of the standard form, get the ifuid and amp ... if this fails, just let it bomb
+                #assuming this is of the standard form, get the ifuslot and amp ... if this fails, just let it bomb
                 #and have the outer try trap it and inform the caller
                 toks = longfn.split("_")
-                ifuid = int(toks[1][0:3])
+                ifuslot = int(toks[1][0:3])
                 amp = toks[1][3:5]
         else:
-            multifn = f"virus{str(shot).zfill(7)}/exp{str(exp).zfill(2)}/virus/*_{str(ifuid).zfill(3)}{amp}_*.fits"
+            multifn = f"virus{str(shot).zfill(7)}/exp{str(exp).zfill(2)}/virus/*_{str(ifuslot).zfill(3)}{amp}_*.fits"
 
         if flatfile_path is not None:
             try:
                 files = glob.glob(op.join(flatfile_path,f"{date}/virus/virus{str(shot).zfill(7)}/exp{str(exp).zfill(2)}/"
-                                                        f"virus/multi_*_{str(ifuid).zfill(3)}_*_{amp}.fits"))
+                                                        f"virus/multi_*_{str(ifuslot).zfill(3)}_*_{amp}.fits"))
                 if len(files)==0:
                     log.debug(f"Not found as flat file. Moving on to check tar files.")
                 elif len(files)==1:
@@ -804,10 +804,10 @@ def get_multifits(date,shot,exp,ifuid=None,amp=None,longfn=None,flatfile_path=No
                 f.write(f"{str(date)}/virus/{file_path}\n")
 
             try:
-                cpfiles = glob.glob(os.path.join(G.HETDEX_VRED_FIBERLOC_BASEPATH,f"fiber_loc_???_{str(ifuid).zfill(3)}_???_{amp}.txt"))
+                cpfiles = glob.glob(os.path.join(G.HETDEX_VRED_FIBERLOC_BASEPATH,f"fiber_loc_???_{str(ifuslot).zfill(3)}_???_{amp}.txt"))
 
                 if len(cpfiles) > 0:
-                    #there might be more than one match, a different specid for the given ifuid at different times
+                    #there might be more than one match, a different specid for the given ifuslot at different times
                     #just copy them all and let vred choose the right one
                     for fn in cpfiles:
                         try:
@@ -832,7 +832,7 @@ def get_multifits(date,shot,exp,ifuid=None,amp=None,longfn=None,flatfile_path=No
                 os.remove("out5.fits")
                 os.remove("out")
                 #also remove any of the multi fits that we are going to replace
-                rmfiles = glob.glob(f"multi*{str(ifuid).zfill(3)}*{amp}.fits")
+                rmfiles = glob.glob(f"multi*{str(ifuslot).zfill(3)}*{amp}.fits")
                 for fn in rmfiles:
                     os.remove(fn)
             except:# Exception as E:
@@ -842,7 +842,7 @@ def get_multifits(date,shot,exp,ifuid=None,amp=None,longfn=None,flatfile_path=No
 
             if p1.returncode == 0:
                 #need the multifits name:
-                files = glob.glob(f"multi_*_{str(ifuid).zfill(3)}_*_{amp}.fits")
+                files = glob.glob(f"multi_*_{str(ifuslot).zfill(3)}_*_{amp}.fits")
                 if len(files)==0:
                     log.error(f"Failure to process raw file. multi*fits output not found.")
                     multifits = None
@@ -864,6 +864,157 @@ def get_multifits(date,shot,exp,ifuid=None,amp=None,longfn=None,flatfile_path=No
     except Exception as E:
         log.error(f"Exception attempting to load single multifits file (get_multifits()):\n {E}")
         return None
+
+
+def run_vred(date,shot,exp,ifuslot=None,amp=None,longfn=None):
+    """
+
+    based on get_multifits, but focused on just setting up and running Karl's vred for all exposures under one shot
+
+    this is a forced RUN .. ignore any existing multifits
+
+
+
+    load a single multi*fits file from original raw data
+
+    Notice: There is some file I/O, so you may want to change to a temporary directory (see change_wd())
+
+    !Warning! This operates in its own directory. If you are running multiple calls in paralle with raw=False,
+             you MUST run each under its own unique directory. (see change_wd())
+
+    Must always supply date, shot, exp and either ifuid and amp OR longfn (example below)
+
+    Note: first load of the base .tar file can be costly, especially if it is from the corral-repl path
+          which has tarred up all data (and not just HETDEX) for an entire day, but subsequent extractions
+          are much faster as the tar file is cached (e.g. if calling for other IFUs or other exposures on the same
+          datevshot)
+
+    :param date:   (int) as YYYYMMDD
+    :param shot:   (int)
+    :param exp:    (int) exposure ID
+    :param ifuslot:  (int)
+    :param amp:    (str) one of "LL","LU","RL","RU"
+    :param longfn: (str) example: "20230103T105730.2_105LL_sci.fits" ... a "raw" file
+
+    :return: stream handle to the fits file (raw or processed) (ExFileObject or BufferedReader)
+    """
+
+    try:
+
+        #todo: could add more parameter validation and have nicer error handling
+        multifits = None
+
+        #must supply ifuslot and amp OR longfn
+        if ifuslot is None or amp is None:
+            if longfn is None:
+                #give feedback
+                log.warning("Must supply date,shot,exp AND ifuslot, amp OR longfn")
+                return False
+            else:
+                multifn = f"virus{str(shot).zfill(7)}/exp{str(exp).zfill(2)}/virus/{longfn}"
+                #assuming this is of the standard form, get the ifuslot and amp ... if this fails, just let it bomb
+                #and have the outer try trap it and inform the caller
+                toks = longfn.split("_")
+                ifuslot = int(toks[1][0:3])
+                amp = toks[1][3:5]
+        else:
+            multifn = f"virus{str(shot).zfill(7)}/exp{str(exp).zfill(2)}/virus/*_{str(ifuslot).zfill(3)}{amp}_*.fits"
+
+        tarfile = op.join(G.HETDEX_WORK_TAR_BASEPATH, str(date), f"virus/virus{str(shot).zfill(7)}.tar")
+
+        if op.exists(tarfile):
+            log.debug(f"Using {G.HETDEX_WORK_TAR_BASEPATH} basepath ...")
+        elif op.exists(op.join(G.HETDEX_CORRAL_TAR_BASEPATH, f"{date}.tar")):
+            log.debug(f"Using {G.HETDEX_CORRAL_TAR_BASEPATH} basepath ...")
+            # we need to fetch a sub-tar file
+            tarfile, file_path = open_file_from_tar(tarfn=op.join(G.HETDEX_CORRAL_TAR_BASEPATH, f"{date}.tar"),
+                                         fqfn=op.join(str(date), f"virus/virus{str(shot).zfill(7)}.tar"))
+                                         #close_tar=False) #need to keep it open, at least for now
+            # in this case, tarfile is no longer a filename but an actual file ... either way works
+        else:
+            log.debug("No viable path.")
+
+        #this is the raw fits ... needs to be processed ... (e.g. rback script)
+        multifits, file_path = open_file_from_tar(tarfile, fn=multifn)#,close_tar=close_tar)
+
+        try:
+            hdulist = fits.open(multifits)
+            hdulist.writeto("in.fits", overwrite=True)  # work on this with Karl's vred
+            hdulist.close()
+
+            # vred needs a vred.in file
+            with open("vred.in", "w+") as f:
+                f.write(f"{str(date)[0:6]} 2\n")  # always use '2' ???
+
+            # vred also wants 'list' (seems to just use it to set the NAME0 card in the HDU, but pukes if it (list) is not there)
+            # I don't know how important (if at all, this card is)
+            with open("list", "w+") as f:
+                f.write(f"{str(date)}/virus/{file_path}\n")
+
+            try:
+                cpfiles = glob.glob(os.path.join(G.HETDEX_VRED_FIBERLOC_BASEPATH,f"fiber_loc_???_{str(ifuslot).zfill(3)}_???_{amp}.txt"))
+
+                if len(cpfiles) > 0:
+                    #there might be more than one match, a different specid for the given ifuslot at different times
+                    #just copy them all and let vred choose the right one
+                    for fn in cpfiles:
+                        try:
+                            shutil.copy(fn, "./")
+                        except Exception as E:
+                            log.warning(f"Unable to copy fiber loc file {fn}. Not fatal.\n {E}")
+                else:# len(cpfiles) == 0:
+                    log.warning(f"Unable to copy fiber loc file. No file found. Not fatal.")
+
+            except Exception as E:
+                log.warning(f"Unable to copy fiber loc file. Not fatal.\n {E}")
+
+            # print ...make full path to vred? or dynamic
+            if not os.path.isfile("./vred"):
+                log.debug("Copying vred ...")
+                shutil.copy(G.HETDEX_VRED_FQFN, "./vred")
+                log.debug("Done copy")
+
+            #see if there is any left over output from the last run
+            try:
+                #must remove out5.fits and out otherwise vred will complain and abend on next run in same location
+                os.remove("out5.fits")
+                os.remove("out")
+                #also remove any of the multi fits that we are going to replace
+                rmfiles = glob.glob(f"multi*{str(ifuslot).zfill(3)}*{amp}.fits")
+                for fn in rmfiles:
+                    os.remove(fn)
+            except:# Exception as E:
+                pass #log.debug(f"**** {E}")
+
+            log.debug("Executing vred ...")
+            p1 = subprocess.run(["vred"])
+
+            if p1.returncode == 0:
+                #need the multifits name:
+                files = glob.glob(f"multi_*_{str(ifuslot).zfill(3)}_*_{amp}.fits")
+                if len(files)==0:
+                    log.error(f"Failure to process raw file. multi*fits output not found.")
+                    multifits = None
+                elif len(files)==1:
+                    #with open(files[0],"rb") as f:
+                    #    multifits = f.read()
+                    multifits =  open(op.realpath(files[0]),"rb")
+                else:
+                    log.error(f"Failure to process raw file. Unexpected number of matches {len(files)} found.")
+                    multifits = None
+            else:
+                log.error(f"Failure to process multi*fits file. vred rc = {p1.returncode}:")
+                multifits = None
+        except Exception as E:
+            log.error(f"Exception attempting to process raw multifits file (get_multifits()):\n {E}")
+
+        return multifits
+
+    except Exception as E:
+        log.error(f"Exception attempting to load single multifits file (get_multifits()):\n {E}")
+        return None
+
+    #end run_vred
 
 
 def change_wd(workdir,create=True):

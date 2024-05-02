@@ -1,8 +1,10 @@
 changes to elixer by version
 
-1.22.0a9 [2024-04-26]
+1.22.0a9 [2024-05-01]
 * update continuum source handling for H&K line -- in progress
 * fix issue where --wavelength was not overriding HETDEX value when 0
+* fix issue with spectrum_utilities get_empty_fiber_residual() erroneously adding to the cached (persist) table
+    causing duplicate shot entries
 
 1.22.0a8 [2024-04-23]
 * allow --hdf5 option to fully override the --hdr option to specify which detections h5 file to use
