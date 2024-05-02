@@ -866,7 +866,7 @@ def get_multifits(date,shot,exp,ifuslot=None,amp=None,longfn=None,flatfile_path=
         return None
 
 
-def run_vred(date,shot,exp,ifuslot=None,amp=None,longfn=None):
+def run_vred(date,shot,exp,ifuslot,amp):
     """
 
     based on get_multifits, but focused on just setting up and running Karl's vred for all exposures under one shot
@@ -894,7 +894,6 @@ def run_vred(date,shot,exp,ifuslot=None,amp=None,longfn=None):
     :param exp:    (int) exposure ID
     :param ifuslot:  (int)
     :param amp:    (str) one of "LL","LU","RL","RU"
-    :param longfn: (str) example: "20230103T105730.2_105LL_sci.fits" ... a "raw" file
 
     :return: stream handle to the fits file (raw or processed) (ExFileObject or BufferedReader)
     """
@@ -906,17 +905,9 @@ def run_vred(date,shot,exp,ifuslot=None,amp=None,longfn=None):
 
         #must supply ifuslot and amp OR longfn
         if ifuslot is None or amp is None:
-            if longfn is None:
                 #give feedback
-                log.warning("Must supply date,shot,exp AND ifuslot, amp OR longfn")
-                return False
-            else:
-                multifn = f"virus{str(shot).zfill(7)}/exp{str(exp).zfill(2)}/virus/{longfn}"
-                #assuming this is of the standard form, get the ifuslot and amp ... if this fails, just let it bomb
-                #and have the outer try trap it and inform the caller
-                toks = longfn.split("_")
-                ifuslot = int(toks[1][0:3])
-                amp = toks[1][3:5]
+            log.warning("Must supply date,shot,exp AND ifuslot, amp OR longfn")
+            return False
         else:
             multifn = f"virus{str(shot).zfill(7)}/exp{str(exp).zfill(2)}/virus/*_{str(ifuslot).zfill(3)}{amp}_*.fits"
 
@@ -940,6 +931,14 @@ def run_vred(date,shot,exp,ifuslot=None,amp=None,longfn=None):
         try:
             hdulist = fits.open(multifits)
             hdulist.writeto("in.fits", overwrite=True)  # work on this with Karl's vred
+
+            try:
+                specid_str = hdulist[0].header['SPECID']
+                ifuid_str = hdulist[0].header['IFUID']
+            except:
+                specid_str = "???"
+                ifuid_str = "???"
+
             hdulist.close()
 
             # vred needs a vred.in file
@@ -952,7 +951,9 @@ def run_vred(date,shot,exp,ifuslot=None,amp=None,longfn=None):
                 f.write(f"{str(date)}/virus/{file_path}\n")
 
             try:
-                cpfiles = glob.glob(os.path.join(G.HETDEX_VRED_FIBERLOC_BASEPATH,f"fiber_loc_???_{str(ifuslot).zfill(3)}_???_{amp}.txt"))
+                #can we get the extactly right one with specid_ifuslot_ifuid ??
+                #since we have the date, shot, there can be only one
+                cpfiles = glob.glob(os.path.join(G.HETDEX_VRED_FIBERLOC_BASEPATH,f"fiber_loc_{specid_str}_{str(ifuslot).zfill(3)}_{ifuid_str}_{amp}.txt"))
 
                 if len(cpfiles) > 0:
                     #there might be more than one match, a different specid for the given ifuslot at different times
