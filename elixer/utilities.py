@@ -938,6 +938,7 @@ def run_vred(date,shot,exp,ifuslot,amp):
             except:
                 specid_str = "???"
                 ifuid_str = "???"
+                log.debug("Using wildcards for specid and ifuid")
 
             hdulist.close()
 
