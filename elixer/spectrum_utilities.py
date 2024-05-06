@@ -5731,7 +5731,8 @@ def make_raster_plots(dict_meshgrid,ra_meshgrid,dec_meshgrid,cw,key,colormap=cm.
 
         # 3D Plot (interactive)
         fig = plt.figure()
-        ax = fig.gca(projection='3d')
+        ax = fig.add_subplot(projection='3d') #API change in matplotlib 3.4.x and up
+        #ax = fig.gca(projection='3d')
         # because this plots as X,Y,Z, and we're using a meshgrid, the x-coords (the RA's are in the dec_meshgrid,
         # that is, all the RAs  (X's) for each given Dec)
         # in otherwords, though, the RAs are values of X coords, but first parameter are the ROWS (row-major)
