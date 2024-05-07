@@ -2964,6 +2964,11 @@ def simple_fit_wave(values,errors,wavelengths,central,wave_slop_kms=500.0,max_fw
         narrow_wave_x = wavelengths[min_idx:max_idx+1]
         narrow_wave_counts = values[min_idx:max_idx+1]
 
+        if np.count_nonzero(np.isnan(narrow_wave_counts)) > 0.5 * (max_idx-min_idx):
+            log.info(f"Too many NaN's near {central}")
+            return return_dict
+
+
         #what about fractionals?
         _, left, _ = getnearpos(wavelengths,central-wave_slop)
         _,_,right = getnearpos(wavelengths,central+wave_slop)
