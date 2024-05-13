@@ -704,7 +704,7 @@ def get_ifus_in_shot(date,shot):
     return ifulist
 
 
-def get_multifits(date,shot,exp,ifuslot=None,amp=None,longfn=None,flatfile_path=None,raw=False):
+def get_multifits(date,shot,exp,ifuslot=None,amp=None,longfn=None,flatfile_path=None,raw=False,calmonth=None):
     """
     load a single multi*fits file from original raw data
 
@@ -728,6 +728,7 @@ def get_multifits(date,shot,exp,ifuslot=None,amp=None,longfn=None,flatfile_path=
     :param longfn: (str) example: "20230103T105730.2_105LL_sci.fits" ... a "raw" file
     :param raw:    (bool) If True, return as a skysubtracted but otherwise unprocessed (raw) frame from the telescope.
                           If False (default), rectify and return processed frame.
+    :param calmonth: (int) or (str) should be of form YYYYMM. The first 6 digits are used.
 
     :return: stream handle to the fits file (raw or processed) (ExFileObject or BufferedReader)
     """
@@ -796,7 +797,11 @@ def get_multifits(date,shot,exp,ifuslot=None,amp=None,longfn=None,flatfile_path=
 
             # vred needs a vred.in file
             with open("vred.in", "w+") as f:
-                f.write(f"{str(date)[0:6]} 2\n")  # always use '2'
+                if calmonth is None:
+                    f.write(f"{str(date)[0:6]} 2\n")  # always use '2' ???
+
+                else:
+                    f.write(f"{str(calmonth)[0:6]} 2\n")  # always use '2' ???
 
             # vred also wants 'list' (seems to just use it to set the NAME0 card in the HDU, but pukes if it (list) is not there)
             # I don't know how important (if at all, this card is)
@@ -866,7 +871,7 @@ def get_multifits(date,shot,exp,ifuslot=None,amp=None,longfn=None,flatfile_path=
         return None
 
 
-def run_vred(date,shot,exp,ifuslot,amp):
+def run_vred(date,shot,exp,ifuslot,amp,calmonth=None):
     """
 
     based on get_multifits, but focused on just setting up and running Karl's vred for all exposures under one shot
@@ -894,6 +899,7 @@ def run_vred(date,shot,exp,ifuslot,amp):
     :param exp:    (int) exposure ID
     :param ifuslot:  (int)
     :param amp:    (str) one of "LL","LU","RL","RU"
+    :param calmonth: (int) or (str) should be of form YYYYMM. The first 6 digits are used.
 
     :return: stream handle to the fits file (raw or processed) (ExFileObject or BufferedReader)
     """
@@ -945,7 +951,10 @@ def run_vred(date,shot,exp,ifuslot,amp):
 
             # vred needs a vred.in file
             with open("vred.in", "w+") as f:
-                f.write(f"{str(date)[0:6]} 2\n")  # always use '2' ???
+                if calmonth is None:
+                    f.write(f"{str(date)[0:6]} 2\n")  # always use '2' ???
+                else:
+                    f.write(f"{str(calmonth)[0:6]} 2\n")  # always use '2' ???
 
             # vred also wants 'list' (seems to just use it to set the NAME0 card in the HDU, but pukes if it (list) is not there)
             # I don't know how important (if at all, this card is)
