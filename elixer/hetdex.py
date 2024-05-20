@@ -2410,7 +2410,34 @@ class DetObj:
                             if multiline_top_score < G.MULTILINE_FULL_SOLUTION_SCORE:
                                 p = p * multiline_top_score / G.MULTILINE_FULL_SOLUTION_SCORE
                         else:
-                            log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
+                            try: #the "line" we selected is near H or K and near z = 0 and is an abosrber, even if could not fit
+                                if np.isclose(self.w,G.CaII_K_3934,atol=6.0) and \
+                                    np.any(np.isclose(G.CaII_K_3934,[x.fit_x0 for x in self.spec_obj.all_found_absorbs],atol=1.0)):
+
+                                    z = max(0,self.w / G.CaII_K_3934 - 1.0)
+                                    p = 0.01
+                                    rest = G.CaII_K_3934
+
+                                    #could set followup, but q(z) is already minimal
+                                    #self.flags |= G.DETFLAG_FOLLOWUP_NEEDED  #or uncertain classification
+
+                                    log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. "
+                                             f"Absorber selected but failed to fit near CaII (K).  Set to z:{z} with Q(z): {p}")
+
+                                elif np.isclose(self.w,G.CaII_H_3968,atol=6.0) and \
+                                        np.any(np.isclose(G.CaII_H_3968,[x.fit_x0 for x in self.spec_obj.all_found_absorbs],atol=1.0)):
+                                    z = max(0,self.w / G.CaII_H_3968 - 1.0)
+                                    p = 0.01
+                                    rest = G.CaII_H_3968
+                                                                        #could set followup, but q(z) is already minimal
+                                    #self.flags |= G.DETFLAG_FOLLOWUP_NEEDED  #or uncertain classification
+                                    log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. "
+                                             f"Absorber selected but failed to fit near CaII(H).  Set to z:{z} with Q(z): {p}")
+                                else:
+                                    log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
+                            except:
+                                log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
+
             elif scaled_plae_classification > plya_fixed_hi: #plya_vote_hi:
                 z= self.w / G.LyA_rest - 1.0
                 rest = G.LyA_rest
@@ -9730,7 +9757,7 @@ class DetObj:
             if True and central_wave_volatile and (abs(self.spec_obj.central_eli.fit_x0 - self.w) > 4.0):
                 try:
                     #todo: since we are moving the central location, need to also update the sumspec_wavelength_zoom, etc
-                    log.info(f"[{self.entry_id}] updating original anchor wavelength. Was {self.w :0.2f}, now {self.spec_obj.central_eli.w_obs:0.2f}.")
+                    log.info(f"[{self.entry_id}] updating original anchor wavelength. Was {self.w :0.2f}, now {self.spec_obj.central_eli.fit_x0:0.2f}.")
                     idx = elixer_spectrum.getnearpos(self.sumspec_wavelength, self.spec_obj.central_eli.fit_x0)
                     left = idx - 25  # 2AA steps so +/- 50AA
                     right = idx + 25
@@ -14567,6 +14594,7 @@ class HETDEX:
         #parm[4] is the binning used; normally then the y parameter is * 2.0/2.0
         fit_spec = gaussian(x=wave_grid,x0=parms[0],sigma=parms[1],a=parms[2],y=parms[3]*y_mul/parms[4])
 
+
         # mn = min(mn, min(summed_spec))
         # mx = max(mx, max(summed_spec))
         # ran = mx - mn
@@ -14611,6 +14639,8 @@ class HETDEX:
         specplot.errorbar(wave_data,flux,yerr=flux_err,fmt='.',zorder=9)
         #add the zero line
         specplot.axhline(y=0,linestyle='solid',alpha=0.5,color='k',zorder=9)
+
+
         if unlabeled:
             specplot.set_yticklabels([])
             specplot.set_xticklabels([])

@@ -2747,7 +2747,7 @@ def quick_fit(waves, flux, flux_err, w, delta_w=4.0, width=50, min_sigma=1.7, ma
     return snr, chi2, ew, parm, pcov, model_fit_full
 
 
-def quick_linescore(snr, chi2, sigma, ew, data_side_aa=40.0, min_sigma = 0.5, max_sigma = 55.):
+def quick_linescore(snr, chi2, sigma, ew, data_side_aa=40.0, min_sigma = 0.5, max_sigma = 55., absorber=False):
     """
     something like the line score, but simpler ... just for fast comparision
     """
@@ -2776,11 +2776,19 @@ def quick_linescore(snr, chi2, sigma, ew, data_side_aa=40.0, min_sigma = 0.5, ma
         #        - 1.0 * max(0.1, chi2) \
         #        + 1.0 * abs(min(200, ew) / np.sqrt(2 * sigma) / 100.0)
 
-        score =  w_mult * s_mult * ( \
-             (5.0 * min(15.0,snr))  \
-           - (max(0.5, chi2)**2) \
-           + (1.0 * abs(min(200, ew) / 100.0)) \
-              )
+        if absorber:
+            #relax the chi2 a bit for absorbers
+            score =  w_mult * s_mult * ( \
+                 (5.0 * min(15.0,snr))  \
+               - (max(0.5, chi2-3.5)**2) \
+               + (1.0 * abs(min(200, ew) / 100.0)) \
+                  )
+        else:
+            score =  w_mult * s_mult * ( \
+                 (5.0 * min(15.0,snr))  \
+               - (max(0.5, chi2)**2) \
+               + (1.0 * abs(min(200, ew) / 100.0)) \
+                  )
 
         return score
     except:

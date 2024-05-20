@@ -1254,6 +1254,11 @@ class EmissionLineInfo:
         self.gmag = None
         self.gmag_err = None
 
+
+    @property
+    def w_obs(self):
+        return self.fit_x0
+
     def unc_str(self,tuple):
         s = ""
         try:
@@ -1298,6 +1303,9 @@ class EmissionLineInfo:
             self.mcmc_sigma = mcmc.mcmc_sigma
             self.mcmc_snr = mcmc.mcmc_snr
             self.mcmc_snr_err = mcmc.mcmc_snr_err
+            
+            if values_units is None:
+                values_units = 1.0
 
             if mcmc.mcmc_A is not None:
                 self.mcmc_a = np.array(mcmc.mcmc_A)
@@ -1351,6 +1359,11 @@ class EmissionLineInfo:
             #if recommend_mcmc: #this was a marginal LSQ fit, so replace key the "fit_xxx" with the mcmc values
             if self.mcmc_x0 is not None:
                 fit_scale = 10.0**(-1*values_units)
+                true_flux_conv = G.HETDEX_FLUX_BASE_CGS * fit_scale #often there is an extra 10x to undo
+                if true_flux_conv != 0:
+                    true_flux_conv = 1.0/true_flux_conv
+                else:
+                    true_flux_conv = 1.0 #do nothing
 
                 self.fit_x0 = self.mcmc_x0[0]
                 self.fit_x0_err = 0.5*(self.mcmc_x0[1]+self.mcmc_x0[2])
@@ -1358,16 +1371,16 @@ class EmissionLineInfo:
                 self.fit_sigma = self.mcmc_sigma[0]
                 self.fit_sigma_err = 0.5*(self.mcmc_sigma[1]+self.mcmc_sigma[2])
 
-                self.fit_a = self.mcmc_a[0] * fit_scale
-                self.fit_a_err = 0.5*(self.mcmc_a[1]+self.mcmc_a[2]) * fit_scale
+                self.fit_a = self.mcmc_a[0] * fit_scale * true_flux_conv #net result should be in e-17
+                self.fit_a_err = 0.5*(self.mcmc_a[1]+self.mcmc_a[2]) * fit_scale * true_flux_conv
 
-                self.fit_y = self.mcmc_y[0] * fit_scale
-                self.fit_y_err = 0.5*(self.mcmc_y[1]+self.mcmc_y[2])* fit_scale
+                self.fit_y = self.mcmc_y[0] * fit_scale * true_flux_conv
+                self.fit_y_err = 0.5*(self.mcmc_y[1]+self.mcmc_y[2])* fit_scale * true_flux_conv
 
 
                 #MCMC is preferred to update key values
-                self.line_flux = self.mcmc_line_flux
-                self.line_flux_err = 0.5*(self.mcmc_line_flux_tuple[1]+self.mcmc_line_flux_tuple[2])
+                self.line_flux = self.mcmc_line_flux * true_flux_conv
+                self.line_flux_err = 0.5*(self.mcmc_line_flux_tuple[1]+self.mcmc_line_flux_tuple[2]) * true_flux_conv
 
 
                 if self.mcmc_snr is not None and self.mcmc_snr > 0:
@@ -1501,6 +1514,11 @@ class EmissionLineInfo:
             #if recommend_mcmc: #this was a marginal LSQ fit, so replace key the "fit_xxx" with the mcmc values
             if self.mcmc_x0 is not None:
                 fit_scale = 10.0**(-1*values_units)
+                true_flux_conv = G.HETDEX_FLUX_BASE_CGS * fit_scale  # often there is an extra 10x to undo
+                if true_flux_conv != 0:
+                    true_flux_conv = 1.0 / true_flux_conv
+                else:
+                    true_flux_conv = 1.0  # do nothing
 
                 self.fit_x0 = self.mcmc_x0[0]
                 self.fit_x0_err = 0.5*(self.mcmc_x0[1]+self.mcmc_x0[2])
@@ -1508,16 +1526,16 @@ class EmissionLineInfo:
                 self.fit_sigma = self.mcmc_sigma[0]
                 self.fit_sigma_err = 0.5*(self.mcmc_sigma[1]+self.mcmc_sigma[2])
 
-                self.fit_a = self.mcmc_a[0] * fit_scale
-                self.fit_a_err = 0.5*(self.mcmc_a[1]+self.mcmc_a[2]) * fit_scale
+                self.fit_a = self.mcmc_a[0] * fit_scale * true_flux_conv  #net result should be in e-17
+                self.fit_a_err = 0.5*(self.mcmc_a[1]+self.mcmc_a[2]) * fit_scale * true_flux_conv
 
                 #this needs to be flux level for plotting (not flux density) and in e-17 units
-                self.fit_y = self.mcmc_y[0] * fit_scale
-                self.fit_y_err = 0.5*(self.mcmc_y[1]+self.mcmc_y[2])* fit_scale
+                self.fit_y = self.mcmc_y[0] * fit_scale * true_flux_conv
+                self.fit_y_err = 0.5*(self.mcmc_y[1]+self.mcmc_y[2])* fit_scale * true_flux_conv
 
 
                 #MCMC is preferred to update key values
-                self.line_flux = self.mcmc_line_flux
+                self.line_flux = self.mcmc_line_flux * true_flux_conv
                 self.line_flux_err = 0.5*(self.mcmc_line_flux_tuple[1]+self.mcmc_line_flux_tuple[2])
 
 
@@ -2386,7 +2404,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                     continue
 
                 fd["score"] = SU.quick_linescore(fd["snr"],fd["chi2"],fd["parm"][1],fd["ew"],fd["wave_fit_side_aa"],
-                                                 min_sigma = fd["min_fit_sigma"], max_sigma=fd["max_fit_sigma"])
+                                                 min_sigma = fd["min_fit_sigma"], max_sigma=fd["max_fit_sigma"],
+                                                 absorber=absorber)
 
                 #may reject if at the maximum sigma
                 #does NOT apply to absorbers
@@ -2407,7 +2426,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         #get the largest line score of lines with chi2 < 2.5
         try:
             fit_dict_array = np.array(fit_dict_array)
-            sel_ls = [ (fd["chi2"] <=2.5) and (fd["fit_sigma"]) for fd in fit_dict_array]
+            max_chi2 = 6.0 if absorber else 2.5
+            sel_ls = [ (fd["chi2"] <= max_chi2) and (fd["fit_sigma"]) for fd in fit_dict_array]
             if np.count_nonzero(sel_ls) > 0:
                 fd_idx = np.argmax([fd["score"] for fd in fit_dict_array[sel_ls]])
                 fd_idx = np.argwhere([fd['type'] == fit_dict_array[sel_ls][fd_idx]['type'] for fd in fit_dict_array])[0][0]
@@ -7577,6 +7597,8 @@ class Spectrum:
 
                 wsel = np.array(x0 > 3932.0) #allow a little blue of 3934 for slop
 
+               # log.debug(f"Checking for H&K in possible abosorption lines near: {sorted([x.raw_x0 for x in np.array(self.all_found_absorbs)[wsel]])}")
+
                 for k in np.array(self.all_found_absorbs)[wsel]:
                     # #if (k.fit_x0 + k.fit_x0_err)  > self.h_and_k_waves[0]: #could be k
                     if True:
@@ -7609,6 +7631,28 @@ class Spectrum:
                                if sol is not None:
                                    self.solutions.append(sol)
                                    h_and_k_found = True
+
+                #H&K are so common, if we did not find them in the noted absorption featuers,
+                #try, eplicitly near H&K at z = 0
+                # if not h_and_k_found:
+                #     if not (np.any(np.isclose(self.h_and_k_waves[0],[x.fit_x0 for x in self.all_found_absorbs],atol=6.0)) and
+                #             np.any(np.isclose(self.h_and_k_waves[1],[x.fit_x0 for x in self.all_found_absorbs], atol=6.0))):
+                #         #one or both were NOT in the original list
+                #         good, hk_mcmc = fit_for_h_and_k(self.h_and_k_waves[0], self.h_and_k_waves[1],
+                #                                         wavelengths, values, errors, values_units,
+                #                                         values_dx=G.FLUX_WAVEBIN_WIDTH)
+                #
+                #         if (good is not None) and good:
+                #             sol = h_and_k_to_solution(hk_mcmc, h_reference)
+                #             if self.h_and_k_mcmc is None:
+                #                 self.h_and_k_mcmc = copy.deepcopy(hk_mcmc)
+                #             else:
+                #                 if self.h_and_k_mcmc.mcmc_snr < self.h_and_k_mcmc.mcmc_snr:
+                #                     del self.h_and_k_mcmc
+                #                     self.h_and_k_mcmc = copy.deepcopy(hk_mcmc)
+                #             if sol is not None:
+                #                 self.solutions.append(sol)
+                #                 h_and_k_found = True
 
 
         if h_and_k_found:
