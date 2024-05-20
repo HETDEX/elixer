@@ -2426,7 +2426,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         #get the largest line score of lines with chi2 < 2.5
         try:
             fit_dict_array = np.array(fit_dict_array)
-            max_chi2 = 6.0 if absorber else 2.5
+            max_chi2 = 3.5 if absorber else 2.5
             sel_ls = [ (fd["chi2"] <= max_chi2) and (fd["fit_sigma"]) for fd in fit_dict_array]
             if np.count_nonzero(sel_ls) > 0:
                 fd_idx = np.argmax([fd["score"] for fd in fit_dict_array[sel_ls]])
@@ -7310,6 +7310,8 @@ class Spectrum:
             if found_absorbers:
                 j = np.argmax([x.raw_line_score for x in found_absorbers])
 
+
+            pending_central_eli = None
             if (i > -1) and (j > -1):
 
                 # if found_lines[i].line_score > G.MULTILINE_GOOD_LINE_SCORE:
@@ -7318,22 +7320,44 @@ class Spectrum:
                 if (found_lines[i].snr > found_absorbers[j].snr) or \
                     (found_lines[i].snr > 4.5 and found_lines[i].snr/found_absorbers[j].snr > 0.7):
                     central = found_lines[i].fit_x0
+                    pending_central_eli = found_lines[i]
                 elif (found_absorbers[j].raw_line_score > (1.5 * found_lines[i].raw_line_score) ) or \
                    (found_absorbers[j].raw_line_score > found_lines[i].raw_line_score and
                     self.gmag is not None and self.gmag < G.BROADLINE_GMAG_MAX):
                     central = found_absorbers[j].fit_x0
+                    pending_central_eli = found_absorbers[j]
                     absorber = True
                 else:
                     central = found_lines[i].fit_x0
+                    pending_central_eli = found_lines[i]
             elif (i > -1):
                 central = found_lines[i].fit_x0
+                pending_central_eli = found_lines[i]
             else:
                 central = found_absorbers[j].fit_x0
+                pending_central_eli = found_absorbers[j]
                 absorber = True
 
             if update_self:
                 self.central = central#found_lines[i].fit_x0 #max scored line
                 self.absorber = absorber
+                # if self.central_eli is None:
+                #    self.central_eli = pending_central_eli
+                #    log.debug(f"Assigning central_eli to found central wavelength: {central}")
+                # elif self.central_eli != pending_central_eli:
+                #    log.debug(f"Replacing prior central_eli ({self.central_eli.fit_x0}) with {central}")
+                #    self.central_eli = pending_central_eli
+
+                #to be the central_eli, you MUST have the mcmc run
+                try:
+                    if self.central_eli is not None and not np.isclose(self.central_eli.fit_x0, pending_central_eli.fit_x0, atol=4.0):
+                        del self.central_eli
+                        if pending_central_eli.mcmc_x0 is not None:
+                            self.central_eli = pending_central_eli
+                        else:
+                            self.central_eli = None
+                except:
+                    pass
 
             log.info(f"Find central wavelength: {central}")
 

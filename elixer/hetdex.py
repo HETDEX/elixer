@@ -2482,12 +2482,16 @@ class DetObj:
                 except:
                     log.info(f"Q(z): no multiline solutions. P(LyA) favors LyA. Set to LyA z:{z} with Q(z): {p}")
 
-
             else: #we are in no-man's land
-                if scaled_plae_classification < plya_vote_thresh:
-                    z = self.w / G.OII_rest - 1.0
+
+                if self.spec_obj.central_eli is None and (G.CONTINUUM_RULES or self.gmag_combined < 20 ):
+                    #there was no fit and this is continuum object ... really can't be LyA (unless an AGN and we'd fit that)
+                    z = 0
                 else:
-                    z = self.w / G.LyA_rest - 1.0
+                    if scaled_plae_classification < plya_vote_thresh:
+                        z = self.w / G.OII_rest - 1.0
+                    else:
+                        z = self.w / G.LyA_rest - 1.0
 
                 #limit p to a maximum
                 if self.flags & G.DETFLAG_DEX_GMAG_INCONSISTENT:
@@ -5788,6 +5792,7 @@ class DetObj:
         #     self.classification_dict['spurious_reason'] = reason
         #     log.info(f"Aggregate Classification: bad duplicate central pixels. Setting PLAE to -1 (spurious)")
 
+
         if scaled_prob_lae != -1:
             #
             # Combine them all
@@ -5847,6 +5852,18 @@ class DetObj:
                     #print(f"{self.entry_id} Scaled Prob(LyA) {scaled_prob_lae:0.4f}")
             except:
                 log.debug("Exception in aggregate_classification final combination",exc_info=True)
+
+        # final sanity check ... if we could not fit any line (there is no central_eli) and this thing is bright
+        # just kill it
+
+        try:
+            if self.spec_obj.central_eli is None and (G.CONTINUUM_RULES or self.gmag_combined < 20) and \
+                vote_info['low_weight_correction'] > 0.25:
+                if 0.3 < scaled_prob_lae < 0.7: #kind of in the middle
+                    scaled_prob_lae = 0
+                    log.warning("Warning! Unable to fit P(LyA). No determination possible, but unlikely LyA. Set to 0")
+        except:
+            pass
 
 
         self.vote_info = vote_info
@@ -9209,8 +9226,11 @@ class DetObj:
                 w = self.spec_obj.find_central_wavelength(self.sumspec_wavelength,self.sumspec_flux,
                                                                           self.sumspec_fluxerr,-17,return_list=False)
                 if w is not None and (3400.0 < w < 5600.0):
+                    #notice: there may not be a central_eli ... if no MCMC succeeded
+
                     self.w = w
                     self.target_wavelength = w
+
                     if (self.spec_obj.central_eli is not None): #***notice: find_central_wavelength() does NOT populate central_eli
                         self.sigma = self.spec_obj.central_eli.fit_sigma
                         self.estflux = self.spec_obj.central_eli.line_flux
