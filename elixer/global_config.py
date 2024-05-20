@@ -25,7 +25,7 @@ if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
 #version
-__version__ = '1.22.0a9'
+__version__ = '1.22.0a10'
 
 
 #initial working dir
@@ -89,6 +89,11 @@ HDR_Version_float = 4.0
 
 HDR_Latest_Str = "hdr4" #latest available, not necessarily the default or what is being used
 HDR_Latest_Float = 4.0
+
+HDR_LAST_GOOD_Version = "4"
+HDR_LAST_GOOD_float = 4.0
+HDR_LAST_GOOD_Latest_Str = "hdr4"
+HDR_LAST_GOOD_Latest_Float = 4.0
 
 ALWAYS_USE_LATEST_FOR_REEXTRACTION = True
 

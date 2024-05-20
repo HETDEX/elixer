@@ -1209,7 +1209,7 @@ def mag2cgs(mag,lam):
         return 0
 
 def mag2flam(mag,lam):
-    return mag2cgs(mag,flam)
+    return mag2cgs(mag,lam)
 
 def mag2fnu(mag):
     """

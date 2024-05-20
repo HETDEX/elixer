@@ -102,8 +102,10 @@ class GalaxyMask():
                     self.galaxy_table["SkyCoords"] = SkyCoord(
                         self.galaxy_table["Coords"])  # build out column as SkyCoord for easier searching
                 else:
-                    log.error("Unable to open galaxy mask table file. Galaxy mask unavailable.", exc_info=True)
-                    self.galaxy_table = None
+                    #what to replace
+                    self.galaxy_table = astropy.table.Table.read(G.HETDEX_API_CONFIG.rc3cat.replace("hdr"+G.HDR_Version,G.HDR_LAST_GOOD_Latest_Str))
+                    self.galaxy_table["SkyCoords"] = SkyCoord(
+                        self.galaxy_table["Coords"])  # build out column as SkyCoord for easier searching
             except:
                 log.error("Unable to open galaxy mask table file. Galaxy mask unavailable.", exc_info=True)
                 self.galaxy_table = None

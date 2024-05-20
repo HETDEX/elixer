@@ -8622,14 +8622,23 @@ class DetObj:
                         #note: reported flux and cont are the SAME as in the H5 ... just the spectra are /2AA
                         row = hda_detobj.get_detection_info(detectid_i=id, rawh5=False, verbose=False)[0]
                         retry = 0
-                    except (MemoryError, mmap.error):
+                    except OSError as E:
+                        hda_detobj = None
+                        if isinstance(E,FileNotFoundError):
+                            log.warning(f"Could not open HETDEX_API detections file: {E}")
+                        else:
+                            log.warning("Exception attempting to load spectra through hetdex_api", exc_info=True)
+                        log.warning("Will attempt direct load from h5 file.")
+                        retry = 0
+                    except (MemoryError, mmap.error) as E:
                         gc.collect()  # try to force an immediate clean up
                         retry -= 1
                         t2sleep = np.random.random_integers(0, 5000) / 1000.  # sleep up to 5 sec
                         log.info(f"+++++ Memory issue? Random sleep {t2sleep:0.4f}s. Retries remaining {retry}")
+                        log.debug("Actual exeption:",exc_info=True)
                         pytime.sleep(t2sleep)
 
-                    except (ValueError,IndexError):
+                    except (ValueError,IndexError) as E:
                         hda_detobj = None
                         #log.warning("Exception attempting to load spectra through hetdex_api",exc_info=True)
                         log.warning(f"{id} not found in HETDEX_API. Will attempt direct load from h5 file.")
