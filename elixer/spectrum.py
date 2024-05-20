@@ -1479,7 +1479,7 @@ class EmissionLineInfo:
                 # NOTE 0.25* since 0.5 * for the average and /2.0 for the 2AA
                 self.line_flux_err = 0.25*(mcmc.mcmc_A[1]+mcmc.mcmc_A[2])* 10**values_units
 
-                self.fit_x0 = hk_mcmc.mcmc_mu[0]
+                self.fit_x0 = mcmc.mcmc_mu[0]
                 #self.w_obs = hk_mcmc.mcmc_mu[0] #not using w_obs in EmissionLineInfo object (just in EmissionLine object)
 
 
@@ -7688,7 +7688,13 @@ class Spectrum:
                     if self.h_and_k_mcmc is not None:
                         hk_mcmc = self.h_and_k_mcmc
 
-                    self.central = hk_mcmc.mcmc_mu_2[0]
+
+                    if self.solutions[0].central_rest == self.h_and_k_waves[1]:
+                        self.central = hk_mcmc.mcmc_mu_2[0]
+                        is_3968 = True #H line
+                    else:
+                        self.central = hk_mcmc.mcmc_mu[0]
+                        is_3968 = False #K line
 
                     try:
                         eli = self.solutions[0].eli
@@ -7699,7 +7705,7 @@ class Spectrum:
 
                         eli = EmissionLineInfo() #this will become the new central_eli so needs to be fully populated
 
-                        eli.hk_mcmc_to_fit(hk_mcmc, hk_mcmc.values_units, values_dx=G.FLUX_WAVEBIN_WIDTH,use_2=True)
+                        eli.hk_mcmc_to_fit(hk_mcmc, hk_mcmc.values_units, values_dx=G.FLUX_WAVEBIN_WIDTH,use_2=is_3968)
 
                         eli.pix_size = 2.0
                         eli.fit_bin_dx = 2.0
@@ -7730,7 +7736,6 @@ class Spectrum:
                         eli.build(values_units=values_units,allow_broad=False,broadfit=False,override_continuum_rules=True)
                         eli.raw_score = eli.line_score
                         eli.score = signal_calc_scaled_score(eli.line_score)
-
 
                     self.central_eli = eli
             except:
