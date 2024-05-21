@@ -7796,6 +7796,13 @@ class Spectrum:
         :return:
         """
 
+        try:
+            if G.CONTINUUM_RULES and self.central_eli.gmag < 20:
+                log.info(f"Continuum rules and object too bright (g = {self.central_eli.gmag:0.1f}). Skipping unmatched line scoring.")
+                return 0,0
+        except:
+            pass
+
         def rescale(wave):
             #full scale at 3700 down to 1/2 scale at 3550 and below (noisiest section and on nasty sky-line), linear
             try:
@@ -7835,8 +7842,8 @@ class Spectrum:
             unmatched_wave_sigma = np.array([x.fit_sigma for x in self.all_found_lines if (3550.0 < x.fit_x0 < 5500.0) and (x.line_score > line_score_threshold)])
 
             solution_wave_list = np.array([solution.central_rest * (1.+solution.z)] + [x.w_obs for x in solution.lines])
-            solution_score_list = np.array([0] + [x.line_score for x in solution.lines ])
-            solution_sigma = np.array([0] + [x.sigma for x in solution.lines])
+            solution_score_list = np.array([0.0] + [x.line_score for x in solution.lines ])
+            solution_sigma = np.array([0.0] + [x.sigma for x in solution.lines])
 
                 #0 for the central line, as it does not count toward the multiline score
 

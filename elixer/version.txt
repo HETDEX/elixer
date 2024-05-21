@@ -1,11 +1,13 @@
 changes to elixer by version
 
-1.22.0a10 [2024-05-20]
+1.22.0a10 [2024-05-21]
 * updates for HDR5
     + allow alternate location for large galaxy mask
     + allow swaps to a prior HDR_LAST_GOOD_Version
 * for continuum source, if best match is an absorber near H&K, set to H/K near z = 0 even if could not fit the line
     (rather than call it OII)
+* updated H&K matching for bright objects. There is still a problem fitting K-line (3934) in some cases and the main
+    H&K check/fit fails.
 
 1.22.0a9 [2024-05-01]
 * update continuum source handling for H&K line -- in progress

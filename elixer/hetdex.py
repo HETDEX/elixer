@@ -2415,7 +2415,7 @@ class DetObj:
                                     np.any(np.isclose(G.CaII_K_3934,[x.fit_x0 for x in self.spec_obj.all_found_absorbs],atol=1.0)):
 
                                     z = max(0,self.w / G.CaII_K_3934 - 1.0)
-                                    p = 0.01
+                                    p = 0.05
                                     rest = G.CaII_K_3934
 
                                     #could set followup, but q(z) is already minimal
@@ -2427,7 +2427,7 @@ class DetObj:
                                 elif np.isclose(self.w,G.CaII_H_3968,atol=6.0) and \
                                         np.any(np.isclose(G.CaII_H_3968,[x.fit_x0 for x in self.spec_obj.all_found_absorbs],atol=1.0)):
                                     z = max(0,self.w / G.CaII_H_3968 - 1.0)
-                                    p = 0.01
+                                    p = 0.05
                                     rest = G.CaII_H_3968
                                                                         #could set followup, but q(z) is already minimal
                                     #self.flags |= G.DETFLAG_FOLLOWUP_NEEDED  #or uncertain classification
@@ -2693,10 +2693,41 @@ class DetObj:
                 if (self.eqw_obs < 0 or self.estflux < 0) and np.isclose(z,self.w/G.OII_rest -1.,atol=0.0001):
                     self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
                     if G.CONTINUUM_RULES:
-                        #this is more likley an H&K
-                        z = self.w/G.CaII_H_3968 - 1.
-                        log.info(f"Continuum rules. Absorption. More likly H&K (set to H) that OII. Setting z: {z}")
-                    p = 0
+                        try:  # the "line" we selected is near H or K and near z = 0 and is an abosrber, even if could not fit
+                            if np.isclose(self.w, G.CaII_K_3934, atol=6.0) and \
+                                    np.any(np.isclose(G.CaII_K_3934, [x.fit_x0 for x in self.spec_obj.all_found_absorbs],
+                                                      atol=1.0)):
+
+                                z = max(0, self.w / G.CaII_K_3934 - 1.0)
+                                p = 0.05
+                                rest = G.CaII_K_3934
+
+                                # could set followup, but q(z) is already minimal
+                                # self.flags |= G.DETFLAG_FOLLOWUP_NEEDED  #or uncertain classification
+
+                                log.info(f"Q(z): [2a] no multiline solutions. P(LyA) favors NOT LyA. "
+                                         f"Absorber selected but failed to fit near CaII (K).  Set to z:{z} with Q(z): {p}")
+
+                            elif np.isclose(self.w, G.CaII_H_3968, atol=6.0) and \
+                                    np.any(np.isclose(G.CaII_H_3968, [x.fit_x0 for x in self.spec_obj.all_found_absorbs],
+                                                      atol=1.0)):
+                                z = max(0, self.w / G.CaII_H_3968 - 1.0)
+                                p = 0.05
+                                rest = G.CaII_H_3968
+                                # could set followup, but q(z) is already minimal
+                                # self.flags |= G.DETFLAG_FOLLOWUP_NEEDED  #or uncertain classification
+                                log.info(f"Q(z): [2b] no multiline solutions. P(LyA) favors NOT LyA. "
+                                         f"Absorber selected but failed to fit near CaII(H).  Set to z:{z} with Q(z): {p}")
+                            else:
+                                log.info(
+                                    f"Q(z): [2c] no multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
+                        except:
+                            log.info(f"Q(z): [2d] no multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
+
+                            #this is more likley an H&K
+                            z = self.w/G.CaII_H_3968 - 1.
+                            log.info(f"Continuum rules. Absorption. More likely H&K (set to H) than OII. Setting z: {z}")
+                            p = 0
             except:
                 pass
 
