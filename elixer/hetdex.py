@@ -2434,6 +2434,12 @@ class DetObj:
                                     log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. "
                                              f"Absorber selected but failed to fit near CaII(H).  Set to z:{z} with Q(z): {p}")
                                 else:
+                                    #keep this simple. mostly this will be handled by Diagnose anyway
+                                    if self.gmag_combined < 20 and z > 0.05:
+                                        #this is more likely to be a z = 0 object
+                                        log.info(f"Q(z): too bright (g={self.gmag_combined:0.1f}) for z ({z}). Capping Q(z) value.")
+                                        p = min(0.01,p)
+
                                     log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
                             except:
                                 log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")

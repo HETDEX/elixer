@@ -6186,7 +6186,7 @@ def main():
 
                                                             if np.isclose(e.spec_obj.solutions[0].z,best_z,atol=1e-4):
                                                                 line_label = e.spec_obj.solutions[0].name
-                                                            elif e.spec_obj.central_eli.absorber:
+                                                            elif e.spec_obj.central_eli is not None and e.spec_obj.central_eli.absorber:
                                                                 line_label = e.spec_obj.match_line(e.w,best_z_list[0],aa_error=6.0,
                                                                                                    allow_absorption=True,
                                                                                                    allow_emission=True).name
