@@ -24,6 +24,8 @@ remove_detection_fibers = True #remove the fibers (usually in 3.5" apertures) th
                                #existing HETDEX detections (emission line or continuum)
 TEST = False
 
+PER_FIBER_PER_WAVE_MASKING = True
+
 ##################################
 # should we even run this one?
 ##################################
@@ -657,14 +659,21 @@ T3 = Table(dtype=[('shotid', int), ('seeing', float), ('response', float),
 if True:
     print(f"{shotid} get_fibers_table() ....  {datetime.datetime.now()}")
 
+    #note: for get_fibers_table()
+    # mask_value by default is np.NaN
+    # mask_options as None masks everything
+    # might no actually need the mask column itself if we are masking in place
+    # with the NaN's in place, entire fibers can be cut out if many NaNs (per normal logic) ... this is correct behavior
+    #                          if fiber survives, individual wavebin NaNs will be exluded from the averaging
+
     if rescor: #adds just one more column for califb_ffsky_rescor
-        fibers_table = get_fibers_table(shot,add_rescor=True)
+        fibers_table = get_fibers_table(shot,add_rescor=True,add_mask=PER_FIBER_PER_WAVE_MASKING,
+                                        mask_in_place=PER_FIBER_PER_WAVE_MASKING,mask_options=None)
         print(f"{shotid} [DONE] get_fibers_table() + rescor ....  {datetime.datetime.now()}, # rows = {len(fibers_table)}")
     else: #local or ffsky must already be true
-        fibers_table = get_fibers_table(shot,add_rescor=False)
+        fibers_table = get_fibers_table(shot,add_rescor=False,add_mask=PER_FIBER_PER_WAVE_MASKING,
+                                        mask_in_place=PER_FIBER_PER_WAVE_MASKING,mask_options=None)
         print(f"{shotid} [DONE] get_fibers_table()  ....  {datetime.datetime.now()}, # rows = {len(fibers_table)}")
-
-
 
 
 
