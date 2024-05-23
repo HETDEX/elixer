@@ -98,6 +98,11 @@ if not (losky or ffsky or rescor):
     exit(-1)
 
 
+if PER_FIBER_PER_WAVE_MASKING:
+    print("Using per-fiber per-wavelength flagging")
+else:
+    print("Not using additional per-fiber per-wavelength flagging")
+
 #dust is a bit dodgy here since it is RA, Dec and thus per fiber specific and IT DOES VARY from fiber to fiber
 #albeit rather slowly
 # if "--dust" in args:
