@@ -3014,7 +3014,9 @@ class DetObj:
 
                     if new_solution and (line.solution):
                         found_line_z = self.w/line.w_rest-1.0 #check the found line against the anchor line
-                        if z - bid['z_err'] <   found_line_z < z + bid['z_err']:
+                        if (z - bid['z_err'] <   found_line_z < z + bid['z_err']) or \
+                           ( 1.5 < z < 4.0 and line.w_rest == G.LyA_rest) or \
+                           ( 0  < z < 0.7 and line.w_rest == G.OII_rest):
                             #want to bump these if the found lines are consistent??
                             boost /= 2.0 #cut in half for a new solution (as opposed to boosting an existing solution)
                             sol = elixer_spectrum.Classifier_Solution()
@@ -3043,6 +3045,7 @@ class DetObj:
                                 #extra boost since it is only a single line
                                 if (0 < sol.z < 0.49) or (1.88 < sol.z < 3.53):
                                     sol.score += sol.emission_line.line_score
+                                log.debug(f"Adding {sol.emission_line.name} as \"supporting\" line to maintain scaled_score.")
                                 sol.lines.append(sol.emission_line) #have to add as if it is an extra line
                                 #otherwise the scaled score gets knocked way down
                                 log.info(f"Catalog z: Adding new solution {line.name}({line.w_rest}): score = {sol.score}")

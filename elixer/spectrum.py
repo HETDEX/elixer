@@ -6247,7 +6247,7 @@ class Spectrum:
             #in ALL cases, LyA better be found IF it is in range (so making it a 2 ... need 2 other matched lines to overcome missing LyA)
             match_matrix =[[1,0,0,0,0,0,0,0,0,0,0],  #0 LyA
                            [1,1,0,0,0,0,0,0,0,0,0],  #1 CIV #CIII, CII should be there, but in AGN they can be hard to see in EliXer
-                           [1,1,1,1,0,0,0,0,0,0,0],  #2 CIII #but if we see CIII, CIV should REALLY be obvious (CIII is semi forbidden)
+                           [1,1,1,0,0,0,0,0,0,0,0],  #2 CIII #but if we see CIII, CIV should REALLY be obvious (CIII is semi forbidden)
                            [1,1,0,1,0,0,0,0,0,0,0],  #3 CII #not sure about CII [semi forbidden]
                            [1,0,0,0,1,0,0,0,0,0,1],  #4 MgII
                            [1,0,0,0,0,1,0,0,0,0,0],  #5 NV
