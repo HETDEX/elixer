@@ -19,83 +19,117 @@ args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need t
 #     exit(-1)
 
 
-
-
-if False: #LL table
-    #run twice ... just in case something is weird and there are differnt numbers of ll and ff fits
-    table_outname = "empty_fibers_ll_"#prefix
-    files = glob.glob("empty_fibers_*ll.fits")
-    files = sorted(files)
-
-    #T = Table.read(files[0],format="fits")
-    T = None
+if False: #older way ... works, but less efficient
     write_every = 100
-    for i,f in enumerate(files):
-        print(i+1,f)
-        t = Table.read(f, format="fits")
 
-        if T is None:
-            T = Table.read(f, format="fits")
-        else:
-            T = vstack([T,t])
+    if True: #LL table
+        table_outname = "empty_fibers_ll_"#prefix
+        files = glob.glob("empty_fibers_*ll.fits")
+        files = sorted(files)
 
-        if (i+1) % write_every == 0:
-            if T is not None:
-                T.write(table_outname+"_all.fits",format='fits',overwrite=True)
+        #T = Table.read(files[0],format="fits")
+        T = None
+        for i,f in enumerate(files):
+            print(i+1,f)
+            t = Table.read(f, format="fits")
 
-    if T is not None:
-        T.write(table_outname+"_all.fits",format='fits',overwrite=True)
+            if T is None:
+                T = Table.read(f, format="fits")
+            else:
+                T = vstack([T,t])
 
-    del T
+            if (i+1) % write_every == 0:
+                if T is not None:
+                    T.write(table_outname+"_all.fits",format='fits',overwrite=True)
 
-if False: #FF Table
-    # now the ff
-    table_outname = "empty_fibers_ff_"#prefix
-    files = glob.glob("empty_fibers_*ff.fits")
-    files = sorted(files)
+        if T is not None:
+            T.write(table_outname+"_all.fits",format='fits',overwrite=True)
 
-    #T = Table.read(files[0],format="fits")
-    T = None
-    write_every = 100
-    for i,f in enumerate(files):
-        print(i+1,f)
-        t = Table.read(f, format="fits")
+        del T
 
-        if T is None:
-            T = Table.read(f, format="fits")
-        else:
-            T = vstack([T,t])
+    if True: #FF Table
+        # now the ff
+        table_outname = "empty_fibers_ff_"#prefix
+        files = glob.glob("empty_fibers_*ff.fits")
+        files = sorted(files)
 
-        if (i+1) % write_every == 0:
-            if T is not None:
-                T.write(table_outname+"_all.fits",format='fits',overwrite=True)
+        #T = Table.read(files[0],format="fits")
+        T = None
+        for i,f in enumerate(files):
+            print(i+1,f)
+            t = Table.read(f, format="fits")
 
-    if T is not None:
-        T.write(table_outname+"_all.fits",format='fits',overwrite=True)
+            if T is None:
+                T = Table.read(f, format="fits")
+            else:
+                T = vstack([T,t])
 
-    del T
+            if (i+1) % write_every == 0:
+                if T is not None:
+                    T.write(table_outname+"_all.fits",format='fits',overwrite=True)
 
-if True: #FFrc
-    # now the ffrc
-    table_outname = "empty_fibers_ffrc_"#prefix
-    files = glob.glob("empty_fibers_*ffrc.fits")
-    files = sorted(files)
+        if T is not None:
+            T.write(table_outname+"_all.fits",format='fits',overwrite=True)
 
-    #T = Table.read(files[0],format="fits")
-    T = None
-    write_every = 100
-    for i,f in enumerate(files):
-        print(i+1,f)
-        t = Table.read(f, format="fits")
+        del T
 
-        if T is None:
-            T = Table.read(f, format="fits")
-        else:
-            T = vstack([T,t])
+    if True: #FFrc
+        # now the ffrc
+        table_outname = "empty_fibers_ffrc_"#prefix
+        files = glob.glob("empty_fibers_*ffrc.fits")
+        files = sorted(files)
 
-        if (i+1) % write_every == 0:
-            if T is not None:
-                T.write(table_outname+"_all.fits",format='fits',overwrite=True)
+        #T = Table.read(files[0],format="fits")
+        T = None
+        for i,f in enumerate(files):
+            print(i+1,f)
+            t = Table.read(f, format="fits")
 
-    if T is not None:
-        T.write(table_outname+"_all.fits",format='fits',overwrite=True)
+            if T is None:
+                T = Table.read(f, format="fits")
+            else:
+                T = vstack([T,t])
+
+            if (i+1) % write_every == 0:
+                if T is not None:
+                    T.write(table_outname+"_all.fits",format='fits',overwrite=True)
+
+        if T is not None:
+            T.write(table_outname+"_all.fits",format='fits',overwrite=True)
+
+else: #newer way, stack in a single call?
+    if True:  # LL table
+        table_outname = "empty_fibers_ll_"  # prefix
+        files = glob.glob("empty_fibers_*ll.fits")
+        files = sorted(files)
+
+        T = vstack([Table.read(f,format="fits") for f in files])
+
+        if T is not None:
+            T.write(table_outname + "_all.fits", format='fits', overwrite=True)
+
+        del T
+
+    if True:  # ff table
+        table_outname = "empty_fibers_ff_"  # prefix
+        files = glob.glob("empty_fibers_*ff.fits")
+        files = sorted(files)
+
+        T = vstack([Table.read(f, format="fits") for f in files])
+
+        if T is not None:
+            T.write(table_outname + "_all.fits", format='fits', overwrite=True)
+
+        del T
+
+    if True:  # rescor table
+        table_outname = "empty_fibers_ffrc_"  # prefix
+        files = glob.glob("empty_fibers_*ffrc.fits")
+        files = sorted(files)
+
+        T = vstack([Table.read(f, format="fits") for f in files])
+
+        if T is not None:
+            T.write(table_outname + "_all.fits", format='fits', overwrite=True)
+
+        del T

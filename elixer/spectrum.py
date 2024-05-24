@@ -4926,7 +4926,7 @@ def combine_lines(eli_list,sep=4.0):
 class EmissionLine:
     def __init__(self,name,w_rest,plot_color,solution=True,display=True,z=0,score=0.0,rank=0,
                  min_fwhm=999.0,min_obs_wave=9999.0,max_obs_wave=9999.0,broad=False,score_multiplier=1.0,
-                 absorber=False):
+                 absorber=False, rest_ew = None):
 
         ###################################################################
         # for the "base" definition of lines
@@ -4954,6 +4954,7 @@ class EmissionLine:
 
         #both part of the definition and in individual instances
         self.absorber = absorber #true if an abosrption line
+        self.rest_ew_range =  rest_ew
 
         ####################################################################
         #  for specific instances of emission (or absorption) lines
@@ -5153,7 +5154,7 @@ class Spectrum:
             EmissionLine("CIV".ljust(w), G.CIV_1549, "blueviolet",solution=True,display=True,rank=3,broad=True),
             # big in AGN (alone before CIV enters from blue and after MgII exits to red) [HeII too unreliable to set max_obs_wave]
             EmissionLine("CIII".ljust(w), G.CIII_1909, "purple",solution=True,display=True,rank=3,broad=True,
-                         min_fwhm=12.0,min_obs_wave=3751.0-20.0,max_obs_wave=4313.0+20.0),
+                         min_fwhm=12.0,min_obs_wave=3751.0-20.0,max_obs_wave=4313.0+20.0, rest_ew=(0,20.0)),
             #big in AGN (too weak to be alone)
             EmissionLine("CII".ljust(w), G.CII_2326, "purple",solution=False,display=True,rank=4,broad=True),  # in AGN
 
@@ -5579,6 +5580,10 @@ class Spectrum:
         :return:
         """
         try:
+
+            if self.all_found_lines is None:
+                return []
+
             all_match = []
 
             if continuum: #then normal  emission (like hydrogen series) can also be in absorption
@@ -6242,7 +6247,7 @@ class Spectrum:
             #in ALL cases, LyA better be found IF it is in range (so making it a 2 ... need 2 other matched lines to overcome missing LyA)
             match_matrix =[[1,0,0,0,0,0,0,0,0,0,0],  #0 LyA
                            [1,1,0,0,0,0,0,0,0,0,0],  #1 CIV #CIII, CII should be there, but in AGN they can be hard to see in EliXer
-                           [1,1,1,0,0,0,0,0,0,0,0],  #2 CIII #but if we see CIII, CIV should REALLY be obvious (CIII is semi forbidden)
+                           [1,1,1,1,0,0,0,0,0,0,0],  #2 CIII #but if we see CIII, CIV should REALLY be obvious (CIII is semi forbidden)
                            [1,1,0,1,0,0,0,0,0,0,0],  #3 CII #not sure about CII [semi forbidden]
                            [1,0,0,0,1,0,0,0,0,0,1],  #4 MgII
                            [1,0,0,0,0,1,0,0,0,0,0],  #5 NV
@@ -8035,12 +8040,26 @@ class Spectrum:
                 continue #we are looking for emision only and this line is not avaible to match in emission
             #else: central can be either emission or absorption
 
+            anchor_ew_score_penalty_factor = 1.0 #apply if the bin line is outside the accepted rest eqwidth range
+
             central_z = central/e.w_rest - 1.0
             if (central_z) < 0.0:
                 if central_z > G.NEGATIVE_Z_ERROR: #assume really z=0 and this is wavelength error
                     central_z = 0.0
                 else:
                     continue #impossible, can't have a negative z
+
+            #check the EW range
+            if e.rest_ew_range is not None:
+                try:
+                    ew_rest = self.eqw_obs / (central_z + 1)
+                    if (e.rest_ew_range[0] is not None and ew_rest < e.rest_ew_range[0]) or \
+                       (e.rest_ew_range[1] is not None and ew_rest > e.rest_ew_range[1]):
+                        log.info(f"Penalizing bid anchor line {e.name}, {e.w_rest:0.1f} as EWr {ew_rest:0.1f} is out of range ({e.rest_ew_range}). ")
+                        anchor_ew_score_penalty_factor *= 0.5
+
+                except:
+                    pass
 
             if known_z is not None:
                 if abs(central_z-known_z) > 0.05:
@@ -8094,8 +8113,12 @@ class Spectrum:
                 if (a_central > max_w) or (a_central < min_w) or (abs(a_central-central) < 5.0):
                     continue
 
+                supporting_ew_score_penalty_factor = 1.0
+
                 log.debug("Testing line solution. Anchor line (%s, %0.1f) at %0.1f, target line (%s, %0.1f) at %0.1f."
                           %(e.name,e.w_rest,e.w_rest*(1.+central_z),a.name,a.w_rest,a_central))
+
+
 
                 try:
                     if a.rank < 4:
@@ -8196,13 +8219,25 @@ class Spectrum:
                 if (eli is not None) and eli.is_good(z=sol.z,allow_broad=allow_broad_check,supporting_line=True):
                     good = True
 
+                if a.rest_ew_range is not None:
+                    try:
+                        ew_rest =  eli.eqw_obs / (central_z + 1)
+                        if (a.rest_ew_range[0] is not None and ew_rest < a.rest_ew_range[0]) or \
+                           (a.rest_ew_range[1] is not None and ew_rest > a.rest_ew_range[1]):
+                            log.info(
+                                f"Penalizing bid supporting line {a.name}, {a.w_rest:0.1f} as EWr {ew_rest:0.1f} is out of range ({a.rest_ew_range}). ")
+                            supporting_ew_score_penalty_factor *= 0.5
+
+                    except:
+                        pass
+
                 #This has to happen AFTER is good check
                 #apply any score modifications based on the line identification (made in the definitions of the EmissionLine objects)
                 #i.e. for LyA+NV vs OII+complex at 3800AA-rest
-                if eli and (a.score_multiplier != 1.0):
+                if eli and ((a.score_multiplier != 1.0) or (supporting_ew_score_penalty_factor != 1.0)):
                     try:
                         old_score = eli.line_score
-                        eli.line_score *= a.score_multiplier
+                        eli.line_score = eli.line_score * a.score_multiplier * supporting_ew_score_penalty_factor
                         log.debug(f"Down-scoring {a.name},{a.w_rest} per definition. Old score {old_score}, new score {eli.line_score}")
                     except:
                         log.warning("Exception. Unexpected execption down-scoring NV in Spectrum::classify_with_additional_lines()")
@@ -8461,9 +8496,12 @@ class Spectrum:
                         # print("+++++ %s n(%d) bonus(%g)"  %(self.identifier,n,bonus))
                         sol.score += bonus
                         per_line_total_score += bonus
+
+                    sol.score *= anchor_ew_score_penalty_factor
                     solutions.append(sol)
                 else:
                     log.debug("Line (%s, %0.1f) not allowed as single line solution." % (sol.name, sol.central_rest))
+
 
         #end for e in emission lines
 

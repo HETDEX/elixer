@@ -768,7 +768,7 @@ if True:
 
         # remove fiber ids included in detections
         # exactly the same regardless of local, ffsky, or rescor
-        print(f"Checking for matching fiber_ids (rescor) ... {datetime.datetime.now()}")
+        print(f"Checking for matching fiber_ids  ... {datetime.datetime.now()}")
         u_fibers = np.unique(fibers).astype(str)
         sel_fibid = [x in u_fibers for x in fibers_table['fiber_id']]
 
@@ -926,7 +926,7 @@ try:
     #want to KEEP these so, select low numbers of NaNs
     sel = np.array(fd_bad < 100) & np.array(fe_bad < 100) & np.array(ff_bad < 100)
 
-    print(f"{shotid} (rescor) removed {len(super_tab) - np.count_nonzero(sel)} excessive number of zero valued fibers ....")
+    print(f"{shotid} removed {len(super_tab) - np.count_nonzero(sel)} excessive number of zero valued fibers ....")
     super_tab = super_tab[sel]
 
 
