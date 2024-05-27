@@ -4954,7 +4954,8 @@ class EmissionLine:
 
         #both part of the definition and in individual instances
         self.absorber = absorber #true if an abosrption line
-        self.rest_ew_range =  rest_ew
+        self.rest_ew_range =  rest_ew #this should be a good bit wider than what is expected as it is used as a hard cutoff
+                                      # so, if you expect say, 2AA to 30AA, maybe set to 0 to 35 or 40AA
 
         ####################################################################
         #  for specific instances of emission (or absorption) lines
@@ -5153,8 +5154,10 @@ class Spectrum:
             # big in AGN (never alone in our range)
             EmissionLine("CIV".ljust(w), G.CIV_1549, "blueviolet",solution=True,display=True,rank=3,broad=True),
             # big in AGN (alone before CIV enters from blue and after MgII exits to red) [HeII too unreliable to set max_obs_wave]
+            # note: some docs have CIII-1909 eqw up to 27AA or so, so give it some room; most lower (few AA to 10-15 ish)
+            #high LyC leakers might have it at that high end of 20-25AA
             EmissionLine("CIII".ljust(w), G.CIII_1909, "purple",solution=True,display=True,rank=3,broad=True,
-                         min_fwhm=12.0,min_obs_wave=3751.0-20.0,max_obs_wave=4313.0+20.0, rest_ew=(0,20.0)),
+                         min_fwhm=12.0,min_obs_wave=3751.0-20.0,max_obs_wave=4313.0+20.0, rest_ew=(0,35.0)),
             #big in AGN (too weak to be alone)
             EmissionLine("CII".ljust(w), G.CII_2326, "purple",solution=False,display=True,rank=4,broad=True),  # in AGN
 

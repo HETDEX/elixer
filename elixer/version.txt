@@ -1,5 +1,9 @@
 changes to elixer by version
 
+
+1.22.0a11 [2024-05-27]
+* prioritize stdout logging if LOG_TO_STDOUT is set, regardless of state of GLOBAL_LOGGING
+
 1.22.0a10 [2024-05-24]
 * updates for HDR5
     + allow alternate location for large galaxy mask

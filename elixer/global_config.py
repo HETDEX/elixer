@@ -25,7 +25,7 @@ if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
 #version
-__version__ = '1.22.0a10'
+__version__ = '1.22.0a11'
 
 
 #initial working dir
@@ -65,8 +65,8 @@ if MAIN_SCRIPT == 'elixer.py':
 
 #Logging
 GLOBAL_LOGGING = False #set to True in top elixer calls so we do not normally log from package imports
-LOG_TO_STDOUT = False #only kicks in if GLOBAL_LOGGING is False
-if not GLOBAL_LOGGING and LOG_TO_STDOUT:
+LOG_TO_STDOUT = False #also log to stdout if True
+if LOG_TO_STDOUT: #if not GLOBAL_LOGGING and LOG_TO_STDOUT:
     import traceback
 
 #python version
@@ -809,66 +809,80 @@ class Global_Logger:
 
     def debug(self,msg,exc_info=False):
         try:
-            if self.__class__.DO_LOG:
-                msg = self.add_time(msg)
-                self.logger.debug(msg,exc_info=exc_info)
-            elif LOG_TO_STDOUT:
+
+            if LOG_TO_STDOUT:
                 msg = self.add_time(msg)
                 print(msg)
                 if exc_info:
                     print(traceback.format_exc())
+
+            if self.__class__.DO_LOG:
+                msg = self.add_time(msg)
+                self.logger.debug(msg, exc_info=exc_info)
+
         except:
             print("Exception in logger (debug) ...")
 
     def info(self,msg,exc_info=False):
         try:
-            if self.__class__.DO_LOG:
-                msg = self.add_time(msg)
-                self.logger.info(msg,exc_info=exc_info)
-            elif LOG_TO_STDOUT:
+
+            if LOG_TO_STDOUT:
                 msg = self.add_time(msg)
                 print(msg)
                 if exc_info:
                     print(traceback.format_exc())
+
+            if self.__class__.DO_LOG:
+                msg = self.add_time(msg)
+                self.logger.info(msg, exc_info=exc_info)
+
         except:
             print("Exception in logger (info) ...")
 
     def warning(self,msg,exc_info=False):
         try:
-            if self.__class__.DO_LOG:
-                msg = self.add_time(msg)
-                self.logger.warning(msg,exc_info=exc_info)
-            elif LOG_TO_STDOUT:
+
+            if LOG_TO_STDOUT:
                 msg = self.add_time(msg)
                 print(msg)
                 if exc_info:
                     print(traceback.format_exc())
+
+            if self.__class__.DO_LOG:
+                msg = self.add_time(msg)
+                self.logger.warning(msg,exc_info=exc_info)
+
         except:
             print("Exception in logger (warning) ...")
 
     def error(self,msg,exc_info=False):
         try:
-            if self.__class__.DO_LOG:
-                msg = self.add_time(msg)
-                self.logger.error(msg,exc_info=exc_info)
-            elif LOG_TO_STDOUT:
+
+            if LOG_TO_STDOUT:
                 msg = self.add_time(msg)
                 print(msg)
                 if exc_info:
                     print(traceback.format_exc())
+
+            if self.__class__.DO_LOG:
+                msg = self.add_time(msg)
+                self.logger.error(msg,exc_info=exc_info)
+
         except:
             print("Exception in logger (error) ...")
 
     def critical(self, msg, exc_info=False):
         try:
-            if self.__class__.DO_LOG:
-                msg = self.add_time(msg)
-                self.logger.critical(msg, exc_info=exc_info)
-            elif LOG_TO_STDOUT:
+
+            if LOG_TO_STDOUT:
                 msg = self.add_time(msg)
                 print(msg)
                 if exc_info:
                     print(traceback.format_exc())
+
+            if self.__class__.DO_LOG:
+                msg = self.add_time(msg)
+                self.logger.critical(msg, exc_info=exc_info)
         except:
             print("Exception in logger (critical) ....")
 
