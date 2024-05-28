@@ -712,7 +712,7 @@ def parse_commandline(auto_force=False):
             G.CHECK_GAIA_DEX_CATALOG = False
             G.CHECK_SDSS_Z_CATALOG = False
             G.CHECK_ALL_CATALOG_BID_Z = False
-        elif args.check_z:
+        elif args.check_z is not None:
             log.info(f"Altering check_z: bitmask={bin(args.check_z)}")
             if args.check_z & 1:
                 G.CHECK_GALAXY_MASK = True

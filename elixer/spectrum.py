@@ -5155,9 +5155,10 @@ class Spectrum:
             EmissionLine("CIV".ljust(w), G.CIV_1549, "blueviolet",solution=True,display=True,rank=3,broad=True),
             # big in AGN (alone before CIV enters from blue and after MgII exits to red) [HeII too unreliable to set max_obs_wave]
             # note: some docs have CIII-1909 eqw up to 27AA or so, so give it some room; most lower (few AA to 10-15 ish)
-            #high LyC leakers might have it at that high end of 20-25AA
+            # high LyC leakers might have it at that high end of 20-25AA .. given our uncertainties on lineflux and continuum
+            # figure we can be off by 40-50% absolute worst case in EW ... though statsitcally more like 30-35%
             EmissionLine("CIII".ljust(w), G.CIII_1909, "purple",solution=True,display=True,rank=3,broad=True,
-                         min_fwhm=12.0,min_obs_wave=3751.0-20.0,max_obs_wave=4313.0+20.0, rest_ew=(0,35.0)),
+                         min_fwhm=12.0,min_obs_wave=3751.0-20.0,max_obs_wave=4313.0+20.0, rest_ew=(0,40.0)),
             #big in AGN (too weak to be alone)
             EmissionLine("CII".ljust(w), G.CII_2326, "purple",solution=False,display=True,rank=4,broad=True),  # in AGN
 
