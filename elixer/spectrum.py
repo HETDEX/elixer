@@ -5184,7 +5184,7 @@ class Spectrum:
             #EmissionLine("XX".ljust(w), 3800, "green", solution=False,display=True,rank=3,broad=True),
 
             EmissionLine("SiII".ljust(w), G.SiII_1260, "gray", solution=False,display=True,rank=4),
-            EmissionLine("SiIV".ljust(w), G.SiIV_1400, "gray", solution=False, display=True, rank=4,broad=True), #or 1393-1403 also OIV]
+            EmissionLine("SiIV".ljust(w), G.SiIV_1400, "gray", solution=False, display=True, rank=5,broad=True), #or 1393-1403 also OIV]
 
             #big in AGN, but never alone in our range
             EmissionLine("HeII".ljust(w), G.HeII_1640, "orange", solution=True,display=True,rank=3),
@@ -6145,20 +6145,20 @@ class Spectrum:
         """
         try:
 
-            v = 3e5 * w/fwhm
+            v = 3e5 * fwhm/w
 
             if   3470 <= w < 3760:
                 return w/G.MgII_2799 - 1.0 , "MgII" #MgII
             elif 3760 <= w < 4314:
                 #MgII or CIII?
                 #semi arbitrary
-                if v > 1200:
+                if v > 1100:
                     return w/G.CIII_1909 -1, "CIII" #CIII
                 else:
                     return w/G.MgII_2799 - 1.0, "MgII" #MgII
             elif 4314 <= w < 4421:
                 #MgII or LyA??
-                if v > 1200:
+                if v > 1100:
                     return w/G.LyA_rest -1, "LyA" #LyA
                 else:
                     return w/G.MgII_2799 - 1.0, "MgII" #MgII
@@ -6167,7 +6167,7 @@ class Spectrum:
                  #after CIV falls off
             elif 4421 < w < 5120:
                 #  LyA or MgII (for MgII at 5120, CIII shows up)
-                if v > 1200:
+                if v > 1100:
                     return w/G.LyA_rest - 1.0, "LyA"
                 else:
                     return w/G.MgII_2799 - 1.0, "MgII" #MgII

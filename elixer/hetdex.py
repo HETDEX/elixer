@@ -2353,14 +2353,14 @@ class DetObj:
                     #     use_multi = True
                     #     log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. Set to z:{z} with Q(z): {p}")
                     elif multiline_top_scale_score > 0.5 and multiline_top_frac_score > 0.6 and self.fwhm > 12 and \
-                            multiline_top_rest != G.LyA_rest:
+                            multiline_top_score > G.MULTILINE_MIN_SOLUTION_SCORE * 0.35 and multiline_top_rest != G.LyA_rest:
                         # this is not terrible and may be better than an OII guess
                         # BUT THIS cannnot be LyA w/o a high score)
                         z = multiline_top_z
                         if base_p < 0.1:  # all we have is the P(LyA) p and it is near the mid-point, so highly uncertain
-                            p = 0.1
+                            p = min(base_p, 0.05)
                         else:
-                            p = min(p, 0.1)
+                            p = min(p, 0.05)
                         use_multi = True
                         log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. Set to z:{z} with Q(z): {p}")
                 except:
@@ -2373,14 +2373,24 @@ class DetObj:
                         p = min(p/2.,0.1) #remember, this is just NOT LyA .. so while OII is the most common, it is hardly the only solution
 
                         sbl_z,sbl_name = self.spec_obj.single_broad_line_redshift(self.w,self.fwhm)
-                        if sbl_z is not None and sbl_z != (self.w/G.LyA_rest - 1.0):
-                            log.info(f"Q(z): no multiline solutions. Really broad ({self.fwhm:0.1f}AA), so not likely OII. "
-                                     f"P(LyA) favors NOT LyA. Set to single broadline ({sbl_name}) z:{sbl_z:04f} with Q(z): {p}.")
-                            z = sbl_z
+                        if sbl_z is not None:
+                            if sbl_z != (self.w/G.LyA_rest - 1.0):
+                                log.info(f"Q(z): no multiline solutions. Really broad ({self.fwhm:0.1f}AA), so not likely OII. "
+                                         f"P(LyA) favors NOT LyA. Set to single broadline ({sbl_name}) z:{sbl_z:04f} with Q(z): {p}.")
+                                z = sbl_z
+                                self.spec_obj.add_classification_label("AGN")
+                            else:
+                                log.info(f"Q(z): no multiline solutions. Really broad ({self.fwhm:0.1f}AA), so not likely OII. "
+                                         f"P(LyA) favors NOT LyA, but is best choice as FWHM excludes OII. Set to single broadline ({sbl_name}) z:{sbl_z:04f} with Q(z): {p}.")
+                                z = sbl_z
+                                p = 0
+                                self.spec_obj.add_classification_label("AGN")
                         else:
-                            p = min(p,0.01)
+                            p = 0 #min(p,0.01)
                             log.info(f"Q(z): no multiline solutions. Really broad ({self.fwhm:0.1f}AA), so not likely OII, but no other good solution. "
                                      f"P(LyA) favors NOT LyA. Set to OII z:{z:04f} with Q(z): {p}. Could still be AGN with LyA or CIV, CIII or MgII alone.")
+
+                            self.spec_obj.add_classification_label("AGN")
 
 
                         self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
@@ -2464,7 +2474,8 @@ class DetObj:
                 try:
 
 
-                    if multiline_top_scale_score > 0.5 and multiline_top_frac_score > 0.6 and self.fwhm > 15:
+                    if multiline_top_scale_score > 0.5 and multiline_top_frac_score > 0.6 and \
+                            multiline_top_score > G.MULTILINE_MIN_SOLUTION_SCORE * 0.35 and self.fwhm > 15:
                         #this is not terrible and may be better than an OII guess
                         #assumes this could be CIII, CIV maybe MgII, so need to exclude OII
                         if multiline_top_scale_score < 0.8 and (multiline_top_rest==G.OII_rest): #not likely OII
@@ -2478,10 +2489,10 @@ class DetObj:
                             #the driving line(s) for this solution must be of strong rank
                             #can still be OII if the lines support it
                             z = self.spec_obj.solutions[0].z
-                            if base_p < 0.1: #all we have is the P(LyA) p and it is near the mid-point, so highly uncertain
-                                p = 0.1
+                            if base_p < 0.1:  # all we have is the P(LyA) p and it is near the mid-point, so highly uncertain
+                                p = min(base_p, 0.05)
                             else:
-                                p = min(p,0.1)
+                                p = min(p, 0.05)
                             log.info(f"Q(z): weak multiline solution ({multiline_top_scale_score:0.2f}). P(LyA) favors LyA, but set to z:{z} with Q(z): {p}")
                     else:
                         log.info(f"Q(z): no multiline solutions. P(LyA) favors LyA. Set to LyA z:{z} with Q(z): {p}")
@@ -2513,13 +2524,14 @@ class DetObj:
                     p = min(p,0.4)
 
                 try:
-                    if multiline_top_scale_score > 0.5 and multiline_top_frac_score > 0.6 and self.fwhm > 12:
+                    if multiline_top_scale_score > 0.5 and multiline_top_frac_score > 0.6 and \
+                            multiline_top_score > G.MULTILINE_MIN_SOLUTION_SCORE * 0.35 and self.fwhm > 12:
                         #this is not terrible and may be better than an OII guess
                         z = self.spec_obj.solutions[0].z
-                        if base_p < 0.1: #all we have is the P(LyA) p and it is near the mid-point, so highly uncertain
-                            p = 0.1
+                        if base_p < 0.1:  # all we have is the P(LyA) p and it is near the mid-point, so highly uncertain
+                            p = min(base_p, 0.05)
                         else:
-                            p = min(p,0.1)
+                            p = min(p, 0.05)
                 except:
                     pass
 
