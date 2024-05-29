@@ -3,6 +3,11 @@ changes to elixer by version
 
 1.22.0a11 [2024-05-27]
 * prioritize stdout logging if LOG_TO_STDOUT is set, regardless of state of GLOBAL_LOGGING
+* modify hsc_ssp handling to keep all matching (overlapping) tiles to check for photz rather than just the tile with
+  the largest overlap with the target. This helps address an HSC issue where the same physical object can get different
+  unique identifiers across tiles.
+* update phot-z matching code to scale the weight based on the normalized area in vacinity of the redshift and
+  as distinct from OII and LyA redshifts. If not clearly distinct, weight is reduced as adds little to no separation info.
 
 1.22.0a10 [2024-05-24]
 * updates for HDR5

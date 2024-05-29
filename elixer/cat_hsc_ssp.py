@@ -382,12 +382,13 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                  'mag_depth': self.Tile_Dict[t]['depth'],
                  })
 
-    def find_target_tile(self,ra,dec):
+    def find_target_tile(self,ra,dec,return_all_matched_tiles=False):
         #assumed to have already confirmed this target is at least in coordinate range of this catalog
         #return at most one tile, but maybe more than one tract (for the catalog ... HSC does not completely
         #   overlap the tracts so if multiple tiles are valid, depending on which one is selected, you may
         #   not find matching objects for the associated tract)
         tile = None
+        all_matched_tiles  = []
         tracts = []
         positions = []
         keys = []
@@ -420,9 +421,14 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                 pass
 
         if len(keys) == 0: #we're done ... did not find any
-            return None, None, None
+            if all_matched_tiles:
+                return None, None, None, None
+            else:
+                return None, None, None
         elif len(keys) == 1: #found exactly one
             tile = keys[0] #remember tile is a string ... there can be only one
+            if return_all_matched_tiles:
+                all_matched_tiles = copy.copy(keys)
             positions.append(self.Tile_Dict[tile]['pos'])
             tracts.append(self.Tile_Dict[tile]['tract']) #remember, tract is a list (there can be more than one)
         elif len(keys) > 1: #find the best one
@@ -442,6 +448,8 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
             #         min_dist = 9e9
             max_dist = 0
             tile = keys[0] #start with the first one
+            if return_all_matched_tiles:
+                all_matched_tiles = copy.copy(keys)
             for k in keys:
                 tracts.append(self.Tile_Dict[k]['tract'])
                 positions.append(self.Tile_Dict[k]['pos'])
@@ -460,9 +468,16 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
         else: #really?? len(keys) < 0 : this is just a sanity catch
             log.error("ERROR! len(keys) < 0 in cat_hsc::find_target_tile.")
-            return None, None, None
+            if return_all_matched_tiles:
+                return None, None, None, None
+            else:
+                return None, None, None
 
         tile = tile.replace("-R-","-?-")
+        if return_all_matched_tiles and all_matched_tiles is not None:
+            for i in range(len(all_matched_tiles)):
+                all_matched_tiles[i] = all_matched_tiles[i].replace("-R-","-?-")
+
         log.info("Selected tile: %s" % tile)
         #now we have the tile key (filename)
         #do we want to find the matching catalog and see if there is an entry in it?
@@ -479,7 +494,10 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
         # except:
         #     pass
 
-        return tile, tracts, positions
+        if return_all_matched_tiles:
+            return tile, tracts, positions, all_matched_tiles
+        else:
+            return tile, tracts, positions
 
 
     def get_mask_cutout(self,tile,ra,dec,error):
@@ -775,7 +793,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
         returns a pandas dataframe'''
 
         #even if not None, could be we need a different catalog, so check and append
-        tile, tracts, positions = self.find_target_tile(ra,dec)
+        tile, tracts, positions, all_tiles  = self.find_target_tile(ra,dec, return_all_matched_tiles=True)
 
         if tile is None:
             log.info("Could not locate tile for HSC_SSP. Discontinuing search of this catalog.")
@@ -786,7 +804,11 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
         if self.df is None or not (set(tracts).issubset(self.loaded_tracts)):
             #self.read_main_catalog()
             #self.read_catalog(tract=self.Tile_Dict[tile]['tract'])
-            self.read_catalog(tile=tile,tract=tracts,position=positions)
+            if all_tiles is not None and len(all_tiles) > 0:
+                for one_tile in all_tiles:
+                    self.read_catalog(tile=one_tile,tract=tracts,position=positions)
+            else:
+                self.read_catalog(tile=tile, tract=tracts, position=positions)
 
         error_in_deg = np.float64(error) / 3600.0
 

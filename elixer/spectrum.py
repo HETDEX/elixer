@@ -5152,6 +5152,7 @@ class Spectrum:
                          min_fwhm=12.0,min_obs_wave=G.Hbeta_4861-20.,max_obs_wave=5540.0+20.),
 
             # big in AGN (never alone in our range)
+            # EWrest for CIV can get pretty big (100-150AA confirmed),
             EmissionLine("CIV".ljust(w), G.CIV_1549, "blueviolet",solution=True,display=True,rank=3,broad=True),
             # big in AGN (alone before CIV enters from blue and after MgII exits to red) [HeII too unreliable to set max_obs_wave]
             # note: some docs have CIII-1909 eqw up to 27AA or so, so give it some room; most lower (few AA to 10-15 ish)
@@ -6129,7 +6130,7 @@ class Spectrum:
         return 0
 
 
-    def single_broad_line_redshift(self,w,fwhm): #,solution=None):
+    def single_broad_line_redshift(self,w,fwhm,fwhm_err=0): #,solution=None):
         """ Single broad line, possibly LyA, CIII, MgII in certain ranges
             Others would expect to see another line
 
@@ -6142,23 +6143,30 @@ class Spectrum:
             LyA: > 5120
 
             #check for shape? double peak MgII ... if no, then assume CIII (low confidence)??
+            
+            :param w = wavelength, observed frame in AA
+            :param fwhm =  single Gaassian fitted FWHM in AA
+            :param fwhm_err = uncertainty on fwhm in AA
         """
         try:
 
             v = 3e5 * fwhm/w
+            #reduce the threshold by the fractional error on the fwhm
+            #default is at 1200. km/s
+            velocity_thresh = max(800.0, G.BROAD_FWHM_KMS * (1. - fwhm_err / fwhm))
 
             if   3470 <= w < 3760:
                 return w/G.MgII_2799 - 1.0 , "MgII" #MgII
             elif 3760 <= w < 4314:
                 #MgII or CIII?
                 #semi arbitrary
-                if v > 1100:
+                if v > velocity_thresh:
                     return w/G.CIII_1909 -1, "CIII" #CIII
                 else:
                     return w/G.MgII_2799 - 1.0, "MgII" #MgII
             elif 4314 <= w < 4421:
                 #MgII or LyA??
-                if v > 1100:
+                if v > velocity_thresh:
                     return w/G.LyA_rest -1, "LyA" #LyA
                 else:
                     return w/G.MgII_2799 - 1.0, "MgII" #MgII
@@ -6167,7 +6175,7 @@ class Spectrum:
                  #after CIV falls off
             elif 4421 < w < 5120:
                 #  LyA or MgII (for MgII at 5120, CIII shows up)
-                if v > 1100:
+                if v > velocity_thresh:
                     return w/G.LyA_rest - 1.0, "LyA"
                 else:
                     return w/G.MgII_2799 - 1.0, "MgII" #MgII

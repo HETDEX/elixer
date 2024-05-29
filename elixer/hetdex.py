@@ -2245,6 +2245,7 @@ class DetObj:
                         #keep the z, but reduce the p(z)
                         #if pscore > p:
                         if (p <= 0) or (pscore / p > 0.9): #give a slight nod to the multi-line score
+
                             p = max(0.05,pscore - p)
                             log.info(f"Q(z): Multiline solution favors z = {sol.z}; {pscore}. "
                                      f"P(LyA) favors LyA {scaled_plae_classification}. Set to z:{z} with Q(z): {p}")
@@ -2257,6 +2258,23 @@ class DetObj:
                         self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
                         self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
                         self.needs_review = True
+
+                        #mask out the multi-line soluttions and call recursively
+                        #since we are basically ignoring the phot-z or other multi-line here
+                        try:
+
+                            backup_solutions  = self.spec_obj.solutions
+                            self.spec_obj.solutions = []
+                            log.info(f"Q(z): Recursively call best_z with multiline turned off.")
+                            recurse_best_z, recurse_p_of_z = self.best_redshift(plya_vote_thresh)
+                            self.spec_obj.solutions = backup_solutions
+                            return recurse_best_z, recurse_p_of_z
+                        except:
+                            try:
+                                self.spec_obj.solutions = backup_solutions
+                            except:
+                                pass
+                            pass
 
                     elif pscore < 0.6: #we are ignoring the Q(z) of the multiline solution as too inconsistent
                         #we will use the P(Lya)
@@ -2370,30 +2388,37 @@ class DetObj:
                     if broad and self.estflux > 0:
                         z = self.w / G.OII_rest - 1.0
                         rest = G.OII_rest
-                        p = min(p/2.,0.1) #remember, this is just NOT LyA .. so while OII is the most common, it is hardly the only solution
+                        #p = min(p/2.,0.1) #remember, this is just NOT LyA .. so while OII is the most common, it is hardly the only solution
+                        p = 0
 
-                        sbl_z,sbl_name = self.spec_obj.single_broad_line_redshift(self.w,self.fwhm)
+                        sbl_z,sbl_name = self.spec_obj.single_broad_line_redshift(self.w,self.fwhm,self.fwhm_unc)
                         if sbl_z is not None:
                             if sbl_z != (self.w/G.LyA_rest - 1.0):
-                                log.info(f"Q(z): no multiline solutions. Really broad ({self.fwhm:0.1f}AA), so not likely OII. "
-                                         f"P(LyA) favors NOT LyA. Set to single broadline ({sbl_name}) z:{sbl_z:04f} with Q(z): {p}.")
-                                z = sbl_z
-                                self.spec_obj.add_classification_label("AGN")
-                            else:
-                                log.info(f"Q(z): no multiline solutions. Really broad ({self.fwhm:0.1f}AA), so not likely OII. "
-                                         f"P(LyA) favors NOT LyA, but is best choice as FWHM excludes OII. Set to single broadline ({sbl_name}) z:{sbl_z:04f} with Q(z): {p}.")
                                 z = sbl_z
                                 p = 0
                                 self.spec_obj.add_classification_label("AGN")
-                        else:
+
+                                log.info(f"Q(z): no multiline solutions. Really broad ({self.fwhm:0.1f}AA), so not likely OII. "
+                                         f"P(LyA) favors NOT LyA. Set to single broadline ({sbl_name}) z:{sbl_z:04f} with Q(z): {p}.")
+
+                            else:
+                                z = sbl_z
+                                p = 0 #set to Q(z) 0 ?? ... are we zero confident
+                                self.spec_obj.add_classification_label("AGN")
+
+                                log.info(f"Q(z): no multiline solutions. Really broad ({self.fwhm:0.1f}AA), so not likely OII. "
+                                         f"P(LyA) favors NOT LyA, but is best choice as FWHM excludes OII. Set to single broadline ({sbl_name}) z:{sbl_z:04f} with Q(z): {p}.")
+
+                        else: #call it OII for lack of anything else
+                            z = self.w / G.OII_rest - 1.0
+                            rest = G.OII_rest
                             p = 0 #min(p,0.01)
+                            self.spec_obj.add_classification_label("AGN")
                             log.info(f"Q(z): no multiline solutions. Really broad ({self.fwhm:0.1f}AA), so not likely OII, but no other good solution. "
                                      f"P(LyA) favors NOT LyA. Set to OII z:{z:04f} with Q(z): {p}. Could still be AGN with LyA or CIV, CIII or MgII alone.")
 
-                            self.spec_obj.add_classification_label("AGN")
-
-
                         self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
+                        self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
 
                     else:
                         z = self.w / G.OII_rest - 1.0
@@ -2913,20 +2938,45 @@ class DetObj:
                 #check spec-z (higher boost)
                 if b.spec_z is not None and b.spec_z > -0.02:
                     list_z.append({'z':b.spec_z,'z_err':0.01,'boost':G.ALL_CATATLOG_SPEC_Z_BOOST,'name':b.catalog_name,
-                                   'mag':b.bid_mag,'filter':b.bid_filter,'distance':b.distance,'type':'s','zPDF_area':1.0})
+                                   'mag':b.bid_mag,'filter':b.bid_filter,'distance':b.distance,'type':'s','zPDF_area':1.0,
+                                   'zPDF_OII_area':-1.0, 'zPDF_LyA_area':-1.0})
                     #set zPDF_area = 1 ... not really a zPDF, but this is a spec-z so assume a "perfect" zPDF
 
                 #then check phot-z (lower boost)
                 #allowed to have the smaller of 0.5 or 20% error in z
                 if b.phot_z is not None and b.phot_z > -0.02:
+
+                    #pre-compute OII and LyA Area under zPDF
+                    #OII
+                    try:
+                        if self.w > (G.OII_rest - 2.0):
+                            test_z = self.w / G.OII_rest - 1.0
+                            zPDF_OII_area = SU.sum_zPDF(test_z, b.phot_z_pdf_pz, b.phot_z_pdf_z, 0.1 * test_z)
+                        else:
+                            zPDF_OII_area = -1.
+                    except:
+                        zPDF_OII_area = -1.
+                        log.debug("Exception computing zPDF_OII_area",exc_info=True)
+
+                    #LyA
+                    try:
+                        test_z = self.w / G.LyA_rest - 1.0
+                        zPDF_LyA_area = SU.sum_zPDF(test_z, b.phot_z_pdf_pz, b.phot_z_pdf_z, 0.1 * test_z)
+                    except:
+                        zPDF_LyA_area = -1.
+                        log.debug("Exception computing zPDF_LyA_area",exc_info=True)
+
                     list_z.append({'z':b.phot_z,'z_err':min(0.25, b.phot_z * 0.2),'boost':G.ALL_CATATLOG_PHOT_Z_BOOST,'name':b.catalog_name,
-                                   'mag':b.bid_mag,'filter':b.bid_filter,'distance':b.distance,'type':"p",'zPDF_area':-1})
+                                   'mag':b.bid_mag,'filter':b.bid_filter,'distance':b.distance,'type':"p",'zPDF_area':-1,
+                                   'zPDF_OII_area':zPDF_OII_area, 'zPDF_LyA_area':zPDF_LyA_area,
+                                   'zPDF_z':b.phot_z_pdf_z, 'zPDF_pz':b.phot_z_pdf_pz})
 
             #first scan existing z solutions and see if they have a matching photz with zPDF; if yes, then boost their
             #scores by the zPDF in the z-region AND mark them as already phitz boosted so we don't double boost below
             #with the same single value photz
             if self.spec_obj.solutions is None:
                 self.spec_obj.solutions = []
+
 
             for s in self.spec_obj.solutions:
                 for b in self.bid_target_list:
@@ -3007,10 +3057,61 @@ class DetObj:
                     rank_scale = 1.0 if line.rank <= 2 else 1.0/(line.rank-1.0)
                     boost = boost * rank_scale * (1.0 if bid['z_err'] > 0.1 else 2.0) + line_score
                     if bid['zPDF_area'] == -1: #there is no zPDF
-                        if bid['z'] < 0.5: #more likely to be accurate and help with LyA vs OII
-                            boost *= 0.75
-                        else: #less accurate and can erroneously confuse LyA with CIV, CIII, MgII
-                            boost *= 0.25
+
+                        #could still be an area, just not set yet
+                        try:
+                            if bid['zPDF_z'] is not None and len(bid['zPDF_z']) > 0:
+                                test_z = self.w / line.w_rest - 1.0
+                                zPDF_area = SU.sum_zPDF(test_z, b.phot_z_pdf_pz, b.phot_z_pdf_z, 0.1 * test_z)
+                            else:
+                                zPDF_area = -1
+                        except:
+                            zPDF_area = -1.
+                            log.debug("Exception computing zPDF_area", exc_info=True)
+
+                        if zPDF_area != -1:
+                            #accept and give a weight IF the zPDF_area for THIS line is significantly greater
+                            #than that for LyA and OII ... othewise, keep the weight low as it does not help much
+
+                            #note, other than NV and LyA, no other pairs are particularly close that
+                            #we would need to worry about redshift overlap?
+                            lya_z = self.w / G.LyA_rest - 1.0
+                            oii_z = self.w / G.OII_rest - 1.0
+
+                            area_frac_excess = 4.0 #must be this times greater
+                            if bid['zPDF_LyA_area'] > 0 and abs(test_z - lya_z)/(0.5 * (test_z + lya_z)) > 0.1:
+                                lya_area_excess = zPDF_area / bid['zPDF_LyA_area']
+                            else:
+                                lya_area_excess = 9999
+
+                            if bid['zPDF_OII_area'] > 0 and abs(test_z - oii_z)/(0.5 * (test_z + oii_z)) > 0.1:
+                                oii_area_excess = zPDF_area / bid['zPDF_OII_area']
+                            else:
+                                oii_area_excess = 9999
+
+                            if oii_area_excess > area_frac_excess and lya_area_excess > area_frac_excess:
+                                boost = max(boost,G.MULTILINE_MIN_SOLUTION_SCORE)  * (1.0 + zPDF_area) #area is normalized to 1.0
+                                log.debug(f"[{self.entry_id}] zPDF for {line.w_rest:0.1f} exceeds LyA and OII. "
+                                          f"Norm area {zPDF_area:0.3f}")
+                            elif oii_area_excess > area_frac_excess: #only better than OII ... so does not rule out LyA
+                                boost = max(boost,G.MULTILINE_MIN_SOLUTION_SCORE) * zPDF_area  #notice NOT 1+zPDF_area, so this is a decrease, but the larger
+                                                    #the area, the smaller the decrease
+                                log.debug(f"[{self.entry_id}] zPDF for {line.w_rest:0.1f} favors mid-high z. "
+                                          f"Norm area {zPDF_area:0.3f}")
+                            elif lya_area_excess > area_frac_excess: #only better than LyA
+                                boost = max(boost,G.MULTILINE_MIN_SOLUTION_SCORE) * zPDF_area  #notice NOT 1+zPDF_area, so this is a decrease, but the larger
+                                                    #the area, the smaller the decrease
+                                log.debug(f"[{self.entry_id}] zPDF for {line.w_rest:0.1f} favors low-mid z. "
+                                           f"Norm area {zPDF_area:0.3f}")
+                            else: #not better than either ... can still be a solution, but gets reduced boost
+                                log.debug(f"[{self.entry_id}] zPDF for {line.w_rest:0.1f} favors flat z. "
+                                          f"Norm area {zPDF_area:0.3f}")
+                                boost = max(boost,G.MULTILINE_MIN_SOLUTION_SCORE) * 0.1 #basically no info
+                        else: #there is no zPDF, just a phot-z report
+                            if bid['z'] < 0.5: #more likely to be accurate and help with LyA vs OII
+                                boost *= 0.75
+                            else: #less accurate and can erroneously confuse LyA with CIV, CIII, MgII
+                                boost *= 0.25
                     #else this was already handled earlier when zPDF_Area was checked
 
                     #check the existing solutions ... if there is a corresponding z solution, boost its score
