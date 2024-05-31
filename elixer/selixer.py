@@ -47,6 +47,8 @@ HOST_MAVERICK = 1
 HOST_WRANGLER = 2
 HOST_STAMPEDE2 = 3
 HOST_LONESTAR6 = 4
+HOST_STAMPEDE3 = 5
+
 
 host = HOST_UNKNOWN
 
@@ -592,7 +594,138 @@ elif hostname == "lonestar6" or hostname == 'ls6':
     email = "##SBATCH --mail-user\n##SBATCH --mail-type all"
 
     tasks = 0
+elif hostname == "stampede3":
+    if queue is None:
+        queue = "skx"  # SKX  ... the KNL nodes seem really slow
+    # https://docs.tacc.utexas.edu/hpc/lonestar6/
 
+
+    print("preparing SLURM for lonestar6 ...")
+    host = HOST_STAMPEDE3  # defaulting to skx-normal
+
+    #lonestar6 does not use ibrun or mpiexec here
+    #python_cmd = "ibrun -np 1 " + python_cmd
+
+    if queue == "skx" or queue == "skx-dev":  # (192GB per node)
+        MAX_DETECTS_PER_CPU = 100
+        cores_per_node = 48
+        if recover_mode:
+            if neighborhood_only:
+                MAX_TIME_PER_TASK = 0.25
+            elif neighborhood == 0:
+                MAX_TIME_PER_TASK = 1.0  # 0.9 ver 1.18+ with hetdex_api is slower than HDF5 direct
+            else:
+                MAX_TIME_PER_TASK = 1.3  # 1.2  # in recover mode, can bit more agressive in timing (easier to continue if timeout)
+        else:
+            if neighborhood_only:
+                MAX_TIME_PER_TASK = 0.5
+            elif neighborhood == 0:
+                MAX_TIME_PER_TASK = 2.0
+            else:
+                MAX_TIME_PER_TASK = 3.0  # MINUTES max
+
+        if PYTHON_MAJOR_VERSION < 3:
+            print("Python < 3 No longer supported")
+            exit(-1)
+        else:
+            FILL_CPU_TASKS = 10
+            if MERGE: #use same tasks limit as full run
+                MAX_TASKS = 48
+                MAX_NODES = 1
+                MAX_TASKS_PER_NODE = 48  #need usually around 4-4.5GB per core, 256GB/ (4GB/task) = 64 tasks, 4.5GB = 58
+            else:
+                MAX_TASKS = 10000
+                MAX_NODES = 64
+                if neighborhood == 0:
+                    MAX_TASKS_PER_NODE = 48  # need usually around 4GB per core, 256GB/ (4GB/task) = 64 tasks, 4.5GB = 56
+                else:
+                    MAX_TASKS_PER_NODE = 48  # need usually around 4GB per core, 256GB/ (4GB/task) = 64 tasks, 4.5GB = 56
+            # MAX_TASKS = MAX_NODES * MAX_TASKS_PER_NODE #800
+
+
+    elif queue == "spr":  # (128 GB per node)
+        MAX_DETECTS_PER_CPU = 100
+        cores_per_node = 112
+        if recover_mode:
+            if neighborhood_only:
+                MAX_TIME_PER_TASK = 0.25
+            elif neighborhood == 0:
+                MAX_TIME_PER_TASK = 1.0  # 0.9 ver 1.18+ with hetdex_api is slower than HDF5 direct
+            else:
+                MAX_TIME_PER_TASK = 1.3  # 1.2  # in recover mode, can bit more agressive in timing (easier to continue if timeout)
+        else:
+            if neighborhood_only:
+                MAX_TIME_PER_TASK = 0.5
+            elif neighborhood == 0:
+                MAX_TIME_PER_TASK = 2.0
+            else:
+                MAX_TIME_PER_TASK = 3.0  # MINUTES max
+
+        if PYTHON_MAJOR_VERSION < 3:
+            print("Python < 3 No longer supported")
+            exit(-1)
+        else:
+            FILL_CPU_TASKS = 10
+            if MERGE:  # use same tasks limit as full run
+                MAX_TASKS = 32
+                MAX_NODES = 1
+                MAX_TASKS_PER_NODE = 32  # need usually around 4-4.5GB per core
+            else:
+                MAX_TASKS = 10000
+                MAX_NODES = 16
+                if neighborhood == 0:
+                    MAX_TASKS_PER_NODE = 32  # need usually around 4GB per core
+                else:
+                    MAX_TASKS_PER_NODE = 32  # need usually around 4GB per core
+            # MAX_TASKS = MAX_NODES * MAX_TASKS_PER_NODE #800
+
+
+    elif queue == "icx":  # (256 GB per node)
+        MAX_DETECTS_PER_CPU = 100
+        cores_per_node = 80
+        if recover_mode:
+            if neighborhood_only:
+                MAX_TIME_PER_TASK = 0.25
+            elif neighborhood == 0:
+                MAX_TIME_PER_TASK = 1.0  # 0.9 ver 1.18+ with hetdex_api is slower than HDF5 direct
+            else:
+                MAX_TIME_PER_TASK = 1.3  # 1.2  # in recover mode, can bit more agressive in timing (easier to continue if timeout)
+        else:
+            if neighborhood_only:
+                MAX_TIME_PER_TASK = 0.5
+            elif neighborhood == 0:
+                MAX_TIME_PER_TASK = 2.0
+            else:
+                MAX_TIME_PER_TASK = 3.0  # MINUTES max
+
+        if PYTHON_MAJOR_VERSION < 3:
+            print("Python < 3 No longer supported")
+            exit(-1)
+        else:
+            FILL_CPU_TASKS = 10
+            if MERGE:  # use same tasks limit as full run
+                MAX_TASKS = 64
+                MAX_NODES = 1
+                MAX_TASKS_PER_NODE = 64  # need usually around 4-4.5GB per core
+            else:
+                MAX_TASKS = 10000
+                MAX_NODES = 16
+                if neighborhood == 0:
+                    MAX_TASKS_PER_NODE = 64  # need usually around 4GB per core
+                else:
+                    MAX_TASKS_PER_NODE = 64  # need usually around 4GB per core
+            # MAX_TASKS = MAX_NODES * MAX_TASKS_PER_NODE #800
+
+
+
+    TIME_OVERHEAD = 4.0  # MINUTES of overhead to get started (per task call ... just a safety)
+
+    time = "00:59:59"
+    time_set = False
+    email = "##SBATCH --mail-user\n##SBATCH --mail-type all"
+
+    tasks = 0
+    #ende STAMPEDE3
 elif hostname in ["z50","dg5"]:
     host = HOST_LOCAL
     MAX_TASKS = 100 # #dummy value just for testing
@@ -922,7 +1055,7 @@ else: # multiple tasks
                         nodes = min(target_nodes,MAX_NODES)
                         ntasks_per_node = min(target_tasks,MAX_TASKS_PER_NODE)
                         tasks = min(target_tasks,MAX_TASKS)
-            elif host == HOST_LONESTAR6:
+            elif (host == HOST_LONESTAR6) or (host == HOST_STAMPEDE3):
 
                 if PYTHON_MAJOR_VERSION < 3:
                     print("Python < 3 not supported.")
@@ -1282,6 +1415,37 @@ elif host == HOST_LONESTAR6:
 
 
     launch_str = "$TACC_LAUNCHER_DIR/paramrun\n"
+elif host == HOST_STAMPEDE3:
+
+    slurm = "#!/bin/bash \n"
+    slurm += "#SBATCH -J ELiXer              # Job name\n"
+    slurm += "#SBATCH -N " + str(nodes) + "                  # Total number of nodes requested\n"
+    slurm += "#SBATCH --n " + str(ntasks_per_node) + "       #Tasks per node\n"
+    slurm += "#SBATCH -p " + queue + "                 # Queue name\n"
+    slurm += "#SBATCH -o ELIXER.o%j          # Name of stdout output file (%j expands to jobid)\n"
+    slurm += "#SBATCH -e ELIXER.e%j          # Name of stderr output file (%j expands to jobid)\n"
+    slurm += "#SBATCH -t " + time + "            # Run time (hh:mm:ss)\n"
+    #slurm += "#SBATCH -A AST23008\n"
+    slurm += "#SBATCH -A Hobby-Eberly-Telesco\n"
+    slurm += email + "\n"
+
+
+    #slurm += "module load launcher\n"
+    slurm += "export LAUNCHER_PLUGIN_DIR=$TACC_LAUNCHER_DIR/plugins\n"
+    slurm += "export LAUNCHER_RMI=SLURM\n"
+    slurm += "export LAUNCHER_WORKDIR=$(pwd)\n"
+    if MERGE:
+        slurm += "export LAUNCHER_JOB_FILE=elixer_merge.run\n"
+    else:
+        slurm += "export LAUNCHER_JOB_FILE=elixer.run\n"
+    #slurm += "export LAUNCHER_JOB_FILE=elixer.run\n"
+    # just so the bottom part work as is and print w/o error
+    slurm += "WORKDIR=$LAUNCHER_WORKDIR\n"
+    slurm += "CONTROL_FILE=$LAUNCHER_JOB_FILE\n"
+
+    slurm += "export LAUNCHER_SCHED=interleaved\n"
+
+    launch_str = "run_pylauncher\n"
 elif host == HOST_LOCAL:
     slurm = "HOST_LOCAL ignored"
     launch_str = "nothing to launch"
