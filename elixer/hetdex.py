@@ -2025,6 +2025,17 @@ class DetObj:
                     multiline_top_scale_score = self.spec_obj.solutions[0].scale_score
                     multiline_top_frac_score = self.spec_obj.solutions[0].frac_score
                     multiline_top_rest = self.spec_obj.solutions[0].central_rest
+
+                    rank = self.spec_obj.solutions[0].emission_line.rank
+                    if rank <= 2:
+                        multiline_top_reduced_min_score_mult = 0.35
+                    elif rank == 3:
+                        multiline_top_reduced_min_score_mult = 0.66
+                    elif rank == 4:
+                        multiline_top_reduced_min_score_mult = 0.8
+                    else:
+                        multiline_top_reduced_min_score_mult = 1.0
+
                     log.info(f"{self.entry_id} Top solution: z={multiline_top_z:0.4f} rest={multiline_top_rest:0.1f}, "
                                  f"score={multiline_top_score:0.1f}, scaled score = {multiline_top_scale_score:0.2f}, frac_score={multiline_top_frac_score:0.3f}")
 
@@ -2036,6 +2047,7 @@ class DetObj:
                         multiline_top_scale_score = -1
                         multiline_top_frac_score = -1
                         multiline_top_rest = -1
+                        multiline_top_reduced_min_score_mult = 1.0
 
                         log.info(
                             f"{self.entry_id} Continuum rules in place and top multiline score is weak, so it will be ignored.")
@@ -2048,12 +2060,14 @@ class DetObj:
                     multiline_top_scale_score = -1
                     multiline_top_frac_score = -1
                     multiline_top_rest = -1
+                    multiline_top_reduced_min_score_mult = 1.0
             except:
                 multiline_top_z = -1
                 multiline_top_score = -1
                 multiline_top_scale_score = -1
                 multiline_top_frac_score = -1
                 multiline_top_rest = -1
+                multiline_top_reduced_min_score_mult = 1.0
 
 
             #the problem is that the spec_obj solution might be weak or even if not, out voted
@@ -2371,7 +2385,7 @@ class DetObj:
                     #     use_multi = True
                     #     log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. Set to z:{z} with Q(z): {p}")
                     elif multiline_top_scale_score > 0.5 and multiline_top_frac_score > 0.6 and self.fwhm > 12 and \
-                            multiline_top_score > G.MULTILINE_MIN_SOLUTION_SCORE * 0.35 and multiline_top_rest != G.LyA_rest:
+                            multiline_top_score > G.MULTILINE_MIN_SOLUTION_SCORE * multiline_top_reduced_min_score_mult and multiline_top_rest != G.LyA_rest:
                         # this is not terrible and may be better than an OII guess
                         # BUT THIS cannnot be LyA w/o a high score)
                         z = multiline_top_z
@@ -2380,7 +2394,7 @@ class DetObj:
                         else:
                             p = min(p, 0.05)
                         use_multi = True
-                        log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. Set to z:{z} with Q(z): {p}")
+                        log.info(f"Q(z): no sufficient multiline solutions. P(LyA) favors NOT LyA. Set to z:{z} with Q(z): {p}")
                 except:
                     pass
 
@@ -2398,7 +2412,7 @@ class DetObj:
                                 p = 0
                                 self.spec_obj.add_classification_label("AGN")
 
-                                log.info(f"Q(z): no multiline solutions. Really broad ({self.fwhm:0.1f}AA), so not likely OII. "
+                                log.info(f"Q(z): no sufficient multiline solutions. Really broad ({self.fwhm:0.1f}AA), so not likely OII. "
                                          f"P(LyA) favors NOT LyA. Set to single broadline ({sbl_name}) z:{sbl_z:04f} with Q(z): {p}.")
 
                             else:
@@ -2406,7 +2420,7 @@ class DetObj:
                                 p = 0 #set to Q(z) 0 ?? ... are we zero confident
                                 self.spec_obj.add_classification_label("AGN")
 
-                                log.info(f"Q(z): no multiline solutions. Really broad ({self.fwhm:0.1f}AA), so not likely OII. "
+                                log.info(f"Q(z): no sufficient multiline solutions. Really broad ({self.fwhm:0.1f}AA), so not likely OII. "
                                          f"P(LyA) favors NOT LyA, but is best choice as FWHM excludes OII. Set to single broadline ({sbl_name}) z:{sbl_z:04f} with Q(z): {p}.")
 
                         else: #call it OII for lack of anything else
@@ -2414,7 +2428,7 @@ class DetObj:
                             rest = G.OII_rest
                             p = 0 #min(p,0.01)
                             self.spec_obj.add_classification_label("AGN")
-                            log.info(f"Q(z): no multiline solutions. Really broad ({self.fwhm:0.1f}AA), so not likely OII, but no other good solution. "
+                            log.info(f"Q(z): no sufficient multiline solutions. Really broad ({self.fwhm:0.1f}AA), so not likely OII, but no other good solution. "
                                      f"P(LyA) favors NOT LyA. Set to OII z:{z:04f} with Q(z): {p}. Could still be AGN with LyA or CIV, CIII or MgII alone.")
 
                         self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
@@ -2456,7 +2470,7 @@ class DetObj:
                                     #could set followup, but q(z) is already minimal
                                     #self.flags |= G.DETFLAG_FOLLOWUP_NEEDED  #or uncertain classification
 
-                                    log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. "
+                                    log.info(f"Q(z): no sufficient multiline solutions. P(LyA) favors NOT LyA. "
                                              f"Absorber selected but failed to fit near CaII (K).  Set to z:{z} with Q(z): {p}")
 
                                 elif np.isclose(self.w,G.CaII_H_3968,atol=6.0) and \
@@ -2466,7 +2480,7 @@ class DetObj:
                                     rest = G.CaII_H_3968
                                                                         #could set followup, but q(z) is already minimal
                                     #self.flags |= G.DETFLAG_FOLLOWUP_NEEDED  #or uncertain classification
-                                    log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. "
+                                    log.info(f"Q(z): no sufficient multiline solutions. P(LyA) favors NOT LyA. "
                                              f"Absorber selected but failed to fit near CaII(H).  Set to z:{z} with Q(z): {p}")
                                 else:
                                     #keep this simple. mostly this will be handled by Diagnose anyway
@@ -2475,9 +2489,9 @@ class DetObj:
                                         log.info(f"Q(z): too bright (g={self.gmag_combined:0.1f}) for z ({z}). Capping Q(z) value.")
                                         p = min(0.01,p)
 
-                                    log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
+                                    log.info(f"Q(z): no sufficient multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
                             except:
-                                log.info(f"Q(z): no multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
+                                log.info(f"Q(z): no sufficient multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
 
             elif scaled_plae_classification > plya_fixed_hi: #plya_vote_hi:
                 z= self.w / G.LyA_rest - 1.0
@@ -2500,7 +2514,7 @@ class DetObj:
 
 
                     if multiline_top_scale_score > 0.5 and multiline_top_frac_score > 0.6 and \
-                            multiline_top_score > G.MULTILINE_MIN_SOLUTION_SCORE * 0.35 and self.fwhm > 15:
+                            multiline_top_score > G.MULTILINE_MIN_SOLUTION_SCORE * multiline_top_reduced_min_score_mult and self.fwhm > 15:
                         #this is not terrible and may be better than an OII guess
                         #assumes this could be CIII, CIV maybe MgII, so need to exclude OII
                         if multiline_top_scale_score < 0.8 and (multiline_top_rest==G.OII_rest): #not likely OII
@@ -2520,9 +2534,9 @@ class DetObj:
                                 p = min(p, 0.05)
                             log.info(f"Q(z): weak multiline solution ({multiline_top_scale_score:0.2f}). P(LyA) favors LyA, but set to z:{z} with Q(z): {p}")
                     else:
-                        log.info(f"Q(z): no multiline solutions. P(LyA) favors LyA. Set to LyA z:{z} with Q(z): {p}")
+                        log.info(f"Q(z): no sufficient multiline solutions. P(LyA) favors LyA. Set to LyA z:{z} with Q(z): {p}")
                 except:
-                    log.info(f"Q(z): no multiline solutions. P(LyA) favors LyA. Set to LyA z:{z} with Q(z): {p}")
+                    log.info(f"Q(z): no sufficient multiline solutions. P(LyA) favors LyA. Set to LyA z:{z} with Q(z): {p}")
 
             else: #we are in no-man's land
 
@@ -2550,7 +2564,7 @@ class DetObj:
 
                 try:
                     if multiline_top_scale_score > 0.5 and multiline_top_frac_score > 0.6 and \
-                            multiline_top_score > G.MULTILINE_MIN_SOLUTION_SCORE * 0.35 and self.fwhm > 12:
+                            multiline_top_score > G.MULTILINE_MIN_SOLUTION_SCORE * multiline_top_reduced_min_score_mult and self.fwhm > 12:
                         #this is not terrible and may be better than an OII guess
                         z = self.spec_obj.solutions[0].z
                         if base_p < 0.1:  # all we have is the P(LyA) p and it is near the mid-point, so highly uncertain
@@ -2561,7 +2575,7 @@ class DetObj:
                     pass
 
                 #could be a continuum object, star, wd, etc
-                log.info(f"Q(z): no multiline solutions, no strong P(LyA). z:{z} with Q(z): {p}")
+                log.info(f"Q(z): no sufficient multiline solutions, no strong P(LyA). z:{z} with Q(z): {p}")
 
 
             #sanity check --- override negative z
@@ -2748,7 +2762,7 @@ class DetObj:
                                 # could set followup, but q(z) is already minimal
                                 # self.flags |= G.DETFLAG_FOLLOWUP_NEEDED  #or uncertain classification
 
-                                log.info(f"Q(z): [2a] no multiline solutions. P(LyA) favors NOT LyA. "
+                                log.info(f"Q(z): [2a] no sufficient multiline solutions. P(LyA) favors NOT LyA. "
                                          f"Absorber selected but failed to fit near CaII (K).  Set to z:{z} with Q(z): {p}")
 
                             elif np.isclose(self.w, G.CaII_H_3968, atol=6.0) and \
@@ -2759,13 +2773,13 @@ class DetObj:
                                 rest = G.CaII_H_3968
                                 # could set followup, but q(z) is already minimal
                                 # self.flags |= G.DETFLAG_FOLLOWUP_NEEDED  #or uncertain classification
-                                log.info(f"Q(z): [2b] no multiline solutions. P(LyA) favors NOT LyA. "
+                                log.info(f"Q(z): [2b] no sufficient multiline solutions. P(LyA) favors NOT LyA. "
                                          f"Absorber selected but failed to fit near CaII(H).  Set to z:{z} with Q(z): {p}")
                             else:
                                 log.info(
-                                    f"Q(z): [2c] no multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
+                                    f"Q(z): [2c] no sufficient multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
                         except:
-                            log.info(f"Q(z): [2d] no multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
+                            log.info(f"Q(z): [2d] no sufficient multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
 
                             #this is more likley an H&K
                             z = self.w/G.CaII_H_3968 - 1.

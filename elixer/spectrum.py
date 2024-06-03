@@ -6605,7 +6605,7 @@ class Spectrum:
                   [None, None, None, None, None, 1.00, None, None, None, None, None],  #NV
                   [None, 10.0, None, None, None, None, 1.00, None, None, None, None],  #SiII
                   [None, None, None, None, None, None, None, 1.00, None, None, None],  #SiIV
-                  [0.30, 0.70, None, None, None, None, None, None, 1.00, None, None],  #HeII
+                  [0.50, 0.70, None, None, None, None, None, None, 1.00, None, None],  #HeII
                   [None, None, None, None, None, None, None, None, None, 1.00, None],  #OVI
                   [None, None, None, None, 0.50, None, None, None, None, None, 1.00] ] #OII
                  # LyA    CIV  CIII   CII  MgII   NV   SiII  SiVI  HeII   OVI  OII
