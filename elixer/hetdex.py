@@ -2017,6 +2017,7 @@ class DetObj:
 
             troublesome_lines = [G.CIV_1549,G.CIII_1909,G.MgII_2799] #CIV, CIII, MgII
 
+
             try:
                 if self.spec_obj and self.spec_obj.solutions and len(self.spec_obj.solutions) > 0:
 
@@ -2394,7 +2395,7 @@ class DetObj:
                         else:
                             p = min(p, 0.05)
                         use_multi = True
-                        log.info(f"Q(z): no sufficient multiline solutions. P(LyA) favors NOT LyA. Set to z:{z} with Q(z): {p}")
+                        log.info(f"Q(z): no strong multiline solutions. P(LyA) favors NOT LyA. Set to z:{z} with Q(z): {p}")
                 except:
                     pass
 
