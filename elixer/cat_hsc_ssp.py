@@ -421,7 +421,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                 pass
 
         if len(keys) == 0: #we're done ... did not find any
-            if all_matched_tiles:
+            if return_all_matched_tiles:
                 return None, None, None, None
             else:
                 return None, None, None

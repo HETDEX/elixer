@@ -6263,7 +6263,7 @@ class Spectrum:
                            [1,1,0,1,0,0,0,0,0,0,0],  #3 CII #not sure about CII [semi forbidden]
                            [1,0,0,0,1,0,0,0,0,0,1],  #4 MgII
                            [1,0,0,0,0,1,0,0,0,0,0],  #5 NV
-                           [1,0,0,0,0,1,1,0,0,0,0],  #6 SiII
+                           [1,1,1,0,0,1,1,0,0,0,0],  #6 SiII
                            [1,0,0,0,0,0,1,1,0,0,0],  #7 SiIV
                            [1,0,0,0,0,0,0,0,1,0,0],  #8 HeII
                            [1,0,0,0,0,0,0,0,0,1,0],  #9 OVI
@@ -6562,12 +6562,14 @@ class Spectrum:
                            [1,0,0,1,0,0,0,0,0,0,0],  #3 CII
                            [1,0,0,0,1,0,0,0,0,0,1],  #4 MgII
                            [1,0,0,0,0,1,0,0,0,0,0],  #5 NV
-                           [1,0,0,0,0,1,1,0,0,0,0],  #6 SiII
+                           [1,1,1,0,0,1,1,0,0,0,0],  #6 SiII
                            [1,0,0,0,0,0,1,1,0,0,0],  #7 SiIV
                            [1,0,0,0,0,0,0,0,1,0,0],  #8 HeII
                            [1,0,0,0,0,0,0,0,0,1,0],  #9 OVI
                            [0,0,0,0,1,0,0,0,0,0,1] ] #10 OII (just with MgII)
                          #  0 1 2 3 4 5 6 7 8 9 10
+
+
 
             match_matrix = np.array(match_matrix)
                                           #   0   1  2   3   4   5   6    7  8   9   10
@@ -6588,10 +6590,10 @@ class Spectrum:
                   [None, None, None, None, None, 1.00, None, None, None, None, None],  #NV
                   [None, 0.25, None, None, None, None, 1.00, None, None, None, None],  #SiII
                   [None, None, None, None, None, None, None, 1.00, None, None, None],  #SiIV
-                  [None, 0.15, None, None, None, None, None, None, 1.00, None, None],  #HeII
+                  [0.01, 0.15, None, None, None, None, None, None, 1.00, None, None],  #HeII
                   [None, None, None, None, None, None, None, None, None, 1.00, None],  #OVI
                   [None, None, None, None, 0.05, None, None, None, None, None, 1.00 ]] #OII
-            # LyA   CIV   CIII  CII   MgII   NV   SiII  SiVI  HeII   OVI  OII
+                 # LyA   CIV   CIII  CII   MgII   NV   SiII  SiVI  HeII   OVI  OII
 
             #row/column (is maximum ... where lines are the largest compared to LyA)
             max_ratio_matrix = \
@@ -6603,10 +6605,10 @@ class Spectrum:
                   [None, None, None, None, None, 1.00, None, None, None, None, None],  #NV
                   [None, 10.0, None, None, None, None, 1.00, None, None, None, None],  #SiII
                   [None, None, None, None, None, None, None, 1.00, None, None, None],  #SiIV
-                  [None, 0.70, None, None, None, None, None, None, 1.00, None, None],  #HeII
+                  [0.30, 0.70, None, None, None, None, None, None, 1.00, None, None],  #HeII
                   [None, None, None, None, None, None, None, None, None, 1.00, None],  #OVI
                   [None, None, None, None, 0.50, None, None, None, None, None, 1.00] ] #OII
-            # LyA    CIV  CIII   CII  MgII   NV   SiII  SiVI  HeII   OVI  OII
+                 # LyA    CIV  CIII   CII  MgII   NV   SiII  SiVI  HeII   OVI  OII
 
             sel = np.where(np.array([l.absorber for l in solution.lines])==False)[0]
             sol_lines = np.array(solution.lines)[sel]
@@ -6663,7 +6665,36 @@ class Spectrum:
                         #     score = -1.0
                         score = -1.0
                         log.info(f"In solution_consistent_with_lae(), SNR of non-central LyA too low: {line_eli[lya_idx].snr}")
-                        return score
+                        #return score
+
+
+                    #check the flux ratios vs the central line and non-central LyA
+                    try:
+                        central_rest_idx = np.where(overlap==line_waves[0])[0][0]
+                        lya_rest_idx = np.where(overlap == line_waves[lya_idx])[0][0]
+                        min_ratio = min_ratio_matrix[rest_idx[central_rest_idx]][rest_idx[lya_rest_idx]]
+                        max_ratio = max_ratio_matrix[rest_idx[central_rest_idx]][rest_idx[lya_rest_idx]]
+
+                        if (min_ratio is not None) and (max_ratio is not None):
+                            if min_ratio > max_ratio:  # order is backward, so flip
+                                min_ratio, max_ratio = max_ratio, min_ratio
+
+                            flux_ratio = line_flux[0] / line_flux[lya_idx]
+                            flux_ratio_err = flux_ratio * np.sqrt((line_flux_err[0]/line_flux[0])**2 +
+                                                                  (line_flux_err[lya_idx]/line_flux[lya_idx])**2 )
+
+                            if (flux_ratio + flux_ratio_err < min_ratio)  or  (flux_ratio - flux_ratio_err > max_ratio):
+                            #this is inconsistent with assumed ratios
+                                score -= 1.0 #subtract one
+
+                                log.info(f"In solution_consistent_with_lae(), incompatible flux ratio: "
+                                         f"{flux_ratio:0.3f}+/-{flux_ratio_err:0.4f} vs [{min_ratio:0.3f},{max_ratio:0.3f}]")
+
+                    except:
+                        pass
+
+                    return score
+
                 else: #main line is LyA ... continue on
                     pass
 
