@@ -117,14 +117,14 @@ else: #newer way, stack in a single call?
             T.write(table_outname + "_all.fits", format='fits', overwrite=True)
 
             if SAVE_AS_H5:
-                for c in tab.colnames:
-                    if isinstance(tab[c], astropy.table.column.MaskedColumn):
+                for c in T.colnames:
+                    if isinstance(T[c], astropy.table.column.MaskedColumn):
                         print(f"Converting masked column: {c}")
-                        tab[c] = np.array(tab[c])
+                        T[c] = np.array(T[c])
 
-                hdf5.write_table_hdf5(tab, fn + ".h5", path="Table", overwrite=False)
+                hdf5.write_table_hdf5(T, table_outname + "_all.h5", path="Table", overwrite=False)
 
-                h5 = tables.open_file(fn + ".h5", mode='r+')
+                h5 = tables.open_file(table_outname + "_all.h5", mode='r+')
 
                 try:
                     h5.root.Table.cols.shotid.create_csindex()
@@ -132,7 +132,7 @@ else: #newer way, stack in a single call?
                 except Exception as E:
                     print(f"Could not create index on {index}. {E}")
 
-        del T
+            del T
 
     if True:  # ff table
         table_outname = "empty_fibers_ff_"  # prefix
@@ -144,9 +144,23 @@ else: #newer way, stack in a single call?
         if T is not None:
             T.write(table_outname + "_all.fits", format='fits', overwrite=True)
 
+            if SAVE_AS_H5:
+                for c in T.colnames:
+                    if isinstance(T[c], astropy.table.column.MaskedColumn):
+                        print(f"Converting masked column: {c}")
+                        T[c] = np.array(T[c])
 
+                hdf5.write_table_hdf5(T, table_outname + "_all.h5", path="Table", overwrite=False)
 
-        del T
+                h5 = tables.open_file(table_outname + "_all.h5", mode='r+')
+
+                try:
+                    h5.root.Table.cols.shotid.create_csindex()
+                    h5.root.Table.flush()
+                except Exception as E:
+                    print(f"Could not create index on {index}. {E}")
+
+            del T
 
     if True:  # rescor table
         table_outname = "empty_fibers_ffrc_"  # prefix
@@ -158,4 +172,20 @@ else: #newer way, stack in a single call?
         if T is not None:
             T.write(table_outname + "_all.fits", format='fits', overwrite=True)
 
-        del T
+            if SAVE_AS_H5:
+                for c in T.colnames:
+                    if isinstance(T[c], astropy.table.column.MaskedColumn):
+                        print(f"Converting masked column: {c}")
+                        T[c] = np.array(T[c])
+
+                hdf5.write_table_hdf5(T, table_outname + "_all.h5", path="Table", overwrite=False)
+
+                h5 = tables.open_file(table_outname + "_all.h5", mode='r+')
+
+                try:
+                    h5.root.Table.cols.shotid.create_csindex()
+                    h5.root.Table.flush()
+                except Exception as E:
+                    print(f"Could not create index on {index}. {E}")
+
+            del T
