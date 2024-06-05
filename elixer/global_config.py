@@ -25,7 +25,7 @@ if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
 #version
-__version__ = '1.22.0a11'
+__version__ = '1.22.0a12'
 
 
 #initial working dir
@@ -1548,6 +1548,10 @@ BGR_RES_FIBER_TAB_FFRC_RUN = None
 BGR_RES_FIBER_TAB_LL_IDX = None
 BGR_RES_FIBER_TAB_FF_IDX = None
 BGR_RES_FIBER_TAB_FFRC_IDX = None
+
+BGR_RES_FIBER_H5_LL_FN = op.join(BGR_BASEPATH,"BGR_RES_FIBER_H5_LL.h5")
+BGR_RES_FIBER_H5_FF_FN = op.join(BGR_BASEPATH,"BGR_RES_FIBER_H5_FF.h5")
+BGR_RES_FIBER_H5_FFRC_FN = op.join(BGR_BASEPATH,"BGR_RES_FIBER_H5_FFRC.h5")
 
 BGR_RES_FIBER_TAB_LL_FN = op.join(BGR_BASEPATH,"BGR_RES_FIBER_TAB_LL.fits")
 BGR_RES_FIBER_TAB_FF_FN = op.join(BGR_BASEPATH,"BGR_RES_FIBER_TAB_FF.fits")

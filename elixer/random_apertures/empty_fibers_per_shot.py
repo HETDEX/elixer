@@ -500,57 +500,116 @@ else:
 #local sky, ALL stacking statistics are biweight
 D1 = {} #dummy dict for Table T
 T1 = Table(dtype=[('shotid', int), ('seeing',float), ('response',float),
-                 ('flags', int),
+                  ('flags', int),
 
-                 ('raw_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep all AFTER flagged fibers removed
-                 ('raw_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),  #NO OTHER TRIMMING
-                 ('raw_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                  ('raw_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # keep all AFTER flagged fibers removed
+                  ('raw_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),  #NO OTHER TRIMMING
+                  ('raw_contrib', (float, len(G.CALFIB_WAVEGRID))),
 
-                 ### fixed continuum trim (applies to ALL below) ###
-                 #this might be the biggest differentiator ... what do we define as continuum level?
-                 #and should this be shot variable?
+                  ### fixed continuum trim (applies to ALL below) ###
+                  #this might be the biggest differentiator ... what do we define as continuum level?
+                  #and should this be shot variable?
 
-                 ('trim_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #keep all AFTER flag trim and absolute flux cut
-                 ('trim_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('trim_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                  ('trim_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #keep all AFTER flag trim and absolute flux cut
+                  ('trim_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('trim_contrib', (float, len(G.CALFIB_WAVEGRID))),
 
-                 #variable trim
+                  #variable trim
 
-                 ('vt13_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 1% in blue to 3% in red
-                 ('vt13_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('vt13_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                  ('vt13_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 1% in blue to 3% in red
+                  ('vt13_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('vt13_contrib', (float, len(G.CALFIB_WAVEGRID))),
 
-                 ('vt15_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 1% in blue to 5% in red
-                 ('vt15_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('vt15_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                  ('vt15_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 1% in blue to 5% in red
+                  ('vt15_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('vt15_contrib', (float, len(G.CALFIB_WAVEGRID))),
 
-                 ### top percent trim (applies only to this section) ###
-                 ('t01_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 1% per wavelength bin
-                 ('t01_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('t01_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                  ### top percent trim (applies only to this section) ###
+                  ('t01_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 1% per wavelength bin
+                  ('t01_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t01_contrib', (float, len(G.CALFIB_WAVEGRID))),
 
-                 ('t012_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 1.2% per wavelength bin
-                 ('t012_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('t012_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t012_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 1.2% per wavelength bin
+                  ('t012_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t012_contrib', (float, len(G.CALFIB_WAVEGRID))),
 
-                 ('t014_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 1.4% per wavelength bin
-                 ('t014_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('t014_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t014_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 1.4% per wavelength bin
+                  ('t014_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t014_contrib', (float, len(G.CALFIB_WAVEGRID))),
 
-                 ('t016_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 1.6% per wavelength bin
-                 ('t016_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('t016_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t016_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 1.6% per wavelength bin
+                  ('t016_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t016_contrib', (float, len(G.CALFIB_WAVEGRID))),
 
-                 ('t018_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 1.8% per wavelength bin
-                 ('t018_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('t018_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t018_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 1.8% per wavelength bin
+                  ('t018_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t018_contrib', (float, len(G.CALFIB_WAVEGRID))),
 
+                  ('t02_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 2% per wavelength bin
+                  ('t02_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t02_contrib', (float, len(G.CALFIB_WAVEGRID))),
 
-                 ('t02_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 2% per wavelength bin
-                 ('t02_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
-                 ('t02_contrib', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t022_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 2.2% per wavelength bin
+                  ('t022_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t022_contrib', (float, len(G.CALFIB_WAVEGRID))),
 
-                 ])
+                  ('t024_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 2.4% per wavelength bin
+                  ('t024_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t024_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t026_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 2.6% per wavelength bin
+                  ('t026_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t026_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t028_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 2.8% per wavelength bin
+                  ('t028_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t028_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t03_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 3% per wavelength bin
+                  ('t03_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t03_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t032_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 3.2% per wavelength bin
+                  ('t032_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t032_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t034_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 3.4% per wavelength bin
+                  ('t034_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t034_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t036_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 3.6% per wavelength bin
+                  ('t036_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t036_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t038_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 3.8% per wavelength bin
+                  ('t038_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t038_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t04_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 4% per wavelength bin
+                  ('t04_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t04_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t042_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 4.2% per wavelength bin
+                  ('t042_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t042_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t044_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 4.4% per wavelength bin
+                  ('t044_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t044_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t046_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 4.6% per wavelength bin
+                  ('t046_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t046_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t048_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 4.8% per wavelength bin
+                  ('t048_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t048_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t05_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 5% per wavelength bin
+                  ('t05_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t05_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ])
 
 #ffsky (if both)
 #T2 = copy.deepcopy(T)
@@ -601,9 +660,69 @@ T2 = Table(dtype=[('shotid', int), ('seeing',float), ('response',float),
                   ('t018_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
                   ('t018_contrib', (float, len(G.CALFIB_WAVEGRID))),
 
-                  ('t02_fluxd', (float, len(G.CALFIB_WAVEGRID))),  #trim off top 2% per wavelength bin
+                  ('t02_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 2% per wavelength bin
                   ('t02_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
                   ('t02_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t022_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 2.2% per wavelength bin
+                  ('t022_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t022_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t024_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 2.4% per wavelength bin
+                  ('t024_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t024_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t026_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 2.6% per wavelength bin
+                  ('t026_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t026_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t028_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 2.8% per wavelength bin
+                  ('t028_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t028_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t03_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 3% per wavelength bin
+                  ('t03_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t03_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t032_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 3.2% per wavelength bin
+                  ('t032_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t032_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t034_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 3.4% per wavelength bin
+                  ('t034_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t034_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t036_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 3.6% per wavelength bin
+                  ('t036_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t036_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t038_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 3.8% per wavelength bin
+                  ('t038_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t038_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t04_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 4% per wavelength bin
+                  ('t04_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t04_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t042_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 4.2% per wavelength bin
+                  ('t042_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t042_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t044_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 4.4% per wavelength bin
+                  ('t044_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t044_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t046_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 4.6% per wavelength bin
+                  ('t046_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t046_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t048_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 4.8% per wavelength bin
+                  ('t048_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t048_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t05_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 5% per wavelength bin
+                  ('t05_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t05_contrib', (float, len(G.CALFIB_WAVEGRID))),
 
                   ])
 
@@ -657,6 +776,66 @@ T3 = Table(dtype=[('shotid', int), ('seeing', float), ('response', float),
                   ('t02_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 2% per wavelength bin
                   ('t02_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
                   ('t02_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t022_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 2.2% per wavelength bin
+                  ('t022_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t022_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t024_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 2.4% per wavelength bin
+                  ('t024_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t024_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t026_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 2.6% per wavelength bin
+                  ('t026_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t026_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t028_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 2.8% per wavelength bin
+                  ('t028_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t028_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t03_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 3% per wavelength bin
+                  ('t03_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t03_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t032_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 3.2% per wavelength bin
+                  ('t032_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t032_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t034_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 3.4% per wavelength bin
+                  ('t034_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t034_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t036_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 3.6% per wavelength bin
+                  ('t036_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t036_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t038_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 3.8% per wavelength bin
+                  ('t038_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t038_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t04_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 4% per wavelength bin
+                  ('t04_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t04_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t042_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 4.2% per wavelength bin
+                  ('t042_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t042_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t044_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 4.4% per wavelength bin
+                  ('t044_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t044_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t046_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 4.6% per wavelength bin
+                  ('t046_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t046_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t048_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 4.8% per wavelength bin
+                  ('t048_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t048_contrib', (float, len(G.CALFIB_WAVEGRID))),
+
+                  ('t05_fluxd', (float, len(G.CALFIB_WAVEGRID))),  # trim off top 5% per wavelength bin
+                  ('t05_fluxd_err', (float, len(G.CALFIB_WAVEGRID))),
+                  ('t05_contrib', (float, len(G.CALFIB_WAVEGRID))),
 
                   ])
 
@@ -1223,6 +1402,80 @@ if losky:
     D1['t02_fluxd_err'] = fluxe_stack
     D1['t02_contrib'] = contrib
 
+    flux_stack, fluxe_stack, contrib= stack_by_wavebin_bw(super_tab['calfib'],super_tab['calfibe'],trim=0.978, sc=None, ir=None)
+    D1['t022_fluxd'] = flux_stack
+    D1['t022_fluxd_err'] = fluxe_stack
+    D1['t022_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib= stack_by_wavebin_bw(super_tab['calfib'],super_tab['calfibe'],trim=0.976, sc=None, ir=None)
+    D1['t024_fluxd'] = flux_stack
+    D1['t024_fluxd_err'] = fluxe_stack
+    D1['t024_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib= stack_by_wavebin_bw(super_tab['calfib'],super_tab['calfibe'],trim=0.974, sc=None, ir=None)
+    D1['t026_fluxd'] = flux_stack
+    D1['t026_fluxd_err'] = fluxe_stack
+    D1['t026_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib= stack_by_wavebin_bw(super_tab['calfib'],super_tab['calfibe'],trim=0.972, sc=None, ir=None)
+    D1['t028_fluxd'] = flux_stack
+    D1['t028_fluxd_err'] = fluxe_stack
+    D1['t028_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib'],super_tab['calfibe'],trim=0.97, sc=None, ir=None)
+    D1['t03_fluxd'] = flux_stack
+    D1['t03_fluxd_err'] = fluxe_stack
+    D1['t03_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib= stack_by_wavebin_bw(super_tab['calfib'],super_tab['calfibe'],trim=0.968, sc=None, ir=None)
+    D1['t032_fluxd'] = flux_stack
+    D1['t032_fluxd_err'] = fluxe_stack
+    D1['t032_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib= stack_by_wavebin_bw(super_tab['calfib'],super_tab['calfibe'],trim=0.966, sc=None, ir=None)
+    D1['t034_fluxd'] = flux_stack
+    D1['t034_fluxd_err'] = fluxe_stack
+    D1['t034_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib= stack_by_wavebin_bw(super_tab['calfib'],super_tab['calfibe'],trim=0.964, sc=None, ir=None)
+    D1['t036_fluxd'] = flux_stack
+    D1['t036_fluxd_err'] = fluxe_stack
+    D1['t036_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib= stack_by_wavebin_bw(super_tab['calfib'],super_tab['calfibe'],trim=0.962, sc=None, ir=None)
+    D1['t038_fluxd'] = flux_stack
+    D1['t038_fluxd_err'] = fluxe_stack
+    D1['t038_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib'],super_tab['calfibe'],trim=0.96, sc=None, ir=None)
+    D1['t04_fluxd'] = flux_stack
+    D1['t04_fluxd_err'] = fluxe_stack
+    D1['t04_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib= stack_by_wavebin_bw(super_tab['calfib'],super_tab['calfibe'],trim=0.958, sc=None, ir=None)
+    D1['t042_fluxd'] = flux_stack
+    D1['t042_fluxd_err'] = fluxe_stack
+    D1['t042_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib= stack_by_wavebin_bw(super_tab['calfib'],super_tab['calfibe'],trim=0.956, sc=None, ir=None)
+    D1['t044_fluxd'] = flux_stack
+    D1['t044_fluxd_err'] = fluxe_stack
+    D1['t044_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib= stack_by_wavebin_bw(super_tab['calfib'],super_tab['calfibe'],trim=0.954, sc=None, ir=None)
+    D1['t046_fluxd'] = flux_stack
+    D1['t046_fluxd_err'] = fluxe_stack
+    D1['t046_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib= stack_by_wavebin_bw(super_tab['calfib'],super_tab['calfibe'],trim=0.952, sc=None, ir=None)
+    D1['t048_fluxd'] = flux_stack
+    D1['t048_fluxd_err'] = fluxe_stack
+    D1['t048_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib'],super_tab['calfibe'],trim=0.95, sc=None, ir=None)
+    D1['t05_fluxd'] = flux_stack
+    D1['t05_fluxd_err'] = fluxe_stack
+    D1['t05_contrib'] = contrib
 
 
 
@@ -1256,6 +1509,96 @@ if ffsky:
     D2['t02_fluxd'] = flux_stack
     D2['t02_fluxd_err'] = fluxe_stack
     D2['t02_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky'], super_tab['calfibe'], trim=0.978,
+                                                           sc=None, ir=None)
+    D2['t022_fluxd'] = flux_stack
+    D2['t022_fluxd_err'] = fluxe_stack
+    D2['t022_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky'], super_tab['calfibe'], trim=0.976,
+                                                           sc=None, ir=None)
+    D2['t024_fluxd'] = flux_stack
+    D2['t024_fluxd_err'] = fluxe_stack
+    D2['t024_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky'], super_tab['calfibe'], trim=0.974,
+                                                           sc=None, ir=None)
+    D2['t026_fluxd'] = flux_stack
+    D2['t026_fluxd_err'] = fluxe_stack
+    D2['t026_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky'], super_tab['calfibe'], trim=0.972,
+                                                           sc=None, ir=None)
+    D2['t028_fluxd'] = flux_stack
+    D2['t028_fluxd_err'] = fluxe_stack
+    D2['t028_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky'], super_tab['calfibe'], trim=0.97,
+                                                           sc=None, ir=None)
+    D2['t03_fluxd'] = flux_stack
+    D2['t03_fluxd_err'] = fluxe_stack
+    D2['t03_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky'], super_tab['calfibe'], trim=0.968,
+                                                           sc=None, ir=None)
+    D2['t032_fluxd'] = flux_stack
+    D2['t032_fluxd_err'] = fluxe_stack
+    D2['t032_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky'], super_tab['calfibe'], trim=0.966,
+                                                           sc=None, ir=None)
+    D2['t034_fluxd'] = flux_stack
+    D2['t034_fluxd_err'] = fluxe_stack
+    D2['t034_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky'], super_tab['calfibe'], trim=0.964,
+                                                           sc=None, ir=None)
+    D2['t036_fluxd'] = flux_stack
+    D2['t036_fluxd_err'] = fluxe_stack
+    D2['t036_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky'], super_tab['calfibe'], trim=0.962,
+                                                           sc=None, ir=None)
+    D2['t038_fluxd'] = flux_stack
+    D2['t038_fluxd_err'] = fluxe_stack
+    D2['t038_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky'], super_tab['calfibe'], trim=0.96,
+                                                           sc=None, ir=None)
+    D2['t04_fluxd'] = flux_stack
+    D2['t04_fluxd_err'] = fluxe_stack
+    D2['t04_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky'], super_tab['calfibe'], trim=0.958,
+                                                           sc=None, ir=None)
+    D2['t042_fluxd'] = flux_stack
+    D2['t042_fluxd_err'] = fluxe_stack
+    D2['t042_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky'], super_tab['calfibe'], trim=0.956,
+                                                           sc=None, ir=None)
+    D2['t044_fluxd'] = flux_stack
+    D2['t044_fluxd_err'] = fluxe_stack
+    D2['t044_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky'], super_tab['calfibe'], trim=0.954,
+                                                           sc=None, ir=None)
+    D2['t046_fluxd'] = flux_stack
+    D2['t046_fluxd_err'] = fluxe_stack
+    D2['t046_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky'], super_tab['calfibe'], trim=0.952,
+                                                           sc=None, ir=None)
+    D2['t048_fluxd'] = flux_stack
+    D2['t048_fluxd_err'] = fluxe_stack
+    D2['t048_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky'], super_tab['calfibe'], trim=0.95,
+                                                           sc=None, ir=None)
+    D2['t05_fluxd'] = flux_stack
+    D2['t05_fluxd_err'] = fluxe_stack
+    D2['t05_contrib'] = contrib
 
 if rescor:
     flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky_rescor'], super_tab['calfibe'], trim=0.99,
@@ -1294,6 +1637,96 @@ if rescor:
     D3['t02_fluxd_err'] = fluxe_stack
     D3['t02_contrib'] = contrib
 
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky_rescor'], super_tab['calfibe'], trim=0.978,
+                                                           sc=None, ir=None)
+    D3['t022_fluxd'] = flux_stack
+    D3['t022_fluxd_err'] = fluxe_stack
+    D3['t022_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky_rescor'], super_tab['calfibe'], trim=0.976,
+                                                           sc=None, ir=None)
+    D3['t024_fluxd'] = flux_stack
+    D3['t024_fluxd_err'] = fluxe_stack
+    D3['t024_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky_rescor'], super_tab['calfibe'], trim=0.974,
+                                                           sc=None, ir=None)
+    D3['t026_fluxd'] = flux_stack
+    D3['t026_fluxd_err'] = fluxe_stack
+    D3['t026_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky_rescor'], super_tab['calfibe'], trim=0.972,
+                                                           sc=None, ir=None)
+    D3['t028_fluxd'] = flux_stack
+    D3['t028_fluxd_err'] = fluxe_stack
+    D3['t028_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky_rescor'], super_tab['calfibe'], trim=0.97,
+                                                           sc=None, ir=None)
+    D3['t03_fluxd'] = flux_stack
+    D3['t03_fluxd_err'] = fluxe_stack
+    D3['t03_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky_rescor'], super_tab['calfibe'], trim=0.968,
+                                                           sc=None, ir=None)
+    D3['t032_fluxd'] = flux_stack
+    D3['t032_fluxd_err'] = fluxe_stack
+    D3['t032_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky_rescor'], super_tab['calfibe'], trim=0.966,
+                                                           sc=None, ir=None)
+    D3['t034_fluxd'] = flux_stack
+    D3['t034_fluxd_err'] = fluxe_stack
+    D3['t034_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky_rescor'], super_tab['calfibe'], trim=0.964,
+                                                           sc=None, ir=None)
+    D3['t036_fluxd'] = flux_stack
+    D3['t036_fluxd_err'] = fluxe_stack
+    D3['t036_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky_rescor'], super_tab['calfibe'], trim=0.962,
+                                                           sc=None, ir=None)
+    D3['t038_fluxd'] = flux_stack
+    D3['t038_fluxd_err'] = fluxe_stack
+    D3['t038_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky_rescor'], super_tab['calfibe'], trim=0.96,
+                                                           sc=None, ir=None)
+    D3['t04_fluxd'] = flux_stack
+    D3['t04_fluxd_err'] = fluxe_stack
+    D3['t04_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky_rescor'], super_tab['calfibe'], trim=0.958,
+                                                           sc=None, ir=None)
+    D3['t042_fluxd'] = flux_stack
+    D3['t042_fluxd_err'] = fluxe_stack
+    D3['t042_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky_rescor'], super_tab['calfibe'], trim=0.956,
+                                                           sc=None, ir=None)
+    D3['t044_fluxd'] = flux_stack
+    D3['t044_fluxd_err'] = fluxe_stack
+    D3['t044_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky_rescor'], super_tab['calfibe'], trim=0.954,
+                                                           sc=None, ir=None)
+    D3['t046_fluxd'] = flux_stack
+    D3['t046_fluxd_err'] = fluxe_stack
+    D3['t046_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky_rescor'], super_tab['calfibe'], trim=0.952,
+                                                           sc=None, ir=None)
+    D3['t048_fluxd'] = flux_stack
+    D3['t048_fluxd_err'] = fluxe_stack
+    D3['t048_contrib'] = contrib
+
+    flux_stack, fluxe_stack, contrib = stack_by_wavebin_bw(super_tab['calfib_ffsky_rescor'], super_tab['calfibe'], trim=0.95,
+                                                           sc=None, ir=None)
+    D3['t05_fluxd'] = flux_stack
+    D3['t05_fluxd_err'] = fluxe_stack
+    D3['t05_contrib'] = contrib
+
 
 
 
@@ -1308,13 +1741,31 @@ if losky:
                 Dx['trim_fluxd'],Dx['trim_fluxd_err'],Dx['trim_contrib'],
                 Dx['vt13_fluxd'],Dx['vt13_fluxd_err'],Dx['vt13_contrib'],
                 Dx['vt15_fluxd'],Dx['vt15_fluxd_err'],Dx['vt15_contrib'],
+
                 Dx['t01_fluxd'], Dx['t01_fluxd_err'], Dx['t01_contrib'],
                 Dx['t012_fluxd'],Dx['t012_fluxd_err'],Dx['t012_contrib'],
                 Dx['t014_fluxd'],Dx['t014_fluxd_err'],Dx['t014_contrib'],
                 Dx['t016_fluxd'],Dx['t016_fluxd_err'],Dx['t016_contrib'],
                 Dx['t018_fluxd'],Dx['t018_fluxd_err'],Dx['t018_contrib'],
-                Dx['t02_fluxd'], Dx['t02_fluxd_err'], Dx['t02_contrib'],
 
+                Dx['t02_fluxd'], Dx['t02_fluxd_err'], Dx['t02_contrib'],
+                Dx['t022_fluxd'], Dx['t022_fluxd_err'], Dx['t022_contrib'],
+                Dx['t024_fluxd'], Dx['t024_fluxd_err'], Dx['t024_contrib'],
+                Dx['t026_fluxd'], Dx['t026_fluxd_err'], Dx['t026_contrib'],
+                Dx['t028_fluxd'], Dx['t028_fluxd_err'], Dx['t028_contrib'],
+
+                Dx['t03_fluxd'],  Dx['t03_fluxd_err'],  Dx['t03_contrib'],
+                Dx['t032_fluxd'], Dx['t032_fluxd_err'], Dx['t032_contrib'],
+                Dx['t034_fluxd'], Dx['t034_fluxd_err'], Dx['t034_contrib'],
+                Dx['t036_fluxd'], Dx['t036_fluxd_err'], Dx['t036_contrib'],
+                Dx['t038_fluxd'], Dx['t038_fluxd_err'], Dx['t038_contrib'],
+
+                Dx['t04_fluxd'],  Dx['t04_fluxd_err'],  Dx['t04_contrib'],
+                Dx['t042_fluxd'], Dx['t042_fluxd_err'], Dx['t042_contrib'],
+                Dx['t044_fluxd'], Dx['t044_fluxd_err'], Dx['t044_contrib'],
+                Dx['t046_fluxd'], Dx['t046_fluxd_err'], Dx['t046_contrib'],
+                Dx['t048_fluxd'], Dx['t048_fluxd_err'], Dx['t048_contrib'],
+                Dx['t05_fluxd'],  Dx['t05_fluxd_err'],  Dx['t05_contrib'],
     ])
 
     T1.write(table_outname1, format='fits', overwrite=True)
@@ -1322,16 +1773,35 @@ if losky:
 if ffsky:
     Dx = D2
     T2.add_row([ shotid,seeing,response,flags,
-                Dx['raw_fluxd'], Dx['raw_fluxd_err'], Dx['raw_contrib'],
-                Dx['trim_fluxd'],Dx['trim_fluxd_err'],Dx['trim_contrib'],
-                Dx['vt13_fluxd'],Dx['vt13_fluxd_err'],Dx['vt13_contrib'],
-                Dx['vt15_fluxd'],Dx['vt15_fluxd_err'],Dx['vt15_contrib'],
-                Dx['t01_fluxd'], Dx['t01_fluxd_err'], Dx['t01_contrib'],
-                Dx['t012_fluxd'],Dx['t012_fluxd_err'],Dx['t012_contrib'],
-                Dx['t014_fluxd'],Dx['t014_fluxd_err'],Dx['t014_contrib'],
-                Dx['t016_fluxd'],Dx['t016_fluxd_err'],Dx['t016_contrib'],
-                Dx['t018_fluxd'],Dx['t018_fluxd_err'],Dx['t018_contrib'],
-                Dx['t02_fluxd'], Dx['t02_fluxd_err'], Dx['t02_contrib'],
+                 Dx['raw_fluxd'], Dx['raw_fluxd_err'], Dx['raw_contrib'],
+                 Dx['trim_fluxd'], Dx['trim_fluxd_err'], Dx['trim_contrib'],
+                 Dx['vt13_fluxd'], Dx['vt13_fluxd_err'], Dx['vt13_contrib'],
+                 Dx['vt15_fluxd'], Dx['vt15_fluxd_err'], Dx['vt15_contrib'],
+
+                 Dx['t01_fluxd'], Dx['t01_fluxd_err'], Dx['t01_contrib'],
+                 Dx['t012_fluxd'], Dx['t012_fluxd_err'], Dx['t012_contrib'],
+                 Dx['t014_fluxd'], Dx['t014_fluxd_err'], Dx['t014_contrib'],
+                 Dx['t016_fluxd'], Dx['t016_fluxd_err'], Dx['t016_contrib'],
+                 Dx['t018_fluxd'], Dx['t018_fluxd_err'], Dx['t018_contrib'],
+
+                 Dx['t02_fluxd'], Dx['t02_fluxd_err'], Dx['t02_contrib'],
+                 Dx['t022_fluxd'], Dx['t022_fluxd_err'], Dx['t022_contrib'],
+                 Dx['t024_fluxd'], Dx['t024_fluxd_err'], Dx['t024_contrib'],
+                 Dx['t026_fluxd'], Dx['t026_fluxd_err'], Dx['t026_contrib'],
+                 Dx['t028_fluxd'], Dx['t028_fluxd_err'], Dx['t028_contrib'],
+
+                 Dx['t03_fluxd'], Dx['t03_fluxd_err'], Dx['t03_contrib'],
+                 Dx['t032_fluxd'], Dx['t032_fluxd_err'], Dx['t032_contrib'],
+                 Dx['t034_fluxd'], Dx['t034_fluxd_err'], Dx['t034_contrib'],
+                 Dx['t036_fluxd'], Dx['t036_fluxd_err'], Dx['t036_contrib'],
+                 Dx['t038_fluxd'], Dx['t038_fluxd_err'], Dx['t038_contrib'],
+
+                 Dx['t04_fluxd'], Dx['t04_fluxd_err'], Dx['t04_contrib'],
+                 Dx['t042_fluxd'], Dx['t042_fluxd_err'], Dx['t042_contrib'],
+                 Dx['t044_fluxd'], Dx['t044_fluxd_err'], Dx['t044_contrib'],
+                 Dx['t046_fluxd'], Dx['t046_fluxd_err'], Dx['t046_contrib'],
+                 Dx['t048_fluxd'], Dx['t048_fluxd_err'], Dx['t048_contrib'],
+                 Dx['t05_fluxd'], Dx['t05_fluxd_err'], Dx['t05_contrib'],
 
     ])
 
@@ -1340,16 +1810,35 @@ if ffsky:
 if rescor:
     Dx = D3
     T3.add_row([ shotid,seeing,response,flags,
-                Dx['raw_fluxd'], Dx['raw_fluxd_err'], Dx['raw_contrib'],
-                Dx['trim_fluxd'],Dx['trim_fluxd_err'],Dx['trim_contrib'],
-                Dx['vt13_fluxd'],Dx['vt13_fluxd_err'],Dx['vt13_contrib'],
-                Dx['vt15_fluxd'],Dx['vt15_fluxd_err'],Dx['vt15_contrib'],
-                Dx['t01_fluxd'], Dx['t01_fluxd_err'], Dx['t01_contrib'],
-                Dx['t012_fluxd'],Dx['t012_fluxd_err'],Dx['t012_contrib'],
-                Dx['t014_fluxd'],Dx['t014_fluxd_err'],Dx['t014_contrib'],
-                Dx['t016_fluxd'],Dx['t016_fluxd_err'],Dx['t016_contrib'],
-                Dx['t018_fluxd'],Dx['t018_fluxd_err'],Dx['t018_contrib'],
-                Dx['t02_fluxd'], Dx['t02_fluxd_err'], Dx['t02_contrib'],
+                 Dx['raw_fluxd'], Dx['raw_fluxd_err'], Dx['raw_contrib'],
+                 Dx['trim_fluxd'], Dx['trim_fluxd_err'], Dx['trim_contrib'],
+                 Dx['vt13_fluxd'], Dx['vt13_fluxd_err'], Dx['vt13_contrib'],
+                 Dx['vt15_fluxd'], Dx['vt15_fluxd_err'], Dx['vt15_contrib'],
+
+                 Dx['t01_fluxd'], Dx['t01_fluxd_err'], Dx['t01_contrib'],
+                 Dx['t012_fluxd'], Dx['t012_fluxd_err'], Dx['t012_contrib'],
+                 Dx['t014_fluxd'], Dx['t014_fluxd_err'], Dx['t014_contrib'],
+                 Dx['t016_fluxd'], Dx['t016_fluxd_err'], Dx['t016_contrib'],
+                 Dx['t018_fluxd'], Dx['t018_fluxd_err'], Dx['t018_contrib'],
+
+                 Dx['t02_fluxd'], Dx['t02_fluxd_err'], Dx['t02_contrib'],
+                 Dx['t022_fluxd'], Dx['t022_fluxd_err'], Dx['t022_contrib'],
+                 Dx['t024_fluxd'], Dx['t024_fluxd_err'], Dx['t024_contrib'],
+                 Dx['t026_fluxd'], Dx['t026_fluxd_err'], Dx['t026_contrib'],
+                 Dx['t028_fluxd'], Dx['t028_fluxd_err'], Dx['t028_contrib'],
+
+                 Dx['t03_fluxd'], Dx['t03_fluxd_err'], Dx['t03_contrib'],
+                 Dx['t032_fluxd'], Dx['t032_fluxd_err'], Dx['t032_contrib'],
+                 Dx['t034_fluxd'], Dx['t034_fluxd_err'], Dx['t034_contrib'],
+                 Dx['t036_fluxd'], Dx['t036_fluxd_err'], Dx['t036_contrib'],
+                 Dx['t038_fluxd'], Dx['t038_fluxd_err'], Dx['t038_contrib'],
+
+                 Dx['t04_fluxd'], Dx['t04_fluxd_err'], Dx['t04_contrib'],
+                 Dx['t042_fluxd'], Dx['t042_fluxd_err'], Dx['t042_contrib'],
+                 Dx['t044_fluxd'], Dx['t044_fluxd_err'], Dx['t044_contrib'],
+                 Dx['t046_fluxd'], Dx['t046_fluxd_err'], Dx['t046_contrib'],
+                 Dx['t048_fluxd'], Dx['t048_fluxd_err'], Dx['t048_contrib'],
+                 Dx['t05_fluxd'], Dx['t05_fluxd_err'], Dx['t05_contrib'],
 
     ])
 

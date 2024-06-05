@@ -1,6 +1,9 @@
 changes to elixer by version
 
 
+1.22.0a12 [2024-06-05]
+* updating empty fiber databses to h5 (previously astropy tables) for memory efficiency
+
 1.22.0a11 [2024-05-27]
 * prioritize stdout logging if LOG_TO_STDOUT is set, regardless of state of GLOBAL_LOGGING
 * modify hsc_ssp handling to keep all matching (overlapping) tiles to check for photz rather than just the tile with
