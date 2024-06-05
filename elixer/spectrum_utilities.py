@@ -3666,7 +3666,9 @@ def get_empty_fiber_residual(hdr=G.HDR_Version, rtype=None, shotid=None, seeing=
 
 
 
-
+#
+# using single HDF5 vs Astropy Tables with separate index table makes very little runtime difference
+#
 
 def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seeing=None, response=None,
                                 ffsky=False, add_rescor=False, persist=False, replace_nan=None):
@@ -3824,30 +3826,30 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
                 #Trow = Table.read(G.BGR_RES_FIBER_TAB_FF_FN, memmap=True)[idx]
                 if persist:
                     if G.BGR_RES_FIBER_TAB_FF_RUN is None:
-                        G.BGR_RES_FIBER_TAB_FF_RUN = Table(h5_rows)
+                        G.BGR_RES_FIBER_TAB_FF_RUN = Table(h5_rows[0])
                     else:
-                        G.BGR_RES_FIBER_TAB_FF_RUN.add_row(h5_rows)
+                        G.BGR_RES_FIBER_TAB_FF_RUN.add_row(h5_rows[0])
             elif ffsky and add_rescor:
                 #Trow = Table.read(G.BGR_RES_FIBER_TAB_FFRC_FN, memmap=True)[idx]
                 if persist:
                     if G.BGR_RES_FIBER_TAB_FFRC_RUN is None:
-                        G.BGR_RES_FIBER_TAB_FFRC_RUN = Table(h5_rows)
+                        G.BGR_RES_FIBER_TAB_FFRC_RUN = Table(h5_rows[0])
                     else:
-                        G.BGR_RES_FIBER_TAB_FFRC_RUN.add_row(h5_rows)
+                        G.BGR_RES_FIBER_TAB_FFRC_RUN.add_row(h5_rows[0])
             else:
                 #Trow = Table.read(G.BGR_RES_FIBER_TAB_LL_FN, memmap=True)[idx]
                 if persist:
                     if G.BGR_RES_FIBER_TAB_LL_RUN is None:
-                        G.BGR_RES_FIBER_TAB_LL_RUN = Table(h5_rows)
+                        G.BGR_RES_FIBER_TAB_LL_RUN = Table(h5_rows[0])
                     else:
-                        G.BGR_RES_FIBER_TAB_LL_RUN.add_row(h5_rows)
+                        G.BGR_RES_FIBER_TAB_LL_RUN.add_row(h5_rows[0])
 
-            residual = np.array(h5_rows[col])
-            residual_err = np.array(h5_rows[col_err])
-            contributors = np.array(h5_rows[col_contrib])
+            residual = np.array(h5_rows[col][0])
+            residual_err = np.array(h5_rows[col_err][0])
+            contributors = np.array(h5_rows[col_contrib][0])
 
             try: #older ones may not have the flags
-                flags = int(h5_rows['flags'])
+                flags = int(h5_rows['flags'][0])
             except:
                 flags = 0
 
