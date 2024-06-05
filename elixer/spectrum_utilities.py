@@ -5,6 +5,8 @@ Keep this simple ... no complex stucture, not a lot of error control
 
 from __future__ import print_function
 
+import traceback
+
 import tables
 
 try:
@@ -3853,7 +3855,9 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
             return residual, residual_err,contributors, flags
 
         except Exception as e:
-            log.warning("Exception in get_empty_fiber_residual.", exc_info=True)
+            log.warning("Exception in get_empty_fiber_residual_h5.", exc_info=True)
+            if G.LOG_TO_STDOUT:
+                print(traceback.format_exc())
             flags |= G.EFR_FLAG_FUNCTION_EXCEPTION
 
         if replace_nan is not None:
