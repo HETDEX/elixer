@@ -3826,21 +3826,27 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
                 #Trow = Table.read(G.BGR_RES_FIBER_TAB_FF_FN, memmap=True)[idx]
                 if persist:
                     if G.BGR_RES_FIBER_TAB_FF_RUN is None:
-                        G.BGR_RES_FIBER_TAB_FF_RUN = Table(h5_rows[0])
+                        G.BGR_RES_FIBER_TAB_FF_RUN = Table()
+                        for c in h5.root.Table.colnames:
+                            G.BGR_RES_FIBER_TAB_FF_RUN[c] = [h5_rows[0][c]]
                     else:
                         G.BGR_RES_FIBER_TAB_FF_RUN.add_row(h5_rows[0])
             elif ffsky and add_rescor:
                 #Trow = Table.read(G.BGR_RES_FIBER_TAB_FFRC_FN, memmap=True)[idx]
                 if persist:
                     if G.BGR_RES_FIBER_TAB_FFRC_RUN is None:
-                        G.BGR_RES_FIBER_TAB_FFRC_RUN = Table(h5_rows[0])
+                        G.BGR_RES_FIBER_TAB_FFRC_RUN = Table()
+                        for c in h5.root.Table.colnames:
+                            G.BGR_RES_FIBER_TAB_FFRC_RUN[c] = [h5_rows[0][c]]
                     else:
                         G.BGR_RES_FIBER_TAB_FFRC_RUN.add_row(h5_rows[0])
             else:
                 #Trow = Table.read(G.BGR_RES_FIBER_TAB_LL_FN, memmap=True)[idx]
                 if persist:
                     if G.BGR_RES_FIBER_TAB_LL_RUN is None:
-                        G.BGR_RES_FIBER_TAB_LL_RUN = Table(h5_rows[0])
+                        G.BGR_RES_FIBER_TAB_LL_RUN = Table()
+                        for c in h5.root.Table.colnames:
+                            G.BGR_RES_FIBER_TAB_LL_RUN[c] = [h5_rows[0][c]]
                     else:
                         G.BGR_RES_FIBER_TAB_LL_RUN.add_row(h5_rows[0])
 
