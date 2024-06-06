@@ -3905,8 +3905,10 @@ def list_empty_fiber_residual_rtype(hdr=G.HDR_Version, ffsky=False, add_rescor=F
 
             sel = [ n not in exclude and n.split("_")[-1] not in exclude_ext for n in names]
             return  names[sel]
-        except:
+        except Exception as E:
             log.error(f"Exception! Could not open empty fiber residual file: {fn}",exc_info=True)
+            if G.LOG_TO_STDOUT:
+                print(f"{traceback.format_exc()}")
             return None
 
 
