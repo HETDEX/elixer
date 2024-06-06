@@ -3667,7 +3667,7 @@ def get_empty_fiber_residual(hdr=G.HDR_Version, rtype=None, shotid=None, seeing=
 
 
 #
-# using single HDF5 vs Astropy Tables with separate index table makes very little runtime difference
+# using single HDF5 with index vs Astropy Tables with separate index table is about the same
 #
 
 def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seeing=None, response=None,

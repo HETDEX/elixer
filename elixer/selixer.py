@@ -330,6 +330,14 @@ if "--slurm" in args:
     except:
         autoqueue_slurm = 1
 
+alloc = "Hobby-Eberly-Telesco"       #alloc="AST23008"
+if "--alloc" in args:
+    i = args.index("--alloc")
+    try:
+        alloc = sys.argv[i + 1]
+    except:
+        alloc = "Hobby-Eberly-Telesco"
+
 #in most cases, on TACC, the --tmp means we will be using the local /tmp storage to work and then copy at the end
 #this is around 30% faster in I/O vs /scratch, so multiply by 0.6 for some slop room
 if "--tmp" in args:
@@ -1223,7 +1231,8 @@ if host == HOST_MAVERICK:
     slurm += "#SBATCH -p " + queue +"                 # Queue name\n"
     slurm += "#SBATCH -o ELIXER.o%j          # Name of stdout output file (%j expands to jobid)\n"
     slurm += "#SBATCH -t " + time + "            # Run time (hh:mm:ss)\n"
-    slurm += "#SBATCH -A Hobby-Eberly-Telesco\n"
+    slurm += "#SBATCH -A " + alloc + "\n"
+    #slurm += "#SBATCH -A Hobby-Eberly-Telesco\n"
     slurm += email + "\n"
     slurm += "module unload xalt \n"
     slurm += "module load launcher\n"
@@ -1253,7 +1262,8 @@ elif host == HOST_WRANGLER:
     slurm += "#SBATCH -p " + queue + "                 # Queue name\n"
     slurm += "#SBATCH -o ELIXER.o%j          # Name of stdout output file (%j expands to jobid)\n"
     slurm += "#SBATCH -t " + time + "            # Run time (hh:mm:ss)\n"
-    slurm += "#SBATCH -A Hobby-Eberly-Telesco\n"
+    slurm += "#SBATCH -A " + alloc + "\n"
+    #slurm += "#SBATCH -A Hobby-Eberly-Telesco\n"
     slurm += email + "\n"
 
     if ooops_mode:
@@ -1314,7 +1324,8 @@ elif host == HOST_STAMPEDE2:
     slurm += "#SBATCH -p " + queue + "                 # Queue name\n"
     slurm += "#SBATCH -o ELIXER.o%j          # Name of stdout output file (%j expands to jobid)\n"
     slurm += "#SBATCH -t " + time + "            # Run time (hh:mm:ss)\n"
-    slurm += "#SBATCH -A Hobby-Eberly-Telesco\n"
+    slurm += "#SBATCH -A " + alloc + "\n"
+    #slurm += "#SBATCH -A Hobby-Eberly-Telesco\n"
     slurm += email + "\n"
 
     if ooops_mode:
@@ -1365,7 +1376,7 @@ elif host == HOST_LONESTAR6:
     slurm += "#SBATCH -o ELIXER.o%j          # Name of stdout output file (%j expands to jobid)\n"
     slurm += "#SBATCH -e ELIXER.e%j          # Name of stderr output file (%j expands to jobid)\n"
     slurm += "#SBATCH -t " + time + "            # Run time (hh:mm:ss)\n"
-    slurm += "#SBATCH -A AST23008\n"
+    slurm += "#SBATCH -A " + alloc + "\n"
     slurm += email + "\n"
 
     #updated --
@@ -1425,8 +1436,8 @@ elif host == HOST_STAMPEDE3:
     slurm += "#SBATCH -o ELIXER.o%j          # Name of stdout output file (%j expands to jobid)\n"
     slurm += "#SBATCH -e ELIXER.e%j          # Name of stderr output file (%j expands to jobid)\n"
     slurm += "#SBATCH -t " + time + "            # Run time (hh:mm:ss)\n"
-    #slurm += "#SBATCH -A AST23008\n"
-    slurm += "#SBATCH -A Hobby-Eberly-Telesco\n"
+    slurm += "#SBATCH -A " + alloc + "\n"
+    #slurm += "#SBATCH -A Hobby-Eberly-Telesco\n"
     slurm += email + "\n"
 
 

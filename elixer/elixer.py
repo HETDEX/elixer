@@ -550,6 +550,8 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--slurm',help="For use with selixer. If (1) automatically queue the SLURM job, if (0) create but"
                                        " do not queue the SLURM job", required=False, type=int, default=1)
 
+    parser.add_argument('--alloc',help="For use with selixer. TACC allocation.", required=False, type=str, default=None)
+
     parser.add_argument('--missing', help='Launch the check for missing reports.', required=False,
                             action='store_true', default=False)
 
