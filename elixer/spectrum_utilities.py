@@ -3877,8 +3877,40 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
 
 
 
+def list_empty_fiber_residual_rtype(hdr=G.HDR_Version, ffsky=False, add_rescor=False,):
+        """
+
+        return a list of available rtype(s)
+
+        :param hdr: str ('3' or '4', etc)
+        :param ffsky: if True, return the ffsky version, else the local sky subtraction version
+        :param add_rescor: if True, use the extra residual correction (e.g. Maja's work). Affects ffsky=True ONLY
+        :return:
+        """
+
+       #open the corresponding h5 file
+        try:
+            if ffsky and not add_rescor:
+                fn = G.BGR_RES_FIBER_H5_FF_FN
+            elif ffsky and add_rescor:
+                fn = G.BGR_RES_FIBER_H5_FFRC_FN
+            else:
+                fn = G.BGR_RES_FIBER_H5_LL_FN
+
+            h5 = tables.open_file(fn)
+
+            names = h5.root.Table.colnames
+            exclude = ["shotid","seeing","response","flags"]
+            exclude_ext = ["err","contrib"]
+
+            sel = [ n not in exclude and n.split("_")[-1] not in exclude_ext for n in names]
+            return  names[sel]
+        except:
+            log.error(f"Exception! Could not open empty fiber residual file: {fn}",exc_info=True)
+            return None
 
 
+#end list_empty_fiber_residual_rtype()
 
 
 

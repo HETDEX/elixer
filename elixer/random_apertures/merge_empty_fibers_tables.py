@@ -8,7 +8,9 @@ SAVE_AS_H5 = True
 
 if SAVE_AS_H5:
     import astropy.io.misc.hdf5 as hdf5
+    import astropy
     import numpy as np
+    import tables
 
 
 args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
