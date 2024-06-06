@@ -3899,12 +3899,12 @@ def list_empty_fiber_residual_rtype(hdr=G.HDR_Version, ffsky=False, add_rescor=F
 
             h5 = tables.open_file(fn)
 
-            names = h5.root.Table.colnames
+            names = np.array(h5.root.Table.colnames)
             exclude = ["shotid","seeing","response","flags"]
             exclude_ext = ["err","contrib"]
 
             sel = [ n not in exclude and n.split("_")[-1] not in exclude_ext for n in names]
-            return  names[sel]
+            return  list(names[sel])
         except Exception as E:
             log.error(f"Exception! Could not open empty fiber residual file: {fn}",exc_info=True)
             if G.LOG_TO_STDOUT:
