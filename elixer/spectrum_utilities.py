@@ -1446,10 +1446,10 @@ def getoverlapidx(array, value):
     if type(array) == list:
         array = np.array(array)
 
-    halfwdith = (array[1] - array[0])/2.0
+    halfwidth = (array[1] - array[0])/2.0
     idx = (np.abs(array-value)).argmin()
 
-    if (array[idx] - halfwdith) <= value < (array[idx] + halfwdith):
+    if (array[idx] - halfwidth) <= value < (array[idx] + halfwidth):
         return idx
     else:
         return None
@@ -1903,6 +1903,29 @@ def shift_to_restframe(z, flux, wave, ez=0.0, eflux=None, ewave=None, apply_air_
     return flux, wave, eflux, ewave
 
 
+
+
+
+def interpolate_nn(flux,wave,grid,eflux=None,ewave=None):
+    """
+
+    :param flux:
+    :param wave:
+    :param grid:
+    :param eflux:
+    :param ewave:
+    :return: interpolated flux and interpolated flux error
+            note: does not return the wavelengths as that is the grid that was passed in
+    """
+
+    try:
+        grid_width = grid[1]-grid[0]
+        interp_flux, interp_eflux = [fill_bin(g,grid_width,flux,wave,eflux) for g in grid_width]
+    except:
+        log.error(f"Exception! in spectrum_utilities interpolate_nn().",exc_info=True)
+        return None, None
+
+    return interp_flux, interp_eflux
 
 
 
@@ -6943,7 +6966,7 @@ def make_grid_max_length(all_waves):
 
     return make_grid(all_waves,step=None,stepx=None,rnd=None,usemax=False)
 
-def fill_bin(center_wave, bin_wdith, source_values, source_waves, source_err=None):
+def fill_bin(center_wave, bin_width, source_values, source_waves, source_err=None):
     """
     for the privided single wavelegnth (center_wave) and bin_width,
       find the matching source_waves that over lap and return the
@@ -6956,7 +6979,7 @@ def fill_bin(center_wave, bin_wdith, source_values, source_waves, source_err=Non
     !!! assumes uniform step in source_waves
 
     :param center_wave:
-    :param bin_wdith:
+    :param bin_width:
     :param source_values:
     :param source_waves:
     :param soruce_err: [optinal]
@@ -6976,7 +6999,7 @@ def fill_bin(center_wave, bin_wdith, source_values, source_waves, source_err=Non
             return np.nan, np.nan
 
         source_halfstep = (source_waves[1] - source_waves[0])/2.0
-        center_halfstep = bin_wdith/2.0
+        center_halfstep = bin_width/2.0
 
         #find the overlapping indicies in source_waves
         leftwave = center_wave - center_halfstep
@@ -6992,7 +7015,7 @@ def fill_bin(center_wave, bin_wdith, source_values, source_waves, source_err=Non
         #exactly 1 ?
         if ri == li:
             #single overlap
-            frac = np.min( 1.0, center_halfstep/source_halfstep)
+            frac = min( 1.0, center_halfstep/source_halfstep)
             value = source_values[ri] * frac
             if source_err is not None:
                 error = source_err[ri] * frac
@@ -7026,6 +7049,140 @@ def fill_bin(center_wave, bin_wdith, source_values, source_waves, source_err=Non
         log.error(f"Exception! in spectrum_utilities fill_bin",exc_info=True)
 
     return value, error
+
+
+def interpolate_nn (source_values, source_waves, grid, source_err=None):
+    """
+    for the privided single wavelegnth (center_wave) and bin_width,
+      find the matching source_waves that over lap and return the
+      sum of the corresponding source_values weighted by the overlap with the center_wave
+
+    if there is not overlap, the return is np.nan (NOT zero)
+
+    if the source does not FULLY overlap the center bin, the return is np.nan
+
+    !!! assumes uniform step in source_waves
+
+    :param center_wave:
+    :param bin_width:
+    :param source_values:
+    :param source_waves:
+    :param soruce_err: [optinal]
+    :return:
+    """
+
+    try:
+        if len(source_values) != len(source_waves):
+            log.error("spectrum_utilities::fill_bin() Invalid parameters. Length source_values != length source_waves")
+            return None, None
+
+        if source_err is not None and len(source_values) != len(source_err):
+            log.error("spectrum_utilities::fill_bin() Invalid parameters. Length source_values != length source_err")
+            return None, None
+
+        values = np.full(len(grid),np.nan )#assume Nan unless an overlap
+        errors = np.full(len(grid),np.nan )
+
+        source_halfstep = (source_waves[1] - source_waves[0])/2.0
+        center_halfstep = (grid[1]-grid[0])/2.0
+
+        source_maxidx = len(source_waves)
+
+        #how much to advance as an estimate
+        windowadvance = int(np.ceil(center_halfstep/source_halfstep))+2 #+2 ffor the extra index to either side
+
+
+        #start a bit below
+        grid_li = getoverlapidx(grid,source_waves[0]-source_halfstep) #this is the first grid position that *could* be filled
+        if grid_li is None: #the grid starts AFTER the source? should not happen
+            grid_li = 0
+            li = getoverlapidx(source_waves,grid[0]-center_halfstep)
+        else:
+            li = 0
+
+        grid_ri = getoverlapidx(grid,source_waves[-1]+source_halfstep) #this is the last grid position that *could* be filled
+        if grid_ri is None: #the grid stops BEFORE the source? shouuld not happen
+            grid_ri = -1
+        else:
+            grid_ri = min(grid_ri+1,len(grid))
+
+
+        ri = 0
+        #print(f"windowadvance: {windowadvance}")
+        #print(f"grid idx range: {grid_li} to {grid_ri}, {grid[grid_li]} to {grid[grid_ri]}")
+        for i in np.arange(grid_li,grid_ri,1):
+
+            leftwave = grid[i] - center_halfstep
+            rightwave = grid[i] + center_halfstep
+
+            li = max(0,ri - 1)
+            ri = min(li+windowadvance,source_maxidx) #yes, li (not ri) + windowadvance
+
+            #print("itr:", i, grid[i], li, ri)
+
+            #this is a SUBSET of the range of the source_waves, not the FULL range
+            #so have to add in the overall offset
+            new_li = getoverlapidx(source_waves[li:ri], leftwave)
+            new_ri = getoverlapidx(source_waves[li:ri], rightwave)
+
+            if new_li is None or new_ri is None: #try full width (slower)
+                #print(f"missed narrow range {new_li}, {new_ri}, trying wide")
+                #print(f"source_waves: {source_waves[li:ri]}, leftwave {leftwave}, rightwave {rightwave}")
+                li = getoverlapidx(source_waves, leftwave)
+                ri = getoverlapidx(source_waves, rightwave)
+                if li is None or ri is None:  #still found nothing (should not happen)
+                 #   print(f"missed wide {li}, {ri}, skip and reset")
+                    li = 0  #reset
+                    ri = 0 #rest
+                    continue
+            else:
+                ri = li + new_ri  # yes, li + for both (not ri) #needs to be in this order (ri computed first)
+                li = li + new_li
+
+
+            #else there is full overlap
+            #exactly 1 ?
+            if ri == li:
+                print("itr:", i, grid[i], "full 1.0")
+                #single overlap can only happen if grid bin is smaller (wholly contained) in one source bin
+                frac = min( 1.0, center_halfstep/source_halfstep) #cannot be > 1.0
+                value = source_values[ri] * frac
+                if source_err is not None:
+                    error = source_err[ri] * frac
+            else: #2 or more overlaps
+
+                fracs = np.full(ri-li+1,1.0)
+                #the first and last will get computed fractions
+                # everything in the middle is at 100%
+
+                #left overlap
+                source_leftwave = source_waves[li] - source_halfstep
+                source_rightwave = source_waves[li] + source_halfstep
+                overlap  = (min(source_rightwave,rightwave) - max(source_leftwave,leftwave)) / (2*source_halfstep)
+                print("itr:", i, grid[i], "left over",overlap)
+                fracs[0] = min(1.0,overlap)
+
+
+                #right overlap
+                source_leftwave = source_waves[ri] - source_halfstep
+                source_rightwave = source_waves[ri] + source_halfstep
+                overlap = (min(source_rightwave,rightwave) - max(source_leftwave,leftwave)) / (2*source_halfstep)
+                fracs[-1] = min(1.0, overlap)
+                print("itr:", i, grid[i], "right over", overlap)
+
+
+                value = np.nansum(np.array(source_values[li:ri+1])*fracs)
+                if source_err is not None:
+                    error = np.sqrt(np.nansum((np.array(source_err[li:ri+1])*fracs)**2))
+
+                values[i] = value
+                errors[i] = error
+
+    except:
+        log.error(f"Exception! in spectrum_utilities fill_bin",exc_info=True)
+        return None, None
+
+    return values, errors
 
 def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="biweight",straight_error=False,std=False,
                   allow_zero_valued_errs = False):
