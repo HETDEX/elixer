@@ -5,6 +5,7 @@ Keep this simple ... no complex stucture, not a lot of error control
 
 from __future__ import print_function
 
+import sys
 import traceback
 
 import tables
@@ -1881,30 +1882,7 @@ def shift_to_restframe(z, flux, wave, ez=0.0, eflux=None, ewave=None, apply_air_
     return flux, wave, eflux, ewave
 
 
-def make_grid(all_waves):
-    """
-    Takes in all the wavelength arrays to figure the best grid so that
-    the interpolation only happens on a single grid
 
-    The grid is on the step size of the spectrum with the smallest steps and the range is
-    between the shortest and longest wavelengths that are in all spectra.
-
-    :param all_waves: 2d array of all wavelengths
-    :return: grid (1d array) of wavelengths
-
-    """
-
-    all_waves = np.array(all_waves)
-    #set the range to the maximum(minimum) to the minimum(maximum)
-    mn = np.max(np.amin(all_waves,axis=1)) #maximum of the minimums of each row
-    mx = np.min(np.amax(all_waves,axis=1)) #minimum of the maximums of each row
-
-    # the step is the smallest of the step sizes
-    # assume (within each wavelength array) the stepsize is uniform
-    step = np.min(all_waves[:,1] - all_waves[:,0])
-
-    #return the grid
-    return np.arange(mn, mx + step, step)
 
 
 def interpolate(flux,wave,grid,eflux=None,ewave=None):
@@ -3794,6 +3772,7 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
                     log.warning(msg)
                     return residual, residual_err, contributors, G.EFR_FLAG_NOT_UNIQUE
 
+                #print(f"size rows: {sys.getsizeof(h5_rows)}")
                 # else == 0 and we fall down to the next block
 
             if ct == 0 and not (seeing is None and response is None):
@@ -3810,6 +3789,7 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
                 idx = np.nanargmin(d)
                 q_shotid = h5_shotid[idx]
                 h5_rows = h5.root.Table.read_where("shotid==q_shotid")
+                #print(f"size rows: {sys.getsizeof(h5_rows)}")
                 ct = len(h5_rows)
 
                 persist = False  #override the persist flag and do not add this in to our persisting table
@@ -6861,7 +6841,7 @@ def shift_to_rest_flam(z, flux_density, wave, eflux=None, block_skylines=True, a
     return flux_density, wave, eflux
 
 
-def make_grid(all_waves):
+def make_grid(all_waves,step=None,stepx=None,rnd=None,usemax=False):
     """
     Takes in all the wavelength arrays to figure the best grid so that
     the interpolation only happens on a single grid
@@ -6870,18 +6850,41 @@ def make_grid(all_waves):
     between the shortest and longest wavelengths that are in all spectra.
 
     :param all_waves: 2d array of all wavelengths
+    :param step: if None, figure a step. if not None, use the provided step; supercedes stepx and usemax
+    :param stepx: if not None, multiply the step by this value, e.g. to increase or decrease the step by some fraction
+    :param rnd: round the step and the bin centers to this many decimals, if not None
+    :param usemax: if True, use the largest width in the all_wave array as the step size, else use the minimum (smallest)
     :return: grid (1d array) of wavelengths
 
     """
 
     all_waves = np.array(all_waves)
     #set the range to the maximum(minimum) to the minimum(maximum)
-    mn = np.max(np.amin(all_waves,axis=1)) #maximum of the minimums of each row
-    mx = np.min(np.amax(all_waves,axis=1)) #minimum of the maximums of each row
+    #mn = np.max(np.amin(all_waves,axis=1)) #maximum of the minimums of each row
+    #mx = np.min(np.amax(all_waves,axis=1)) #minimum of the maximums of each row
+
+
+    mn = np.min(np.amin(all_waves,axis=1)) #minimum of the minimums of each row
+    mx = np.max(np.amax(all_waves,axis=1)) #maximum of the maximums of each row
 
     # the step is the smallest of the step sizes
     # assume (within each wavelength array) the stepsize is uniform
-    step = np.min(all_waves[:,1] - all_waves[:,0])
+    if step is None or step < 0:
+        if usemax:
+            step = np.max(all_waves[:,1] - all_waves[:,0])
+        else:
+            step = np.min(all_waves[:,1] - all_waves[:,0])
+
+        if stepx:
+            step *= stepx
+
+        if rnd is not None and rnd > 0 and isinstance(rnd,int):
+            step = round(step,rnd)
+
+    #yes this is almost a repeat ... but step is handled differently than mn, mx so have to check for both
+    if rnd is not None and rnd > 0 and isinstance(rnd,int):
+        mn = round(mn,rnd)
+        mx = round(mx,rnd)
 
     #return the grid
     return np.arange(mn, mx + step, step)
@@ -6909,12 +6912,15 @@ def make_grid_max_length(all_waves):
     # # assume (within each wavelength array) the stepsize is uniform
     # step = np.min(matrix_waves[:,1] - matrix_waves[:,0])
 
-    mn = min(x[0] for x in all_waves)
-    mx = max(x[-1] for x in all_waves)
-    step = min(x[1]-x[0] for x in all_waves)
+    #alternate method ... now redundant with make_grid()
+    # mn = min(x[0] for x in all_waves)
+    # mx = max(x[-1] for x in all_waves)
+    # step = min(x[1]-x[0] for x in all_waves)
+    #
+    # #return the grid
+    # return np.arange(mn, mx + step, step)
 
-    #return the grid
-    return np.arange(mn, mx + step, step)
+    return make_grid(all_waves,step=None,stepx=None,rnd=None,usemax=False)
 
 def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="biweight",straight_error=False,std=False,
                   allow_zero_valued_errs = False):

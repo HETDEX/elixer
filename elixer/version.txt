@@ -1,6 +1,13 @@
 changes to elixer by version
 
 
+1.22.0a13 [2024-06-07]
+* update spectrum_utilities stacking:
+  + add optional parameters to make_grid() to allow user to set a grid step, fractionally modify a computed grid step,
+    round the wavelengths and steps to a fixed number of decimals, and select the largest or smallest (default) grid step
+    based on the input wavelengths
+
+
 1.22.0a12 [2024-06-05]
 * updating empty fiber databses to h5 (previously astropy tables) for memory efficiency
 * add --alloc option on selixer call to override the default TACC allocation
