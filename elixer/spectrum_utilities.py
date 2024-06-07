@@ -1433,6 +1433,27 @@ def getnearpos(array,value):
     return idx, lt, gt
 
 
+def getoverlapidx(array, value):
+    """
+    Like getnearpos but if there is not an overlap, returns None
+    Overlap is defined as  left_edge <= value < right_edge
+    (notice, STRICTLY less than on the right)
+
+    :param array:
+    :param value:
+    :return: index of overlap and fraction of that overlap with the value
+    """
+    if type(array) == list:
+        array = np.array(array)
+
+    halfwdith = (array[1] - array[0])/2.0
+    idx = (np.abs(array-value)).argmin()
+
+    if (array[idx] - halfwdith) <= value < (array[idx] + halfwdith):
+        return idx
+    else:
+        return None
+
 def g2r(gmag):
     """
     Per Leung+2017 0.3 mag difference between g and r (r is brighter)
@@ -6921,6 +6942,90 @@ def make_grid_max_length(all_waves):
     # return np.arange(mn, mx + step, step)
 
     return make_grid(all_waves,step=None,stepx=None,rnd=None,usemax=False)
+
+def fill_bin(center_wave, bin_wdith, source_values, source_waves, source_err=None):
+    """
+    for the privided single wavelegnth (center_wave) and bin_width,
+      find the matching source_waves that over lap and return the
+      sum of the corresponding source_values weighted by the overlap with the center_wave
+
+    if there is not overlap, the return is np.nan (NOT zero)
+
+    if the source does not FULLY overlap the center bin, the return is np.nan
+
+    !!! assumes uniform step in source_waves
+
+    :param center_wave:
+    :param bin_wdith:
+    :param source_values:
+    :param source_waves:
+    :param soruce_err: [optinal]
+    :return:
+    """
+
+    try:
+        value = np.nan #assume Nan unless an overlap
+        error = np.nan
+
+        if len(source_values) != len(source_waves):
+            log.error("spectrum_utilities::fill_bin() Invalid parameters. Length source_values != length source_waves")
+            return np.nan, np.nan
+
+        if source_err is not None and len(source_values) != len(source_err):
+            log.error("spectrum_utilities::fill_bin() Invalid parameters. Length source_values != length source_err")
+            return np.nan, np.nan
+
+        source_halfstep = (source_waves[1] - source_waves[0])/2.0
+        center_halfstep = bin_wdith/2.0
+
+        #find the overlapping indicies in source_waves
+        leftwave = center_wave - center_halfstep
+        rightwave = center_wave + center_halfstep
+
+        li = getoverlapidx(source_waves, leftwave)
+        ri = getoverlapidx(source_waves, rightwave)
+
+        if li is None or ri is None:
+            return value, error
+
+        #else there is full overlap
+        #exactly 1 ?
+        if ri == li:
+            #single overlap
+            frac = np.min( 1.0, center_halfstep/source_halfstep)
+            value = source_values[ri] * frac
+            if source_err is not None:
+                error = source_err[ri] * frac
+        else: #2 or more overlaps
+
+            fracs = np.ones(ri-li+1)
+            #the first and last will get computed fractions
+            # everything in the middle is at 100%
+
+            #left overlap
+            source_leftwave = source_waves[li] - source_halfstep
+            source_rightwave = source_waves[li] + source_halfstep
+            overlap  = min(source_rightwave,rightwave) - max(source_leftwave,leftwave) / (2*source_halfstep)
+            fracs[0] = min(1.0,overlap)
+
+
+            #right overlap
+            source_leftwave = source_waves[ri] - source_halfstep
+            source_rightwave = source_waves[ri] + source_halfstep
+            overlap = min(source_rightwave,rightwave) - max(source_leftwave,leftwave) / (2*source_halfstep)
+            fracs[-1] = min(1.0, overlap)
+
+
+            value = np.sum(np.array(source_values[li:ri+1])*fracs)
+            if source_err is not None:
+                error = np.sqrt(np.nansum((np.array(source_err[li:ri+1])*fracs)**2))
+
+            return value, error
+
+    except:
+        log.error(f"Exception! in spectrum_utilities fill_bin",exc_info=True)
+
+    return value, error
 
 def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="biweight",straight_error=False,std=False,
                   allow_zero_valued_errs = False):

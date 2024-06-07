@@ -66,8 +66,9 @@ if MAIN_SCRIPT == 'elixer.py':
 #Logging
 GLOBAL_LOGGING = False #set to True in top elixer calls so we do not normally log from package imports
 LOG_TO_STDOUT = False #also log to stdout if True
-if LOG_TO_STDOUT: #if not GLOBAL_LOGGING and LOG_TO_STDOUT:
-    import traceback
+import traceback
+#if LOG_TO_STDOUT: #if not GLOBAL_LOGGING and LOG_TO_STDOUT:
+#    import traceback
 
 #python version
 import sys
