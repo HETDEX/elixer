@@ -7131,7 +7131,7 @@ def interpolate_nn (source_values, source_waves, grid, source_err=None):
                 li = getoverlapidx(source_waves, leftwave)
                 ri = getoverlapidx(source_waves, rightwave)
                 if li is None or ri is None:  #still found nothing (should not happen)
-                 #   print(f"missed wide {li}, {ri}, skip and reset")
+                    #print(f"missed wide {li}, {ri}, skip and reset")
                     li = 0  #reset
                     ri = 0 #rest
                     continue
@@ -7159,7 +7159,7 @@ def interpolate_nn (source_values, source_waves, grid, source_err=None):
                 source_leftwave = source_waves[li] - source_halfstep
                 source_rightwave = source_waves[li] + source_halfstep
                 overlap  = (min(source_rightwave,rightwave) - max(source_leftwave,leftwave)) / (2*source_halfstep)
-                print("itr:", i, grid[i], "left over",overlap)
+              #  print("itr:", i, grid[i], "left over",overlap)
                 fracs[0] = min(1.0,overlap)
 
 
@@ -7168,7 +7168,7 @@ def interpolate_nn (source_values, source_waves, grid, source_err=None):
                 source_rightwave = source_waves[ri] + source_halfstep
                 overlap = (min(source_rightwave,rightwave) - max(source_leftwave,leftwave)) / (2*source_halfstep)
                 fracs[-1] = min(1.0, overlap)
-                print("itr:", i, grid[i], "right over", overlap)
+               # print("itr:", i, grid[i], "right over", overlap)
 
 
                 value = np.nansum(np.array(source_values[li:ri+1])*fracs)
@@ -7185,7 +7185,7 @@ def interpolate_nn (source_values, source_waves, grid, source_err=None):
     return values, errors
 
 def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="biweight",straight_error=False,std=False,
-                  allow_zero_valued_errs = False):
+                  allow_zero_valued_errs = False, interp_nn=False):
     """
         Assumes all spectra are in the same frame (ie. all in restframe) and ignores the flux type, but
         assumes all in the same units and scale (for flux, flux err and wave).
@@ -7201,6 +7201,7 @@ def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="biweight",straigh
     :param allow_zero_valued_errs: if False, flux_errs with a value of zero are made into NaNs and the corresponding
                                    fluxes bin is NOT included in the stack. If true, zero values are taken to mean
                                    a litteral zero uncertainty and the corresponding fluxes ARE included.
+    :param interp_nn: if True, use interpolate_nn instead of linear interp
     :return:
     """
 
@@ -7226,19 +7227,33 @@ def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="biweight",straigh
     #stack_wave # this is just the grid
 
     #resample all input fluxes onto the same grid
-    for i in range(data_shape[0]):
-        res_flux, res_err, res_wave = interpolate(fluxes[i],waves[i],grid,eflux=flux_errs[i])
+    if interp_nn:
+        for i in range(data_shape[0]):
+            res_flux, res_err  = interpolate_nn(fluxes[i], waves[i], grid, eflux=flux_errs[i])
 
-        min_wave = waves[i][0]
-        max_wave = waves[i][-1]
+            min_wave = waves[i][0]
+            max_wave = waves[i][-1]
 
-        res_flux[np.where(grid < min_wave)] = np.nan
-        res_flux[np.where(grid > max_wave)] = np.nan
+            res_flux[np.where(grid < min_wave)] = np.nan
+            res_flux[np.where(grid > max_wave)] = np.nan
+
+            resampled_fluxes.append(res_flux)  # aka interp_flux_density_matrix
+            resampled_flux_errs.append(res_err)  # aka  interp_flux_density_err_matrix
+            # all on the same wave grid, so don't need that back
+    else:
+        for i in range(data_shape[0]):
+            res_flux, res_err, _ = interpolate(fluxes[i],waves[i],grid,eflux=flux_errs[i])
+
+            min_wave = waves[i][0]
+            max_wave = waves[i][-1]
+
+            res_flux[np.where(grid < min_wave)] = np.nan
+            res_flux[np.where(grid > max_wave)] = np.nan
 
 
-        resampled_fluxes.append(res_flux) #aka interp_flux_density_matrix
-        resampled_flux_errs.append(res_err) #aka  interp_flux_density_err_matrix
-        #all on the same wave grid, so don't need that back
+            resampled_fluxes.append(res_flux) #aka interp_flux_density_matrix
+            resampled_flux_errs.append(res_err) #aka  interp_flux_density_err_matrix
+            #all on the same wave grid, so don't need that back
 
     resampled_fluxes = np.array(resampled_fluxes)
     resampled_flux_errs = np.array(resampled_flux_errs)
