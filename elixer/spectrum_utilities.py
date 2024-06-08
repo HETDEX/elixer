@@ -1905,30 +1905,6 @@ def shift_to_restframe(z, flux, wave, ez=0.0, eflux=None, ewave=None, apply_air_
 
 
 
-
-def interpolate_nn(flux,wave,grid,eflux=None,ewave=None):
-    """
-
-    :param flux:
-    :param wave:
-    :param grid:
-    :param eflux:
-    :param ewave:
-    :return: interpolated flux and interpolated flux error
-            note: does not return the wavelengths as that is the grid that was passed in
-    """
-
-    try:
-        grid_width = grid[1]-grid[0]
-        interp_flux, interp_eflux = [fill_bin(g,grid_width,flux,wave,eflux) for g in grid_width]
-    except:
-        log.error(f"Exception! in spectrum_utilities interpolate_nn().",exc_info=True)
-        return None, None
-
-    return interp_flux, interp_eflux
-
-
-
 def interpolate(flux,wave,grid,eflux=None,ewave=None):
     """
 
@@ -7080,8 +7056,10 @@ def interpolate_nn (source_values, source_waves, grid, source_err=None):
             log.error("spectrum_utilities::fill_bin() Invalid parameters. Length source_values != length source_err")
             return None, None
 
-        values = np.full(len(grid),np.nan )#assume Nan unless an overlap
-        errors = np.full(len(grid),np.nan )
+        values = np.full(len(grid), np.nan )#assume Nan unless an overlap
+        errors = np.full(len(grid), np.nan )
+
+        mults = np.full(len(source_values),0.0)
 
         source_halfstep = (source_waves[1] - source_waves[0])/2.0
         center_halfstep = (grid[1]-grid[0])/2.0
@@ -7143,12 +7121,14 @@ def interpolate_nn (source_values, source_waves, grid, source_err=None):
             #else there is full overlap
             #exactly 1 ?
             if ri == li:
-                print("itr:", i, grid[i], "full 1.0")
+               # print("itr:", i, grid[i], "full 1.0")
                 #single overlap can only happen if grid bin is smaller (wholly contained) in one source bin
                 frac = min( 1.0, center_halfstep/source_halfstep) #cannot be > 1.0
                 value = source_values[ri] * frac
                 if source_err is not None:
                     error = source_err[ri] * frac
+
+                mults[ri] += 1.0
             else: #2 or more overlaps
 
                 fracs = np.full(ri-li+1,1.0)
@@ -7172,17 +7152,19 @@ def interpolate_nn (source_values, source_waves, grid, source_err=None):
 
 
                 value = np.nansum(np.array(source_values[li:ri+1])*fracs)
+             #   print(f"{grid[i]} == {value}")
+                mults[li:ri+1] += fracs
                 if source_err is not None:
                     error = np.sqrt(np.nansum((np.array(source_err[li:ri+1])*fracs)**2))
 
-                values[i] = value
-                errors[i] = error
+            values[i] = value
+            errors[i] = error
 
     except:
         log.error(f"Exception! in spectrum_utilities fill_bin",exc_info=True)
         return None, None
 
-    return values, errors
+    return values, errors #, mults
 
 def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="biweight",straight_error=False,std=False,
                   allow_zero_valued_errs = False, interp_nn=False):
@@ -7229,7 +7211,7 @@ def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="biweight",straigh
     #resample all input fluxes onto the same grid
     if interp_nn:
         for i in range(data_shape[0]):
-            res_flux, res_err  = interpolate_nn(fluxes[i], waves[i], grid, eflux=flux_errs[i])
+            res_flux, res_err  = interpolate_nn(fluxes[i], waves[i], grid, source_err=flux_errs[i])
 
             min_wave = waves[i][0]
             max_wave = waves[i][-1]
