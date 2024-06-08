@@ -7059,10 +7059,13 @@ def interpolate_nn (source_values, source_waves, grid, source_err=None):
         values = np.full(len(grid), np.nan )#assume Nan unless an overlap
         errors = np.full(len(grid), np.nan )
 
+
         mults = np.full(len(source_values),0.0)
 
         source_halfstep = (source_waves[1] - source_waves[0])/2.0
         center_halfstep = (grid[1]-grid[0])/2.0
+
+        norm = source_halfstep / center_halfstep
 
         source_maxidx = len(source_waves)
 
@@ -7124,7 +7127,7 @@ def interpolate_nn (source_values, source_waves, grid, source_err=None):
                # print("itr:", i, grid[i], "full 1.0")
                 #single overlap can only happen if grid bin is smaller (wholly contained) in one source bin
                 frac = min( 1.0, center_halfstep/source_halfstep) #cannot be > 1.0
-                value = source_values[ri] * frac
+                value = source_values[ri] * frac * norm
                 if source_err is not None:
                     error = source_err[ri] * frac
 
@@ -7151,7 +7154,7 @@ def interpolate_nn (source_values, source_waves, grid, source_err=None):
                # print("itr:", i, grid[i], "right over", overlap)
 
 
-                value = np.nansum(np.array(source_values[li:ri+1])*fracs)
+                value = np.nansum(np.array(source_values[li:ri+1])*fracs * norm)
              #   print(f"{grid[i]} == {value}")
                 mults[li:ri+1] += fracs
                 if source_err is not None:
