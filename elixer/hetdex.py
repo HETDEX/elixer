@@ -2016,6 +2016,8 @@ class DetObj:
             #consistent with lowz or high-z?
 
             troublesome_lines = [G.CIV_1549,G.CIII_1909,G.MgII_2799] #CIV, CIII, MgII
+            score = -1
+            scale_score = -1
 
 
             try:
@@ -2166,9 +2168,11 @@ class DetObj:
 
                         log.info(f"Q(z): Multiline solution[{idx}], score {scale_score}, frac {sol.frac_score}. "
                                  f"P(LyA) uncertain {scaled_plae_classification}. Set to z: {z} with Q(z): {p}")
-                        log.debug(f"+++++ Consider removing this 'UNCERTAIN CLASSIFICATION' as this is actually pretty good.")
 
-                        self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
+                        if score < G.MULTILINE_FULL_SOLUTION_SCORE:
+                            #log.debug(f"+++++ Consider removing this 'UNCERTAIN CLASSIFICATION' as this is actually pretty good.")
+                            log.debug(f"Set 'UNCERTAIN CLASSIFICATION'.")
+                            self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
                     else:
                         #basic agreement P(LyA) favors NOT LyA and multiline is not a LyA solution (less supportive)
                         #or P(LyA) favors LyA and so does multiline (more supportitve)
@@ -2270,26 +2274,28 @@ class DetObj:
                             log.info(f"Q(z): Multiline solution favors z = {sol.z}; {pscore}. "
                                      f"P(LyA) favors LyA {scaled_plae_classification}. Set to LyA z:{z} with Q(z): {p}")
 
-                        self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
-                        self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
-                        self.needs_review = True
 
-                        #mask out the multi-line soluttions and call recursively
-                        #since we are basically ignoring the phot-z or other multi-line here
-                        try:
+                        if scale_score < 0.7 or score < G.MULTILINE_FULL_SOLUTION_SCORE:
+                            self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
+                            self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
+                            self.needs_review = True
 
-                            backup_solutions  = self.spec_obj.solutions
-                            self.spec_obj.solutions = []
-                            log.info(f"Q(z): Recursively call best_z with multiline turned off.")
-                            recurse_best_z, recurse_p_of_z = self.best_redshift(plya_vote_thresh)
-                            self.spec_obj.solutions = backup_solutions
-                            return recurse_best_z, recurse_p_of_z
-                        except:
+                            #mask out the multi-line solutions and call recursively
+                            #since we are basically ignoring the phot-z or other multi-line here
                             try:
+
+                                backup_solutions  = self.spec_obj.solutions
+                                self.spec_obj.solutions = []
+                                log.info(f"Q(z): Recursively call best_z with multiline turned off.")
+                                recurse_best_z, recurse_p_of_z = self.best_redshift(plya_vote_thresh)
                                 self.spec_obj.solutions = backup_solutions
+                                return recurse_best_z, recurse_p_of_z
                             except:
+                                try:
+                                    self.spec_obj.solutions = backup_solutions
+                                except:
+                                    pass
                                 pass
-                            pass
 
                     elif pscore < 0.6: #we are ignoring the Q(z) of the multiline solution as too inconsistent
                         #we will use the P(Lya)
@@ -2864,7 +2870,9 @@ class DetObj:
             cluster_flag = self.cluster_list[i]['flag']
 
             #get the matching line (should be exactly one)
-            lines = self.spec_obj.match_lines(self.w,z,z_error=0.001,aa_error=None,allow_absorption=False)
+            #todo: maybe switch to aa_error instead of z_error?
+            #lines = self.spec_obj.match_lines(self.w,z,z_error=0.0025,aa_error=None,allow_absorption=False)
+            lines = self.spec_obj.match_lines(self.w, z, z_error=None, aa_error=6.0, allow_absorption=False)
             if lines is None or len(lines) == 0: #unexpected
                 log.error("No lines returned to match clustering redshift.")
                 return

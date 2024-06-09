@@ -6,6 +6,7 @@ changes to elixer by version
   + add optional parameters to make_grid() to allow user to set a grid step, fractionally modify a computed grid step,
     round the wavelengths and steps to a fixed number of decimals, and select the largest or smallest (default) grid step
     based on the input wavelengths
+* when matching lines to --cluster, change from max delta_z of 0.001 to max delta_lambda of 6AA
 
 
 1.22.0a12 [2024-06-05]
