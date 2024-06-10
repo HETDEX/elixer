@@ -6,6 +6,8 @@ changes to elixer by version
   + add optional parameters to make_grid() to allow user to set a grid step, fractionally modify a computed grid step,
     round the wavelengths and steps to a fixed number of decimals, and select the largest or smallest (default) grid step
     based on the input wavelengths
+  + add a new interpolation mechanism; interpolate_nn() that aligns to new grid and fills each new grid bin with
+      the sum of the fractions of the overlaps of the source grid bin
 * when matching lines to --cluster, change from max delta_z of 0.001 to max delta_lambda of 6AA (configurable)
   + related, update maximum wavelength spread for multiple lines within a solution from 4.0AA to 6.0AA
   + related, add option in matching lines to enforce a relative z error (in addition to the existing absolute z error
