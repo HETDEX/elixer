@@ -200,8 +200,9 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
 
             lines = sp.match_lines( lrows[0]['wavelength'],
                                     rows[i][z_col],
-                                    z_error=0.001,
-                                    aa_error=None,
+                                    z_error=None,#0.001,
+                                    z_frac_err=None,#0.017, #1.7% as 1.5% plus some slop
+                                    aa_error=G.NOMINAL_WAVELENGTH_MATCH_MAX_OFFSET,#None
                                     allow_absorption=False,
                                     max_rank=3)
 
@@ -288,8 +289,9 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
             sp = spectrum.Spectrum()
             lines = sp.match_lines(line_w_obs[best_idx],
                                    rows[best_idx][z_col],
-                                   z_error=0.001,
-                                   aa_error=None,
+                                   z_error=None,#0.001,
+                                   z_frac_err=None,#0.017, #1.5% + some slop for 1.7%
+                                   aa_error=G.NOMINAL_WAVELENGTH_MATCH_MAX_OFFSET,#None,
                                    allow_absorption=False)
             if lines is None or len(lines) == 0:
                 log.info(f"Clustering on {detectid}. Best neighbor {neighbor_ids[best_idx]} line {line_w_obs[best_idx]:0.2f} inconsistent with redshift {rows[best_idx][z_col]:0.4f}."

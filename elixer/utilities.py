@@ -32,6 +32,29 @@ log = G.Global_Logger('utilities')
 log.setlevel(G.LOG_LEVEL)
 
 
+def fracdiff(x1,x2,x1e=0.0,x2e=0.0):
+    """
+    return the fractional differnce between the two numbers (x1,x2)
+
+    :param x1:
+    :param x2:
+    :param x1e:  optional error on x1
+    :param x2e:  optional error on x2
+    :return:
+    """
+
+    try:
+        delta = 2.0 * abs((x1-x2)/(x1+x2))
+
+        x1x2sq = (x1+x2)**2
+        d_x1 = 4*x1/x1x2sq
+        d_x2 = 4*x2/x1x2sq #technically -4* ... but it won't matter below
+
+        delta_err = np.sqrt((d_x1*x1e)**2 + (d_x2*x2e)**2)
+
+        return delta, delta_err
+    except:
+        return None, None
 
 
 def find_fplane(date): #date as yyyymmdd string

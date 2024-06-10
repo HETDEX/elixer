@@ -5446,21 +5446,29 @@ class Spectrum:
         except:
             log.warning("Exception rescoring solutions.",exc_info=True)
 
-    def match_line(self,obs_w,z,z_error=None,aa_error=8.0,allow_emission=True,allow_absorption=False,max_rank=5,
+    def match_line(self,obs_w,z,z_error=None,z_frac_err=None,aa_error=8.0,allow_emission=True,allow_absorption=False,max_rank=5,
                    line_sigma=None,continuum=False):
         """
-        Given an input obsevered wavelength and a target redshift, return the matching emission line if found with the
+         Given an input obsevered wavelength and a target redshift, return the matching emission line if found with the
             +/- aa_error in angstroms of the main (central) emission line
+
 
         :param obs_w:
         :param z:
         :param z_error: translate this to an AA error to allow for the match
                         for spec_z should be 0.05 in z (or smaller). For phot_z, maybe up to 0.5?
-        :param aa_error: in angstroms
+        :param z_frac_err: fractional (relative) error in z rather than the absolute error of z_error
+        :param aa_error: absolute error in wavelength (in AA)
+        :param allow_emission:
+        :param allow_absorption:
+        :param max_rank:
+        :param line_sigma:
+        :param continuum:
         :return:
         """
+
         try:
-            all_match = self.match_lines(obs_w,z,z_error,aa_error,allow_emission,allow_absorption,max_rank,
+            all_match = self.match_lines(obs_w,z,z_error,z_frac_err,aa_error,allow_emission,allow_absorption,max_rank,
                                          line_sigma=line_sigma,continuum=continuum)
 
             if (all_match is None) or (len(all_match) == 0):
@@ -5500,10 +5508,9 @@ class Spectrum:
         return None
 
 
-    def match_lines(self,obs_w,z,z_error=None,aa_error=None,allow_emission=True,allow_absorption=False,max_rank=5,
+    def match_lines(self,obs_w,z,z_error=None,z_frac_err=None,aa_error=None,allow_emission=True,allow_absorption=False,max_rank=5,
                     line_sigma=None,continuum=False):
         """
-
         Like match_line, but plural. Can return multiple lines
 
         Given an input obsevered wavelength and a target redshift, return the matching emission line if found with the
@@ -5513,10 +5520,16 @@ class Spectrum:
         :param z:
         :param z_error: translate this to an AA error to allow for the match
                         for spec_z should be 0.05 in z (or smaller). For phot_z, maybe up to 0.5?
-        :param aa_error: in angstroms
-        :param max_rank: maximum allowed rank to match; if matched line is greater than rank, do not accept match
+        :param z_frac_err: fractional (relative) error in z rather than the absolute error of z_error
+        :param aa_error: absolute error in wavelength (in AA)
+        :param allow_emission:
+        :param allow_absorption:
+        :param max_rank:  maximum allowed rank to match; if matched line is greater than rank, do not accept match
+        :param line_sigma:
+        :param continuum:
         :return:
         """
+
         try:
             all_match = []
 
@@ -5526,11 +5539,19 @@ class Spectrum:
             # continuum over rides broad and not abosorption (if there is continuum then we can allow any to be "broad"
             # and be in absorption
 
-            if z_error is not None:
+            if z_error is not None or z_frac_err is not None:
                 #lines are far enough apart that we don't need to worry about multiple matches
                 for e in self.emission_lines:
                     if (e.rank <= max_rank) and ((e.see_in_emission and allow_emission) or (e.see_in_absorption and allow_absorption)):
-                        if  (e.w_rest * (1.0 + max(z-z_error,0))) <=  obs_w  <= (e.w_rest * (1.0 + z+z_error)):
+
+                        if z_frac_err is not None:
+                            bid_z = (obs_w/e.w_rest) - 1.0
+                            z_error = utils.fracdiff(bid_z,z,0.0,0.0)[0] #assuming no error in z (it ends up being rather small anyway)
+                            ok_condition = z_error <= z_frac_err
+                        else:
+                            ok_condition = (e.w_rest * (1.0 + max(z-z_error,0))) <=  obs_w  <= (e.w_rest * (1.0 + z+z_error))
+
+                        if ok_condition:
                             if not continuum and (line_sigma is not None) and (line_sigma > 6.0):
                                 if e.broad:
                                     all_match.append(e)
@@ -5567,7 +5588,7 @@ class Spectrum:
 
 
 
-    def match_found_lines(self,z,z_error=None,aa_error=None,allow_emission=True,allow_absorption=False,
+    def match_found_lines(self,z,z_error=None,z_frac_err=None,aa_error=None,allow_emission=True,allow_absorption=False,
                     line_sigma=None,continuum=False,max_rank=5):
         """
 
@@ -5580,6 +5601,8 @@ class Spectrum:
         :param z:
         :param z_error: translate this to an AA error to allow for the match
                         for spec_z should be 0.05 in z (or smaller). For phot_z, maybe up to 0.5?
+        :param z_frac_err: fractional (relative) error on z
+
         :param aa_error: in angstroms
         :param max_rank: maximum allowed rank to match; if matched line is greater than rank, do not accept match
         :return:
@@ -5598,7 +5621,7 @@ class Spectrum:
             # and be in absorption
 
             for e in self.all_found_lines:
-                match = self.match_line(e.fit_x0,z,z_error=z_error,aa_error=aa_error, allow_absorption=allow_absorption,
+                match = self.match_line(e.fit_x0,z,z_error=z_error,z_frac_err=z_frac_err,aa_error=aa_error, allow_absorption=allow_absorption,
                                 max_rank=max_rank)
                 if match is not None:
                     all_match.append(match)
@@ -5740,6 +5763,8 @@ class Spectrum:
                 return 0,-999, ""
 
             def match_lines(obs_waves, obs_sigmas, target_waves, target_points,threshold_points):
+                #be careful, this is a local definition of match_lines() and is NOT THE SAME
+                #as the spectrum::match_lines()
                 try:
                     z_list = [] #if there is a matched line, add the redshift to the z_list and expect there to be 4+ and all similar and near zero
                     z_points = 0

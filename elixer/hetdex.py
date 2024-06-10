@@ -2870,9 +2870,16 @@ class DetObj:
             cluster_flag = self.cluster_list[i]['flag']
 
             #get the matching line (should be exactly one)
-            #todo: maybe switch to aa_error instead of z_error?
-            #lines = self.spec_obj.match_lines(self.w,z,z_error=0.0025,aa_error=None,allow_absorption=False)
-            lines = self.spec_obj.match_lines(self.w, z, z_error=None, aa_error=6.0, allow_absorption=False)
+            #Could use z_frac_err or aa_error here (6AA)
+            # for 6AA error, the fractional z error is roughly 1.5% close to blue and 1% to red
+            # wavelength error (absolute) is lower in the blue (e.g. resolution is better;
+            #  e.g. 3500/750 ~ 4.7AA vs 5500 / 950 ~ 5.8AA plus fitting error, etc, so 6AA seems okay
+            # we ARE checking lines vs lines, so aa_error might be the most appropriate
+            lines = self.spec_obj.match_lines(self.w, z,
+                                              z_error=None,
+                                              z_frac_err=None,# 0.017,
+                                              aa_error=G.NOMINAL_WAVELENGTH_MATCH_MAX_OFFSET,  #maybe a bit wide, and varies some with wavelength
+                                              allow_absorption=False)
             if lines is None or len(lines) == 0: #unexpected
                 log.error("No lines returned to match clustering redshift.")
                 return
@@ -3044,11 +3051,19 @@ class DetObj:
                     phot_z_only = False
 
                 #these are just lines to check ... they are NOT FOUND lines
-                lines = self.spec_obj.match_lines(self.w,z,z_error=bid['z_err'],aa_error=None,
+                # HERE we DO want an absolute z error (not relative) since we
+                # are inputting the z, not the wavelength
+
+                lines = self.spec_obj.match_lines(self.w,z,z_error=bid['z_err'],z_frac_err = None,
+                                                  aa_error=None,
                                                   allow_absorption=allow_absorption,max_rank=max_rank)
 
-                found_lines =  self.spec_obj.match_found_lines(z,z_error=bid['z_err'],aa_error=None,
-                                                  allow_absorption=allow_absorption,max_rank=max_rank)
+                # HERE we DO want an absolute z error (not relative) since we
+                # are inputting the z, not the wavelength
+                found_lines =  self.spec_obj.match_found_lines(z,z_error=bid['z_err'],z_frac_err = None,
+                                                               aa_error=None,
+                                                               allow_absorption=allow_absorption,
+                                                               max_rank=max_rank)
 
                 try:
                     central_eli = self.spec_obj.central_eli
@@ -3314,7 +3329,8 @@ class DetObj:
                         line_score = 0.
 
                     for z,d25 in zip(self.galaxy_mask_z,self.galaxy_mask_d25):
-                        lines = self.spec_obj.match_lines(self.w,z,aa_error=5.0) #emission only
+                        lines = self.spec_obj.match_lines(self.w,z,z_error=None,
+                                                        z_frac_err = None,aa_error=6.0) #emission only
                         for line in lines:
                             #specific check for OIII 4959 or 5007
                             if line.w_rest == G.OIII_4959: #this is more dodgy ... 5007 might be strong but fail to match
@@ -3415,8 +3431,12 @@ class DetObj:
                             allow_absorption = True
 
                         #mix of photz and specz (and can't tell?)
+                        #HERE we DO want an absolute z error (not relative) since we
+                        #are inputting the z, not the wavelength
                         lines = self.spec_obj.match_lines(self.w,z,z_error=max(0.01,z_err),
-                                                        allow_absorption=allow_absorption,max_rank=max_rank) #emission only
+                                                          z_frac_err = None,
+                                                          allow_absorption=allow_absorption,
+                                                          max_rank=max_rank) #emission only
                         #in this case there should be exactly one, since only a single z
                         if lines and len(lines)>0:
                             for line in lines:
