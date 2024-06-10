@@ -7346,7 +7346,7 @@ def interpolate_nn (source_values, source_waves, grid, source_err=None, edgefill
 #end interpolote_nn_shift
 
 def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="biweight",straight_error=False,std=False,
-                  allow_zero_valued_errs = False, interp_nn=False):
+                  allow_zero_valued_errs = False, interp_nn=False, edgefill=-1):
     """
         Assumes all spectra are in the same frame (ie. all in restframe) and ignores the flux type, but
         assumes all in the same units and scale (for flux, flux err and wave).
@@ -7363,6 +7363,7 @@ def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="biweight",straigh
                                    fluxes bin is NOT included in the stack. If true, zero values are taken to mean
                                    a litteral zero uncertainty and the corresponding fluxes ARE included.
     :param interp_nn: if True, use interpolate_nn instead of linear interp
+    :param edgefill: see interpolate_nn; applies only in this case
     :return:
     """
 
@@ -7390,7 +7391,7 @@ def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="biweight",straigh
     #resample all input fluxes onto the same grid
     if interp_nn:
         for i in range(data_shape[0]):
-            res_flux, res_err  = interpolate_nn(fluxes[i], waves[i], grid, source_err=flux_errs[i])
+            res_flux, res_err  = interpolate_nn(fluxes[i], waves[i], grid, source_err=flux_errs[i],edgefill=edgefill)
 
             min_wave = waves[i][0]
             max_wave = waves[i][-1]
