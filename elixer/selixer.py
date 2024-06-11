@@ -1431,7 +1431,7 @@ elif host == HOST_STAMPEDE3:
     slurm = "#!/bin/bash \n"
     slurm += "#SBATCH -J ELiXer              # Job name\n"
     slurm += "#SBATCH -N " + str(nodes) + "                  # Total number of nodes requested\n"
-    slurm += "#SBATCH --n " + str(ntasks_per_node) + "       #Tasks per node\n"
+    slurm += "#SBATCH --ntasks-per-node " + str(ntasks_per_node) + "       #Tasks per node\n"
     slurm += "#SBATCH -p " + queue + "                 # Queue name\n"
     slurm += "#SBATCH -o ELIXER.o%j          # Name of stdout output file (%j expands to jobid)\n"
     slurm += "#SBATCH -e ELIXER.e%j          # Name of stderr output file (%j expands to jobid)\n"

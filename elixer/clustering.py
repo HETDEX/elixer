@@ -62,29 +62,37 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
 
         #first get the detectid related info
         q_detectid = detectid
-        rows = dtb.read_where("detectid == q_detectid")
-        if len(rows) != 1:
+        target_rows = dtb.read_where("detectid == q_detectid")
+        if len(target_rows) != 1:
             log.info(f"Invalid detectid {detectid}")
             return cluster_dict
 
-        flags = rows[0]['flags'] #could explicitly check for a magnitude mismatch
+        flags = target_rows[0]['flags'] #could explicitly check for a magnitude mismatch
         target_gmag = 0
         target_gmag_err = 0
 
         try:
-            #if rows[0]['review'] == 0: #if we are NOT set to review, check the gmag
-            target_gmag = rows[0]['mag_g_wide'] #this could fail
-            target_gmag_err = rows[0]['mag_g_wide_err'] #this could fail
+            plya_classification = target_rows[0]['plya_classification']
+        except:
+            try:
+                plya_classification = target_rows[0]['plae_classification']
+            except:
+                plya_classification = None
+
+        try:
+            #if target_rows[0]['review'] == 0: #if we are NOT set to review, check the gmag
+            target_gmag = target_rows[0]['mag_g_wide'] #this could fail
+            target_gmag_err = target_rows[0]['mag_g_wide_err'] #this could fail
 
             # try: #could be bad gmag
             #     if 0 < target_gmag < 99:
             #         pass #all good
             #     else:
-            #         target_gmag = rows[0]['mag_g_wide'] #this could fail
-            #         target_gmag_err = rows[0]['mag_g_wide_err'] #this could fail
+            #         target_gmag = target_rows[0]['mag_g_wide'] #this could fail
+            #         target_gmag_err = target_rows[0]['mag_g_wide_err'] #this could fail
             # except:
-            #     target_gmag = rows[0]['mag_g_wide'] #this could fail
-            #     target_gmag_err = rows[0]['mag_g_wide_err'] #this could fail
+            #     target_gmag = rotarget_rowsws[0]['mag_g_wide'] #this could fail
+            #     target_gmag_err = target_rows[0]['mag_g_wide_err'] #this could fail
 
             if abs(target_gmag_err) > 2.0:
                 old = target_gmag_err
@@ -132,19 +140,41 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
         except:
             pass #older ones may not have a 'review' field
 
-        target_ra = rows[0]['ra']
-        target_dec = rows[0]['dec']
+        target_ra = target_rows[0]['ra']
+        target_dec = target_rows[0]['dec']
         try:
-            target_z = rows[0][z_col] #use the primary (instead of the alternate plya thresholds)
-            target_pz = rows[0][pz_col]
+            target_z = target_rows[0][z_col] #use the primary (instead of the alternate plya thresholds)
+            target_pz = target_rows[0][pz_col]
+
+            #what if ther other z_best don't match??
+            try:
+                target_z_2 = target_rows[0][z_col+"_2"]
+                target_z_3 = target_rows[0][z_col + "_3"]
+
+                target_pz_2 = target_rows[0][pz_col+"_2"]
+                target_pz_3 = target_rows[0][pz_col + "_3"]
+
+            except:
+                target_z_2 = target_z
+                target_pz_2 = target_pz
+
+                target_z_3 = target_z
+                target_pz_3 = target_pz
+
         except:
             z_col = 'best_z'
             pz_col = 'best_pz'
-            target_z = rows[0][z_col] #use the primary (instead of the alternate plya thresholds)
-            target_pz = rows[0][pz_col]
+            target_z = target_rows[0][z_col] #use the primary (instead of the alternate plya thresholds)
+            target_pz = target_rows[0][pz_col]
 
-        target_wave = rows[0]['wavelength_obs']
-        target_wave_err = rows[0]['wavelength_obs_err']
+            target_z_2 = target_z
+            target_pz_2 = target_pz
+
+            target_z_3 = target_z
+            target_pz_3 = target_pz
+
+        target_wave = target_rows[0]['wavelength_obs']
+        target_wave_err = target_rows[0]['wavelength_obs_err']
 
         deg_err = delta_arcsec / 3600.0
 
@@ -230,7 +260,8 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
         if std > (0.1 * avg):
             dict_flag |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
         elif np.sum(sel) > 2: #3 or more
-            if abs(avg - target_z) < 0.1:
+            #sloppy but quick
+            if (abs(avg - target_z) < 0.1) and (abs(avg - target_z_2) < 0.1) and (abs(avg - target_z_3) < 0.1) :
                 log.info(f"Clustering on {detectid}. Neighbors at same average z = {target_z:0.5f}")
                 return cluster_dict
             else: #we can use the average even if the brightest neighbor does not provide a good redshift
@@ -265,11 +296,36 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
 
 
         #check if the z is the same, then don't bother ... basically both positive and differnce of less than 5%
-        if np.isclose(rows[best_idx][z_col],target_z,atol=0.001) or\
-                (2 * abs((rows[best_idx][z_col] - target_z)/(rows[best_idx][z_col] + target_z)) < 0.05 and \
-                rows[best_idx][z_col] > 0 and target_z > 0):
+        keep_going = []
+        for tz, pz in zip([target_z,target_z_2,target_z_3],[target_pz, target_pz_2, target_pz_3]):
+        #for tz  in [target_z, target_z_2, target_z_3]:
+            if  np.isclose(rows[best_idx][z_col],tz,  rtol=0.017) or \
+                (2 * abs((rows[best_idx][z_col] - tz)/(rows[best_idx][z_col] + tz)) < 0.05 and \
+                rows[best_idx][z_col] > 0 and tz > 0):
 
-            log.info(f"Clustering on {detectid}. Neighbors at same z = {target_z:0.5f}")
+                keep_going.append(False)
+                log.debug(f"Clustering on {detectid}. Neighbors at same z = {tz:0.5f} (for one of z_best)")
+            else: #redshift is different, but is it an improvement?
+                #keep_going.append(True)
+                if rows[best_idx][pz_col] < pz:
+                    rel_diff_pz = 2 * (pz - rows[best_idx][pz_col]) / (pz + rows[best_idx][pz_col])
+                    if rel_diff_pz > 0.1:
+                        #not an improvement, BUT, special case for LyA where P(LyA) is low/ambiguous
+                        if pz < 0.5 and plya_classification is not None and plya_classification < 0.55 and tz > 1.87 and\
+                                rows[best_idx][pz_col] >= 0.1 and rows[best_idx][z_col] < 0.5:
+                            keep_going.append(True)
+                            log.debug(f"Clustering on {detectid}. Override inferior P(z) for special LyA case.")
+                        else:
+                            keep_going.append(False)
+                            log.info(f"Clustering on {detectid}. Best neighbor {neighbor_ids[best_idx]} Q(z) "
+                                     f"not significantly improved. "
+                                     f"Target Q(z) {pz}, neighbor Q(z) {rows[best_idx][pz_col]} (for one z_best_pz)")
+                    else:
+                        keep_going.append(True)
+                else:
+                    keep_going.append(True)
+        if np.count_nonzero(keep_going) == 0:
+            log.info(f"Clustering on {detectid}. Neighbors at same z or no improvement in P(z)")
             return cluster_dict
 
         #check that the neighbor is brighter than the target
@@ -301,12 +357,13 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
 
 
         #check that this is an improvement?
-        if rows[best_idx][pz_col] < target_pz:
-            if 2*(target_pz-rows[best_idx][pz_col])/(target_pz+rows[best_idx][pz_col]) > 0.1:
-                #not improved
-                log.info(f"Clustering on {detectid}. Best neighbor {neighbor_ids[best_idx]} Q(z) not significantly improved. "
-                         f"Target Q(z) {target_pz}, neighbor Q(z) {rows[best_idx][pz_col]}.")
-                return cluster_dict
+        # for pz in ([target_pz, target_pz_2, target_pz_3]):
+        #     if rows[best_idx][pz_col] < pz:
+        #         if 2*(pz-rows[best_idx][pz_col])/(pz+rows[best_idx][pz_col]) > 0.1:
+        #             #not improved
+        #             log.info(f"Clustering on {detectid}. Best neighbor {neighbor_ids[best_idx]} Q(z) not significantly improved. "
+        #                      f"Target Q(z) {target_pz}, neighbor Q(z) {rows[best_idx][pz_col]}.")
+        #             return cluster_dict
             #else they are close enough that this may still be the better choice
 
         #cannot go from a higher rank line to a lower one??
