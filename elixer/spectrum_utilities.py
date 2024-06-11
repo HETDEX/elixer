@@ -7101,7 +7101,7 @@ def interpolate_nn_old (source_values, source_waves, grid, source_err=None):
 
     return values, errors #, mults
 
-def interpolate_nn (source_values, source_waves, grid, source_err=None, edgefill=-1):#, densities=True):
+def interpolate_nn (source_values, source_waves, grid, source_err=None, edgefill=-1, densities=True):
         """
         for the privided single wavelegnth (center_wave) and bin_width,
           find the matching source_waves that over lap and return the
@@ -7122,7 +7122,7 @@ def interpolate_nn (source_values, source_waves, grid, source_err=None, edgefill
                           0 = No, accept whatever value is there
                           1 = Extrapolate ... divide the partial overlap by the amount filled in edge bins
 
-        #:param densities: if True the input and output are densities (e.g. value / bin width)
+        :param densities: if True the input and output are densities (e.g. value / bin width)
         :return:
         """
 
@@ -7147,12 +7147,9 @@ def interpolate_nn (source_values, source_waves, grid, source_err=None, edgefill
             grid_step = grid[1] - grid[0]
             grid_halfstep = grid_step / 2.0
 
-            # if densities:
-            #     norm = 1.0 #source_halfstep / grid_halfstep
-            # else:
-            #     norm = grid_halfstep / source_halfstep  #source_halfstep / grid_halfstep
-            #
-            # inv_norm = 1.0 / norm
+            if densities: #if passed in as densities, turn into fluxes then convert back at the end
+                source_values = source_values[:] * source_step
+
 
             source_maxidx = len(source_waves)
 
@@ -7226,7 +7223,6 @@ def interpolate_nn (source_values, source_waves, grid, source_err=None, edgefill
                 if ri == li:
                     # print("itr:", i, grid[i], "full 1.0")
                     # single overlap can only happen if grid bin is smaller (wholly contained) in one source bin
-                    #frac = min(1.0, inv_norm)  # cannot be > 1.0
 
                     if which_edge == -1: #left edge of the grid extends beyond the leftmost bin of the source spectrum
 
@@ -7342,6 +7338,9 @@ def interpolate_nn (source_values, source_waves, grid, source_err=None, edgefill
             log.error(f"Exception! in spectrum_utilities interpolate_nn", exc_info=True)
             return None, None
 
+        if densities:
+            values = values / grid_step
+
         return values, errors  # , mults
 #end interpolote_nn_shift
 
@@ -7392,6 +7391,7 @@ def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="biweight",straigh
     if interp_nn:
         for i in range(data_shape[0]):
             res_flux, res_err  = interpolate_nn(fluxes[i], waves[i], grid, source_err=flux_errs[i],edgefill=edgefill)
+            #res_flux, res_err = interpolate_nn_old(fluxes[i], waves[i], grid, source_err=flux_errs[i])
 
             min_wave = waves[i][0]
             max_wave = waves[i][-1]
