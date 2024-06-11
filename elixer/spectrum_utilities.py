@@ -7147,8 +7147,10 @@ def interpolate_nn (source_values, source_waves, grid, source_err=None, edgefill
             grid_step = grid[1] - grid[0]
             grid_halfstep = grid_step / 2.0
 
-            if densities: #if passed in as densities, turn into fluxes then convert back at the end
-                source_values = source_values[:] * source_step
+            if densities: #if passed in as densities, need to also account for the change in bin width that is divided into the values
+                bin_width_norm = source_step / grid_step #source_values = source_values[:] * source_step
+            else:
+                bin_width_norm = 1.0
 
 
             source_maxidx = len(source_waves)
@@ -7338,8 +7340,11 @@ def interpolate_nn (source_values, source_waves, grid, source_err=None, edgefill
             log.error(f"Exception! in spectrum_utilities interpolate_nn", exc_info=True)
             return None, None
 
-        if densities:
-            values = values / grid_step
+        #if densities:
+            #values = values / grid_step
+        if bin_width_norm != 1.0:
+            values *= bin_width_norm
+            errors *= bin_width_norm
 
         return values, errors  # , mults
 #end interpolote_nn_shift
