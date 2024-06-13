@@ -311,7 +311,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
                     rel_diff_pz = 2 * (pz - rows[best_idx][pz_col]) / (pz + rows[best_idx][pz_col])
                     if rel_diff_pz > 0.1:
                         #not an improvement, BUT, special case for LyA where P(LyA) is low/ambiguous
-                        if pz < 0.5 and plya_classification is not None and plya_classification < 0.55 and tz > 1.87 and\
+                        if pz < 0.35 and plya_classification is not None and plya_classification < 0.55 and tz > 1.87 and\
                                 rows[best_idx][pz_col] >= 0.1 and rows[best_idx][z_col] < 0.5:
                             keep_going.append(True)
                             log.debug(f"Clustering on {detectid}. Override inferior P(z) for special LyA case.")

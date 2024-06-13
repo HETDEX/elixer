@@ -118,7 +118,7 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
         adjusted_imsize = max(imsize,30.0) #select a minimum size for better statistics, can trim down after the call
         if adjusted_imsize != imsize:
             #log.debug("Extra call to phot_tools.get_line_image for larger cutout and better statistics...")
-            log.debug("Extra call to hetdex_tools.interlolate.make_narrowband_image for larger cutout and better statistics...")
+            log.debug("Extra call to hetdex_tools.interpolate.make_narrowband_image for larger cutout and better statistics...")
 
             hdu_big = hetdex_tools.interpolate.make_narrowband_image(
                 detectid=detectid,

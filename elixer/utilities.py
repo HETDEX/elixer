@@ -727,7 +727,8 @@ def get_ifus_in_shot(date,shot):
     return ifulist
 
 
-def get_multifits(date,shot,exp,ifuslot=None,amp=None,longfn=None,flatfile_path=None,raw=False,calmonth=None):
+def get_multifits(date,shot,exp,ifuslot=None,amp=None,longfn=None,flatfile_path=None,raw=False,calmonth=None,
+                  workdir="./",clean=0):
     """
     load a single multi*fits file from original raw data
 
@@ -752,6 +753,9 @@ def get_multifits(date,shot,exp,ifuslot=None,amp=None,longfn=None,flatfile_path=
     :param raw:    (bool) If True, return as a skysubtracted but otherwise unprocessed (raw) frame from the telescope.
                           If False (default), rectify and return processed frame.
     :param calmonth: (int) or (str) should be of form YYYYMM. The first 6 digits are used.
+    :param workdir: set the working directory (default is the cwd, "./")
+    :param clean: clean up after vred; 0 = No, 1 = vred files (but leave the multifits), 2 = everything
+                  note: the working directory is only deleted if clean == 2 AND the directory was created by this func
 
     :return: stream handle to the fits file (raw or processed) (ExFileObject or BufferedReader)
     """
@@ -814,21 +818,35 @@ def get_multifits(date,shot,exp,ifuslot=None,amp=None,longfn=None,flatfile_path=
 
         #else continue to processing
         try:
+
+            clean_files = [] #if cleaning, always clean
+            clean_multi = [] #just the mutlifite
+            clean_wd = False
+
+            if not op.isdir(workdir):
+                os.mkdir(workdir)
+                if clean > 1:
+                    clean_wd = True
+
             hdulist = fits.open(multifits)
-            hdulist.writeto("in.fits", overwrite=True)  # work on this with Karl's vred
+            clean_files.append(op.join(workdir, "in.fits"))
+            hdulist.writeto(op.join(workdir,"in.fits"), overwrite=True)  # work on this with Karl's vred
             hdulist.close()
 
             # vred needs a vred.in file
-            with open("vred.in", "w+") as f:
+            clean_files.append(op.join(workdir,"vred.in"))
+            with open(op.join(workdir,"vred.in"), "w+") as f:
                 if calmonth is None:
                     f.write(f"{str(date)[0:6]} 2\n")  # always use '2' ???
 
                 else:
                     f.write(f"{str(calmonth)[0:6]} 2\n")  # always use '2' ???
 
+
             # vred also wants 'list' (seems to just use it to set the NAME0 card in the HDU, but pukes if it (list) is not there)
             # I don't know how important (if at all, this card is)
-            with open("list", "w+") as f:
+            clean_files.append(op.join(workdir,"list"))
+            with open(op.join(workdir,"list"), "w+") as f:
                 f.write(f"{str(date)}/virus/{file_path}\n")
 
             try:
@@ -838,8 +856,9 @@ def get_multifits(date,shot,exp,ifuslot=None,amp=None,longfn=None,flatfile_path=
                     #there might be more than one match, a different specid for the given ifuslot at different times
                     #just copy them all and let vred choose the right one
                     for fn in cpfiles:
+                        clean_files.append(op.join(workdir, os.path.basename(fn)))
                         try:
-                            shutil.copy(fn, "./")
+                            shutil.copy(fn, workdir)
                         except Exception as E:
                             log.warning(f"Unable to copy fiber loc file {fn}. Not fatal.\n {E}")
                 else:# len(cpfiles) == 0:
@@ -849,34 +868,38 @@ def get_multifits(date,shot,exp,ifuslot=None,amp=None,longfn=None,flatfile_path=
                 log.warning(f"Unable to copy fiber loc file. Not fatal.\n {E}")
 
             # print ...make full path to vred? or dynamic
-            if not os.path.isfile("./vred"):
+            clean_files.append(op.join(workdir, "vred"))
+            if not os.path.isfile(op.join(workdir,"vred")):
                 log.debug("Copying vred ...")
-                shutil.copy(G.HETDEX_VRED_FQFN, "./vred")
+                shutil.copy(G.HETDEX_VRED_FQFN, op.join(workdir,"vred"))
                 log.debug("Done copy")
 
             #see if there is any left over output from the last run
             try:
                 #must remove out5.fits and out otherwise vred will complain and abend on next run in same location
-                os.remove("out5.fits")
-                os.remove("out")
+                clean_files.append(op.join(workdir, "out5.fits"))
+                clean_files.append(op.join(workdir, "out"))
+                os.remove(op.join(workdir,"out5.fits"))
+                os.remove(op.join(workdir,"out"))
                 #also remove any of the multi fits that we are going to replace
-                rmfiles = glob.glob(f"multi*{str(ifuslot).zfill(3)}*{amp}.fits")
+                rmfiles = glob.glob(op.join(workdir,f"multi*{str(ifuslot).zfill(3)}*{amp}.fits"))
                 for fn in rmfiles:
                     os.remove(fn)
             except:# Exception as E:
                 pass #log.debug(f"**** {E}")
 
-            p1 = subprocess.run(["vred"])
+            p1 = subprocess.run([op.join(workdir,"vred")],cwd=workdir)
 
             if p1.returncode == 0:
                 #need the multifits name:
-                files = glob.glob(f"multi_*_{str(ifuslot).zfill(3)}_*_{amp}.fits")
+                files = glob.glob(op.join(workdir,f"multi_*_{str(ifuslot).zfill(3)}_*_{amp}.fits"))
                 if len(files)==0:
                     log.error(f"Failure to process raw file. multi*fits output not found.")
                     multifits = None
                 elif len(files)==1:
                     #with open(files[0],"rb") as f:
                     #    multifits = f.read()
+                    clean_multi.append(files[0])
                     multifits =  open(op.realpath(files[0]),"rb")
                 else:
                     log.error(f"Failure to process raw file. Unexpected number of matches {len(files)} found.")
@@ -884,17 +907,61 @@ def get_multifits(date,shot,exp,ifuslot=None,amp=None,longfn=None,flatfile_path=
             else:
                 log.error(f"Failure to process multi*fits file. vred rc = {p1.returncode}:")
                 multifits = None
+                clean_multi += files
         except Exception as E:
             log.error(f"Exception attempting to process raw multifits file (get_multifits()):\n {E}")
+
+
+        if clean:
+            if clean > 0:
+                for fn in clean_files:
+                    try:
+                        os.remove(fn)
+                        log.debug(f"removed {fn}")
+                    except:
+                        log.debug(f"failed to remove {fn}")
+            if clean > 1:
+                for fn in clean_multi:
+                    try:
+                        os.remove(fn)
+                        log.debug(f"removed {fn}")
+                    except:
+                        log.debug(f"failed to remove {fn}")
+
+                if clean_wd:
+                    shutil.rmtree(workdir)
 
         return multifits
 
     except Exception as E:
         log.error(f"Exception attempting to load single multifits file (get_multifits()):\n {E}")
+
+        try:
+            if clean:
+                if clean > 0:
+                    for fn in clean_files:
+                        try:
+                            os.remove(fn)
+                            log.debug(f"removed {fn}")
+                        except:
+                            log.debug(f"failed to remove {fn}")
+                if clean > 1:
+                    for fn in clean_multi:
+                        try:
+                            os.remove(fn)
+                            log.debug(f"removed {fn}")
+                        except:
+                            log.debug(f"failed to remove {fn}")
+
+                    if clean_wd:
+                        shutil.rmtree(workdir)
+        except:
+            pass
+
         return None
 
 
-def run_vred(date,shot,exp,ifuslot,amp,calmonth=None):
+def run_vred(date,shot,exp,ifuslot,amp,calmonth=None,workdir="./",clean=0):
     """
 
     based on get_multifits, but focused on just setting up and running Karl's vred for all exposures under one shot
@@ -923,6 +990,9 @@ def run_vred(date,shot,exp,ifuslot,amp,calmonth=None):
     :param ifuslot:  (int)
     :param amp:    (str) one of "LL","LU","RL","RU"
     :param calmonth: (int) or (str) should be of form YYYYMM. The first 6 digits are used.
+    :param workdir: set the working directory (default is actual cwd "./")
+    :param clean: clean up after vred; 0 = No, 1 = vred files (but leave the multifits), 2 = everything
+                note: the working directory is only deleted if clean == 2 AND the directory was created by this func
 
     :return: stream handle to the fits file (raw or processed) (ExFileObject or BufferedReader)
     """
@@ -958,7 +1028,17 @@ def run_vred(date,shot,exp,ifuslot,amp,calmonth=None):
         multifits, file_path = open_file_from_tar(tarfile, fn=multifn)#,close_tar=close_tar)
 
         try:
+            clean_files = []  # if cleaning, always clean
+            clean_multi = []  # just the mutlifite
+            clean_wd = False
+
+            if not op.isdir(workdir):
+                os.mkdir(workdir)
+                if clean > 1:
+                    clean_wd = True
+
             hdulist = fits.open(multifits)
+            clean_files.append(op.join(workdir, "in.fits"))
             hdulist.writeto("in.fits", overwrite=True)  # work on this with Karl's vred
 
             try:
@@ -973,7 +1053,8 @@ def run_vred(date,shot,exp,ifuslot,amp,calmonth=None):
             hdulist.close()
 
             # vred needs a vred.in file
-            with open("vred.in", "w+") as f:
+            clean_files.append(op.join(workdir, "vred.in"))
+            with open(op.join(workdir,"vred.in"), "w+") as f:
                 if calmonth is None:
                     f.write(f"{str(date)[0:6]} 2\n")  # always use '2' ???
                 else:
@@ -981,7 +1062,8 @@ def run_vred(date,shot,exp,ifuslot,amp,calmonth=None):
 
             # vred also wants 'list' (seems to just use it to set the NAME0 card in the HDU, but pukes if it (list) is not there)
             # I don't know how important (if at all, this card is)
-            with open("list", "w+") as f:
+            clean_files.append(op.join(workdir, "list"))
+            with open(op.join(workdir,"list"), "w+") as f:
                 f.write(f"{str(date)}/virus/{file_path}\n")
 
             try:
@@ -994,7 +1076,8 @@ def run_vred(date,shot,exp,ifuslot,amp,calmonth=None):
                     #just copy them all and let vred choose the right one
                     for fn in cpfiles:
                         try:
-                            shutil.copy(fn, "./")
+                            shutil.copy(fn, workdir)
+                            clean_files.append(op.join(workdir, os.path.basename(fn)))
                         except Exception as E:
                             log.warning(f"Unable to copy fiber loc file {fn}. Not fatal.\n {E}")
                 else:# len(cpfiles) == 0:
@@ -1004,49 +1087,98 @@ def run_vred(date,shot,exp,ifuslot,amp,calmonth=None):
                 log.warning(f"Unable to copy fiber loc file. Not fatal.\n {E}")
 
             # print ...make full path to vred? or dynamic
-            if not os.path.isfile("./vred"):
+            clean_files.append(op.join(workdir, "vred"))
+            if not os.path.isfile(op.join(workdir,"vred")):
                 log.debug("Copying vred ...")
-                shutil.copy(G.HETDEX_VRED_FQFN, "./vred")
+                shutil.copy(G.HETDEX_VRED_FQFN, op.join(workdir,"vred"))
                 log.debug("Done copy")
 
             #see if there is any left over output from the last run
             try:
                 #must remove out5.fits and out otherwise vred will complain and abend on next run in same location
-                os.remove("out5.fits")
-                os.remove("out")
+                clean_files.append(op.join(workdir, "out5.fits"))
+                clean_files.append(op.join(workdir, "out"))
+                os.remove(op.join(workdir,"out5.fits"))
+                os.remove(op.join(workdir,"out"))
                 #also remove any of the multi fits that we are going to replace
-                rmfiles = glob.glob(f"multi*{str(ifuslot).zfill(3)}*{amp}.fits")
+                rmfiles = glob.glob(op.join(workdir,f"multi*{str(ifuslot).zfill(3)}*{amp}.fits"))
                 for fn in rmfiles:
                     os.remove(fn)
             except:# Exception as E:
                 pass #log.debug(f"**** {E}")
 
             log.debug("Executing vred ...")
-            p1 = subprocess.run(["vred"])
+            #p1 = subprocess.run([op.join(workdir,"vred")])
+            p1 = subprocess.run([op.join(workdir, "vred")], cwd=workdir)
 
             if p1.returncode == 0:
                 #need the multifits name:
-                files = glob.glob(f"multi_*_{str(ifuslot).zfill(3)}_*_{amp}.fits")
+                files = glob.glob(op.join(workdir,f"multi_*_{str(ifuslot).zfill(3)}_*_{amp}.fits"))
                 if len(files)==0:
                     log.error(f"Failure to process raw file. multi*fits output not found.")
                     multifits = None
                 elif len(files)==1:
                     #with open(files[0],"rb") as f:
                     #    multifits = f.read()
+                    clean_multi.append(op.join(workdir, files[0]))
                     multifits =  open(op.realpath(files[0]),"rb")
                 else:
                     log.error(f"Failure to process raw file. Unexpected number of matches {len(files)} found.")
                     multifits = None
+                    clean_multi += files
             else:
                 log.error(f"Failure to process multi*fits file. vred rc = {p1.returncode}:")
                 multifits = None
         except Exception as E:
             log.error(f"Exception attempting to process raw multifits file (get_multifits()):\n {E}")
 
+
+        if clean:
+            if clean > 0:
+                for fn in clean_files:
+                    try:
+                        os.remove(fn)
+                        log.debug(f"removed {fn}")
+                    except:
+                        log.debug(f"failed to remove {fn}")
+            if clean > 1:
+                for fn in clean_multi:
+                    try:
+                        os.remove(fn)
+                        log.debug(f"removed {fn}")
+                    except:
+                        log.debug(f"failed to remove {fn}")
+
+                if clean_wd:
+                    shutil.rmtree(workdir)
+
         return multifits
 
     except Exception as E:
         log.error(f"Exception attempting to load single multifits file (get_multifits()):\n {E}")
+
+        try:
+            if clean:
+                if clean > 0:
+                    for fn in clean_files:
+                        try:
+                            os.remove(fn)
+                            log.debug(f"removed {fn}")
+                        except:
+                            log.debug(f"failed to remove {fn}")
+                if clean > 1:
+                    for fn in clean_multi:
+                        try:
+                            os.remove(fn)
+                            log.debug(f"removed {fn}")
+                        except:
+                            log.debug(f"failed to remove {fn}")
+
+                    if clean_wd:
+                        shutil.rmtree(workdir)
+        except:
+            pass
+
         return None
 
     #end run_vred
