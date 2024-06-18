@@ -1246,6 +1246,9 @@ def parse_commandline(auto_force=False):
                 print("Fatal. Invalid target wavelength.")
                 log.error("Fatal. Invalid target wavelength.")
                 exit(-1)
+            else:
+                if args.aperture is None:
+                    args.aperture = 3.5 #HETDEX default
         except:
             print("Fatal. Invalid target wavelength.")
             log.error("Fatal. Invalid target wavelength.")
@@ -2756,7 +2759,7 @@ def get_hdf5_detectids_to_process(args,as_rows=False):
 
             elif (args.ra is not None) and (args.dec is not None) and ((args.error is not None) or (args.search is not None)):
 
-                if args.aperture: #this is a re-extraction request
+                if args.aperture or args.wavelength: #this is a re-extraction request
                     if args.shotid:
                         shot = xlat_shotid(args.shotid)
                     else:
@@ -2764,6 +2767,8 @@ def get_hdf5_detectids_to_process(args,as_rows=False):
 
                     if args.wavelength:
                         wave = args.wavelength
+                        if args.aperture is None:
+                            args.aperture = 3.5 #HETDEX standard
                     else:
                         wave = "0"
 
