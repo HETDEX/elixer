@@ -1,6 +1,15 @@
 changes to elixer by version
 
 
+1.22.0a14 [2024-06-20]
+* if an SEP object is removed from consideration for the combined_continuum calculation, also remove it from
+  consideration in the angular extent calcuation
+* fixed issue where web-based imaging were not being checked if a match was found to at least one local image but
+  that local image was bad or empty
+* changed EW + PLAE/POII correction vote to use dynamic midpoint (based on wavelength) rather than fixed 1.0 value;
+  switched to use the plae_poii_hat value rather than the minimum value to trigger
+* increased max OII Gaussian fit sigma from 6.5 to 7.5 based on rare high width OII. Transition threshold stays at 4.5
+
 1.22.0a13 [2024-06-18]
 * update spectrum_utilities stacking:
   + add optional parameters to make_grid() to allow user to set a grid step, fractionally modify a computed grid step,

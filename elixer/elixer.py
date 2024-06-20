@@ -110,6 +110,13 @@ G_PDF_FILE_NUM = 0
 log = G.Global_Logger('main_logger')
 log.setlevel(G.LOG_LEVEL)
 
+#cat_library = None
+#cats = None
+catch_all_cat = None
+cat_sdss = None
+cat_panstarrs = None
+cat_decals_web = None
+
 def get_input(prompt):
     if LooseVersion(VERSION) >= LooseVersion('3.0'):
         i = input(prompt)
@@ -1502,6 +1509,9 @@ def build_hetdex_section(pdfname, hetdex, detect_id = 0,pages=None,annulus=False
 def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",base_count = 0,target_w=0,fiber_locs=None,
                  target_flux=None,annulus=None,obs=None,detobj=None):
 
+
+    global catch_all_cat, cat_sdss, cat_panstarrs, cat_decals_web
+
     _NUDGE_MAG_APERTURE_CENTER_SAVED = G.NUDGE_MAG_APERTURE_CENTER
     if (target_flux is None) or (target_flux < 0):
         target_flux = 0.0
@@ -1600,6 +1610,10 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
                                 elif isinstance(c,catalogs.cat_panstarrs.PANSTARRS): #this was PanSTARRS so fall back ...
                                     if G.SDSS_ALLOW:
                                         cats.append(cat_sdss)
+                                        num_remaining_cats += 1
+                                else:
+                                    if G.DECALS_WEB_ALLOW:
+                                        cats.append(cat_decals_web)
                                         num_remaining_cats += 1
 
                                 if num_remaining_cats == 0: #out of catalogs to fall back on, keep this r for whatever it is worth
@@ -5309,7 +5323,7 @@ def check_continuum_version_vs_detectids(continuum,dets):
 
 def main():
 
-    global G_PDF_FILE_NUM, OS_PNG_ONLY
+    global G_PDF_FILE_NUM, OS_PNG_ONLY, catch_all_cat, cat_sdss, cat_panstarrs, cat_decals_web
     
     already_launched_viewer = False #skip the PDF viewer laun
 

@@ -4877,7 +4877,7 @@ class DetObj:
 
                     if z_mult < 1:
                         log.info(f"{self.entry_id} Aggregate Classification: MC PLAE/POII from combined continuum down-weighted"
-                                 f" due to possible low-z OII, z= {z_oii:0.4f}")
+                                 f" due to possible low-z OII, z= {z_oii:0.4f}, weight x = {z_mult:0.4f}")
 
                     weight.append(w*z_mult)
                     var.append(1)  # todo: use the sd (scaled?) #can't use straight up here since the variances are not
@@ -5589,7 +5589,11 @@ class DetObj:
                 # vote_info['plae_poii_combined_lo'] = self.classification_dict['plae_hat_lo']
 
                 #check is on the minimum values
-                if ew-ew_err > 20 and self.classification_dict['plae_hat_lo'] > 1.0:
+                plae_hat_50_thresh = max(1.0, plae_poii_midpoint(self.w) * 0.5)
+                #plae_hat_lo_thresh = max(1.0, plae_poii_midpoint(self.w) * 0.3)
+
+                #if ew-ew_err > 20 and self.classification_dict['plae_hat_lo'] > plae_hat_lo_thresh:
+                if ew - ew_err > 20 and self.classification_dict['plae_hat'] > plae_hat_50_thresh:
 
                     #but weight is on the medians
                    # w = min( ((ew-ew_err)-20.0)/40.0, 0.25) + min( (self.classification_dict['plae_hat_lo'] - 1.0)/10.0 ,0.25)
@@ -5604,11 +5608,11 @@ class DetObj:
                     vote_info['dex_ew_plae_correction_weight'] = weight[-1]
                     log.info(
                         f"{self.entry_id} Aggregate Classification: EW + PLAE/POII correction vote: lk({likelihood[-1]}) "
-                        f"weight({weight[-1]}); ew-ew_err: { ew-ew_err:0.2f}, PLAE(lo): {self.classification_dict['plae_hat_lo']}")
+                        f"weight({weight[-1]}); ew-ew_err: { ew-ew_err:0.2f}, PLAE(hat): {self.classification_dict['plae_hat']}")
                 else:
                     log.info(
-                        f"{self.entry_id} Aggregate Classification: W + PLAE/POII correction vote no vote. Did not meet minimum requirements."
-                        f" ew-ew_err: { ew-ew_err:0.2f}, PLAE(lo): {self.classification_dict['plae_hat_lo']}")
+                        f"{self.entry_id} Aggregate Classification: EW + PLAE/POII correction vote no vote. Did not meet minimum requirements."
+                        f" ew-ew_err: { ew-ew_err:0.2f}, PLAE(hat): {self.classification_dict['plae_hat']} vs midpoint {plae_hat_50_thresh:0.2f}")
         except:
             pass
 
@@ -6381,7 +6385,9 @@ class DetObj:
             except:
                 return val * val #0.11 is ~ 0.33**2
 
+        sep_ctr = 0 #counter for sep objects so can match up continuum provided with extent provided
         continuum = []
+        continuum_sep_idx = [] #use None if not from sep
         variance = [] #variance or variance proxy
         weight = [] #rules based weights
         cont_type = [] #what was the input
@@ -6389,6 +6395,7 @@ class DetObj:
         deep_non_detect = 0 #deepest g or r band imaging without a detection
         deep_detect = 0 #deepest g or r band imaging with a detection  (source extractor only)
 
+        best_guess_extent_sep_idx = [] #if we add an extent, where did it come from?
         best_guess_extent = [] #from source extractor (f606w, g, r only)
         best_guess_extent_narrow = [] #minor axis
         best_guess_maglimit = []
@@ -6466,6 +6473,7 @@ class DetObj:
                 w = 1.0 / (1.0 + np.exp(-40 * (rat -0.015) + 40.5)) * 4.0
                 continuum.append(self.best_gmag_cgs_cont)
                 weight.append(w)
+                continuum_sep_idx.append(-1)
 
                 cont_type.append('hdw') #HETDEX wide
 
@@ -6501,6 +6509,7 @@ class DetObj:
                     #hetdex_cont_limit = 2.0e-18 #don't trust below this
                     if (self.hetdex_cont_cgs - self.hetdex_cont_cgs_unc) > cgs_limit:
                         continuum.append(self.hetdex_cont_cgs)
+                        continuum_sep_idx.append(-1)
                         variance.append(self.hetdex_cont_cgs_unc*self.hetdex_cont_cgs_unc)
                         weight.append(0.2) #never very high
                         cont_type.append('hdn') #HETDEX-narrow
@@ -6509,6 +6518,7 @@ class DetObj:
                                   f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
                     else: #set as lower limit ... too far to be meaningful
                         continuum.append(cgs_limit)
+                        continuum_sep_idx.append(-1)
                         # set to itself as a big error (basically, 100% error)
                         variance.append(cgs_limit * cgs_limit)
 
@@ -6534,8 +6544,10 @@ class DetObj:
         #iterate over all, g,r,606w all count with equal weight
         aperture_radius = 0.0
         try:
+
             filters = ['f606w','g','r']
             for a in self.aperture_details_list: #has both forced aperture and sextractor
+                sep_ctr += 1
                 try:
                     if (a['filter_name'] is not None) and (a['filter_name'] in filters):
                         #todo: ELiXer force aperture (no PLAE/POII right now, just counts and mag
@@ -6574,6 +6586,7 @@ class DetObj:
                                 any_sep = len(a['sep_objects']) > 0
                                 if (a['sep_obj_idx'] is not None):
                                     matched_sep = True
+                                    best_guess_extent_sep_idx.append(sep_ctr)
                                     best_guess_extent.append(a['sep_objects'][a['sep_obj_idx']]['a'])
                                     best_guess_extent_narrow.append(a['sep_objects'][a['sep_obj_idx']]['b'])
                                     best_guess_maglimit.append(a['mag_limit'])
@@ -6645,6 +6658,7 @@ class DetObj:
 
                                     variance.append(cont_var)
                                     continuum.append(cont)
+                                    continuum_sep_idx.append(sep_ctr)
                                     weight.append(w)
                                     cont_type.append("a"+a['filter_name'])
                                     aperture_radius = a['radius']
@@ -6709,6 +6723,7 @@ class DetObj:
                                             weight.append(w)
                                             variance.append(cont_var)
                                             continuum.append(cont)
+                                            continuum_sep_idx.append(sep_ctr)
                                             cont_type.append("a" + a['filter_name'])
                                             if w <= 0:
                                                 nondetect.append(1)
@@ -6730,6 +6745,7 @@ class DetObj:
                                         weight.append(w)
                                         variance.append(cont_var)
                                         continuum.append(cont)
+                                        continuum_sep_idx.append(sep_ctr)
                                         cont_type.append("a" + a['filter_name'])
                                         nondetect.append(0)
                                         aperture_radius = a['radius']
@@ -6782,6 +6798,7 @@ class DetObj:
                     #only willing to use this if there are other non-detects OR if this is right on top of our position
                     weight.append(1)
                     continuum.append(self.best_counterpart.bid_flux_est_cgs)
+                    continuum_sep_idx.append(-1)
                     variance.append(max( self.best_counterpart.bid_flux_est_cgs*self.best_counterpart.bid_flux_est_cgs*0.04,
                                          self.best_counterpart.bid_flux_est_cgs_unc*self.best_counterpart.bid_flux_est_cgs_unc))
 
@@ -6887,31 +6904,6 @@ class DetObj:
         #     except:
         #         log.debug("Exception handling catalog bid-target continuum in DetObj:combine_all_continuum", exc_info=True)
         #
-        try:
-            best_guess_extent = np.array(best_guess_extent)
-            best_guess_extent_narrow = np.array(best_guess_extent_narrow)
-            base_psf = np.array(base_psf)
-
-            # this is really only meaningful IF it is the SEP aperture ... the elixer aperture can grow in-between
-            # faint sources and yield a meaningless answer
-            if deep_detect >= deep_non_detect:
-                if (len(best_guess_extent) == len(base_psf)) and (len(base_psf) > 0):
-                    if np.std(best_guess_extent) > np.min(best_guess_extent):
-                        #the extents are very different ... likely due to imaging differences (ground may blend objects
-                        # so SEP may give a much larger aperture) so, just use the deepest in this case
-                        base_psf = base_psf[np.argmax(best_guess_maglimit)]
-                        best_guess_extent = best_guess_extent[np.argmax(best_guess_maglimit)]
-                        #narrow is the matched minor axis to the selected major axis
-                        best_guess_extent_narrow = best_guess_extent_narrow[np.argmax(best_guess_maglimit)]
-                        size_in_psf = best_guess_extent/base_psf
-                    else:
-                        size_in_psf = np.mean(best_guess_extent/base_psf) #usually only 1 or 2, so std makes no sense
-                        best_guess_extent = np.mean(best_guess_extent)
-                        best_guess_extent_narrow = np.mean(best_guess_extent_narrow)
-                        base_psf = np.max(base_psf)
-
-        except:
-            pass
 
 
         #remove the non-detects except for the deepest or if fainter than the faintest positive detection
@@ -6943,6 +6935,7 @@ class DetObj:
                 weight = np.array(weight)[sel]
                 cont_type  = np.array(cont_type)[sel]
                 nondetect = np.array(nondetect)[sel]
+                continuum_sep_idx = np.array(continuum_sep_idx)[sel]
         except:
             log.info("Exception trimming nondetects from combine_all_continuum",exc_info=True)
 
@@ -6951,6 +6944,8 @@ class DetObj:
             continuum = np.array(continuum)
             variance = np.array(variance)
             weight = np.array(weight)
+            continuum_sep_idx = np.array(continuum_sep_idx)
+            removed_sep_idx = []
 
             #clean up: don't use if sd (or sqrt variance) is larger than the actual measurement
             for i in range(len(continuum)):
@@ -6970,14 +6965,20 @@ class DetObj:
                         log.info(
                             f"Exception checking variance {variance[i]} vs continuum {continuum[i]}. but weight kept as too few to zero out.")
 
-            #remove any zero weights (unless they are all zero)
-            sel = np.where(weight==0)
+            #remove any zero weights (unless they are all zero, then set all to weight of 1)
+            sel = weight==0
 
-            if np.count_nonzero(sel) != len(continuum):
+            if np.count_nonzero(sel) > 0 and np.count_nonzero(sel) != len(continuum):
                 continuum = np.delete(continuum,sel)
                 variance = np.delete(variance,sel)
                 weight = np.delete(weight,sel)
-            else:
+
+                for sep_idx in continuum_sep_idx[sel]:
+                    if not np.isnan(sep_idx):
+                        removed_sep_idx.append(sep_idx)
+                        continuum_sep_idx = np.delete(continuum_sep_idx,sel) #keep them aligned
+
+            elif np.all(sel):
                 #they are all zero weights, so the result would be zero, so need to change to all 1
                 weight = np.full(len(weight),1.0)
 
@@ -7001,10 +7002,14 @@ class DetObj:
                         weight = weight[sel]
                         variance = variance[sel]
 
-                        #for logging
-                        sel = np.where(diff >= 1.5)
+                        #for logging (flip selection)
+                        sel = np.where(diff >= sigma)
                         if len(sel[0]) > 0:
                             log.debug(f"{self.entry_id} Removed {len(sel[0])} estimate(s) {original_continuum[sel]} sigma({diff[sel]}). (clipped at {sigma} sigma)")
+
+                            for sep_idx in continuum_sep_idx[sel]:
+                                if not np.isnan(sep_idx) and sep_idx >= 0:
+                                    removed_sep_idx.append(sep_idx)
                     else:
                         log.debug(f"{self.entry_id} cut too severe. Unable to remove any.")
 
@@ -7028,6 +7033,51 @@ class DetObj:
                 log.debug(f"{self.entry_id} Using inverse variance in hetdex::combin_all_continuum()...")
                 continuum_hat = np.sum(continuum * weight / variance) / np.sum(weight / variance)
                 continuum_sd_hat = np.sqrt(np.sum(weight*variance)/np.sum(weight))
+
+
+            #now try and figure a best geuss extent from the SEP objects, but kick out
+            #any whose flux was rejected from consideration
+            try:
+                #recall, sep_idx is really just a counter to match up
+                if len(removed_sep_idx) > 0:
+                    log.info("Removing rejected SEP objects from best guess extent consideration...")
+                    for sep_idx in removed_sep_idx:
+                        try:
+                            #should be exactly one (note if none are found, this is an exception and we skip and move on)
+                            extent_idx = np.where(best_guess_extent_sep_idx == sep_idx)[0][0]
+                            #should be exctly one since it is based on a loop counter
+                            del best_guess_extent[extent_idx]
+                            del best_guess_extent_narrow[extent_idx]
+                            del base_psf[extent_idx]
+                        except:
+                            pass
+
+
+                best_guess_extent = np.array(best_guess_extent)
+                best_guess_extent_narrow = np.array(best_guess_extent_narrow)
+                base_psf = np.array(base_psf)
+
+                # this is really only meaningful IF it is the SEP aperture ... the elixer aperture can grow in-between
+                # faint sources and yield a meaningless answer
+                if deep_detect >= deep_non_detect:
+                    if (len(best_guess_extent) == len(base_psf)) and (len(base_psf) > 0):
+                        if np.std(best_guess_extent) > np.min(best_guess_extent):
+                            # the extents are very different ... likely due to imaging differences (ground may blend objects
+                            # so SEP may give a much larger aperture) so, just use the deepest in this case
+                            base_psf = base_psf[np.argmax(best_guess_maglimit)]
+                            best_guess_extent = best_guess_extent[np.argmax(best_guess_maglimit)]
+                            # narrow is the matched minor axis to the selected major axis
+                            best_guess_extent_narrow = best_guess_extent_narrow[np.argmax(best_guess_maglimit)]
+                            size_in_psf = best_guess_extent / base_psf
+                        else:
+                            size_in_psf = np.mean(
+                                best_guess_extent / base_psf)  # usually only 1 or 2, so std makes no sense
+                            best_guess_extent = np.mean(best_guess_extent)
+                            best_guess_extent_narrow = np.mean(best_guess_extent_narrow)
+                            base_psf = np.max(base_psf)
+
+            except:
+                pass
 
             #todo: what about plae_hat uncertainty?
             #todo: should I (instead of inverse variance) sample all like 250-1000 times from random distro
