@@ -1423,3 +1423,28 @@ def simple_linear_interp(x1,y1,x2,y2,x):
         return m * x + b
     except:
         return None
+
+
+def sigmoid_linear_interp(x1, y1, x2, y2, x):
+    """
+    kind of like a sigmoid in that is is constant (or nearly) away from the thresholds, but the transition
+    here is linear instead
+
+    :param x1:
+    :param y1:
+    :param x2:
+    :param y2:
+    :param x: the point you want to evaluate
+    :return:
+    """
+    try:
+
+        if x < x1:
+            return y1
+        elif x > x2:
+            return y2
+        else:
+            return simple_linear_interp(x1, y1, x2, y2, x)
+    except:
+        return None
+

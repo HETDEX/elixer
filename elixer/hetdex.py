@@ -2354,12 +2354,20 @@ class DetObj:
 
                 #usually OII execpt if REALLY broad, then more likely MgII or CIV. but have to mark as OII, just lower the Q(z)
                 try:
-                    broad = self.fwhm_kms + self.fwhm_kms_unc > G.BROAD_FWHM_KMS
+                    broad = self.fwhm_kms > G.BROAD_FWHM_KMS #+ self.fwhm_kms_unc > G.BROAD_FWHM_KMS
                 except:
                     try:
                         broad = self.fwhm / self.w * 3e5 > G.BROAD_FWHM_KMS
                     except:
                         broad = self.fhwm > G.BROAD_FWHM_AA
+
+                try:
+                    really_broad = self.fwhm_kms > G.REALLY_BROAD_FWHM_KMS
+                except:
+                    try:
+                        really_broad = self.fwhm / self.w * 3e5 > G.REALLY_BROAD_FWHM_KMS
+                    except:
+                        really_broad = self.fhwm > G.REALLY_BROAD_FWHM_AA
 
                 use_multi = False
                 try:
@@ -2406,7 +2414,7 @@ class DetObj:
                     pass
 
                 if not use_multi:
-                    if broad and self.estflux > 0:
+                    if really_broad and self.estflux > 0:
                         z = self.w / G.OII_rest - 1.0
                         rest = G.OII_rest
                         #p = min(p/2.,0.1) #remember, this is just NOT LyA .. so while OII is the most common, it is hardly the only solution
@@ -4268,6 +4276,7 @@ class DetObj:
 
         #multiply (down weight) votes based on line properties when the line is of really poor SNR or Chi2
         line_vote_weight_mul = snr_chi2_weight(self.snr, self.chi2)
+        log.debug(f"{self.entry_id} Aggregate Classification (quality) line weight vote multiplier: {line_vote_weight_mul:0.4f}")
         if line_vote_weight_mul < 1.0:
             self.flags |= G.DETFLAG_QUESTIONABLE_DETECTION
             if line_vote_weight_mul < 0.6:
@@ -5013,7 +5022,7 @@ class DetObj:
                     #     var.append(1)
                     elif rat > 1.4 or (self.fwhm > 11 and rat > 1.0): #seems to be pretty good separation above 1.2
                         likelihood.append(1.0)
-                        weight.append(0.25 * line_vote_weight_mul)
+                        weight.append(0.1 * line_vote_weight_mul)
                         prior.append(base_assumption)
                         var.append(1)
                     #from data, looks like we more blue than red is possible even for LyA
@@ -5078,12 +5087,11 @@ class DetObj:
                 if vote_line_sigma > G.LINEWIDTH_SIGMA_TRANSITION: #unlikely OII (FHWM 16.5)
                     #check the rest EW if LyA. If low, then reduce the vote weight
 
-                    likelihood.append(1) #vote kind of FOR LyA (though could be CIV, MgII, other)
+                    w = utils.sigmoid_linear_interp(G.LINEWIDTH_SIGMA_TRANSITION, 0.0,
+                                              G.LINEWIDTH_SIGMA_MAX_OII, 1.0,
+                                              vote_line_sigma)  * line_vote_weight_mul
 
-                    if (vote_line_sigma - vote_line_sigma_unc)  >= G.LINEWIDTH_SIGMA_MAX_OII:
-                        w = 1 * line_vote_weight_mul
-                    else:
-                        w = min(vote_line_sigma / G.LINEWIDTH_SIGMA_TRANSITION - 1.0, 1.0) * line_vote_weight_mul #limit to 1.0 max
+                        #w = min(vote_line_sigma / G.LINEWIDTH_SIGMA_TRANSITION - 1.0, 1.0) * line_vote_weight_mul #limit to 1.0 max
 
                     #modify for horrible fit
                     if vote_line_sigma > 20.0 and vote_line_sigma/vote_line_sigma_unc < 2.0 and self.snr < 7.5:
@@ -5101,6 +5109,7 @@ class DetObj:
                         log.info(f"{self.entry_id}: Warning! Unable to check equivalent width for line sigma vote.")
 
                     var.append(1)
+                    likelihood.append(1)  # vote kind of FOR LyA (though could be CIV, MgII, other)
                     weight.append(w)
                     prior.append(base_assumption)
                     vote_info['line_sigma_vote'] = likelihood[-1]
@@ -5114,7 +5123,7 @@ class DetObj:
                 log.info(
                     f"{self.entry_id} Aggregate Classification: line sigma - no vote. Turned OFF.")
         except:
-            pass
+            log.debug(f"Exception! {self.entry_id} Aggregate Classification: (broad) line sigma - no vote.",exc_info=True)
 
 
         ###################################

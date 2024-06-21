@@ -908,6 +908,9 @@ AirVacuumThresh = 2000.0 #AA ... below 2000 values are in vacuum, above 2000 in 
 BROAD_FWHM_KMS = 1200.0 #threshold for considering minimally broad
 BROAD_FWHM_AA = BROAD_FWHM_KMS / 3e5 * 4500. #18AA at 1200 km/s @ 4500AA
 
+REALLY_BROAD_FWHM_KMS = 1400.0 #threshold for considering definitely broad (usually as a safety for decsion making)
+REALLY_BROAD_FWHM_AA = REALLY_BROAD_FWHM_KMS / 3e5 * 4500. #21AA at 1200 km/s @ 4500AA
+
 LyA_rest = 1215.67 #vacuum 1216. #A 1215.668 and 1215.674
 OII_rest = 3727.8 #3726.032 + 3728.815  or  3727.319 + 3729.221 (27 + 14 weights?) = 3727.96846
 
@@ -1224,7 +1227,7 @@ PIXEL_FLAT_ABSOLUTE_BAD_VALUE = 0.7 #values at or below this in the flat are "ba
 MAX_MAG_FAINT = 28.0 #set as nominal "faint" mag if flux limit reached (if not set by specific catalog ... which, unless
                      # this is an HST catalog, this is pretty good (HST is 29-30)
 
-PLAE_POII_GAUSSIAN_WEIGHT_SIGMA = 5.0 #10.0 s|t by sigma or 1/sigma you get to 80% weight
+PLAE_POII_GAUSSIAN_WEIGHT_SIGMA = 4.0 #5.0 #10.0 s|t by sigma or 1/sigma you get to 80% weight
 
 CHECK_FOR_METEOR = True #if true, check the exposure fiber data for meteor pattern
 CHECK_GALAXY_MASK = True #if true, check for detection inclusion in galaxy mask
@@ -1273,7 +1276,8 @@ LAE_EW_MAG_TRIGGER_MAX = 25.0 #if the associated EW_rest(LyA) is less than this 
 LAE_EW_MAG_TRIGGER_MIN = 15.0 #if the associated EW_rest(LyA) is greater than this value, then look at the magnitudes
 
 LINEWIDTH_SIGMA_TRANSITION = 4.5  #larger than this, is increasingly more likely to be LyA, below .. could be either
-LINEWIDTH_SIGMA_MAX_OII = 7.5 #there just are not any larger than this (FWHM > 17.6)
+LINEWIDTH_SIGMA_MAX_OII = 10.0 #there just are not any larger than this (FWHM > 21) #have seen up to 7.6AA or so,
+                               # with 20 to 30% error
 
 SEP_FIXED_APERTURE_RADIUS = 1.0 #RADIUS in arcsec ... used at the barycenter position of SEP objects
 SEP_FIXED_APERTURE_PSF = False #if true apply the HETDEX seeing PSF
