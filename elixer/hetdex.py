@@ -5135,42 +5135,50 @@ class DetObj:
 
             if G.VOTER_ACTIVE & G.VOTE_STRAIGHT_EW and self.estflux > 0:
 
-                delta_thresh = 0
-                rat_thresh = 0
+                # delta_thresh = 0
+                # rat_thresh = 0
 
                 vote_info['ew_rest_lya_combined'] = self.classification_dict['combined_eqw_rest_lya']
                 vote_info['ew_rest_lya_combined_err'] = self.classification_dict['combined_eqw_rest_lya_err']
+                max_weight_adjustment = 1.0
 
-                if (self.fwhm is not None) and (self.fwhm_unc is not None):
-                    adjusted_fwhm = self.fwhm-self.fwhm_unc
-                else:
-                    adjusted_fwhm = 0
-
-                if adjusted_fwhm > 16.5:
-                    max_weight_adjustment = 0
-                elif adjusted_fwhm > 12.0:
-                    max_weight_adjustment = max(0,(16.5 - adjusted_fwhm) / 4.5)
-                else:
-                    max_weight_adjustment = 1.0
+                # if (self.fwhm is not None) and (self.fwhm_unc is not None):
+                #     adjusted_fwhm = self.fwhm-self.fwhm_unc
+                # else:
+                #     adjusted_fwhm = 0
+                #
+                # if adjusted_fwhm > 16.5:
+                #     max_weight_adjustment = 0
+                # elif adjusted_fwhm > 12.0:
+                #     max_weight_adjustment = max(0,(16.5 - adjusted_fwhm) / 4.5)
+                # else:
+                #     max_weight_adjustment = 1.0
 
                 if self.classification_dict['combined_eqw_rest_lya'] > 30.0:
                     #will be an LAE vote
+
+                    # try:
+                    #     #delta_thresh = abs(self.classification_dict['combined_eqw_rest_lya'] - self.classification_dict['combined_eqw_rest_lya_err'] - 20.0)
+                    #     rat_thresh = (self.classification_dict['combined_eqw_rest_lya'] - self.classification_dict['combined_eqw_rest_lya_err'])/25.0
+                    # except:
+                    #     pass
+                    # #weight.append(max(0.1,min(0.5,delta_thresh*0.1))) #delta thresh
+                    # #rat_thresh can be negative or less than one
+                    # if rat_thresh < 1.0: #this is no-vote or minimum vote case
+                    #     if rat_thresh < 0:
+                    #         weight.append(0) #error is larger than the Ew
+                    #     else:
+                    #         #error pushes below 30AA, so minimum vote
+                    #         weight.append(0.1)
+                    # else: #above 30, LyA outnumbers LAE ~ 30:1
+                    #     weight.append(max(0.1,min(0.5,(rat_thresh-1.0)))) #rat thresh
+
+                    #use the lower bound of the EW
+                    w = utils.sigmoid_linear_interp(30.0, 0.5, 20.0, 0.0,
+                                                       self.classification_dict['combined_eqw_rest_lya'] -
+                                                       self.classification_dict['combined_eqw_rest_lya_err'])
+                    weight.append(w)
                     likelihood.append(1)
-                    try:
-                        #delta_thresh = abs(self.classification_dict['combined_eqw_rest_lya'] - self.classification_dict['combined_eqw_rest_lya_err'] - 20.0)
-                        rat_thresh = (self.classification_dict['combined_eqw_rest_lya'] - self.classification_dict['combined_eqw_rest_lya_err'])/25.0
-                    except:
-                        pass
-                    #weight.append(max(0.1,min(0.5,delta_thresh*0.1))) #delta thresh
-                    #rat_thresh can be negative or less than one
-                    if rat_thresh < 1.0: #this is no-vote or minimum vote case
-                        if rat_thresh < 0:
-                            weight.append(0) #error is larger than the Ew
-                        else:
-                            #error pushes below 30AA, so minimum vote
-                            weight.append(0.1)
-                    else: #above 30, LyA outnumbers LAE ~ 30:1
-                        weight.append(max(0.1,min(0.5,(rat_thresh-1.0)))) #rat thresh
 
                     var.append(1)
                     weight[-1] *= max_weight_adjustment * line_vote_weight_mul
@@ -5180,36 +5188,42 @@ class DetObj:
                     log.info(f"{self.entry_id} Aggregate Classification: straight combined line EW "
                              f"{self.classification_dict['combined_eqw_rest_lya']} +/- {self.classification_dict['combined_eqw_rest_lya_err']} vote: "
                              f"lk({likelihood[-1]}) weight({weight[-1]})")
-                elif self.classification_dict['combined_eqw_rest_lya'] < 20:
+                elif self.classification_dict['combined_eqw_rest_lya'] < 20.0:
                     #will be an OII vote
                     likelihood.append(0)
-                    try:
-                        #delta_thresh = abs(self.classification_dict['combined_eqw_rest_lya'] + self.classification_dict['combined_eqw_rest_lya_err'] - 20.0)
-                        rat_thresh = 20/(self.classification_dict['combined_eqw_rest_lya'] + self.classification_dict['combined_eqw_rest_lya_err'])
-                    except:
-                        pass
+                    # try:
+                    #     #delta_thresh = abs(self.classification_dict['combined_eqw_rest_lya'] + self.classification_dict['combined_eqw_rest_lya_err'] - 20.0)
+                    #     rat_thresh = 20.0/(self.classification_dict['combined_eqw_rest_lya'] + self.classification_dict['combined_eqw_rest_lya_err'])
+                    # except:
+                    #     pass
                     #since compress toward EW = 0, this has slightly higher scoring
                     #plus OII can have large EW, but LyA below 20 is REALLY rare
                     #weight.append(max(0.1,min(0.5,delta_thresh*0.25))) #delta thresh version
                     #rat_thresh cannot be negative, but can be less than one
-                    if rat_thresh < 1.0: #this is no-vote or minimum vote case
-                        #error pushes below 20AA, so minimum vote
-                        weight.append(0.1)
-                    else:
-                        #scale at 1.5 s|t rat_thresh = 15 will yeild a weight of 0.5
-                        #below 20, OII outnumbers LyA by ~ 20:1
-                        #linear
+                    # if rat_thresh < 1.0: #this is no-vote or minimum vote case
+                    #     #error pushes below 20AA, so minimum vote
+                    #     weight.append(0.1)
+                    # else:
+                    #     #scale at 1.5 s|t rat_thresh = 15 will yeild a weight of 0.5
+                    #     #below 20, OII outnumbers LyA by ~ 20:1
+                    #     #linear
+                    #
+                    #     # ew1 = 10
+                    #     # ew2 = 20
+                    #     # w1 = 0.5
+                    #     # w2 = 0.1
+                    #     # slope = (w2-w1)/(ew2-ew1)
+                    #     # inter = w2 - slope * ew2
+                    #     #
+                    #     # w = slope * (self.classification_dict['combined_eqw_rest_lya'] + self.classification_dict['combined_eqw_rest_lya_err']) + inter
+                    #     # weight.append(min(0.5,max(0.1,w)))
+                    #     #weight.append(max(0.25,min(0.5,(rat_thresh-1.0)*1.5))) #rat thresh
 
-                        ew1 = 10
-                        ew2 = 20
-                        w1 = 0.5
-                        w2 = 0.1
-                        slope = (w2-w1)/(ew2-ew1)
-                        inter = w2 - slope * ew2
-
-                        w = slope * (self.classification_dict['combined_eqw_rest_lya'] + self.classification_dict['combined_eqw_rest_lya_err']) + inter
-                        weight.append(min(0.5,max(0.1,w)))
-                        #weight.append(max(0.25,min(0.5,(rat_thresh-1.0)*1.5))) #rat thresh
+                    #use the larger limit on the EW
+                    w = utils.sigmoid_linear_interp(15.0, 0.5, 20.0, 0.0,
+                                                       self.classification_dict['combined_eqw_rest_lya'] +
+                                                       self.classification_dict['combined_eqw_rest_lya_err'])
+                    weight.append(w)
 
                     var.append(1)
                     prior.append(base_assumption)

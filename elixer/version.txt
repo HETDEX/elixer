@@ -13,6 +13,7 @@ changes to elixer by version
   away from the transition, but here the transition zone is linear.
 * turn down weight of asymmetric line flux vote
 * slighly upweight PLAE/POII with an altered weighting Gaussian sigma (so the weight reaches full a little faster)
+* update EW straight vote to use sigmoid_linear_interp() and slightly tuned weighting
 
 1.22.0a13 [2024-06-18]
 * update spectrum_utilities stacking:
