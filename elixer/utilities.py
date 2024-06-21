@@ -888,6 +888,16 @@ def get_multifits(date,shot,exp,ifuslot=None,amp=None,longfn=None,flatfile_path=
             except:# Exception as E:
                 pass #log.debug(f"**** {E}")
 
+
+            #vred does not like it if the output files already exist, so clean them
+            try:
+                files = glob.glob(op.join(workdir,f"multi_*_{str(ifuslot).zfill(3)}_*_{amp}.fits"))
+                for fn in files:
+                    os.remove(fn)
+            except:
+                pass
+
+            # run vred
             #p1 = subprocess.run([op.join(workdir,"vred")],cwd=workdir)
             p1 = subprocess.run(["vred"], cwd=workdir)
 
@@ -1108,6 +1118,15 @@ def run_vred(date,shot,exp,ifuslot,amp,calmonth=None,workdir="./",clean=0):
             except:# Exception as E:
                 pass #log.debug(f"**** {E}")
 
+            # vred does not like it if the output files already exist, so clean them
+            try:
+                files = glob.glob(op.join(workdir, f"multi_*_{str(ifuslot).zfill(3)}_*_{amp}.fits"))
+                for fn in files:
+                    os.remove(fn)
+            except:
+                pass
+
+            # run vred
             log.debug("Executing vred ...")
             #p1 = subprocess.run([op.join(workdir,"vred")])
             p1 = subprocess.run(["vred"], cwd=workdir)
