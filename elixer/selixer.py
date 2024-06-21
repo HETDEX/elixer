@@ -434,7 +434,7 @@ elif hostname == "stampede2":
 
     python_cmd = "mpiexec.hydra -np 1 " + python_cmd
 
-    if queue == "skx-normal": #(192GB per node)
+    if queue == "skx-normal" or queue=="development": #(192GB per node)
         MAX_DETECTS_PER_CPU = 100
         cores_per_node = 48
         if recover_mode:
@@ -530,7 +530,7 @@ elif hostname == "lonestar6" or hostname == 'ls6':
     #lonestar6 does not use ibrun or mpiexec here
     #python_cmd = "ibrun -np 1 " + python_cmd
 
-    if queue == "normal":  # (192GB per node)
+    if queue == "normal" or queue=="development":  # (192GB per node)
         MAX_DETECTS_PER_CPU = 100
         cores_per_node = 128
         if recover_mode:
@@ -614,7 +614,7 @@ elif hostname == "stampede3":
     #lonestar6 does not use ibrun or mpiexec here
     #python_cmd = "ibrun -np 1 " + python_cmd
 
-    if queue == "skx" or queue == "skx-dev":  # (192GB per node)
+    if queue == "skx" or queue == "skx-dev" or queue=="development":  # (192GB per node)
         MAX_DETECTS_PER_CPU = 100
         cores_per_node = 48
         if recover_mode:
