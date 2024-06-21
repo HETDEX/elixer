@@ -1110,7 +1110,8 @@ def run_vred(date,shot,exp,ifuslot,amp,calmonth=None,workdir="./",clean=0):
 
             log.debug("Executing vred ...")
             #p1 = subprocess.run([op.join(workdir,"vred")])
-            p1 = subprocess.run([op.join(workdir, "vred")], cwd=workdir)
+            p1 = subprocess.run(["vred"], cwd=workdir)
+            #p1 = subprocess.run([op.join(workdir, "vred")], cwd=workdir)
 
             if p1.returncode == 0:
                 #need the multifits name:
