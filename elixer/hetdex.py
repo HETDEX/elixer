@@ -4178,7 +4178,7 @@ class DetObj:
             return mul
 
 
-        def plae_poii_midpoint(obs_wave):
+        def plae_poii_midpoint(obs_wave, low_thresh = 1.4, high_thresh  = 10.0):
             """
             changes the 50/50 mid point of PLAE/POII based on the observed wavelength (or equivalently, on the
             redshift assuming LyA)
@@ -4211,9 +4211,9 @@ class DetObj:
 
 
                 low_wave = 4000
-                low_thresh = 1.4
+                #low_thresh = 1.4 #now on the call
                 high_wave = 5000
-                high_thresh = 10.0
+                #high_thresh = 10.0 #now on the call
 
                 if obs_wave < low_wave:
                     return low_thresh
@@ -5589,8 +5589,10 @@ class DetObj:
                 # vote_info['plae_poii_combined_lo'] = self.classification_dict['plae_hat_lo']
 
                 #check is on the minimum values
-                plae_hat_50_thresh = max(1.0, plae_poii_midpoint(self.w) * 0.5)
+                #move from 1.4 normally at the blue end up to 10. by 5000AA
+                #plae_hat_50_thresh = max(1.0, plae_poii_midpoint(self.w) * 0.2)
                 #plae_hat_lo_thresh = max(1.0, plae_poii_midpoint(self.w) * 0.3)
+                plae_hat_50_thresh = plae_poii_midpoint(self.w,low_thresh=1.0,high_thresh=2.0)
 
                 #if ew-ew_err > 20 and self.classification_dict['plae_hat_lo'] > plae_hat_lo_thresh:
                 if ew - ew_err > 20 and self.classification_dict['plae_hat'] > plae_hat_50_thresh:
