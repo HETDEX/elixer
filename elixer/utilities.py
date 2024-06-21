@@ -888,7 +888,8 @@ def get_multifits(date,shot,exp,ifuslot=None,amp=None,longfn=None,flatfile_path=
             except:# Exception as E:
                 pass #log.debug(f"**** {E}")
 
-            p1 = subprocess.run([op.join(workdir,"vred")],cwd=workdir)
+            #p1 = subprocess.run([op.join(workdir,"vred")],cwd=workdir)
+            p1 = subprocess.run(["vred"], cwd=workdir)
 
             if p1.returncode == 0:
                 #need the multifits name:
