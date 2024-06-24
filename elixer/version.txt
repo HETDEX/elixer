@@ -14,6 +14,9 @@ changes to elixer by version
   away from the transition, but here the transition zone is linear.
 * turn down weight of asymmetric line flux vote
 * update EW straight vote to use sigmoid_linear_interp() and slightly tuned weighting
+* require OII-3727 if Balmer lines found for low-z galaxy consistency (while not strictly true, it is super unlikely
+    to get Balmer lines and not OII-3727, though there are some very rare instances of galaxies (not PNe) in HETDEX
+    that show OIII-5007 and not OII-3737 when weak/low SNR, so it is possible to not detect OII-3727 when present)
 
 1.22.0a13 [2024-06-18]
 * update spectrum_utilities stacking:

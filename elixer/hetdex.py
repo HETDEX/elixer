@@ -4269,13 +4269,74 @@ class DetObj:
             return mul
 
 
-        def plae_poii_midpoint(obs_wave, low_thresh = 1.4, high_thresh  = 8.0):
+        # def plae_poii_midpoint_orig(obs_wave, low_thresh = G.PLAE_POII_LOW_THRESH, high_thresh  = G.PLAE_POII_HIGH_THRESH):
+        #     """
+        #     changes the 50/50 mid point of PLAE/POII based on the observed wavelength (or equivalently, on the
+        #     redshift assuming LyA)
+        #     Leung+2015 suggests improved performance in their simulations (see Table 3) by using
+        #     PLAE/POII = 1.38 for z < 2.5 and 10.3 for z > 2.5
+        #
+        #     NOTICE: current implemenation is basically the same as the newer utilities::sigmoid_linear_interp()
+        #
+        #     :param obs_wave:
+        #     :return:
+        #     """
+        #
+        #     #until we have good experimental data, just return 1.0 as the 50/50 midpoint
+        #     #return 1.0
+        #
+        #     try:
+        #         #start with Andrew's binary condition
+        #         # if obs_wave is not None and 3400.0 < obs_wave < 5600.0:
+        #         #     if obs_wave < 4254: # z(LyA) = 2.5
+        #         #         return 1.38
+        #         #     else:
+        #         #         return 10.3
+        #         # else:
+        #         #     return 1.0
+        #
+        #
+        #         #modification on Leung+2015, rather than a hard binary case, linearly evolve with wavelength
+        #
+        #         # low_wave = 4000
+        #         # low_thresh = 1.38 #Andrews's Number
+        #         # high_wave = 4500
+        #         # high_thresh = 10.3 #Andrews's Number
+        #
+        #
+        #         low_wave = G.PLAE_POII_LOW_WAVE
+        #         #low_thresh = 1.4 #now on the call
+        #         high_wave = G.PLAE_POII_HIGH_WAVE
+        #         #high_thresh = 10.0 #now on the call
+        #
+        #         if obs_wave < low_wave:
+        #             return low_thresh
+        #         elif obs_wave > high_wave:
+        #             return high_thresh
+        #         else:
+        #             slope = (high_thresh-low_thresh)/(high_wave-low_wave)
+        #             inter = low_thresh - slope*low_wave
+        #             return slope * obs_wave + inter
+        #
+        #
+        #
+        #     except:
+        #         log.warning("Exception! Exception in plae_poii_midpoint. Set midpoint as 1.0", exc_info=True)
+
+
+        def plae_poii_midpoint(obs_wave,trans_waves=G.PLAE_POII_TRANS_WAVES,trans_thresh=G.PLAE_POII_TRANS_THRESH):
             """
             changes the 50/50 mid point of PLAE/POII based on the observed wavelength (or equivalently, on the
             redshift assuming LyA)
             Leung+2015 suggests improved performance in their simulations (see Table 3) by using
             PLAE/POII = 1.38 for z < 2.5 and 10.3 for z > 2.5
+            This allows more flexibility with the user specifying the wavelengths and thresholds with a linear
+            interpoloation between the nearest pair.
+
+
             :param obs_wave:
+            :param trans_waves: list or array of transisition wavelenths; MUST BE STRICTLY INCREASING
+            :param trans_thresh: matchinh list or array of transition thresholds for PLAE/POII
             :return:
             """
 
@@ -4283,42 +4344,36 @@ class DetObj:
             #return 1.0
 
             try:
-                #start with Andrew's binary condition
-                # if obs_wave is not None and 3400.0 < obs_wave < 5600.0:
-                #     if obs_wave < 4254: # z(LyA) = 2.5
-                #         return 1.38
-                #     else:
-                #         return 10.3
-                # else:
-                #     return 1.0
-
 
                 #modification on Leung+2015, rather than a hard binary case, linearly evolve with wavelength
 
-                # low_wave = 4000
-                # low_thresh = 1.38 #Andrews's Number
-                # high_wave = 4500
-                # high_thresh = 10.3 #Andrews's Number
+                # trans_waves = np.array([4000.0,4500.0,5000.0])
+                # trans_thresh = np.array([1.4,10.0,5.0])
 
 
-                low_wave = 4000
-                #low_thresh = 1.4 #now on the call
-                high_wave = 5000
-                #high_thresh = 10.0 #now on the call
+                if obs_wave < trans_waves[0]:
+                    return trans_thresh[0]
+                elif obs_wave > trans_waves[-1]:
+                    return trans_thresh[-1]
+                else: #find pair
+                    trans_waves = np.array(trans_waves)
+                    trans_thresh= np.array(trans_thresh)
 
-                if obs_wave < low_wave:
-                    return low_thresh
-                elif obs_wave > high_wave:
-                    return high_thresh
-                else:
+                    sel = trans_waves <= obs_wave
+                    low_wave = trans_waves[sel][-1]
+                    low_thresh = trans_thresh[sel][-1]
+
+                    sel = trans_waves > obs_wave
+                    high_wave = trans_waves[sel][0]
+                    high_thresh = trans_thresh[sel][0]
+
                     slope = (high_thresh-low_thresh)/(high_wave-low_wave)
                     inter = low_thresh - slope*low_wave
                     return slope * obs_wave + inter
 
-
-
             except:
                 log.warning("Exception! Exception in plae_poii_midpoint. Set midpoint as 1.0", exc_info=True)
+
 
 
         def plae_gaussian_weight(plae_poii,obs_wave=None):
@@ -5702,7 +5757,8 @@ class DetObj:
                 #move from 1.4 normally at the blue end up to 10. by 5000AA
                 #plae_hat_50_thresh = max(1.0, plae_poii_midpoint(self.w) * 0.2)
                 #plae_hat_lo_thresh = max(1.0, plae_poii_midpoint(self.w) * 0.3)
-                plae_hat_50_thresh = plae_poii_midpoint(self.w,low_thresh=1.0,high_thresh=2.0)
+                #plae_hat_50_thresh = plae_poii_midpoint(self.w,low_thresh=1.0,high_thresh=2.0)
+                plae_hat_50_thresh = plae_poii_midpoint(self.w, trans_waves=[4000.0,5000.0], trans_thresh=[1.0,2.0])
 
                 #if ew-ew_err > 20 and self.classification_dict['plae_hat_lo'] > plae_hat_lo_thresh:
                 if self.classification_dict['plae_hat'] > plae_hat_50_thresh:
