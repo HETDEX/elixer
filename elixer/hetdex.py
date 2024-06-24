@@ -5618,26 +5618,52 @@ class DetObj:
                 plae_hat_50_thresh = plae_poii_midpoint(self.w,low_thresh=1.0,high_thresh=2.0)
 
                 #if ew-ew_err > 20 and self.classification_dict['plae_hat_lo'] > plae_hat_lo_thresh:
-                if ew - ew_err > 20 and self.classification_dict['plae_hat'] > plae_hat_50_thresh:
+                if self.classification_dict['plae_hat'] > plae_hat_50_thresh:
+                    if (ew - ew_err) > 20.0:
+                        #correction toward LyA
 
-                    #but weight is on the medians
-                   # w = min( ((ew-ew_err)-20.0)/40.0, 0.25) + min( (self.classification_dict['plae_hat_lo'] - 1.0)/10.0 ,0.25)
-                    w = min((ew - 20.0) / 40.0, 0.25) + min((self.classification_dict['plae_hat'] - 1.0) / 10.0, 0.25)
+                        #but weight is on the medians
+                       # w = min( ((ew-ew_err)-20.0)/40.0, 0.25) + min( (self.classification_dict['plae_hat_lo'] - 1.0)/10.0 ,0.25)
+                        w = min((ew - 20.0) / 40.0, 0.25) + min((self.classification_dict['plae_hat'] - 1.0) / 10.0, 0.25)
 
-                    likelihood.append(1.0)
-                    weight.append(w)
-                    var.append(1)
-                    prior.append(base_assumption)
+                        likelihood.append(1.0)
+                        weight.append(w)
+                        var.append(1)
+                        prior.append(base_assumption)
 
-                    vote_info['dex_ew_plae_correction_vote'] = likelihood[-1]
-                    vote_info['dex_ew_plae_correction_weight'] = weight[-1]
-                    log.info(
-                        f"{self.entry_id} Aggregate Classification: EW + PLAE/POII correction vote: lk({likelihood[-1]}) "
-                        f"weight({weight[-1]}); ew-ew_err: { ew-ew_err:0.2f}, PLAE(hat): {self.classification_dict['plae_hat']}")
+                        vote_info['dex_ew_plae_correction_vote'] = likelihood[-1]
+                        vote_info['dex_ew_plae_correction_weight'] = weight[-1]
+                        log.info(
+                            f"{self.entry_id} Aggregate Classification: EW + PLAE/POII correction vote: lk({likelihood[-1]}) "
+                            f"weight({weight[-1]}); ew-ew_err: { ew-ew_err:0.2f}, PLAE(hat): {self.classification_dict['plae_hat']}")
+
+
+
+                    elif (ew + ew_err) < 20.0:
+                        #correction toward OII
+                        w = min(abs(ew-20.0) / 15.0, 0.25) + min((self.classification_dict['plae_hat'] - 1.0) / 10.0,
+                                                                0.25)
+
+                        likelihood.append(0.0)
+                        weight.append(w)
+                        var.append(1)
+                        prior.append(base_assumption)
+
+                        vote_info['dex_ew_plae_correction_vote'] = likelihood[-1]
+                        vote_info['dex_ew_plae_correction_weight'] = weight[-1]
+                        log.info(
+                            f"{self.entry_id} Aggregate Classification: EW + PLAE/POII correction vote: lk({likelihood[-1]}) "
+                            f"weight({weight[-1]}); ew-ew_err: {ew - ew_err:0.2f}, PLAE(hat): {self.classification_dict['plae_hat']}")
+
+                    else:
+                        log.info(
+                            f"{self.entry_id} Aggregate Classification: EW + PLAE/POII correction vote no vote. Did not meet minimum requirements."
+                            f" ew +/- ew_err: {ew:0.2f} +/- {ew_err:0.2f} in unclear region.")
+
                 else:
                     log.info(
                         f"{self.entry_id} Aggregate Classification: EW + PLAE/POII correction vote no vote. Did not meet minimum requirements."
-                        f" ew-ew_err: { ew-ew_err:0.2f}, PLAE(hat): {self.classification_dict['plae_hat']} vs midpoint {plae_hat_50_thresh:0.2f}")
+                        f" PLAE(hat): {self.classification_dict['plae_hat']} vs midpoint {plae_hat_50_thresh:0.2f}")
         except:
             pass
 

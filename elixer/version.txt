@@ -1,18 +1,18 @@
 changes to elixer by version
 
 
-1.22.0a14 [2024-06-21]
+1.22.0a14 [2024-06-24]
 * if an SEP object is removed from consideration for the combined_continuum calculation, also remove it from
-  consideration in the angular extent calcuation
+  consideration in the angular extent calculation
 * fixed issue where web-based imaging were not being checked if a match was found to at least one local image but
   that local image was bad or empty
 * changed EW + PLAE/POII correction vote to use dynamic midpoint (based on wavelength) rather than fixed 1.0 value;
   switched to use the plae_poii_hat value rather than the minimum value to trigger
+  + allow also OII correction
 * increased max OII Gaussian fit sigma from 6.5 to 7.5 based on rare high width OII. Transition threshold stays at 4.5.
   Switch to "sigmoid_linear_interp" ... kind of like a sigmoid in that the values are constant (or nearly constant)
   away from the transition, but here the transition zone is linear.
 * turn down weight of asymmetric line flux vote
-* slighly upweight PLAE/POII with an altered weighting Gaussian sigma (so the weight reaches full a little faster)
 * update EW straight vote to use sigmoid_linear_interp() and slightly tuned weighting
 
 1.22.0a13 [2024-06-18]
