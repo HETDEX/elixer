@@ -2409,7 +2409,32 @@ class DetObj:
                         else:
                             p = min(p, 0.05)
                         use_multi = True
-                        log.info(f"Q(z): no strong multiline solutions. P(LyA) favors NOT LyA. Set to z:{z} with Q(z): {p}")
+                        log.info(f"Q(z): no strong multiline solutions, but defaulting to top score as best guess. Set to z:{z} with Q(z): {p}")
+
+                    #no final else here ... is handled a bit later below
+                    # else:
+                    #
+                    #     try:
+                    #         if scaled_plae_classification < plya_vote_thresh:
+                    #             # have to assume OII
+                    #             z = self.w / G.OII_rest - 1.0
+                    #             rest = G.OII_rest
+                    #             log.info(
+                    #                 f"Q(z): no sufficient multiline solutions. "
+                    #                 f"P(LyA) {scaled_plae_classification:0.2f}/{plya_vote_thresh:0.2f} favors not LyA."
+                    #                 f"Set to OII z:{z} with Q(z): {p}")
+                    #
+                    #         else:
+                    #             z = self.w / G.LyA_rest - 1.0
+                    #             rest = G.LyA_rest
+                    #
+                    #             log.info(
+                    #                 f"Q(z): no sufficient multiline solutions. "
+                    #                 f"P(LyA) {scaled_plae_classification:0.2f}/{plya_vote_thresh:0.2f} favors LyA."
+                    #                 f"Set to LyA z:{z} with Q(z): {p}")
+                    #     except:
+                    #         log.info(f"Q(z): no sufficient multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
+                    #
                 except:
                     pass
 
@@ -2439,12 +2464,34 @@ class DetObj:
                                          f"P(LyA) favors NOT LyA, but is best choice as FWHM excludes OII. Set to single broadline ({sbl_name}) z:{sbl_z:04f} with Q(z): {p}.")
 
                         else: #call it OII for lack of anything else
-                            z = self.w / G.OII_rest - 1.0
-                            rest = G.OII_rest
-                            p = 0 #min(p,0.01)
-                            self.spec_obj.add_classification_label("AGN")
-                            log.info(f"Q(z): no sufficient multiline solutions. Really broad ({self.fwhm:0.1f}AA), so not likely OII, but no other good solution. "
-                                     f"P(LyA) favors NOT LyA. Set to OII z:{z:04f} with Q(z): {p}. Could still be AGN with LyA or CIV, CIII or MgII alone.")
+
+                            try:
+                                if scaled_plae_classification < plya_vote_thresh:
+                                    # have to assume OII
+                                    z = self.w / G.OII_rest - 1.0
+                                    rest = G.OII_rest
+                                    p = 0.0
+                                    log.info(
+                                        f"Q(z): no sufficient multiline solutions. "
+                                        f"P(LyA) {scaled_plae_classification:0.2f}/{plya_vote_thresh:0.2f} favors not LyA."
+                                        f"Set to OII z:{z} with Q(z): {p}")
+
+                                else:
+                                    z = self.w / G.LyA_rest - 1.0
+                                    rest = G.LyA_rest
+                                    p = 0.0
+
+                                    log.info(
+                                        f"Q(z): no sufficient multiline solutions. "
+                                        f"P(LyA) {scaled_plae_classification:0.2f}/{plya_vote_thresh:0.2f} favors LyA."
+                                        f"Set to LyA z:{z} with Q(z): {p}")
+                            except:
+                                z = self.w / G.OII_rest - 1.0
+                                rest = G.OII_rest
+                                p = 0.0
+                                log.info(
+                                    f"Q(z): no sufficient multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
+
 
                         self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
                         self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
@@ -2504,9 +2551,45 @@ class DetObj:
                                         log.info(f"Q(z): too bright (g={self.gmag_combined:0.1f}) for z ({z}). Capping Q(z) value.")
                                         p = min(0.01,p)
 
-                                    log.info(f"Q(z): no sufficient multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
+                                    if scaled_plae_classification < plya_vote_thresh:
+                                        #have to assume OII
+                                        z = self.w / G.OII_rest - 1.0
+                                        rest = G.OII_rest
+                                        log.info(
+                                            f"Q(z): no sufficient multiline solutions. "
+                                            f"P(LyA) {scaled_plae_classification:0.2f}/{plya_vote_thresh:0.2f} favors not LyA."
+                                            f"Set to OII z:{z} with Q(z): {p}")
+
+                                    else:
+                                        z = self.w / G.LyA_rest - 1.0
+                                        rest = G.LyA_rest
+
+                                        log.info(
+                                            f"Q(z): no sufficient multiline solutions. "
+                                            f"P(LyA) {scaled_plae_classification:0.2f}/{plya_vote_thresh:0.2f} favors LyA."
+                                            f"Set to LyA z:{z} with Q(z): {p}")
+
                             except:
-                                log.info(f"Q(z): no sufficient multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
+                                try:
+                                    if scaled_plae_classification < plya_vote_thresh:
+                                        #have to assume OII
+                                        z = self.w / G.OII_rest - 1.0
+                                        rest = G.OII_rest
+                                        log.info(
+                                            f"Q(z): no sufficient multiline solutions. "
+                                            f"P(LyA) {scaled_plae_classification:0.2f}/{plya_vote_thresh:0.2f} favors not LyA."
+                                            f"Set to OII z:{z} with Q(z): {p}")
+
+                                    else:
+                                        z = self.w / G.LyA_rest - 1.0
+                                        rest = G.LyA_rest
+
+                                        log.info(
+                                            f"Q(z): no sufficient multiline solutions. "
+                                            f"P(LyA) {scaled_plae_classification:0.2f}/{plya_vote_thresh:0.2f} favors LyA."
+                                            f"Set to LyA z:{z} with Q(z): {p}")
+                                except:
+                                    log.info(f"Q(z): no sufficient multiline solutions. P(LyA) favors NOT LyA. Set to OII z:{z} with Q(z): {p}")
 
             elif scaled_plae_classification > plya_fixed_hi: #plya_vote_hi:
                 z= self.w / G.LyA_rest - 1.0
