@@ -4269,7 +4269,7 @@ class DetObj:
             return mul
 
 
-        def plae_poii_midpoint(obs_wave, low_thresh = 1.4, high_thresh  = 10.0):
+        def plae_poii_midpoint(obs_wave, low_thresh = 1.4, high_thresh  = 8.0):
             """
             changes the 50/50 mid point of PLAE/POII based on the observed wavelength (or equivalently, on the
             redshift assuming LyA)
@@ -4555,8 +4555,7 @@ class DetObj:
                             log.info(f"{self.entry_id} Aggregate Classification angular size ({self.classification_dict['diam_in_arcsec']:0.2})\" no vote. Intermediate size. Not AGN, but large-ish FWHM.")
 
                     else: # self.classification_dict['diam_in_arcsec'] > 5.0: #unless an AGN this is probably OII
-                        #REALLY big
-
+                        #potentially REALLY big
                         try:
                             maj_min = self.classification_dict['diam_in_arcsec'] / self.classification_dict['diam_in_arcsec_narrow']
                         except:
@@ -4601,9 +4600,14 @@ class DetObj:
                                      f" lk({likelihood[-1]}) weight({weight[-1]})")
                         elif self.fwhm_kms is not None and self.fwhm_kms_unc is not None and \
                                 self.fwhm_kms+self.fwhm_kms_unc < 800.0:
-                            #vote for OII
+                            #vote for OII, not super elliptical, not necessarily super big either,
+                            #minimum weight from 2.5" to max weight at 4.0
+
+                            w = utils.sigmoid_linear_interp(2.0,0.0,4.0,0.25,
+                                self.classification_dict['diam_in_arcsec'])
+
                             likelihood.append(0.0)
-                            weight.append(0.25 * line_vote_weight_mul)
+                            weight.append(w * line_vote_weight_mul)
                             var.append(1)
                             prior.append(base_assumption)
                             vote_info['size_in_psf_vote'] = likelihood[-1]

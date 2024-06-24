@@ -5945,13 +5945,17 @@ class Spectrum:
             # 1 for youself along the diagnonal
             # 1 also for a line that probably should be found, but is not catastrophic if not found
             # > 1 for lines that really must be found
+            # !!! note: not strictly true that we must have OII-3727 if we see the Balmer lines,
+            #     but for HETDEX data and the majority of late (low-z) galaxies this is so
+            #     (not likely to see some pristine, supper young galaxy without detectable OII ....
+            #      though there have been a few weird exampele where HETDEX picks up OIII-5007 but strangely not OII-3727)
             match_matrix =[[1,0,0,0,0,0,0,0,0],  #0 [OII]
                            [1,1,1,1,2,3,5,0,0],  #1 H_eta
                            [1,0,1,1,2,3,5,0,0],  #2 H_zeta
                            [1,0,0,1,1,2,5,0,0],  #3 H_epsilon
                            [1,0,0,0,1,1,5,0,0],  #4 H_delta
-                           [0,0,0,0,0,1,5,0,0],  #5 H_gamma
-                           [0,0,0,0,0,0,1,0,0],  #6 H_beta
+                           [1,0,0,0,0,1,5,0,0],  #5 H_gamma
+                           [1,0,0,0,0,0,1,0,0],  #6 H_beta
                            [1,0,0,0,0,0,0,1,2],  #7 OIII 4959
                            [1,0,0,0,0,0,0,0,1]]  #8 OIII 5007
             match_matrix = np.array(match_matrix)
