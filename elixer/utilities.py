@@ -1460,12 +1460,23 @@ def sigmoid_linear_interp(x1, y1, x2, y2, x):
     """
     try:
 
-        if x < x1:
-            return y1
-        elif x > x2:
-            return y2
+        if x1 < x2:  #expected
+            xp1 = x1
+            xp2 = x2
+            yp1 = y1
+            yp2 = y2
+        else:      #flip order
+            xp1 = x2
+            xp2 = x1
+            yp1 = y2
+            yp2 = y1
+
+        if x < xp1:
+            return yp1
+        elif x > xp2:
+            return yp2
         else:
-            return simple_linear_interp(x1, y1, x2, y2, x)
+            return simple_linear_interp(xp1, yp1, xp2, yp2, x)
     except:
         return None
 
