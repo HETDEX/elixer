@@ -4347,13 +4347,9 @@ class DetObj:
 
                 #modification on Leung+2015, rather than a hard binary case, linearly evolve with wavelength
 
-                # trans_waves = np.array([4000.0,4500.0,5000.0])
-                # trans_thresh = np.array([1.4,10.0,5.0])
-
-
-                if obs_wave < trans_waves[0]:
+                if obs_wave <= trans_waves[0]:
                     return trans_thresh[0]
-                elif obs_wave > trans_waves[-1]:
+                elif obs_wave >= trans_waves[-1]:
                     return trans_thresh[-1]
                 else: #find pair
                     trans_waves = np.array(trans_waves)
