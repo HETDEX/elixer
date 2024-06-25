@@ -1228,9 +1228,10 @@ MAX_MAG_FAINT = 28.0 #set as nominal "faint" mag if flux limit reached (if not s
                      # this is an HST catalog, this is pretty good (HST is 29-30)
 
 PLAE_POII_GAUSSIAN_WEIGHT_SIGMA = 5.0 #5.0 #10.0 s|t by sigma or 1/sigma you get to 80% weight
-PLAE_POII_TRANS_WAVES = [4000.0,4500.0,5000.0,5500.] #must be strictly increasing in wavelength, but can be any number of elements
-PLAE_POII_TRANS_THRESH = [1.4,8.0,10.0,8.0] #favors LyA for larger threholds at or above the matching wavelength
-
+# PLAE_POII_TRANS_WAVES = [4000.0,4500.0,5000.0,5500.] #must be strictly increasing in wavelength, but can be any number of elements
+# PLAE_POII_TRANS_THRESH = [1.4,8.0,10.0,8.0] #favors LyA for larger threholds at or above the matching wavelength
+PLAE_POII_TRANS_WAVES = [4000.0,5000.0] #must be strictly increasing in wavelength, but can be any number of elements
+PLAE_POII_TRANS_THRESH = [1.4,8.0] #favors LyA for larger threholds at or above the matching wavelength
 
 CHECK_FOR_METEOR = True #if true, check the exposure fiber data for meteor pattern
 CHECK_GALAXY_MASK = True #if true, check for detection inclusion in galaxy mask
