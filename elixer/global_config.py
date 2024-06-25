@@ -1238,8 +1238,8 @@ PLAE_POII_GAUSSIAN_WEIGHT_SIGMA = 5.0 #5.0 #10.0 s|t by sigma or 1/sigma you get
 # PLAE_POII_TRANS_THRESH = [1.4,8.0,9.0,10.0] #favors LyA for larger threholds at or above the matching wavelength
 
 #v13
-PLAE_POII_TRANS_WAVES = [4000.0,5000.0,5500.0] #must be strictly increasing in wavelength, but can be any number of elements
-PLAE_POII_TRANS_THRESH = [1.4,8.0,10.0] #favors LyA for larger threholds at or above the matching wavelength
+PLAE_POII_TRANS_WAVES = [4000.0,4500.0,5000.0,5500.0] #must be strictly increasing in wavelength, but can be any number of elements
+PLAE_POII_TRANS_THRESH = [1.4,8.0,9.0,10.0] #favors LyA for larger threholds at or above the matching wavelength
 
 CHECK_FOR_METEOR = True #if true, check the exposure fiber data for meteor pattern
 CHECK_GALAXY_MASK = True #if true, check for detection inclusion in galaxy mask
@@ -1441,7 +1441,7 @@ VOTE_EW_PLAE_POII_CORRECTION    = 0x00000800
 VOTE_ABSORPTION                 = 0x00001000
 VOTE_LOW_WEIGHT_CORRECTION      = 0x48888888
 VOTE_UNSPECIFIED                = 0x88888888
-USE_REVISED_PLAE_POII           = False
+USE_REVISED_PLAE_POII           = True
 
 ###################################
 # testing sky residuals

@@ -6288,7 +6288,11 @@ class DetObj:
         self.prior = list(self.prior)
         self.voterid = list(self.voterid)
 
-        #todo: NOW act on the plya_thresh and modify the midpoint stuff or gaussian stuff
+        #NOW act on the plya_thresh and modify the midpoint stuff or gaussian stuff
+        #so, a new P(LyA) thresh of 0.4 would lower the nominal PLAE/POII thresh by 20% (e.g. old value * 0.8 or 0.4/0.5
+        #BUT we'll keep a bare minimum of the 1.4 value from Leung+2017 (well, really 1.38 but rounded to 1.4)
+        thresh_mul = plya_thresh / G.CALIBRATION_PLYA_VOTE_THRESH
+        plae_poii_trans_thresh = np.clip(np.array(G.PLAE_POII_TRANS_THRESH) * thresh_mul,1.4,None)
 
         try:
             if G.VOTER_ACTIVE & G.VOTE_PLAE_POII:
@@ -6303,7 +6307,9 @@ class DetObj:
                     # plae_vote = mid / (mid + 1.0)
                     #
 
-                    midpoint = self.plae_poii_midpoint(self.w)
+                    #(self,obs_wave,trans_waves=G.PLAE_POII_TRANS_WAVES,trans_thresh=G.PLAE_POII_TRANS_THRESH):
+
+                    midpoint = self.plae_poii_midpoint(self.w,trans_thresh=plae_poii_trans_thresh)
                     if self.classification_dict['plae_hat'] > midpoint:
                         plae_vote = 1.0
                     else:
