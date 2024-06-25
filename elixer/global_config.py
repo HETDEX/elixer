@@ -1300,6 +1300,9 @@ SHOT_SEEING = None #temporay usage for HSC-g comparison
 
 FWHM_TYPE1_AGN_VELOCITY_THRESHOLD = 1500.0 #km/s #FWHM velocity in emission line above this value might be a type 1 AGN
 
+CALIBRATION_PLYA_VOTE_THRESH = 0.5 #this is the basline to which votes are calibrated, DO NOT CHANGE IT
+                                #if you want more or less strict, use the PLYA_VOTE_THRESH* below -or- use the
+                                #command line interface
 
 PLYA_VOTE_THRESH = 0.5 # >= vote for LyA, below for not LyA
 PLYA_VOTE_THRESH_1 = PLYA_VOTE_THRESH #just for naming consistency
@@ -1423,8 +1426,8 @@ VoteFeaturesTable = False #if true, include the P(LyA) extra voting features tab
 VOTER_ACTIVE = 0xFFFFFFFF
 
 #each toggles a single P(LyA) voter
-VOTER_ANGULAR_SIZE              = 0x00000001
-VOTER_BRIGHT_CONTINUUM          = 0x00000002
+VOTE_ANGULAR_SIZE               = 0x00000001
+VOTE_BRIGHT_CONTINUUM           = 0x00000002
 VOTE_MULTILINE                  = 0x00000004
 VOTE_UNMATCHED_LINES            = 0x00000008
 VOTE_PLAE_POII                  = 0x00000010
@@ -1436,8 +1439,9 @@ VOTE_DEX_GMAG                   = 0x00000200
 VOTE_FLAM_SLOPE                 = 0x00000400
 VOTE_EW_PLAE_POII_CORRECTION    = 0x00000800
 VOTE_ABSORPTION                 = 0x00001000
-
-
+VOTE_LOW_WEIGHT_CORRECTION      = 0x48888888
+VOTE_UNSPECIFIED                = 0x88888888
+USE_REVISED_PLAE_POII           = False
 
 ###################################
 # testing sky residuals

@@ -1997,6 +1997,12 @@ class DetObj:
             plya_vote_lo = 0.4
             log.warning(f"WARNING! Using fixed P(LyA) thresholds: {plya_vote_thresh}, ({plya_vote_hi}, {plya_vote_lo})")
 
+        if plya_vote_thresh != G.CALIBRATION_PLYA_VOTE_THRESH and G.USE_REVISED_PLAE_POII:
+            self.revise_plae_poii_vote(plya_vote_thresh)
+            self.tally_plya_votes()
+
+
+
         #for lines like MgII, CIII, CIV ... regardless of the P(LyA) threhold, use these as fixed values for the uncertain range
         plya_fixed_hi = 0.6
         plya_fixed_lo = 0.4
@@ -4219,6 +4225,76 @@ class DetObj:
         return 0
 
 
+    def plae_poii_midpoint(self,obs_wave,trans_waves=G.PLAE_POII_TRANS_WAVES,trans_thresh=G.PLAE_POII_TRANS_THRESH):
+        """
+        changes the 50/50 mid point of PLAE/POII based on the observed wavelength (or equivalently, on the
+        redshift assuming LyA)
+        Leung+2015 suggests improved performance in their simulations (see Table 3) by using
+        PLAE/POII = 1.38 for z < 2.5 and 10.3 for z > 2.5
+        This allows more flexibility with the user specifying the wavelengths and thresholds with a linear
+        interpoloation between the nearest pair.
+
+
+        :param obs_wave:
+        :param trans_waves: list or array of transisition wavelenths; MUST BE STRICTLY INCREASING
+        :param trans_thresh: matchinh list or array of transition thresholds for PLAE/POII
+        :return:
+        """
+
+        #until we have good experimental data, just return 1.0 as the 50/50 midpoint
+        #return 1.0
+
+        try:
+
+            #modification on Leung+2015, rather than a hard binary case, linearly evolve with wavelength
+
+            if obs_wave <= trans_waves[0]:
+                return trans_thresh[0]
+            elif obs_wave >= trans_waves[-1]:
+                return trans_thresh[-1]
+            else: #find pair
+                trans_waves = np.array(trans_waves)
+                trans_thresh= np.array(trans_thresh)
+
+                sel = trans_waves <= obs_wave
+                low_wave = trans_waves[sel][-1]
+                low_thresh = trans_thresh[sel][-1]
+
+                sel = trans_waves > obs_wave
+                high_wave = trans_waves[sel][0]
+                high_thresh = trans_thresh[sel][0]
+
+                slope = (high_thresh-low_thresh)/(high_wave-low_wave)
+                inter = low_thresh - slope*low_wave
+                return slope * obs_wave + inter
+
+        except:
+            log.warning("Exception! Exception in plae_poii_midpoint. Set midpoint as 1.0", exc_info=True)
+
+
+
+    def plae_gaussian_weight(self,plae_poii,obs_wave=None):
+        #the idea here as the the closer the PLAE/POII is to 1 (a 50/50 chance) the lower the weight (tends to 0)
+        # but extreme values (getting closer to 0.001 or 1000) the weight goes closer to a full value of 1
+        # by a value of 20 (or 1/20) essentially at 1.0
+        try:
+            if plae_poii is None or plae_poii == 0:
+                return 0
+
+            if plae_poii < 1:
+                plae_poii = 1.0/plae_poii
+
+            #adjust the Gaussian center based on the observed wavelength
+            if obs_wave is None:
+                mu = 1.0
+            else:
+                mu = self.plae_poii_midpoint(obs_wave)
+            sigma = G.PLAE_POII_GAUSSIAN_WEIGHT_SIGMA #5.0 #s|t by 0.1 or 10 you get 80% weight but near 1 you gain nothing
+            return 1 - np.exp(-((plae_poii - mu)/(np.sqrt(2)*sigma))**2.)
+        except: #could be exactly zero through either a fluke or a data issue
+            log.warning("Exception! Exception in plae_gaussian_weight. Set weight to 0.0", exc_info=True)
+            return 0
+
     def aggregate_classification(self):#,plya_vote_thresh = G.PLYA_VOTE_THRESH):
         """
         Use all info available, weighted, to make a classification as to LAE or not LAE
@@ -4324,75 +4400,7 @@ class DetObj:
         #         log.warning("Exception! Exception in plae_poii_midpoint. Set midpoint as 1.0", exc_info=True)
 
 
-        def plae_poii_midpoint(obs_wave,trans_waves=G.PLAE_POII_TRANS_WAVES,trans_thresh=G.PLAE_POII_TRANS_THRESH):
-            """
-            changes the 50/50 mid point of PLAE/POII based on the observed wavelength (or equivalently, on the
-            redshift assuming LyA)
-            Leung+2015 suggests improved performance in their simulations (see Table 3) by using
-            PLAE/POII = 1.38 for z < 2.5 and 10.3 for z > 2.5
-            This allows more flexibility with the user specifying the wavelengths and thresholds with a linear
-            interpoloation between the nearest pair.
 
-
-            :param obs_wave:
-            :param trans_waves: list or array of transisition wavelenths; MUST BE STRICTLY INCREASING
-            :param trans_thresh: matchinh list or array of transition thresholds for PLAE/POII
-            :return:
-            """
-
-            #until we have good experimental data, just return 1.0 as the 50/50 midpoint
-            #return 1.0
-
-            try:
-
-                #modification on Leung+2015, rather than a hard binary case, linearly evolve with wavelength
-
-                if obs_wave <= trans_waves[0]:
-                    return trans_thresh[0]
-                elif obs_wave >= trans_waves[-1]:
-                    return trans_thresh[-1]
-                else: #find pair
-                    trans_waves = np.array(trans_waves)
-                    trans_thresh= np.array(trans_thresh)
-
-                    sel = trans_waves <= obs_wave
-                    low_wave = trans_waves[sel][-1]
-                    low_thresh = trans_thresh[sel][-1]
-
-                    sel = trans_waves > obs_wave
-                    high_wave = trans_waves[sel][0]
-                    high_thresh = trans_thresh[sel][0]
-
-                    slope = (high_thresh-low_thresh)/(high_wave-low_wave)
-                    inter = low_thresh - slope*low_wave
-                    return slope * obs_wave + inter
-
-            except:
-                log.warning("Exception! Exception in plae_poii_midpoint. Set midpoint as 1.0", exc_info=True)
-
-
-
-        def plae_gaussian_weight(plae_poii,obs_wave=None):
-            #the idea here as the the closer the PLAE/POII is to 1 (a 50/50 chance) the lower the weight (tends to 0)
-            # but extreme values (getting closer to 0.001 or 1000) the weight goes closer to a full value of 1
-            # by a value of 20 (or 1/20) essentially at 1.0
-            try:
-                if plae_poii is None or plae_poii == 0:
-                    return 0
-
-                if plae_poii < 1:
-                    plae_poii = 1.0/plae_poii
-
-                #adjust the Gaussian center based on the observed wavelength
-                if obs_wave is None:
-                    mu = 1.0
-                else:
-                    mu = plae_poii_midpoint(obs_wave)
-                sigma = G.PLAE_POII_GAUSSIAN_WEIGHT_SIGMA #5.0 #s|t by 0.1 or 10 you get 80% weight but near 1 you gain nothing
-                return 1 - np.exp(-((plae_poii - mu)/(np.sqrt(2)*sigma))**2.)
-            except: #could be exactly zero through either a fluke or a data issue
-                log.warning("Exception! Exception in plae_gaussian_weight. Set weight to 0.0", exc_info=True)
-                return 0
 
 
         def mag_gaussian_weight(mag_zero, mag, mag_bright, mag_faint):
@@ -4417,12 +4425,16 @@ class DetObj:
                 self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
                 self.needs_review = True
 
+        #can be used later
+        self.line_vote_weight_mul = line_vote_weight_mul
+
         reason = ""
         base_assumption = 0.5 #not used yet
-        likelihood = []
-        weight = []
-        var = [] #right now, this is just weight based, all variances are set to 1
-        prior = [] #not using Bayes yet, so this is ignored
+        self.likelihood = []
+        self.weight = []
+        self.var = [] #right now, this is just weight based, all variances are set to 1
+        self.prior = [] #not using Bayes yet, so this is ignored
+        self.voterid = [] #the "voter ID" ... which vote is this?
 
         #both are lists of dictionaries with keys: kpc, weight, likelihood
         diameter_lae = [] #physical units assuming a redshift consistent with LAE
@@ -4482,7 +4494,7 @@ class DetObj:
 
 
 
-            if G.VOTER_ACTIVE & G.VOTER_ANGULAR_SIZE:
+            if G.VOTER_ACTIVE & G.VOTE_ANGULAR_SIZE:
 
                 #assume the dictionary is populated ... if not, just except and move on
                 if self.classification_dict['size_in_psf'] is not None and self.classification_dict['size_in_psf'] > 1.1 and \
@@ -4511,7 +4523,8 @@ class DetObj:
 
                     if self.classification_dict['diam_in_arcsec'] > 9.0 and self.best_gmag < 21 and z_oii < 0.15:
                         #bright and hanging off the cutout
-                        likelihood.append(0)
+                        self.likelihood.append(0)
+                        self.voterid.append(G.VOTE_ANGULAR_SIZE)
                         #little extra nudge
                         w = 0.25
                         try: #bright, big, narrow line
@@ -4519,18 +4532,18 @@ class DetObj:
                                 w = 0.5
                         except:
                             pass
-                        weight.append(w)
-                        var.append(1)
-                        prior.append(base_assumption)
+                        self.weight.append(w)
+                        self.var.append(1)
+                        self.prior.append(base_assumption)
 
                         # set a base weight (will be adjusted later)
                         # diameter_lae.append({"z":z,"kpc":diam_kpc,"weight":w,"likelihood":lk})
                         log.info(
                             f"{self.entry_id} Aggregate Classification, angular size ({self.classification_dict['diam_in_arcsec']:0.2})\". Likely OII:"
-                            f" z(OII)({z_oii:#.4g}) weight({weight[-1]:#.5g}) likelihood({likelihood[-1]:#.5g})")
+                            f" z(OII)({z_oii:#.4g}) weight({self.weight[-1]:#.5g}) likelihood({self.likelihood[-1]:#.5g})")
 
-                        vote_info['size_in_psf_vote'] = likelihood[-1]
-                        vote_info['size_in_psf_weight'] = weight[-1]
+                        vote_info['size_in_psf_vote'] = self.likelihood[-1]
+                        vote_info['size_in_psf_weight'] = self.weight[-1]
 
                     elif diam_kpc is None:
                         log.info(f"{self.entry_id} Aggregate Classification angular size no vote (unresolved) or no size info.")
@@ -4540,35 +4553,37 @@ class DetObj:
                         if  diam_kpc < 3.0: #0.5 kpc pretty clean
                             #vote FOR LyA
                             w = 0.25 * line_vote_weight_mul #since the redshift is based on the line location, this DOES need the weight adjustment
-                            likelihood.append(1.0)
-                            weight.append(w)
-                            var.append(1)
-                            prior.append(base_assumption)
+                            self.likelihood.append(1.0)
+                            self.voterid.append(G.VOTE_ANGULAR_SIZE)
+                            self.weight.append(w)
+                            self.var.append(1)
+                            self.prior.append(base_assumption)
 
                             #set a base weight (will be adjusted later)
                             #diameter_lae.append({"z":z,"kpc":diam_kpc,"weight":w,"likelihood":lk})
                             log.info(
                                 f"{self.entry_id} Aggregate Classification, angular size ({self.classification_dict['diam_in_arcsec']:0.2})\", added physical size. Unlikely OII:"
-                                f" z(OII)({z_oii:#.4g}) kpc({diam_kpc:#.4g}) weight({weight[-1]:#.5g}) likelihood({likelihood[-1]:#.5g})")
+                                f" z(OII)({z_oii:#.4g}) kpc({diam_kpc:#.4g}) weight({self.weight[-1]:#.5g}) likelihood({self.likelihood[-1]:#.5g})")
 
-                            vote_info['size_in_psf_vote'] = likelihood[-1]
-                            vote_info['size_in_psf_weight'] = weight[-1]
+                            vote_info['size_in_psf_vote'] = self.likelihood[-1]
+                            vote_info['size_in_psf_weight'] = self.weight[-1]
                         elif diam_kpc < 4.5: # and self.w < 4500:
                             #vote FOR LyA, but weaker, around 5:1 LyA
                             w = 0.1 * line_vote_weight_mul #since the redshift is based on the line location, this DOES need the weight adjustment
-                            likelihood.append(1.0)
-                            weight.append(w)
-                            var.append(1)
-                            prior.append(base_assumption)
+                            self.likelihood.append(1.0)
+                            self.voterid.append(G.VOTE_ANGULAR_SIZE)
+                            self.weight.append(w)
+                            self.var.append(1)
+                            self.prior.append(base_assumption)
 
                             #set a base weight (will be adjusted later)
                             #diameter_lae.append({"z":z,"kpc":diam_kpc,"weight":w,"likelihood":lk})
                             log.info(
                                 f"{self.entry_id} Aggregate Classification, angular size ({self.classification_dict['diam_in_arcsec']:0.2})\", added physical size. Unlikely OII:"
-                                f" z(OII)({z_oii:#.4g}) kpc({diam_kpc:#.4g}) weight({weight[-1]:#.5g}) likelihood({likelihood[-1]:#.5g})")
+                                f" z(OII)({z_oii:#.4g}) kpc({diam_kpc:#.4g}) weight({self.weight[-1]:#.5g}) likelihood({self.likelihood[-1]:#.5g})")
 
-                            vote_info['size_in_psf_vote'] = likelihood[-1]
-                            vote_info['size_in_psf_weight'] = weight[-1]
+                            vote_info['size_in_psf_vote'] = self.likelihood[-1]
+                            vote_info['size_in_psf_weight'] = self.weight[-1]
 
                         else:
                             log.info(f"{self.entry_id} Aggregate Classification angular size ({self.classification_dict['diam_in_arcsec']:0.2})\" no vote. Intermediate size.")
@@ -4580,20 +4595,21 @@ class DetObj:
                         if self.fwhm_kms is not None and self.fwhm_kms_unc is not None and \
                                 self.fwhm_kms-self.fwhm_kms_unc > G.BROAD_FWHM_KMS:
                             #weak vote FOR LyA (assuming AGN)
-                            likelihood.append(1.0)
-                            weight.append(0.25)
-                            var.append(1)
-                            prior.append(base_assumption)
+                            self.likelihood.append(1.0)
+                            self.voterid.append(G.VOTE_ANGULAR_SIZE)
+                            self.weight.append(0.25)
+                            self.var.append(1)
+                            self.prior.append(base_assumption)
                             log.info(f"{self.entry_id} Aggregate Classification: angular size "
                                      f"({self.classification_dict['diam_in_arcsec']:0.2})\" + consistent with AGN "
                                      f"{self.fwhm_kms} km/s fwhm:"
-                                     f" lk({likelihood[-1]}) weight({weight[-1]})")
-                            vote_info['size_in_psf_vote'] = likelihood[-1]
-                            vote_info['size_in_psf_weight'] = weight[-1]
+                                     f" lk({self.likelihood[-1]}) weight({self.weight[-1]})")
+                            vote_info['size_in_psf_vote'] = self.likelihood[-1]
+                            vote_info['size_in_psf_weight'] = self.weight[-1]
                         # elif self.fwhm+self.fwhm_unc < 10 : #not likely an AGN and otheriwse too big to be LyA
                         #     #vote for OII (or not LyA)
                         #     likelihood.append(0.0)
-                        #
+                        #     voterid.append(G.VOTE_ANGULAR_SIZE)
                         #     weight.append(0.33)
                         #     #weight.append(0.25)
                         #     var.append(1)
@@ -4615,7 +4631,8 @@ class DetObj:
                         if maj_min >= 2.0: #pretty elliptical in profile, expect AGN to appear more cicular
                             #note: this DOES NOT HELP if this is a nearby spiral face on
                             # vote for OII
-                            likelihood.append(0.0)
+                            self.likelihood.append(0.0)
+                            self.voterid.append(G.VOTE_ANGULAR_SIZE)
 
                             w = self.classification_dict['diam_in_arcsec'] / 9.0 +  0.1 * maj_min / 2.0
 
@@ -4626,29 +4643,30 @@ class DetObj:
 
                             w = max(0,min(2.0,w))
 
-                            weight.append(w)
-                            var.append(1)
-                            prior.append(base_assumption)
-                            vote_info['size_in_psf_vote'] = likelihood[-1]
-                            vote_info['size_in_psf_weight'] = weight[-1]
+                            self.weight.append(w)
+                            self.var.append(1)
+                            self.prior.append(base_assumption)
+                            vote_info['size_in_psf_vote'] = self.likelihood[-1]
+                            vote_info['size_in_psf_weight'] = self.weight[-1]
                             log.info(
                                 f"{self.entry_id} Aggregate Classification: angular size "
                                 f"({self.classification_dict['diam_in_arcsec']:0.2})\" / "
                                 f"({self.classification_dict['diam_in_arcsec_narrow']:0.2})\", suggestes not-AGN, elliptical in projection:"
-                                f" lk({likelihood[-1]}) weight({weight[-1]})")
+                                f" lk({self.likelihood[-1]}) weight({self.weight[-1]})")
                         elif self.fwhm_kms is not None and self.fwhm_kms_unc is not None and \
                                 self.fwhm_kms-self.fwhm_kms_unc > G.BROAD_FWHM_KMS:
                             #weak vote FOR LyA (assuming AGN)
-                            likelihood.append(1.0)
-                            weight.append(0.25 * line_vote_weight_mul)
-                            var.append(1)
-                            prior.append(base_assumption)
-                            vote_info['size_in_psf_vote'] = likelihood[-1]
-                            vote_info['size_in_psf_weight'] = weight[-1]
+                            self.likelihood.append(1.0)
+                            self.voterid.append(G.VOTE_ANGULAR_SIZE)
+                            self.weight.append(0.25 * line_vote_weight_mul)
+                            self.var.append(1)
+                            self.prior.append(base_assumption)
+                            vote_info['size_in_psf_vote'] = self.likelihood[-1]
+                            vote_info['size_in_psf_weight'] = self.weight[-1]
                             log.info(f"{self.entry_id} Aggregate Classification: angular size "
                                      f"({self.classification_dict['diam_in_arcsec']:0.2})\" + consistent with AGN: "
                                      f"{self.fwhm_kms} km/s fwhm:"
-                                     f" lk({likelihood[-1]}) weight({weight[-1]})")
+                                     f" lk({self.likelihood[-1]}) weight({self.weight[-1]})")
                         elif self.fwhm_kms is not None and self.fwhm_kms_unc is not None and \
                                 self.fwhm_kms+self.fwhm_kms_unc < 800.0:
                             #vote for OII, not super elliptical, not necessarily super big either,
@@ -4657,16 +4675,17 @@ class DetObj:
                             w = utils.sigmoid_linear_interp(2.0,0.0,4.0,0.25,
                                 self.classification_dict['diam_in_arcsec'])
 
-                            likelihood.append(0.0)
-                            weight.append(w * line_vote_weight_mul)
-                            var.append(1)
-                            prior.append(base_assumption)
-                            vote_info['size_in_psf_vote'] = likelihood[-1]
-                            vote_info['size_in_psf_weight'] = weight[-1]
+                            self.likelihood.append(0.0)
+                            self.voterid.append(G.VOTE_ANGULAR_SIZE)
+                            self.weight.append(w * line_vote_weight_mul)
+                            self.var.append(1)
+                            self.prior.append(base_assumption)
+                            vote_info['size_in_psf_vote'] = self.likelihood[-1]
+                            vote_info['size_in_psf_weight'] = self.weight[-1]
                             log.info(f"{self.entry_id} Aggregate Classification: angular size "
                                      f"({self.classification_dict['diam_in_arcsec']:0.2})\", not consistent with AGN: "
                                      f"{self.fwhm_kms} km/s fwhm:"
-                                     f" lk({likelihood[-1]}) weight({weight[-1]})")
+                                     f" lk({self.likelihood[-1]}) weight({self.weight[-1]})")
                         else:
                             #no vote
                             log.info(f"{self.entry_id} Aggregate Classification angular size "
@@ -4686,7 +4705,7 @@ class DetObj:
         #################################
         try:
 
-            if G.VOTER_ACTIVE & G.VOTER_BRIGHT_CONTINUUM:
+            if G.VOTER_ACTIVE & G.VOTE_BRIGHT_CONTINUUM:
 
                 #basically, if bright and many lines and no line with large EW, this is probably a low-z galaxy
                 vote_info['bright_continuum_vote'] = -1
@@ -4714,15 +4733,16 @@ class DetObj:
                               (self.spec_obj.all_found_lines[max_score_idx].eqw_obs / (self.w / G.LyA_rest) < 10 and \
                                self.spec_obj.all_found_lines[max_score_idx].fwhm < 10): #no strong lines
 
-                                var.append(1)
-                                likelihood.append(0)
-                                weight.append(1)
-                                prior.append(base_assumption)
+                                self.var.append(1)
+                                self.likelihood.append(0)
+                                self.voterid.append(G.VOTE_BRIGHT_CONTINUUM)
+                                self.weight.append(1)
+                                self.prior.append(base_assumption)
                                 log.info(
-                                    f"{self.entry_id} Aggregate Classification: LzG likely: lk({likelihood[-1]}) weight({weight[-1]})")
+                                    f"{self.entry_id} Aggregate Classification: LzG likely: lk({self.likelihood[-1]}) weight({self.weight[-1]})")
 
-                                vote_info['bright_continuum_vote'] = likelihood[-1]
-                                vote_info['bright_continuum_weight'] = weight[-1]
+                                vote_info['bright_continuum_vote'] = self.likelihood[-1]
+                                vote_info['bright_continuum_weight'] = self.weight[-1]
                         except:
                             log.debug(
                                 f"{self.entry_id} Aggregate Classification: Bright continuumm, exception -- no vote")
@@ -4731,15 +4751,16 @@ class DetObj:
                     #a noisy wiggle from an poossible AGN with a super broad emission that we just did not fit well
                     elif ew < 5.0 or (ew + ew_err) < 10:
 
-                        var.append(1)
-                        likelihood.append(0)
-                        weight.append(0.2)
-                        prior.append(base_assumption)
+                        self.var.append(1)
+                        self.likelihood.append(0)
+                        self.voterid.append(G.VOTE_BRIGHT_CONTINUUM)
+                        self.weight.append(0.2)
+                        self.prior.append(base_assumption)
                         log.info(
-                            f"{self.entry_id} Aggregate Classification: Bright continuum, weak or false emission; not LyA likely: lk({likelihood[-1]}) weight({weight[-1]})")
+                            f"{self.entry_id} Aggregate Classification: Bright continuum, weak or false emission; not LyA likely: lk({self.likelihood[-1]}) weight({self.weight[-1]})")
 
-                        vote_info['bright_continuum_vote'] = likelihood[-1]
-                        vote_info['bright_continuum_weight'] = weight[-1]
+                        vote_info['bright_continuum_vote'] = self.likelihood[-1]
+                        vote_info['bright_continuum_weight'] = self.weight[-1]
 
                     else:
                         log.debug(
@@ -4792,23 +4813,25 @@ class DetObj:
                             #split between z > 1.8 ==> LAE and < 1.8 ==>not LAE
                             #if s.z  > 1.8: #suggesting LAE consistent
                             if s.central_rest == G.LyA_rest:
-                                likelihood.append(1.0) #s.scale_score)
-                                weight.append(s.scale_score * bonus_weight)#0.8)  # opinion ... has multiple lines, so the score is reasonable
+                                self.likelihood.append(1.0) #s.scale_score)
+                                self.voterid.append(G.VOTE_MULTILINE)
+                                self.weight.append(s.scale_score * bonus_weight)#0.8)  # opinion ... has multiple lines, so the score is reasonable
                                 #must also have CIV or HeII, etc as possible matches
-                                var.append(1)  #todo: ? could do something like the spectrum noise?
-                                prior.append(base_assumption)
+                                self.var.append(1)  #todo: ? could do something like the spectrum noise?
+                                self.prior.append(base_assumption)
                                 log.info(
-                                    f"{self.entry_id} Aggregate Classification: LyA solution: z({s.z}) lk({likelihood[-1]}) "
-                                    f"weight({weight[-1]}) score({s.score}) scaled score({s.scale_score})")
+                                    f"{self.entry_id} Aggregate Classification: LyA solution: z({s.z}) lk({self.likelihood[-1]}) "
+                                    f"weight({self.weight[-1]}) score({s.score}) scaled score({s.scale_score})")
 
                             else: #suggesting NOT LAE consistent
-                                likelihood.append(0.0) #1-s.scale_score)
-                                weight.append(s.scale_score * bonus_weight) #1.0)  # opinion ... has multiple lines, so the score is reasonable
-                                var.append(1)  #todo: ? could do something like the spectrum noise?
-                                prior.append(base_assumption)
+                                self.likelihood.append(0.0) #1-s.scale_score)
+                                self.voterid.append(G.VOTE_MULTILINE)
+                                self.weight.append(s.scale_score * bonus_weight) #1.0)  # opinion ... has multiple lines, so the score is reasonable
+                                self.var.append(1)  #todo: ? could do something like the spectrum noise?
+                                self.prior.append(base_assumption)
                                 log.info(
-                                    f"{self.entry_id} Aggregate Classification: non-LyA solution: z({s.z}) lk({likelihood[-1]}) "
-                                    f"weight({weight[-1]}) score({s.score}) scaled score({s.scale_score})")
+                                    f"{self.entry_id} Aggregate Classification: non-LyA solution: z({s.z}) lk({self.likelihood[-1]}) "
+                                    f"weight({self.weight[-1]}) score({s.score}) scaled score({s.scale_score})")
                         else: #low score, but can still impact
                             #this can be a problem for items like 1000637691 which get reduced score, but is clearly a non-LAE multi-line
                             #like an HII region; in theory clustering of emission lines would catch this
@@ -4823,40 +4846,43 @@ class DetObj:
                             #if s.z > 1.8:  # suggesting LAE consistent
                                # likelihood.append(s.scale_score)
                                # weight.append(0.8 * w)  # opinion ... has multiple lines, so the score is reasonable
-                                likelihood.append(1.0)  # s.scale_score)
-                                weight.append(w * bonus_weight)
+                                self.likelihood.append(1.0)  # s.scale_score)
+                                self.voterid.append(G.VOTE_MULTILINE)
+                                self.weight.append(w * bonus_weight)
                                 # must also have CIV or HeII, etc as possible matches
-                                var.append(1)  # todo: ? could do something like the spectrum noise?
-                                prior.append(base_assumption)
+                                self.var.append(1)  # todo: ? could do something like the spectrum noise?
+                                self.prior.append(base_assumption)
                                 log.info(
-                                    f"{self.entry_id} Aggregate Classification: LyA weak solution: z({s.z}) lk({likelihood[-1]}) "
-                                    f"weight({weight[-1]}) score({s.score}) scaled score({s.scale_score})")
+                                    f"{self.entry_id} Aggregate Classification: LyA weak solution: z({s.z}) lk({self.likelihood[-1]}) "
+                                    f"weight({self.weight[-1]}) score({s.score}) scaled score({s.scale_score})")
 
                             elif self.fwhm > 12.0 and np.any(np.isclose(s.central_rest, [G.CIV_1549,G.CIII_1909,G.MgII_2799],atol=4)):
                                 #if it is broad and the solution is for CIV, CIII, or MgII
                                 w = max(w * 2.0, s.score/25.0) #boost the weight
-                                likelihood.append(0.0)  # weak solution so push likelihood "down" but not zero (maybe 0.2 or 0.25)?
-                                weight.append(w * bonus_weight)
-                                var.append(1)  # todo: ? could do something like the spectrum noise?
-                                prior.append(base_assumption)
+                                self.likelihood.append(0.0)  # weak solution so push likelihood "down" but not zero (maybe 0.2 or 0.25)?
+                                self.voterid.append(G.VOTE_MULTILINE)
+                                self.weight.append(w * bonus_weight)
+                                self.var.append(1)  # todo: ? could do something like the spectrum noise?
+                                self.prior.append(base_assumption)
                                 log.info(
                                     f"{self.entry_id} Aggregate Classification: broad CIV,CIII, or MgII weak solution: z({s.z:0.4f}) {s.name}-{s.central_rest}, "
-                                    f"lk({likelihood[-1]}) weight({weight[-1]:0.4f}) score({s.score}) scaled score({s.scale_score})")
+                                    f"lk({self.likelihood[-1]}) weight({self.weight[-1]:0.4f}) score({s.score}) scaled score({s.scale_score})")
 
                             else:  # suggesting NOT LAE consistent
                                 #likelihood.append(1. - s.scale_score)
                                 #weight.append(1.0 * w)  # opinion ... has multiple lines, so the score is reasonable
-                                likelihood.append(0.0)  # weak solution so push likelihood "down" but not zero (maybe 0.2 or 0.25)?
-                                weight.append(w * bonus_weight)
-                                var.append(1)  # todo: ? could do something like the spectrum noise?
-                                prior.append(base_assumption)
+                                self.likelihood.append(0.0)  # weak solution so push likelihood "down" but not zero (maybe 0.2 or 0.25)?
+                                self.voterid.append(G.VOTE_MULTILINE)
+                                self.weight.append(w * bonus_weight)
+                                self.var.append(1)  # todo: ? could do something like the spectrum noise?
+                                self.prior.append(base_assumption)
                                 log.info(
                                     f"{self.entry_id} Aggregate Classification: non-LyA weak solution: z({s.z:0.4f}) {s.name}-{s.central_rest}, "
-                                    f"lk({likelihood[-1]}) weight({weight[-1]:0.4f}) score({s.score}) scaled score({s.scale_score})")
+                                    f"lk({self.likelihood[-1]}) weight({self.weight[-1]:0.4f}) score({s.score}) scaled score({s.scale_score})")
 
                         try:
-                            vote_info['multiline_votes'][vi] = likelihood[-1]
-                            vote_info['multiline_weights'][vi] = weight[-1]
+                            vote_info['multiline_votes'][vi] = self.likelihood[-1]
+                            vote_info['multiline_weights'][vi] = self.weight[-1]
                         except:
                             pass #could go past 9 and that would throw exception
 
@@ -4865,7 +4891,7 @@ class DetObj:
                             idx = np.where([x['z'] for x in diameter_lae] == s.z)[0]  # should be exactly one
                             if (idx is not None) and (len(idx) == 1):
                                 idx = idx[0]
-                                diameter_lae[idx]['weight'] = weight[-1]
+                                diameter_lae[idx]['weight'] = self.weight[-1]
                                 log.info(
                                     f"{self.entry_id} Aggregate Classification, updated physical size: "
                                     f"z({diameter_lae[idx]['z']:#.4g}) "
@@ -4895,13 +4921,14 @@ class DetObj:
                         and (lya_sol.unmatched_lines_count > G.MAX_OK_UNMATCHED_LINES):
                         #there are significant unaccounted for lines ... this pushes DOWN the possibility that this is LAE
                         #but does not impact Non-LAE solutions
-                        var.append(1.)
-                        likelihood.append(0.0) #so, NOT LAE
-                        weight.append(min(1.0,lya_sol.unmatched_lines_score/G.MULTILINE_FULL_SOLUTION_SCORE)) #up to 1.0
-                        prior.append(base_assumption)
+                        self.var.append(1.)
+                        self.likelihood.append(0.0) #so, NOT LAE
+                        self.voterid.append(G.VOTE_UNMATCHED_LINES)
+                        self.weight.append(min(1.0,lya_sol.unmatched_lines_score/G.MULTILINE_FULL_SOLUTION_SCORE)) #up to 1.0
+                        self.prior.append(base_assumption)
                         log.info(
-                            f"{self.entry_id} Aggregate Classification: Significant unmatched lines penalize LAE: lk({likelihood[-1]})"
-                            f" weight({weight[-1]})")
+                            f"{self.entry_id} Aggregate Classification: Significant unmatched lines penalize LAE: lk({self.likelihood[-1]})"
+                            f" weight({self.weight[-1]})")
                 except:
                     try:
                         if (self.spec_obj is not None) and \
@@ -4910,14 +4937,15 @@ class DetObj:
                             # there are significant unaccounted for lines ... this pushes DOWN the possibility that this is LAE
                             # but does not impact Non-LAE solutions
                             # (assumes LyA is the only line ... if CIV or other detected, there will be a bonus from the above code
-                            var.append(1.)
-                            likelihood.append(0.0)  # so, NOT LAE
-                            weight.append(min(1.0,
+                            self.var.append(1.)
+                            self.likelihood.append(0.0)  # so, NOT LAE
+                            self.voterid.append(G.VOTE_UNMATCHED_LINES)
+                            self.weight.append(min(1.0,
                                               self.spec_obj.unmatched_solution_score / G.MULTILINE_FULL_SOLUTION_SCORE))  # up to 1.0
-                            prior.append(base_assumption)
+                            self.prior.append(base_assumption)
                             log.info(
-                                f"{self.entry_id} Aggregate Classification: Significant unmatched lines penalize LAE: lk({likelihood[-1]})"
-                                f" weight({weight[-1]})")
+                                f"{self.entry_id} Aggregate Classification: Significant unmatched lines penalize LAE: lk({self.likelihood[-1]})"
+                                f" weight({self.weight[-1]})")
 
                     except:
                         log.debug("Exception in aggregate_classification", exc_info=True)
@@ -4946,7 +4974,7 @@ class DetObj:
                     # plae_vote = mid / (mid + 1.0)
                     #
 
-                    midpoint = plae_poii_midpoint(self.w)
+                    midpoint = self.plae_poii_midpoint(self.w)
                     if self.classification_dict['plae_hat'] > midpoint:
                         plae_vote = 1.0
                     else:
@@ -4968,8 +4996,9 @@ class DetObj:
                     scale_plae_hi = self.classification_dict['plae_hat_hi'] / (self.classification_dict['plae_hat_hi'] + 1.0)
                     scale_plae_sd = 0.5 * (scale_plae_hi - scale_plae_lo)
 
-                    likelihood.append(plae_vote)
-                    prior.append(base_assumption)
+                    self.likelihood.append(plae_vote)
+                    self.voterid.append(G.VOTE_PLAE_POII)
+                    self.prior.append(base_assumption)
 
 
                     #scale the weight by the difference between the scaled PLAE and one SD below (or above)
@@ -4982,7 +5011,7 @@ class DetObj:
                     # At the end, the insertion of a 0.5 vote with (1-sum(weights)) should not matter
                     # as, if this is sitting near a zero weight and is the only vote, that means we are sitting
                     # near PLAE/POII ~ 1 which is 0.5 P(LyA)
-                    w = plae_gaussian_weight(self.classification_dict['plae_hat'],obs_wave=self.w) * (1.0 - scale_plae_sd)
+                    w = self.plae_gaussian_weight(self.classification_dict['plae_hat'],obs_wave=self.w) * (1.0 - scale_plae_sd)
 
                     w = w * line_vote_weight_mul
 
@@ -5026,87 +5055,26 @@ class DetObj:
                         log.info(f"{self.entry_id} Aggregate Classification: MC PLAE/POII from combined continuum down-weighted"
                                  f" due to possible low-z OII, z= {z_oii:0.4f}, weight x = {z_mult:0.4f}")
 
-                    weight.append(w*z_mult)
-                    var.append(1)  # todo: use the sd (scaled?) #can't use straight up here since the variances are not
+                    self.weight.append(w*z_mult)
+                    self.var.append(1)  # todo: use the sd (scaled?) #can't use straight up here since the variances are not
                                    # on the same scale
 
-                    vote_info['plae_poii_combined_vote'] = likelihood[-1]
-                    vote_info['plae_poii_combined_weight'] = weight[-1]
+                    vote_info['plae_poii_combined_vote'] = self.likelihood[-1]
+                    vote_info['plae_poii_combined_weight'] = self.weight[-1]
 
                     log.info( f"{self.entry_id} Aggregate Classification: MC PLAE/POII from combined continuum: "
-                              f"lk({likelihood[-1]}) weight({weight[-1]})")
+                              f"lk({self.likelihood[-1]}) weight({self.weight[-1]})")
 
-
-        #             #sanity check vs 20AA cut
-        #             #appears only to favor LAE for low EW and low z, never appears to favor OII at higher EW
-        #             try:
-        #                 if False: #2022-02-01 with hard EW voting, don't need sanity check here ... redundant
-        # #                    if self.w > (G.OII_rest-1.0):
-        #                     #start with the line flux
-        #                     if self.spec_obj:
-        #                         ew_combined_continuum = self.spec_obj.estflux
-        #                     else:
-        #                         ew_combined_continuum = self.estflux #the lineflux
-        #
-        #                     zp1 = self.w/G.LyA_rest #z + 1
-        #                     #then divide by the averaged continuum
-        #                     ew_combined_continuum /= self.classification_dict['continuum_hat']
-        #                     #then to the LyA restframe
-        #                     ew_combined_continuum /= zp1
-        #
-        #                     #very rough, not following any actual distribution right now
-        #                     #this is meant as a flag or warning if the PLAE/POII seems to have failed expectations
-        #                     #lae_z < 2.4  is oii_z < 0.1
-        #                     if ew_combined_continuum and ( 0 < ew_combined_continuum < 20) and (zp1 < 3.4) and \
-        #                             (self.classification_dict['plae_hat'] > 3.0):
-        #                         #this is unexpected
-        #                         log.info(f"Unexpected PLAE/POII {self.classification_dict['plae_hat']} for low-z OII {G.LyA_rest*zp1/G.OII_rest - 1.0} and small EW {ew_combined_continuum}. Applying 20AA sanity check.")
-        #                         #here we are only tweaking the weight for the NOT LyA binary condition vote of 0.0
-        #                         #where the weight is 0 at EW == 20 and falls to 1.0 by EW == 10
-        #
-        #                         likelihood.append(0.0)
-        #                         prior.append(base_assumption)
-        #                         weight.append(min(2.0,20.0/ew_combined_continuum - 1.0))
-        #                         var.append(1)
-        #                         log.info(f"{self.entry_id} Aggregate Classification: 20AA sanity PLAE/POII from combined continuum: "
-        #                                  f"lk({likelihood[-1]}) weight({weight[-1]})")
-        #
-        #
-        #                     if False:
-        #                         #if this object is moderately bright and the EW is well above or below 20AA, give that hard EW
-        #                         #cut its own vote .... using ONLY the best_g mag
-        #                         if self.best_gmag is not None and self.best_gmag < G.HETDEX_CONTINUUM_MAG_LIMIT:
-        #                             if ew_combined_continuum < 15.0:
-        #                                 likelihood.append(0.0)
-        #                                 prior.append(base_assumption)
-        #                                 weight.append(0.5) #todo make weight depend on magnitude and EW ...
-        #                                 var.append(0.5)
-        #                                 log.info(f"{self.entry_id} Aggregate Classification: 20AA hard cut vote from best g-mag and combined EW ({ew_combined_continuum:0.1f}): "
-        #                                          f"lk({likelihood[-1]}) weight({weight[-1]})")
-        #                             elif ew_combined_continuum > 25.0:
-        #                                 likelihood.append(1.0)
-        #                                 prior.append(base_assumption)
-        #                                 weight.append(0.5)
-        #                                 var.append(1)
-        #                                 log.info(f"{self.entry_id} Aggregate Classification: 20AA hard cut vote from best g-mag and combined EW ({ew_combined_continuum:0.1f}): "
-        #                                              f"lk({likelihood[-1]}) weight({weight[-1]})")
-        #
-        #
-        #             except:
-        #                 log.warning("Exception appling 20AA sanity check",exc_info=True)
-
-                    #todo: handle the uncertainty on plae_hat
-                    #plae_hat_sd = self.classification_dict['plae_hat_sd']
             else:
                 log.info(f"{self.entry_id} Aggregate Classification: MC PLAE/POII from combined continuum - no vote. Turned OFF.")
         except:
             log.debug("Exception in aggregate_classification for best PLAE/POII",exc_info=True)
 
 
-        try:
-            lower_mag = self.best_gmag + self.best_gmag_unc #want best value + the error (so on the fainter side)
-        except:
-            lower_mag  = 99
+        # try:
+        #     lower_mag = self.best_gmag + self.best_gmag_unc #want best value + the error (so on the fainter side)
+        # except:
+        #     lower_mag  = 99
 
 
         #################################################
@@ -5155,22 +5123,26 @@ class DetObj:
                         log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux (r/b) {rat:0.2f}  +/- {rat_err:0.3f} no vote.")
                     # elif rat > 1.33:
                     #     likelihood.append(1.0)
+                    #     voterid.append(G.VOTE_ASYMMETRIC_LINEFLUX)
                     #     weight.append(0.25)
                     #     prior.append(base_assumption)
                     #     var.append(1)
                     elif rat > 1.4 or (self.fwhm > 11 and rat > 1.0): #seems to be pretty good separation above 1.2
-                        likelihood.append(1.0)
-                        weight.append(0.1 * line_vote_weight_mul)
-                        prior.append(base_assumption)
-                        var.append(1)
+                        self.likelihood.append(1.0)
+                        self.voterid.append(G.VOTE_ASYMMETRIC_LINEFLUX)
+                        self.weight.append(0.1 * line_vote_weight_mul)
+                        self.prior.append(base_assumption)
+                        self.var.append(1)
                     #from data, looks like we more blue than red is possible even for LyA
                     # elif rat < 0.70:
                     #     likelihood.append(0.0)
+                    #     voterid.append(G.VOTE_ASYMMETRIC_LINEFLUX)
                     #     weight.append(0.25)
                     #     prior.append(base_assumption)
                     #     var.append(1)
                     # elif rat < 0.80:
                     #     likelihood.append(0.0)
+                    #     voterid.append(G.VOTE_ASYMMETRIC_LINEFLUX)
                     #     weight.append(0.1)
                     #     prior.append(base_assumption)
                     #     var.append(1)
@@ -5181,10 +5153,10 @@ class DetObj:
                     did_vote = False
 
                 if did_vote:
-                    vote_info['rb_flux_asym_vote'] = likelihood[-1]
-                    vote_info['rb_flux_asym_weight'] = weight[-1]
+                    vote_info['rb_flux_asym_vote'] = self.likelihood[-1]
+                    vote_info['rb_flux_asym_weight'] = self.weight[-1]
                     log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux (r/b) {rat:0.2f} +/- {rat_err:0.3f} vote: "
-                             f"lk({likelihood[-1]}) weight({weight[-1]})")
+                             f"lk({self.likelihood[-1]}) weight({self.weight[-1]})")
                 else:
                     log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux (r/b) {rat:0.2f}  +/- {rat_err:0.3f} no vote.")
             else:
@@ -5214,6 +5186,7 @@ class DetObj:
                 # if (vote_line_sigma - vote_line_sigma_unc) > G.LINEWIDTH_SIGMA_MAX_OII and (self.chi2 is not None) and (self.chi2 < 2.5):
                 #     #there just are not any OII emitters like this
                 #     likelihood.append(1) #vote kind of FOR LyA (though could be CIV, MgII, other)
+                #     voterid.append(G.VOTE_STRAIGHT_LINE_SIGMA)
                 #     weight.append(2.0)
                 #     var.append(1)
                 #     prior.append(base_assumption)
@@ -5246,14 +5219,15 @@ class DetObj:
                     except:
                         log.info(f"{self.entry_id}: Warning! Unable to check equivalent width for line sigma vote.")
 
-                    var.append(1)
-                    likelihood.append(1)  # vote kind of FOR LyA (though could be CIV, MgII, other)
-                    weight.append(w)
-                    prior.append(base_assumption)
-                    vote_info['line_sigma_vote'] = likelihood[-1]
-                    vote_info['line_sigma_weight'] = weight[-1]
+                    self.var.append(1)
+                    self.likelihood.append(1)  # vote kind of FOR LyA (though could be CIV, MgII, other)
+                    self.voterid.append(G.VOTE_STRAIGHT_LINE_SIGMA)
+                    self.weight.append(w)
+                    self.prior.append(base_assumption)
+                    vote_info['line_sigma_vote'] = self.likelihood[-1]
+                    vote_info['line_sigma_weight'] = self.weight[-1]
                     log.info(f"{self.entry_id} Aggregate Classification: (broad) line sigma vote ({vote_line_sigma:0.1f} +/- {vote_line_sigma_unc:0.2f})"
-                             f": lk({likelihood[-1]}) weight({weight[-1]})")
+                             f": lk({self.likelihood[-1]}) weight({self.weight[-1]})")
                 else:
                     log.info(f"{self.entry_id} Aggregate Classification: (broad) line sigma ({vote_line_sigma:0.1f} +/- {vote_line_sigma_unc:0.2f}). "
                              f"no vote")
@@ -5315,20 +5289,22 @@ class DetObj:
                     w = utils.sigmoid_linear_interp(30.0, 0.5, 20.0, 0.0,
                                                        self.classification_dict['combined_eqw_rest_lya'] -
                                                        self.classification_dict['combined_eqw_rest_lya_err'])
-                    weight.append(w)
-                    likelihood.append(1)
+                    self.weight.append(w)
+                    self.likelihood.append(1)
+                    self.voterid.append(G.VOTE_STRAIGHT_EW)
 
-                    var.append(1)
-                    weight[-1] *= max_weight_adjustment * line_vote_weight_mul
-                    prior.append(base_assumption)
-                    vote_info['ew_rest_lya_combined_vote'] = likelihood[-1]
-                    vote_info['ew_rest_lya_combined_weight'] = weight[-1]
+                    self.var.append(1)
+                    self.weight[-1] *= max_weight_adjustment * line_vote_weight_mul
+                    self.prior.append(base_assumption)
+                    vote_info['ew_rest_lya_combined_vote'] = self.likelihood[-1]
+                    vote_info['ew_rest_lya_combined_weight'] = self.weight[-1]
                     log.info(f"{self.entry_id} Aggregate Classification: straight combined line EW "
                              f"{self.classification_dict['combined_eqw_rest_lya']} +/- {self.classification_dict['combined_eqw_rest_lya_err']} vote: "
-                             f"lk({likelihood[-1]}) weight({weight[-1]})")
+                             f"lk({self.likelihood[-1]}) weight({self.weight[-1]})")
                 elif self.classification_dict['combined_eqw_rest_lya'] < 20.0:
                     #will be an OII vote
-                    likelihood.append(0)
+                    self.likelihood.append(0)
+                    self.voterid.append(G.VOTE_STRAIGHT_EW)
                     # try:
                     #     #delta_thresh = abs(self.classification_dict['combined_eqw_rest_lya'] + self.classification_dict['combined_eqw_rest_lya_err'] - 20.0)
                     #     rat_thresh = 20.0/(self.classification_dict['combined_eqw_rest_lya'] + self.classification_dict['combined_eqw_rest_lya_err'])
@@ -5361,16 +5337,16 @@ class DetObj:
                     w = utils.sigmoid_linear_interp(15.0, 0.5, 20.0, 0.0,
                                                        self.classification_dict['combined_eqw_rest_lya'] +
                                                        self.classification_dict['combined_eqw_rest_lya_err'])
-                    weight.append(w)
+                    self.weight.append(w)
 
-                    var.append(1)
-                    prior.append(base_assumption)
-                    weight[-1] *= max_weight_adjustment * line_vote_weight_mul
-                    vote_info['ew_rest_lya_combined_vote'] = likelihood[-1]
-                    vote_info['ew_rest_lya_combined_weight'] = weight[-1]
+                    self.var.append(1)
+                    self.prior.append(base_assumption)
+                    self.weight[-1] *= max_weight_adjustment * line_vote_weight_mul
+                    vote_info['ew_rest_lya_combined_vote'] = self.likelihood[-1]
+                    vote_info['ew_rest_lya_combined_weight'] = self.weight[-1]
                     log.info(f"{self.entry_id} Aggregate Classification: straight combined line EW "
                              f"{self.classification_dict['combined_eqw_rest_lya']} +/- {self.classification_dict['combined_eqw_rest_lya_err']} vote: "
-                             f"lk({likelihood[-1]}) weight({weight[-1]})")
+                             f"lk({self.likelihood[-1]}) weight({self.weight[-1]})")
                 else: #no vote
                     log.info(f"{self.entry_id} Aggregate Classification: straight combined line EW "
                              f"{self.classification_dict['combined_eqw_rest_lya']} +/- {self.classification_dict['combined_eqw_rest_lya_err']} :"
@@ -5388,17 +5364,19 @@ class DetObj:
         if G.VOTER_ACTIVE & G.VOTE_PHOTZ:
             phot_z = self.get_phot_z_vote()
             if -0.1 < phot_z < 0.7:
-                likelihood.append(0.0)
-                weight.append(0.5)
-                var.append(1)
-                prior.append(base_assumption)
-                log.info(f"{self.entry_id} Aggregate Classification: phot_z vote (low-z): lk({likelihood[-1]}) weight({weight[-1]})")
+                self.likelihood.append(0.0)
+                self.voterid.append(G.VOTE_PHOTZ)
+                self.weight.append(0.5)
+                self.var.append(1)
+                self.prior.append(base_assumption)
+                log.info(f"{self.entry_id} Aggregate Classification: phot_z vote (low-z): lk({self.likelihood[-1]}) weight({self.weight[-1]})")
             elif 1.7 < phot_z < 3.7:
-                likelihood.append(1.0)
-                weight.append(0.5)
-                var.append(1)
-                prior.append(base_assumption)
-                log.info(f"{self.entry_id} Aggregate Classification: phot_z vote (high-z): lk({likelihood[-1]}) weight({weight[-1]})")
+                self.likelihood.append(1.0)
+                self.voterid.append(G.VOTE_PHOTZ)
+                self.weight.append(0.5)
+                self.var.append(1)
+                self.prior.append(base_assumption)
+                log.info(f"{self.entry_id} Aggregate Classification: phot_z vote (high-z): lk({self.likelihood[-1]}) weight({self.weight[-1]})")
             else:
                 log.info(f"{self.entry_id} Aggregate Classification: phot_z vote - no vote.")
         else:
@@ -5496,139 +5474,157 @@ class DetObj:
 
                         if (ew is not None):
                             if (ew-ew_err) > 80:
-                                likelihood.append(1.0)
-                                weight.append(1.00) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                self.likelihood.append(1.0)
+                                self.voterid.append(G.VOTE_DEX_GMAG)
+                                self.weight.append(1.00) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
                             elif (ew-ew_err) > 30:
-                                likelihood.append(1.0)
-                                weight.append(0.40) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                self.likelihood.append(1.0)
+                                self.voterid.append(G.VOTE_DEX_GMAG)
+                                self.weight.append(0.40) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
                             elif (ew+ew_err) < 15:
                                 try:
                                     if diam_kpc is not None and diam_kpc > 9.0:
-                                        likelihood.append(0.0)
-                                        weight.append(0.20)
+                                        self.likelihood.append(0.0)
+                                        self.voterid.append(G.VOTE_DEX_GMAG)
+                                        self.weight.append(0.20)
                                     else:
-                                        likelihood.append(0.0)
-                                        weight.append(0.10)
+                                        self.likelihood.append(0.0)
+                                        self.voterid.append(G.VOTE_DEX_GMAG)
+                                        self.weight.append(0.10)
                                 except:
-                                    likelihood.append(0.0)
-                                    weight.append(0.10) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                    self.likelihood.append(0.0)
+                                    self.voterid.append(G.VOTE_DEX_GMAG)
+                                    self.weight.append(0.10) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
                             else:
                                 try: #see also the size vote closer to the top of this function
                                     if diam_kpc is not None and diam_kpc > 9.0:
-                                        likelihood.append(0.0)
-                                        weight.append(0.1)
+                                        self.likelihood.append(0.0)
+                                        self.voterid.append(G.VOTE_DEX_GMAG)
+                                        self.weight.append(0.1)
                                     elif diam_kpc is not None and diam_kpc < 4.5:
-                                        likelihood.append(1.0)
-                                        weight.append(0.20)
+                                        self.likelihood.append(1.0)
+                                        self.voterid.append(G.VOTE_DEX_GMAG)
+                                        self.weight.append(0.20)
                                     else:
-                                        likelihood.append(1.0)
-                                        weight.append(0.10)
+                                        self.likelihood.append(1.0)
+                                        self.voterid.append(G.VOTE_DEX_GMAG)
+                                        self.weight.append(0.10)
                                 except:
-                                    likelihood.append(1.0)
-                                    weight.append(0.20)
+                                    self.likelihood.append(1.0)
+                                    self.voterid.append(G.VOTE_DEX_GMAG)
+                                    self.weight.append(0.20)
                         else:
-                            likelihood.append(1.0)
-                            weight.append(0.20) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                            self.likelihood.append(1.0)
+                            self.voterid.append(G.VOTE_DEX_GMAG)
+                            self.weight.append(0.20) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
 
-                        var.append(1)
-                        prior.append(base_assumption)
+                        self.var.append(1)
+                        self.prior.append(base_assumption)
 
-                        vote_info['dex_gmag_vote'] = likelihood[-1]
-                        vote_info['dex_gmag_weight'] = weight[-1]
-                        log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                                 f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
+                        vote_info['dex_gmag_vote'] = self.likelihood[-1]
+                        vote_info['dex_gmag_weight'] = self.weight[-1]
+                        log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({self.likelihood[-1]}) "
+                                 f"weight({self.weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                     elif g_faint < gmag_bright_thresh: #vote for OII
                         #Still up to 25-30% could be LyA ... so weigt very little
                         #check on the EW if solidly LyA then vote LyA, etc
                         if (ew is not None):
                             if (ew-ew_err) > 80:
                                 #could be LyA
-                                likelihood.append(1.0)
-                                weight.append(0.25) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
-                                var.append(1)
-                                prior.append(base_assumption)
-                                vote_info['dex_gmag_vote'] = likelihood[-1]
-                                vote_info['dex_gmag_weight'] = weight[-1]
-                                log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                                         f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
+                                self.likelihood.append(1.0)
+                                self.voterid.append(G.VOTE_DEX_GMAG)
+                                self.weight.append(0.25) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                self.var.append(1)
+                                self.prior.append(base_assumption)
+                                vote_info['dex_gmag_vote'] = self.likelihood[-1]
+                                vote_info['dex_gmag_weight'] = self.weight[-1]
+                                log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({self.likelihood[-1]}) "
+                                         f"weight({self.weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                             elif (ew-ew_err) > 30:
                                 #could be LyA
-                                likelihood.append(1.0)
-                                weight.append(0.1) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
-                                var.append(1)
-                                prior.append(base_assumption)
-                                vote_info['dex_gmag_vote'] = likelihood[-1]
-                                vote_info['dex_gmag_weight'] = weight[-1]
-                                log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                                         f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
+                                self.likelihood.append(1.0)
+                                self.voterid.append(G.VOTE_DEX_GMAG)
+                                self.weight.append(0.1) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                self.var.append(1)
+                                self.prior.append(base_assumption)
+                                vote_info['dex_gmag_vote'] = self.likelihood[-1]
+                                vote_info['dex_gmag_weight'] = self.weight[-1]
+                                log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({self.likelihood[-1]}) "
+                                         f"weight({self.weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                             elif (ew+ew_err) < 15:
                                 #could be LyA
-                                likelihood.append(0.0)
-                                weight.append(0.40) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
-                                var.append(1)
-                                prior.append(base_assumption)
-                                vote_info['dex_gmag_vote'] = likelihood[-1]
-                                vote_info['dex_gmag_weight'] = weight[-1]
-                                log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                                         f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
+                                self.likelihood.append(0.0)
+                                self.voterid.append(G.VOTE_DEX_GMAG)
+                                self.weight.append(0.40) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                self.var.append(1)
+                                self.prior.append(base_assumption)
+                                vote_info['dex_gmag_vote'] = self.likelihood[-1]
+                                vote_info['dex_gmag_weight'] = self.weight[-1]
+                                log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({self.likelihood[-1]}) "
+                                         f"weight({self.weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                             else: #no vote
                                 log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag no vote. Mag in unclear region or EW unclear. "
                                          f"mag ({g_str}), thresh ({g_thresh_str}); EW {ew} +/- {ew_err}")
                         else: #no EW info ... assume OII as more likely, but limited weight
-                            likelihood.append(0.0)
-                            weight.append(0.1)
-                            var.append(1)
-                            prior.append(base_assumption)
-                            vote_info['dex_gmag_vote'] = likelihood[-1]
-                            vote_info['dex_gmag_weight'] = weight[-1]
-                            log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                                     f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
+                            self.likelihood.append(0.0)
+                            self.voterid.append(G.VOTE_DEX_GMAG)
+                            self.weight.append(0.1)
+                            self.var.append(1)
+                            self.prior.append(base_assumption)
+                            vote_info['dex_gmag_vote'] = self.likelihood[-1]
+                            vote_info['dex_gmag_weight'] = self.weight[-1]
+                            log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({self.likelihood[-1]}) "
+                                     f"weight({self.weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                     elif (g > gmag_faint_thresh and g_faint > gmag_bright_thresh) or \
                             ((gmag_bright_thresh < g < gmag_faint_thresh) and (g_bright < gmag_bright_thresh and g_faint < gmag_faint_thresh)): #small vote for LyA
                         #error straddles no-man's land and fainter limit
                         if (ew is not None):
                             if (ew-ew_err) > 80:
                                 #could be LyA
-                                likelihood.append(1.0)
-                                weight.append(0.50) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
-                                var.append(1)
-                                prior.append(base_assumption)
-                                vote_info['dex_gmag_vote'] = likelihood[-1]
-                                vote_info['dex_gmag_weight'] = weight[-1]
-                                log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                                         f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
+                                self.likelihood.append(1.0)
+                                self.voterid.append(G.VOTE_DEX_GMAG)
+                                self.weight.append(0.50) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                self.var.append(1)
+                                self.prior.append(base_assumption)
+                                vote_info['dex_gmag_vote'] = self.likelihood[-1]
+                                vote_info['dex_gmag_weight'] = self.weight[-1]
+                                log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({self.likelihood[-1]}) "
+                                         f"weight({self.weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                             elif (ew-ew_err) > 30:
                                 #could be LyA
-                                likelihood.append(1.0)
-                                weight.append(0.3) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
-                                var.append(1)
-                                prior.append(base_assumption)
-                                vote_info['dex_gmag_vote'] = likelihood[-1]
-                                vote_info['dex_gmag_weight'] = weight[-1]
-                                log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                                         f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
+                                self.likelihood.append(1.0)
+                                self.voterid.append(G.VOTE_DEX_GMAG)
+                                self.weight.append(0.3) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                self.var.append(1)
+                                self.prior.append(base_assumption)
+                                vote_info['dex_gmag_vote'] = self.likelihood[-1]
+                                vote_info['dex_gmag_weight'] = self.weight[-1]
+                                log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({self.likelihood[-1]}) "
+                                         f"weight({self.weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                             elif (ew+ew_err) < 15:
                                 #could be LyA
-                                likelihood.append(0.0)
-                                weight.append(0.25) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
-                                var.append(1)
-                                prior.append(base_assumption)
-                                vote_info['dex_gmag_vote'] = likelihood[-1]
-                                vote_info['dex_gmag_weight'] = weight[-1]
-                                log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                                         f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
+                                self.likelihood.append(0.0)
+                                self.voterid.append(G.VOTE_DEX_GMAG)
+                                self.weight.append(0.25) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                self.var.append(1)
+                                self.prior.append(base_assumption)
+                                vote_info['dex_gmag_vote'] = self.likelihood[-1]
+                                vote_info['dex_gmag_weight'] = self.weight[-1]
+                                log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({self.likelihood[-1]}) "
+                                         f"weight({self.weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                             else: #no vote
                                 log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag no vote. Mag in unclear region. mag ({g_str}), thresh ({g_thresh_str})"
                                          f" with unclear EW: {ew:0.1f} +/- {ew_err:0.1f}")
                         else: #no EW info ... assume OII as more likely, but limited weight
-                            likelihood.append(1.0)
-                            weight.append(0.05)
-                            var.append(1)
-                            prior.append(base_assumption)
-                            vote_info['dex_gmag_vote'] = likelihood[-1]
-                            vote_info['dex_gmag_weight'] = weight[-1]
-                            log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                                     f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
+                            self.likelihood.append(1.0)
+                            self.voterid.append(G.VOTE_DEX_GMAG)
+                            self.weight.append(0.05)
+                            self.var.append(1)
+                            self.prior.append(base_assumption)
+                            vote_info['dex_gmag_vote'] = self.likelihood[-1]
+                            vote_info['dex_gmag_weight'] = self.weight[-1]
+                            log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({self.likelihood[-1]}) "
+                                     f"weight({self.weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                     elif (g < gmag_bright_thresh and g_bright < gmag_faint_thresh) or \
                         ((gmag_bright_thresh < g < gmag_faint_thresh) and (g_bright < gmag_bright_thresh and g_faint < gmag_faint_thresh)):
                         #small vote for OII
@@ -5636,46 +5632,50 @@ class DetObj:
                         if (ew is not None):
                             if (ew-ew_err) > 80:
                                 #could be LyA
-                                likelihood.append(1.0)
-                                weight.append(0.3) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
-                                var.append(1)
-                                prior.append(base_assumption)
-                                vote_info['dex_gmag_vote'] = likelihood[-1]
-                                vote_info['dex_gmag_weight'] = weight[-1]
-                                log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                                         f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
+                                self.likelihood.append(1.0)
+                                self.voterid.append(G.VOTE_DEX_GMAG)
+                                self.weight.append(0.3) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                self.var.append(1)
+                                self.prior.append(base_assumption)
+                                vote_info['dex_gmag_vote'] = self.likelihood[-1]
+                                vote_info['dex_gmag_weight'] = self.weight[-1]
+                                log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({self.likelihood[-1]}) "
+                                         f"weight({self.weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                             elif (ew-ew_err) > 30:
                                 #could be LyA
-                                likelihood.append(1.0)
-                                weight.append(0.15) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
-                                var.append(1)
-                                prior.append(base_assumption)
-                                vote_info['dex_gmag_vote'] = likelihood[-1]
-                                vote_info['dex_gmag_weight'] = weight[-1]
-                                log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                                         f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
+                                self.likelihood.append(1.0)
+                                self.voterid.append(G.VOTE_DEX_GMAG)
+                                self.weight.append(0.15) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                self.var.append(1)
+                                self.prior.append(base_assumption)
+                                vote_info['dex_gmag_vote'] = self.likelihood[-1]
+                                vote_info['dex_gmag_weight'] = self.weight[-1]
+                                log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({self.likelihood[-1]}) "
+                                         f"weight({self.weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                             elif (ew+ew_err) < 15:
                                 #could be LyA
-                                likelihood.append(0.0)
-                                weight.append(0.3) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
-                                var.append(1)
-                                prior.append(base_assumption)
-                                vote_info['dex_gmag_vote'] = likelihood[-1]
-                                vote_info['dex_gmag_weight'] = weight[-1]
-                                log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                                         f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
+                                self.likelihood.append(0.0)
+                                self.voterid.append(G.VOTE_DEX_GMAG)
+                                self.weight.append(0.3) #this COULD become more of a ratio between #LyA / #OII at this magbin and wavebin
+                                self.var.append(1)
+                                self.prior.append(base_assumption)
+                                vote_info['dex_gmag_vote'] = self.likelihood[-1]
+                                vote_info['dex_gmag_weight'] = self.weight[-1]
+                                log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({self.likelihood[-1]}) "
+                                         f"weight({self.weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
                             else: #no vote
                                 log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag no vote. Mag in unclear region. mag ({g_str}), thresh ({g_thresh_str})"
                                          f" with unclear EW: {ew:0.1f} +/- {ew_err:0.1f}")
                         else: #no EW info ... assume OII as more likely, but limited weight
-                            likelihood.append(0.0)
-                            weight.append(0.05)
-                            var.append(1)
-                            prior.append(base_assumption)
-                            vote_info['dex_gmag_vote'] = likelihood[-1]
-                            vote_info['dex_gmag_weight'] = weight[-1]
-                            log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({likelihood[-1]}) "
-                                     f"weight({weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
+                            self.likelihood.append(0.0)
+                            self.voterid.append(G.VOTE_DEX_GMAG)
+                            self.weight.append(0.05)
+                            self.var.append(1)
+                            self.prior.append(base_assumption)
+                            vote_info['dex_gmag_vote'] = self.likelihood[-1]
+                            vote_info['dex_gmag_weight'] = self.weight[-1]
+                            log.info(f"{self.entry_id} Aggregate Classification: Combined g-mag vote {g:0.2f} : lk({self.likelihood[-1]}) "
+                                     f"weight({self.weight[-1]}): mag ({g_str}), thresh ({g_thresh_str})")
 
                     else: #g is in between OR error straddles both ... either way, no vote
                         log.info(f"{self.entry_id} Aggregate Classification: DEX g-mag no vote. Mag in unclear region. mag ({g_str}), thresh ({g_thresh_str})")
@@ -5703,15 +5703,16 @@ class DetObj:
 
                 if (g < 23.5) and (3950 < self.w < 5400 ) and ((self.fwhm/self.w * 3e5) < G.BROAD_FWHM_KMS) \
                         and  (self.spec_obj.spectrum_slope < -4.0e-22):
-                    likelihood.append(0.0)
-                    weight.append(0.5)
-                    var.append(1)
-                    prior.append(base_assumption)
-                    vote_info['dex_flam_slope_vote'] = likelihood[-1]
-                    vote_info['dex_flam_slope_weight'] = weight[-1]
+                    self.likelihood.append(0.0)
+                    self.voterid.append(G.VOTE_FLAM_SLOPE)
+                    self.weight.append(0.5)
+                    self.var.append(1)
+                    self.prior.append(base_assumption)
+                    vote_info['dex_flam_slope_vote'] = self.likelihood[-1]
+                    vote_info['dex_flam_slope_weight'] = self.weight[-1]
                     log.info(
-                        f"{self.entry_id} Aggregate Classification: Flam slope ({self.spec_obj.spectrum_slope:0.4g}) vote: lk({likelihood[-1]}) "
-                        f"weight({weight[-1]})")
+                        f"{self.entry_id} Aggregate Classification: Flam slope ({self.spec_obj.spectrum_slope:0.4g}) vote: lk({self.likelihood[-1]}) "
+                        f"weight({self.weight[-1]})")
                 else:
                     log.info(
                         f"{self.entry_id} Aggregate Classification: Flam slope no vote. Did not meet minimum requirements."
@@ -5754,7 +5755,7 @@ class DetObj:
                 #plae_hat_50_thresh = max(1.0, plae_poii_midpoint(self.w) * 0.2)
                 #plae_hat_lo_thresh = max(1.0, plae_poii_midpoint(self.w) * 0.3)
                 #plae_hat_50_thresh = plae_poii_midpoint(self.w,low_thresh=1.0,high_thresh=2.0)
-                plae_hat_50_thresh = plae_poii_midpoint(self.w, trans_waves=[4000.0,5000.0], trans_thresh=[1.0,2.0])
+                plae_hat_50_thresh = self.plae_poii_midpoint(self.w, trans_waves=[4000.0,5000.0], trans_thresh=[1.0,2.0])
 
                 #if ew-ew_err > 20 and self.classification_dict['plae_hat_lo'] > plae_hat_lo_thresh:
                 if self.classification_dict['plae_hat'] > plae_hat_50_thresh:
@@ -5765,16 +5766,17 @@ class DetObj:
                        # w = min( ((ew-ew_err)-20.0)/40.0, 0.25) + min( (self.classification_dict['plae_hat_lo'] - 1.0)/10.0 ,0.25)
                         w = min((ew - 20.0) / 40.0, 0.25) + min((self.classification_dict['plae_hat'] - 1.0) / 10.0, 0.25)
 
-                        likelihood.append(1.0)
-                        weight.append(w)
-                        var.append(1)
-                        prior.append(base_assumption)
+                        self.likelihood.append(1.0)
+                        self.voterid.append(G.VOTE_EW_PLAE_POII_CORRECTION)
+                        self.weight.append(w)
+                        self.var.append(1)
+                        self.prior.append(base_assumption)
 
-                        vote_info['dex_ew_plae_correction_vote'] = likelihood[-1]
-                        vote_info['dex_ew_plae_correction_weight'] = weight[-1]
+                        vote_info['dex_ew_plae_correction_vote'] = self.likelihood[-1]
+                        vote_info['dex_ew_plae_correction_weight'] = self.weight[-1]
                         log.info(
-                            f"{self.entry_id} Aggregate Classification: EW + PLAE/POII correction vote: lk({likelihood[-1]}) "
-                            f"weight({weight[-1]}); ew-ew_err: { ew-ew_err:0.2f}, PLAE(hat): {self.classification_dict['plae_hat']}")
+                            f"{self.entry_id} Aggregate Classification: EW + PLAE/POII correction vote: lk({self.likelihood[-1]}) "
+                            f"weight({self.weight[-1]}); ew-ew_err: { ew-ew_err:0.2f}, PLAE(hat): {self.classification_dict['plae_hat']}")
 
 
 
@@ -5783,16 +5785,17 @@ class DetObj:
                         w = min(abs(ew-20.0) / 15.0, 0.25) + min((self.classification_dict['plae_hat'] - 1.0) / 10.0,
                                                                 0.25)
 
-                        likelihood.append(0.0)
-                        weight.append(w)
-                        var.append(1)
-                        prior.append(base_assumption)
+                        self.likelihood.append(0.0)
+                        self.voterid.append(G.VOTE_EW_PLAE_POII_CORRECTION)
+                        self.weight.append(w)
+                        self.var.append(1)
+                        self.prior.append(base_assumption)
 
-                        vote_info['dex_ew_plae_correction_vote'] = likelihood[-1]
-                        vote_info['dex_ew_plae_correction_weight'] = weight[-1]
+                        vote_info['dex_ew_plae_correction_vote'] = self.likelihood[-1]
+                        vote_info['dex_ew_plae_correction_weight'] = self.weight[-1]
                         log.info(
-                            f"{self.entry_id} Aggregate Classification: EW + PLAE/POII correction vote: lk({likelihood[-1]}) "
-                            f"weight({weight[-1]}); ew-ew_err: {ew - ew_err:0.2f}, PLAE(hat): {self.classification_dict['plae_hat']}")
+                            f"{self.entry_id} Aggregate Classification: EW + PLAE/POII correction vote: lk({self.likelihood[-1]}) "
+                            f"weight({self.weight[-1]}); ew-ew_err: {ew - ew_err:0.2f}, PLAE(hat): {self.classification_dict['plae_hat']}")
 
                     else:
                         log.info(
@@ -5820,16 +5823,17 @@ class DetObj:
         try:
             if G.VOTER_ACTIVE & G.VOTE_ABSORPTION:
                 if self.estflux < 0:# and self.spec_obj.central_eli.
-                    likelihood.append(0.0)
-                    weight.append(1)
-                    var.append(1)
-                    prior.append(base_assumption)
+                    self.likelihood.append(0.0)
+                    self.voterid.append(G.VOTE_ABSORPTION)
+                    self.weight.append(1)
+                    self.var.append(1)
+                    self.prior.append(base_assumption)
 
-                    vote_info['absorption_vote'] = likelihood[-1]
-                    vote_info['absorption_weight'] = weight[-1]
+                    vote_info['absorption_vote'] = self.likelihood[-1]
+                    vote_info['absorption_weight'] = self.weight[-1]
 
                     log.info(
-                        f"{self.entry_id} Aggregate Classification: absorption vote: lk({likelihood[-1]}) weight({weight[-1]})")
+                        f"{self.entry_id} Aggregate Classification: absorption vote: lk({self.likelihood[-1]}) weight({self.weight[-1]})")
         except:
             pass
 
@@ -6078,6 +6082,7 @@ class DetObj:
 
                 #2022-03-01 changed to just set a flag and not treat as a vote against
                 # likelihood.append(0)
+                # voterid.append()
                 # weight.append(1.0 + self.fibers[fidx].relative_weight) #more central fibers make this more likely to trigger
                 # var.append(1)
                 # prior.append(0)
@@ -6189,20 +6194,21 @@ class DetObj:
             #
 
             try:
-                if len(weight) > 0 and np.sum(weight) < 1.0:
-                    tot_weight = np.sum(weight)
+                if len(self.weight) > 0 and np.sum(self.weight) < 1.0:
+                    tot_weight = np.sum(self.weight)
                     #log.info(f"Low voting weight ({tot_weight}). Adding in {plya_vote_thresh} vote at {1.0-tot_weight} weight.")
                     #likelihood.append(plya_vote_thresh)
                     #here I DO want 0.5 not the tuned threshold
                     log.info(f"Low voting weight ({tot_weight}). Adding in 0.5 vote at {1.0-tot_weight} weight.")
-                    likelihood.append(0.5)
-                    weight.append(1.0 -tot_weight)
-                    var.append(1.0)
-                    prior.append(0.5)
+                    self.likelihood.append(0.5)
+                    self.voterid.append(G.VOTE_LOW_WEIGHT_CORRECTION)
+                    self.weight.append(1.0 -tot_weight)
+                    self.var.append(1.0)
+                    self.prior.append(0.5)
 
                     vote_info['low_weight_correction'] = 1.0 - tot_weight
 
-                    if weight[-1] >= 0.5:
+                    if self.weight[-1] >= 0.5:
                         self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
                         self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
                 else:
@@ -6210,26 +6216,26 @@ class DetObj:
             except:
                 pass
 
-            likelihood = np.array(likelihood)
-            weight = np.array(weight)
-            var = np.array(var) #right now, this is just weight based, all variances are set to 1
-            prior = np.array(prior) #not using Bayes yet, so this is ignored
+            self.likelihood = np.array(self.likelihood)
+            self.weight = np.array(self.weight)
+            self.var = np.array(self.var) #right now, this is just weight based, all variances are set to 1
+            self.prior = np.array(self.prior) #not using Bayes yet, so this is ignored
 
-            logstring = f"P(Lya) weighted voting. {len(weight)} votes as (vote x weight)\n"
-            for i in range(len(weight)):
-                logstring += f"({likelihood[i]:0.4f}x{weight[i]})  "
+            logstring = f"P(Lya) weighted voting. {len(self.weight)} votes as (vote x weight)\n"
+            for i in range(len(self.weight)):
+                logstring += f"({self.likelihood[i]:0.4f}x{self.weight[i]})  "
             # for l_vote,l_weight,l_var,l_prior in zip(likelihood,weight,var,prior):
             #     logstring += f"({l_vote:0.4f}x{l_weight})  "
             log.info(logstring)
 
             #sanity check ... no negative weights allowed
-            sel = weight > 0 #skip any negative weights and no need to bother with zero weights
-            if np.any(weight < 0):
+            sel = self.weight > 0 #skip any negative weights and no need to bother with zero weights
+            if np.any(self.weight < 0):
                 log.warning("Warning! One or more negative weights ignored.")
 
             try:
-                if len(likelihood) > 0:
-                    scaled_prob_lae = np.sum(likelihood[sel]*weight[sel]/var[sel])/np.sum(weight[sel]/var[sel]) #/ len(likelihood)
+                if len(self.likelihood) > 0:
+                    scaled_prob_lae = np.sum(self.likelihood[sel]*self.weight[sel]/self.var[sel])/np.sum(self.weight[sel]/self.var[sel]) #/ len(likelihood)
 
                     #while can be arbitrarily close to 0 or 1, will crop to 0.001 to 0.999
                     if 0.0 <= scaled_prob_lae < 0.001:
@@ -6258,6 +6264,220 @@ class DetObj:
 
         self.vote_info = vote_info
         return scaled_prob_lae, reason
+
+
+    def revise_plae_poii_vote(self, plya_thresh):
+        """
+        update based on altered plya_threshold
+        do not repeat the extra logging info
+
+        :return:
+        """
+
+        sel_vote = self.voterid == G.VOTE_PLAE_POII
+        if np.count_nonzero(sel_vote) == 1:
+            self.likelihood = np.array(self.likelihood)[~sel_vote]
+            self.weight = np.array(self.weight)[~sel_vote]
+            self.var = np.array(self.var)[~sel_vote]
+            self.prior = np.array(self.prior)[~sel_vote]
+            self.voterid = np.array(self.voterid)[~sel_vote]
+
+        self.likelihood = list(self.likelihood)
+        self.weight = list(self.weight)
+        self.var = list(self.var)
+        self.prior = list(self.prior)
+        self.voterid = list(self.voterid)
+
+        #todo: NOW act on the plya_thresh and modify the midpoint stuff or gaussian stuff
+
+        try:
+            if G.VOTER_ACTIVE & G.VOTE_PLAE_POII:
+                if (self.classification_dict['plae_hat'] is not None) and (self.classification_dict['plae_hat'] != -1) \
+                        and (self.classification_dict['plae_hat_sd'] is not None):
+                    # scale ranges from 0.999 (LAE) to 0.001 (not LAE)
+                    # logic is simple based on PLAE/POII interpreations to mean #LAE/(#LAE + #OII) where #LAE is a fraction and #OII == 1
+                    # so PLAE/POII = 1000 --> 1000/(1000+1) = 0.999, PLAE/POII == 1.0 --> (1/(1+1)) = 0.5, PLAE/POII = 0.001 --> 0.001/(0.001 +1) = 0.001
+                    # 2022-01-27 ... DD let the weight handle all the uncertainty. Any vote that is near the midpoint will
+                    # get close to a zero weight anyway, so just make the vote purely binary
+                    # mid = self.classification_dict['plae_hat'] / plae_poii_midpoint(self.w)
+                    # plae_vote = mid / (mid + 1.0)
+                    #
+
+                    midpoint = self.plae_poii_midpoint(self.w)
+                    if self.classification_dict['plae_hat'] > midpoint:
+                        plae_vote = 1.0
+                    else:
+                        plae_vote = 0.0
+
+
+                    # lower_plae = max(0.001, self.classification_dict['plae_hat_lo'])#self.classification_dict['plae_hat']-self.classification_dict['plae_hat_sd'])
+                    # scale_plae_lo =  scale_plae_hat - lower_plae / (lower_plae + 1.0)
+                    #
+                    # higher_plae = min(1000.0, self.classification_dict['plae_hat_hi'])#self.classification_dict['plae_hat']-self.classification_dict['plae_hat_sd'])
+                    # scale_plae_hi = higher_plae / (higher_plae + 1.0) - scale_plae_hat
+                    # scale_plae_sd = 0.5 * (scale_plae_hi + scale_plae_lo)
+
+                    scale_plae_lo = self.classification_dict['plae_hat_lo'] / (
+                                self.classification_dict['plae_hat_lo'] + 1.0)
+                    scale_plae_hi = self.classification_dict['plae_hat_hi'] / (
+                                self.classification_dict['plae_hat_hi'] + 1.0)
+                    scale_plae_sd = 0.5 * (scale_plae_hi - scale_plae_lo)
+
+                    self.likelihood.append(plae_vote)
+                    self.prior.append(0.5)
+                    self.var.append(1)
+                    #prior = 0.5 # note in use anayway base_assumption
+
+                    # scale the weight by the difference between the scaled PLAE and one SD below (or above)
+                    # the closer they are to each other, the closer to the full weight you'd get)
+                    # weight.append(0.7 * (1.0 - scale_plae_sd))  # opinion, not quite as strong as multiple lines
+
+                    # the plae_gaussian_weight scales the weighting to zero at plae_hat == 1 (50/50 ... so no info)
+                    # and increases the weight as you move toward 0.001 or 1000 over a gaussian (though max weight
+                    # of 1.0 is hit around 0.05 or 20.0
+                    # At the end, the insertion of a 0.5 vote with (1-sum(weights)) should not matter
+                    # as, if this is sitting near a zero weight and is the only vote, that means we are sitting
+                    # near PLAE/POII ~ 1 which is 0.5 P(LyA)
+                    w = self.plae_gaussian_weight(self.classification_dict['plae_hat'], obs_wave=self.w) * (
+                                1.0 - scale_plae_sd)
+
+                    w = w * self.line_vote_weight_mul
+
+                    try:
+                        # if this is on the +1 side (not the 0.001 side), and if the stdev is high, larger than the actual
+                        # estimated value, then beyond just the 68% conf interval, this is highly uncertain and we should
+                        # reduce the voting weight
+                        if plae_vote > 0.5 and self.classification_dict['plae_hat'] / self.classification_dict[
+                            'plae_hat_sd'] < 1.0:
+                            w *= (self.classification_dict['plae_hat'] / self.classification_dict['plae_hat_sd']) ** 2
+                    # if if plae_vote > 0.5: #for LyA
+                    #     if self.classification_dict['plae_hat'] - self.classification_dict['plae_hat_sd'] < midpoint:
+                    #         #high uncertainty; not just 68% confidence
+                    #         #reduce the weight
+                    #         w *=
+                    except:
+                        pass
+
+                    # #if the observed wave is very low, close to 3727, this can be highly skewed
+                    # if -2 < (self.w - G.OII_rest) < 40:
+                    #     log.info(f"{self.entry_id} Aggregate Classification: low observed wavelength ({self.w:0.2f}). Down weighting MC PLAE/POII.")
+                    #
+                    #     if -2 < (self.w - G.OII_rest) < 5:
+                    #         w = min(w, 0.05)
+                    #     else:
+                    #         w = min(w,(self.w - G.OII_rest)/40 * 0.1 )
+
+                    # should we limit the max weight when the line is close to 3727 observed? when z gets small
+                    # plae/poii becomes unreliable
+                    # (just above, commented out, was an earlier similar idea, but more severly enforced)
+                    if self.w < 3725:  # too blue to be OII
+                        z_mult = 1.0
+                    else:
+                        z_oii = max(0, self.w / (G.OII_rest) - 1.0)  # don't let it be negative
+                        # reduce the max weight from z 0 to z 0.05 by cutting in half at z 0 and full at z 0.05
+                        z_mult = min(1.0, 10.0 * z_oii + 0.5)  # 0.5 at z = 0 up to 1.0 from z = 0.05+
+
+                    if z_mult < 1:
+                        log.info(
+                            f"{self.entry_id} Aggregate Classification: MC PLAE/POII from combined continuum down-weighted"
+                            f" due to possible low-z OII, z= {z_oii:0.4f}, weight x = {z_mult:0.4f}")
+
+                    self.weight.append(w * z_mult)
+                    #var = 1  # todo: use the sd (scaled?) #can't use straight up here since the variances are not
+                    # on the same scale
+
+
+                    log.info(f"{self.entry_id} Aggregate Classification: Revised MC PLAE/POII from combined continuum: "
+                             f"lk({self.likelihood[-1]}) weight({self.weight[-1]})")
+
+            else:
+                log.info(
+                    f"{self.entry_id} Aggregate Classification: Revised MC PLAE/POII from combined continuum - no vote. Turned OFF.")
+        except:
+            log.debug("Exception in aggregate_classification for Revised best PLAE/POII", exc_info=True)
+
+
+
+
+
+    def tally_plya_votes(self):
+        """
+
+        :return:
+        """
+
+
+        try:
+
+            #first see if there is a low vote correction already ... if so, remove it and recompute
+            sel_vote = self.voterid == G.VOTE_LOW_WEIGHT_CORRECTION
+            if np.count_nonzero(sel_vote) == 1:
+                self.likelihood =  np.array(self.likelihood)[~sel_vote]
+                self.weight =  np.array(self.weight)[~sel_vote]
+                self.var =  np.array(self.var)[~sel_vote]
+                self.prior =  np.array(self.prior)[~sel_vote]
+                self.voterid =  np.array(self.voterid)[~sel_vote]
+            #assume zero otherwise and not greater than 1 ... the logic does not really change anyway
+            #even if you get more than one correetion since tho whole operation just brings the weight sum to at least 1.0
+
+
+            if len(self.weight) > 0 and np.sum(self.weight) < 1.0:
+                tot_weight = np.sum(self.weight)
+                # log.info(f"Low voting weight ({tot_weight}). Adding in {plya_vote_thresh} vote at {1.0-tot_weight} weight.")
+                # likelihood.append(plya_vote_thresh)
+                # here I DO want 0.5 not the tuned threshold
+                log.info(f"Low voting weight ({tot_weight}). Adding in 0.5 vote at {1.0 - tot_weight} weight.")
+                self.likelihood.append(0.5)
+                self.voterid.append(G.VOTE_LOW_WEIGHT_CORRECTION)
+                self.weight.append(1.0 - tot_weight)
+                self.var.append(1.0)
+                self.prior.append(0.5)
+
+                vote_info['low_weight_correction'] = 1.0 - tot_weight
+
+                if self.weight[-1] >= 0.5:
+                    self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
+                    self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
+            else:
+                vote_info['low_weight_correction'] = 0
+        except:
+            pass
+
+        self.likelihood = np.array(self.likelihood)
+        self.weight = np.array(self.weight)
+        self.var = np.array(self.var)  # right now, this is just weight based, all variances are set to 1
+        self.prior = np.array(self.prior)  # not using Bayes yet, so this is ignored
+
+        logstring = f"P(Lya) weighted voting. {len(self.weight)} votes as (vote x weight)\n"
+        for i in range(len(self.weight)):
+            logstring += f"({self.likelihood[i]:0.4f}x{self.weight[i]})  "
+        # for l_vote,l_weight,l_var,l_prior in zip(likelihood,weight,var,prior):
+        #     logstring += f"({l_vote:0.4f}x{l_weight})  "
+        log.info(logstring)
+
+        # sanity check ... no negative weights allowed
+        sel = self.weight > 0  # skip any negative weights and no need to bother with zero weights
+        if np.any(self.weight < 0):
+            log.warning("Warning! One or more negative weights ignored.")
+
+        try:
+            if len(self.likelihood) > 0:
+                scaled_prob_lae = np.sum(self.likelihood[sel] * self.weight[sel] / self.var[sel]) / np.sum(
+                    self.weight[sel] / self.var[sel])  # / len(likelihood)
+
+                # while can be arbitrarily close to 0 or 1, will crop to 0.001 to 0.999
+                if 0.0 <= scaled_prob_lae < 0.001:
+                    scaled_prob_lae = 0.001
+                elif 0.999 < scaled_prob_lae <= 1.0:
+                    scaled_prob_lae = 0.999
+
+                self.classification_dict['scaled_plae'] = scaled_prob_lae
+                log.info(f"{self.entry_id} Scaled P(LyA) {scaled_prob_lae:0.4f}")  # with threshold {plya_vote_thresh}")
+                # print(f"{self.entry_id} Scaled Prob(LyA) {scaled_prob_lae:0.4f}")
+        except:
+            log.debug("Exception in aggregate_classification final combination", exc_info=True)
+
+        #return scaled_prob_lae
 
 
     def combine_all_plae(self,use_continuum=True):
