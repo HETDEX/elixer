@@ -1227,19 +1227,7 @@ PIXEL_FLAT_ABSOLUTE_BAD_VALUE = 0.7 #values at or below this in the flat are "ba
 MAX_MAG_FAINT = 28.0 #set as nominal "faint" mag if flux limit reached (if not set by specific catalog ... which, unless
                      # this is an HST catalog, this is pretty good (HST is 29-30)
 
-PLAE_POII_GAUSSIAN_WEIGHT_SIGMA = 5.0 #5.0 #10.0 s|t by sigma or 1/sigma you get to 80% weight
-# PLAE_POII_TRANS_WAVES = [4000.0,4500.0,5000.0,5500.] #must be strictly increasing in wavelength, but can be any number of elements
-# PLAE_POII_TRANS_THRESH = [1.4,8.0,10.0,8.0] #favors LyA for larger threholds at or above the matching wavelength
-#v11
-# PLAE_POII_TRANS_WAVES = [4000.0,5000.0] #must be strictly increasing in wavelength, but can be any number of elements
-# PLAE_POII_TRANS_THRESH = [1.4,8.0] #favors LyA for larger threholds at or above the matching wavelength
-#v12
-# PLAE_POII_TRANS_WAVES = [4000.0,4500.0,5000.0,5500.0] #must be strictly increasing in wavelength, but can be any number of elements
-# PLAE_POII_TRANS_THRESH = [1.4,8.0,9.0,10.0] #favors LyA for larger threholds at or above the matching wavelength
 
-#v13
-PLAE_POII_TRANS_WAVES = [4000.0,4500.0,5000.0,5500.0] #must be strictly increasing in wavelength, but can be any number of elements
-PLAE_POII_TRANS_THRESH = [1.4,8.0,9.0,10.0] #favors LyA for larger threholds at or above the matching wavelength
 
 CHECK_FOR_METEOR = True #if true, check the exposure fiber data for meteor pattern
 CHECK_GALAXY_MASK = True #if true, check for detection inclusion in galaxy mask
@@ -1317,6 +1305,13 @@ PLYA_VOTE_THRESH_LIST = np.array([PLYA_VOTE_THRESH_1,PLYA_VOTE_THRESH_2,PLYA_VOT
 PLYA_VOTE_LO = lambda thresh : thresh - thresh * 0.2 # lower bound for a somewhat "uncertain" region
 PLYA_VOTE_HI =  lambda thresh : thresh + (1 - thresh) * 0.2 # upper bound for a somewhat "uncertain" region
 
+
+PLAE_POII_GAUSSIAN_WEIGHT_SIGMA = 5.0 #5.0 #10.0 s|t by sigma or 1/sigma you get to 80% weight
+#PLAE_POII_TRANS_WAVES = [4000.0,5000.0] #must be strictly increasing in wavelength, but can be any number of elements
+#PLAE_POII_TRANS_THRESH = [1.4,10.0] #favors LyA for larger threholds at or above the matching wavelength
+
+PLAE_POII_TRANS_WAVES = [4000.0,4500.0,5000.0,5500.0] #must be strictly increasing in wavelength, but can be any number of elements
+PLAE_POII_TRANS_THRESH = [1.4,8.0,9.0,10.0] #favors LyA for larger threholds at or above the matching wavelength
 
 FFSKY = False #if False, then local sky subtraction is the default
 FFSKY_RESCOR = True #rescor == True does NOT imply ffsky == True HERE. If it is explicitly passed on the command line, it does though.
