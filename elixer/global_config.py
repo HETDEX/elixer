@@ -1307,11 +1307,11 @@ PLYA_VOTE_HI =  lambda thresh : thresh + (1 - thresh) * 0.2 # upper bound for a 
 
 
 PLAE_POII_GAUSSIAN_WEIGHT_SIGMA = 5.0 #5.0 #10.0 s|t by sigma or 1/sigma you get to 80% weight
-#PLAE_POII_TRANS_WAVES = [4000.0,5000.0] #must be strictly increasing in wavelength, but can be any number of elements
-#PLAE_POII_TRANS_THRESH = [1.4,10.0] #favors LyA for larger threholds at or above the matching wavelength
+PLAE_POII_TRANS_WAVES = [4000.0,5000.0] #must be strictly increasing in wavelength, but can be any number of elements
+PLAE_POII_TRANS_THRESH = [1.4,10.0] #favors LyA for larger threholds at or above the matching wavelength
 
-PLAE_POII_TRANS_WAVES = [4000.0,4500.0,5000.0,5500.0] #must be strictly increasing in wavelength, but can be any number of elements
-PLAE_POII_TRANS_THRESH = [1.4,8.0,9.0,10.0] #favors LyA for larger threholds at or above the matching wavelength
+# PLAE_POII_TRANS_WAVES = [4000.0,4500.0,5000.0,5500.0] #must be strictly increasing in wavelength, but can be any number of elements
+# PLAE_POII_TRANS_THRESH = [1.4,8.0,9.0,10.0] #favors LyA for larger threholds at or above the matching wavelength
 
 FFSKY = False #if False, then local sky subtraction is the default
 FFSKY_RESCOR = True #rescor == True does NOT imply ffsky == True HERE. If it is explicitly passed on the command line, it does though.
