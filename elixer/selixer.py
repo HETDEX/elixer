@@ -184,6 +184,17 @@ if dets is not None:
     except Exception as e:
         pass
 
+
+dispatch_base = 0
+if "--dispatch_base" in args:
+    i = args.index("--dispatch_base")
+    if i != -1:
+        try:
+            dispatch_base = int(sys.argv[i + 1])
+        except:
+            dispatch_base = 0
+
+
 hdr_int = None
 if "--hdr" in args:
     i = args.index("--hdr")
@@ -1125,7 +1136,7 @@ else: # multiple tasks
         start_idx = 0
         for i in range(int(tasks)):
 
-            fn = "dispatch_" + str(i).zfill(4)
+            fn = "dispatch_" + str(i+dispatch_base).zfill(4)
             if MERGE:
                 fn2 = "merge_" + str(i).zfill(4)
             else:

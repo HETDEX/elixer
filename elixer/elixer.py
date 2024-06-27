@@ -337,6 +337,9 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--dispatch', help="Dispatched list of directories to process. Auto-created. DO NOT SET MANUALLY",
                         required=False)
 
+    parser.add_argument('--dispatch_base', help="[optional] starting number for the dispatch_xxxx directories",
+                        required=False, default=0)
+
     parser.add_argument('--ifu', help="HETDEX IFU (Cure) file", required=False)
     parser.add_argument('--dist', help="HETDEX Distortion (Cure) file base (i.e. do not include trailing _L.dist or _R.dist)",
                         required=False)
