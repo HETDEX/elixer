@@ -4311,7 +4311,7 @@ class DetObj:
         #     plya_vote_thresh = G.PLYA_VOTE_THRESH
 
         self.vote_info = {} #dictionary of vote, weights, and info for a debugging HDF5 ClassificationExtraFeatures table
-        
+
 
         def snr_chi2_weight(snr,chi2=1.0):
             """
@@ -5271,7 +5271,8 @@ class DetObj:
                 # else:
                 #     max_weight_adjustment = 1.0
 
-                if self.classification_dict['combined_eqw_rest_lya'] > 30.0:
+                if (self.classification_dict['combined_eqw_rest_lya'] >= 25.0) and \
+                   ((self.classification_dict['combined_eqw_rest_lya'] + self.classification_dict['combined_eqw_rest_lya_err']) >= 30.):
                     #will be an LAE vote
 
                     # try:
@@ -5290,8 +5291,8 @@ class DetObj:
                     # else: #above 30, LyA outnumbers LAE ~ 30:1
                     #     weight.append(max(0.1,min(0.5,(rat_thresh-1.0)))) #rat thresh
 
-                    #use the lower bound of the EW
-                    w = utils.sigmoid_linear_interp(30.0, 0.5, 20.0, 0.0,
+                    #use the lower bound of the EW, go a little past the 20AA nominal cut since useing
+                    w = utils.sigmoid_linear_interp(30.0, 0.5, 19.0, 0.0,
                                                        self.classification_dict['combined_eqw_rest_lya'] -
                                                        self.classification_dict['combined_eqw_rest_lya_err'])
                     self.weight.append(w)
@@ -5306,7 +5307,8 @@ class DetObj:
                     log.info(f"{self.entry_id} Aggregate Classification: straight combined line EW "
                              f"{self.classification_dict['combined_eqw_rest_lya']} +/- {self.classification_dict['combined_eqw_rest_lya_err']} vote: "
                              f"lk({self.likelihood[-1]}) weight({self.weight[-1]})")
-                elif self.classification_dict['combined_eqw_rest_lya'] < 20.0:
+                elif (self.classification_dict['combined_eqw_rest_lya'] < 20.0) and \
+                     ((self.classification_dict['combined_eqw_rest_lya'] - self.classification_dict['combined_eqw_rest_lya_err']) < 18.0):
                     #will be an OII vote
                     self.likelihood.append(0)
                     self.voterid.append(G.VOTE_STRAIGHT_EW)
@@ -5338,8 +5340,8 @@ class DetObj:
                     #     # weight.append(min(0.5,max(0.1,w)))
                     #     #weight.append(max(0.25,min(0.5,(rat_thresh-1.0)*1.5))) #rat thresh
 
-                    #use the larger limit on the EW
-                    w = utils.sigmoid_linear_interp(15.0, 0.5, 20.0, 0.0,
+                    #use the larger limit on the EW, and give a little past 20 since adding in the error
+                    w = utils.sigmoid_linear_interp(15.0, 0.5, 21.0, 0.0,
                                                        self.classification_dict['combined_eqw_rest_lya'] +
                                                        self.classification_dict['combined_eqw_rest_lya_err'])
                     self.weight.append(w)
@@ -6444,7 +6446,7 @@ class DetObj:
             #assume zero otherwise and not greater than 1 ... the logic does not really change anyway
             #even if you get more than one correetion since tho whole operation just brings the weight sum to at least 1.0
 
-            #treat as lists 
+            #treat as lists
             self.likelihood = list(self.likelihood)
             self.weight = list(self.weight)
             self.var = list(self.var)
@@ -12523,7 +12525,7 @@ class HETDEX:
                 #estcont_str = "%0.3g" %(e.line_gaussfit_parms[3]*1e-17)
                 estcont_str = "%0.3g" % (e.cont_cgs)
 
-        if e.using_best_gmag_ew: 
+        if e.using_best_gmag_ew:
             #using as an indicator that the narrow cgs flux was not valid (probably negative)
             #and was replaced throughout with the wider estimate, but we will fall back and report the
             #original narrow estimate here
