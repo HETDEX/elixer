@@ -1276,8 +1276,8 @@ LAE_EW_MAG_TRIGGER_MAX = 25.0 #if the associated EW_rest(LyA) is less than this 
 LAE_EW_MAG_TRIGGER_MIN = 15.0 #if the associated EW_rest(LyA) is greater than this value, then look at the magnitudes
 
 LINEWIDTH_SIGMA_TRANSITION = 4.5  #larger than this, is increasingly more likely to be LyA, below .. could be either
-LINEWIDTH_SIGMA_MAX_OII = 10.0 #there just are not any larger than this (FWHM > 21) #have seen up to 7.6AA or so,
-                               # with 20 to 30% error
+LINEWIDTH_SIGMA_MAX_OII = 7.6 #there just are not any larger than this (FWHM > 21) #have seen up to 7.6AA or so,
+                               # with 20 to 30% error gets to around 9AA
 
 SEP_FIXED_APERTURE_RADIUS = 1.0 #RADIUS in arcsec ... used at the barycenter position of SEP objects
 SEP_FIXED_APERTURE_PSF = False #if true apply the HETDEX seeing PSF
@@ -1418,7 +1418,8 @@ DETFLAG_CORRUPT_DATA                = 0x80000000    #some nontrivial portion of 
 ##################################
 VoteFeaturesTable = False #if true, include the P(LyA) extra voting features table in the h5 output
 
-VOTER_ACTIVE = 0xFFFFFFFF
+#VOTER_ACTIVE = 0xFFFFFFFF
+
 
 #each toggles a single P(LyA) voter
 VOTE_ANGULAR_SIZE               = 0x00000001
@@ -1426,7 +1427,7 @@ VOTE_BRIGHT_CONTINUUM           = 0x00000002
 VOTE_MULTILINE                  = 0x00000004
 VOTE_UNMATCHED_LINES            = 0x00000008
 VOTE_PLAE_POII                  = 0x00000010
-VOTE_ASYMMETRIC_LINEFLUX        = 0x00000020
+VOTE_ASYMMETRIC_LINEFLUX        = 0x00000020 #turn off, just not effective
 VOTE_STRAIGHT_LINE_SIGMA        = 0x00000040
 VOTE_STRAIGHT_EW                = 0x00000080
 VOTE_PHOTZ                      = 0x00000100
@@ -1434,9 +1435,26 @@ VOTE_DEX_GMAG                   = 0x00000200
 VOTE_FLAM_SLOPE                 = 0x00000400
 VOTE_EW_PLAE_POII_CORRECTION    = 0x00000800
 VOTE_ABSORPTION                 = 0x00001000
-VOTE_LOW_WEIGHT_CORRECTION      = 0x48888888
-VOTE_UNSPECIFIED                = 0x88888888
+VOTE_LOW_WEIGHT_CORRECTION      = 0x40000000
+VOTE_UNSPECIFIED                = 0x80000000
 USE_REVISED_PLAE_POII           = True
+
+VOTER_ACTIVE = np.sum([VOTE_ANGULAR_SIZE ,
+               VOTE_BRIGHT_CONTINUUM ,
+               VOTE_MULTILINE ,
+               VOTE_UNMATCHED_LINES ,
+               VOTE_PLAE_POII ,
+               #VOTE_ASYMMETRIC_LINEFLUX , #turn off
+               VOTE_STRAIGHT_LINE_SIGMA ,
+               VOTE_STRAIGHT_EW ,
+               VOTE_PHOTZ ,
+               VOTE_DEX_GMAG ,
+               VOTE_FLAM_SLOPE ,
+               VOTE_EW_PLAE_POII_CORRECTION ,
+               VOTE_ABSORPTION ,
+               VOTE_LOW_WEIGHT_CORRECTION ,
+               VOTE_UNSPECIFIED ])
+
 
 ###################################
 # testing sky residuals

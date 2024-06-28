@@ -1,7 +1,7 @@
 changes to elixer by version
 
 
-1.22.0a14 [2024-06-24]
+1.22.0a14 [2024-06-27]
 * if an SEP object is removed from consideration for the combined_continuum calculation, also remove it from
   consideration in the angular extent calculation
 * fixed issue where web-based imaging were not being checked if a match was found to at least one local image but
@@ -17,6 +17,7 @@ changes to elixer by version
 * require OII-3727 if Balmer lines found for low-z galaxy consistency (while not strictly true, it is super unlikely
     to get Balmer lines and not OII-3727, though there are some very rare instances of galaxies (not PNe) in HETDEX
     that show OIII-5007 and not OII-3737 when weak/low SNR, so it is possible to not detect OII-3727 when present)
+
 
 1.22.0a13 [2024-06-18]
 * update spectrum_utilities stacking:

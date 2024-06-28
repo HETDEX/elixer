@@ -5204,8 +5204,8 @@ class DetObj:
                     #check the rest EW if LyA. If low, then reduce the vote weight
 
                     w = utils.sigmoid_linear_interp(G.LINEWIDTH_SIGMA_TRANSITION, 0.0,
-                                              G.LINEWIDTH_SIGMA_MAX_OII, 1.0,
-                                              vote_line_sigma)  * line_vote_weight_mul
+                                              G.LINEWIDTH_SIGMA_MAX_OII, 0.5,
+                                              vote_line_sigma-vote_line_sigma_unc)  * line_vote_weight_mul
 
                         #w = min(vote_line_sigma / G.LINEWIDTH_SIGMA_TRANSITION - 1.0, 1.0) * line_vote_weight_mul #limit to 1.0 max
 
