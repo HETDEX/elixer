@@ -1432,7 +1432,7 @@ VOTE_STRAIGHT_LINE_SIGMA        = 0x00000040
 VOTE_STRAIGHT_EW                = 0x00000080
 VOTE_PHOTZ                      = 0x00000100
 VOTE_DEX_GMAG                   = 0x00000200
-VOTE_FLAM_SLOPE                 = 0x00000400
+VOTE_FLAM_SLOPE                 = 0x00000400 #might need lower weight OR turn off
 VOTE_EW_PLAE_POII_CORRECTION    = 0x00000800
 VOTE_ABSORPTION                 = 0x00001000
 VOTE_LOW_WEIGHT_CORRECTION      = 0x40000000
@@ -1449,7 +1449,7 @@ VOTER_ACTIVE = np.sum([VOTE_ANGULAR_SIZE ,
                VOTE_STRAIGHT_EW ,
                VOTE_PHOTZ ,
                VOTE_DEX_GMAG ,
-               VOTE_FLAM_SLOPE ,
+               #VOTE_FLAM_SLOPE , #turn off
                VOTE_EW_PLAE_POII_CORRECTION ,
                VOTE_ABSORPTION ,
                VOTE_LOW_WEIGHT_CORRECTION ,

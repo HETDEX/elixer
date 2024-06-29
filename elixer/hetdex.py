@@ -5701,7 +5701,7 @@ class DetObj:
         # and if there is a negative slope (flux/AA) more negative than: xxx
         # and if the FWHM is not huge (skip over AGN)
         # give a vote for NOT LyA ... expectation is that the blue side of LyA should be lower than the red
-        # DO NOT consider EW ... there are some extreme EW OII and thiss might catch them also
+        # DO NOT consider EW ... there are some extreme EW OII and this might catch them also
         ###################################
         try:
             if G.VOTER_ACTIVE & G.VOTE_FLAM_SLOPE:
@@ -5712,7 +5712,7 @@ class DetObj:
                         and  (self.spec_obj.spectrum_slope < -4.0e-22):
                     self.likelihood.append(0.0)
                     self.voterid.append(G.VOTE_FLAM_SLOPE)
-                    self.weight.append(0.5)
+                    self.weight.append(0.2) #weak vote
                     self.var.append(1)
                     self.prior.append(base_assumption)
                     self.vote_info['dex_flam_slope_vote'] = self.likelihood[-1]
