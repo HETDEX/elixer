@@ -1416,7 +1416,7 @@ DETFLAG_CORRUPT_DATA                = 0x80000000    #some nontrivial portion of 
 #Voter Flags (32 bit)
 # Turn ON each voter
 ##################################
-VoteFeaturesTable = False #if true, include the P(LyA) extra voting features table in the h5 output
+VoteFeaturesTable = True #if true, include the P(LyA) extra voting features table in the h5 output
 
 #VOTER_ACTIVE = 0xFFFFFFFF
 
@@ -1444,12 +1444,12 @@ VOTER_ACTIVE = np.sum([VOTE_ANGULAR_SIZE ,
                VOTE_MULTILINE ,
                VOTE_UNMATCHED_LINES ,
                VOTE_PLAE_POII ,
-               #VOTE_ASYMMETRIC_LINEFLUX , #turn off
+               VOTE_ASYMMETRIC_LINEFLUX , #turn off
                VOTE_STRAIGHT_LINE_SIGMA ,
                VOTE_STRAIGHT_EW ,
                VOTE_PHOTZ ,
                VOTE_DEX_GMAG ,
-               #VOTE_FLAM_SLOPE , #turn off
+               VOTE_FLAM_SLOPE ,
                VOTE_EW_PLAE_POII_CORRECTION ,
                VOTE_ABSORPTION ,
                VOTE_LOW_WEIGHT_CORRECTION ,
