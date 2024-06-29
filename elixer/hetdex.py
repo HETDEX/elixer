@@ -5128,7 +5128,7 @@ class DetObj:
                 self.vote_info['rb_flux_asym'] = rat
                 self.vote_info['rb_flux_asym_err'] = rat_err
 
-                if self.snr is not None and self.snr > 6.0 and self.fwhm > 8.0 and rat_err/rat < 0.5:
+                if self.snr is not None and self.snr > 6.0 and self.fwhm > 8.0: # and rat_err/rat < 0.5:
                     #if rat_err/rat > 0.5 and ((rat-rat_err) < 1.0 and (rat+rat_err) > 1.0):
                     #    did_vote = False
                     #    #log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux (r/b) {rat:0.2f}  +/- {rat_err:0.3f} no vote.")
@@ -5138,13 +5138,28 @@ class DetObj:
                     #     weight.append(0.25)
                     #     prior.append(base_assumption)
                     #     var.append(1)
-                    if rat > 1.2:
+
+                    #in decreasing weight order, most strict to least
+                    if (rat-rat_err) > 1.0 and rat > 1.2: #very clean vote, have never seen an OII here, rare non-Lya
+                        self.likelihood.append(1.0)
+                        self.voterid.append(G.VOTE_ASYMMETRIC_LINEFLUX)
+                        self.weight.append(0.66 * line_vote_weight_mul)
+                        self.prior.append(base_assumption)
+                        self.var.append(1)
+                    elif (rat-rat_err) > 1.0: #also very clean vote
+                        self.likelihood.append(1.0)
+                        self.voterid.append(G.VOTE_ASYMMETRIC_LINEFLUX)
+                        self.weight.append(0.5 * line_vote_weight_mul)
+                        self.prior.append(base_assumption)
+                        self.var.append(1)
+                    elif rat > 1.2: #this is a clean vote, but not perfectly so, a very few OII
                         self.likelihood.append(1.0)
                         self.voterid.append(G.VOTE_ASYMMETRIC_LINEFLUX)
                         self.weight.append(0.5 * rat_err_scale * line_vote_weight_mul)
                         self.prior.append(base_assumption)
                         self.var.append(1)
-                    # elif rat > 1.1:
+
+                    # elif rat > 1.1: #this has some OII contamination in it, but not much
                     #     self.likelihood.append(1.0)
                     #     self.voterid.append(G.VOTE_ASYMMETRIC_LINEFLUX)
                     #     self.weight.append(0.25 * rat_err_scale * line_vote_weight_mul)
