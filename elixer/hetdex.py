@@ -5093,6 +5093,10 @@ class DetObj:
             #this fails if LyA blue is really strong (high escape fraction)
             #really want to check just right near the line and want at least 3 wavebins
             #if self.snr is not None and self.snr > 6.0 and self.fwhm > 8.0:
+
+            #In the DESI sample, this only votes 8% of the time, but in that 8%, it is correct 85/89 with OII being 1/89
+            #and other being 4/89
+
             if G.VOTER_ACTIVE & G.VOTE_ASYMMETRIC_LINEFLUX and self.estflux > 0: #for now always do this as I want the info, but only vote if the condition is met
 
                 line_width = max(3,round(self.fwhm /2.355/G.FLUX_WAVEBIN_WIDTH))
@@ -5124,18 +5128,33 @@ class DetObj:
                 self.vote_info['rb_flux_asym_err'] = rat_err
 
                 if self.snr is not None and self.snr > 6.0 and self.fwhm > 8.0:
-                    if rat_err/rat > 0.5 and ((rat-rat_err) < 1.0 and (rat+rat_err) > 1.0):
-                        log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux (r/b) {rat:0.2f}  +/- {rat_err:0.3f} no vote.")
+                    #if rat_err/rat > 0.5 and ((rat-rat_err) < 1.0 and (rat+rat_err) > 1.0):
+                    #    did_vote = False
+                    #    #log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux (r/b) {rat:0.2f}  +/- {rat_err:0.3f} no vote.")
                     # elif rat > 1.33:
                     #     likelihood.append(1.0)
                     #     voterid.append(G.VOTE_ASYMMETRIC_LINEFLUX)
                     #     weight.append(0.25)
                     #     prior.append(base_assumption)
                     #     var.append(1)
-                    elif rat > 1.4 or (self.fwhm > 11 and rat > 1.0): #seems to be pretty good separation above 1.2
+                    if rat > 1.2:
                         self.likelihood.append(1.0)
                         self.voterid.append(G.VOTE_ASYMMETRIC_LINEFLUX)
-                        self.weight.append(0.01 * line_vote_weight_mul)
+                        self.weight.append(0.5 * line_vote_weight_mul)
+                        self.prior.append(base_assumption)
+                        self.var.append(1)
+                    elif rat > 1.1:
+                        self.likelihood.append(1.0)
+                        self.voterid.append(G.VOTE_ASYMMETRIC_LINEFLUX)
+                        self.weight.append(0.2 * line_vote_weight_mul)
+                        self.prior.append(base_assumption)
+                        self.var.append(1)
+
+                    #elif rat > 1.4 or (self.fwhm > 11 and rat > 1.0): #seems to be pretty good separation above 1.2
+                    elif rat > 1.0 and rat_err/rat < 0.15:
+                        self.likelihood.append(1.0)
+                        self.voterid.append(G.VOTE_ASYMMETRIC_LINEFLUX)
+                        self.weight.append(0.1 * line_vote_weight_mul)
                         self.prior.append(base_assumption)
                         self.var.append(1)
                     #from data, looks like we more blue than red is possible even for LyA
