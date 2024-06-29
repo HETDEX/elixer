@@ -5144,20 +5144,20 @@ class DetObj:
                         self.weight.append(0.5 * rat_err_scale * line_vote_weight_mul)
                         self.prior.append(base_assumption)
                         self.var.append(1)
-                    elif rat > 1.1:
-                        self.likelihood.append(1.0)
-                        self.voterid.append(G.VOTE_ASYMMETRIC_LINEFLUX)
-                        self.weight.append(0.25 * rat_err_scale * line_vote_weight_mul)
-                        self.prior.append(base_assumption)
-                        self.var.append(1)
-
-                    #elif rat > 1.4 or (self.fwhm > 11 and rat > 1.0): #seems to be pretty good separation above 1.2
-                    elif rat > 1.0 and rat_err/rat < 0.15:
-                        self.likelihood.append(1.0)
-                        self.voterid.append(G.VOTE_ASYMMETRIC_LINEFLUX)
-                        self.weight.append(0.1 * line_vote_weight_mul)
-                        self.prior.append(base_assumption)
-                        self.var.append(1)
+                    # elif rat > 1.1:
+                    #     self.likelihood.append(1.0)
+                    #     self.voterid.append(G.VOTE_ASYMMETRIC_LINEFLUX)
+                    #     self.weight.append(0.25 * rat_err_scale * line_vote_weight_mul)
+                    #     self.prior.append(base_assumption)
+                    #     self.var.append(1)
+                    #
+                    # #elif rat > 1.4 or (self.fwhm > 11 and rat > 1.0): #seems to be pretty good separation above 1.2
+                    # elif rat > 1.0 and rat_err/rat < 0.15:
+                    #     self.likelihood.append(1.0)
+                    #     self.voterid.append(G.VOTE_ASYMMETRIC_LINEFLUX)
+                    #     self.weight.append(0.1 * line_vote_weight_mul)
+                    #     self.prior.append(base_assumption)
+                    #     self.var.append(1)
                     #from data, looks like we more blue than red is possible even for LyA
                     # elif rat < 0.70:
                     #     likelihood.append(0.0)
