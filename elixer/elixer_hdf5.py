@@ -250,6 +250,7 @@ class ClassificationExtraFeatures(tables.IsDescription):
     dex_flam_slope_vote = tables.Float32Col(dflt=UNSET_FLOAT)
     dex_flam_slope_weight = tables.Float32Col(dflt=UNSET_FLOAT)
     dex_flam_slope = tables.Float32Col(dflt=UNSET_FLOAT)
+    dex_flam_slope_err = tables.Float32Col(dflt=UNSET_FLOAT)
 
     size_in_psf = tables.Float32Col(dflt=UNSET_FLOAT)
     diam_in_arcsec = tables.Float32Col(dflt=UNSET_FLOAT)
@@ -1727,7 +1728,8 @@ def append_entry(fileh,det,overwrite=False):
                 try:
                     row['dex_flam_slope_vote'] = det.vote_info['dex_flam_slope_vote']
                     row['dex_flam_slope_weight'] = det.vote_info['dex_flam_slope_weight']
-                    row['dex_flam_slope'] = det.vote_info['dex_flam_slope_weight']
+                    row['dex_flam_slope'] = det.vote_info['dex_flam_slope']
+                    row['dex_flam_slope_err'] = det.vote_info['dex_flam_slope_err']
                 except:
                     pass
 

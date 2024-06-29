@@ -5123,11 +5123,12 @@ class DetObj:
                 rat = lineflux_red/lineflux_blue
                 rat_err = rat * np.sqrt((lineflux_red_err/lineflux_red)**2 + (lineflux_blue_err/lineflux_blue)**2)
                 did_vote = True
+                rat_err_scale = min(1.0, 0.2 / (rat_err/rat)) #full vote at less than 20% error, and drops from there
 
                 self.vote_info['rb_flux_asym'] = rat
                 self.vote_info['rb_flux_asym_err'] = rat_err
 
-                if self.snr is not None and self.snr > 6.0 and self.fwhm > 8.0:
+                if self.snr is not None and self.snr > 6.0 and self.fwhm > 8.0 and rat_err/rat < 0.5:
                     #if rat_err/rat > 0.5 and ((rat-rat_err) < 1.0 and (rat+rat_err) > 1.0):
                     #    did_vote = False
                     #    #log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux (r/b) {rat:0.2f}  +/- {rat_err:0.3f} no vote.")
@@ -5140,13 +5141,13 @@ class DetObj:
                     if rat > 1.2:
                         self.likelihood.append(1.0)
                         self.voterid.append(G.VOTE_ASYMMETRIC_LINEFLUX)
-                        self.weight.append(0.5 * line_vote_weight_mul)
+                        self.weight.append(0.5 * rat_err_scale * line_vote_weight_mul)
                         self.prior.append(base_assumption)
                         self.var.append(1)
                     elif rat > 1.1:
                         self.likelihood.append(1.0)
                         self.voterid.append(G.VOTE_ASYMMETRIC_LINEFLUX)
-                        self.weight.append(0.2 * line_vote_weight_mul)
+                        self.weight.append(0.25 * rat_err_scale * line_vote_weight_mul)
                         self.prior.append(base_assumption)
                         self.var.append(1)
 
@@ -5737,6 +5738,8 @@ class DetObj:
                     self.vote_info['dex_flam_slope_vote'] = self.likelihood[-1]
                     self.vote_info['dex_flam_slope_weight'] = self.weight[-1]
                     self.vote_info['dex_flam_slope'] = self.spec_obj.spectrum_slope
+                    self.vote_info['dex_flam_slope_err'] = self.spec_obj.spectrum_slope_err
+
                     log.info(
                         f"{self.entry_id} Aggregate Classification: Flam slope ({self.spec_obj.spectrum_slope:0.4g}) vote: lk({self.likelihood[-1]}) "
                         f"weight({self.weight[-1]})")
