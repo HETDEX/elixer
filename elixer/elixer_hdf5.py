@@ -247,6 +247,10 @@ class ClassificationExtraFeatures(tables.IsDescription):
     dex_gmag_vote = tables.Float32Col(dflt=UNSET_FLOAT)
     dex_gmag_weight = tables.Float32Col(dflt=UNSET_FLOAT)
 
+    dex_flam_slope_vote = tables.Float32Col(dflt=UNSET_FLOAT)
+    dex_flam_slope_weight = tables.Float32Col(dflt=UNSET_FLOAT)
+    dex_flam_slope = tables.Float32Col(dflt=UNSET_FLOAT)
+
     size_in_psf = tables.Float32Col(dflt=UNSET_FLOAT)
     diam_in_arcsec = tables.Float32Col(dflt=UNSET_FLOAT)
     oii_size_in_kpc = tables.Float32Col(dflt=UNSET_FLOAT)
@@ -1719,6 +1723,14 @@ def append_entry(fileh,det,overwrite=False):
                     row['dex_gmag_weight'] = det.vote_info['dex_gmag_weight']
                 except:
                     pass
+
+                try:
+                    row['dex_flam_slope_vote'] = det.vote_info['dex_flam_slope_vote']
+                    row['dex_flam_slope_weight'] = det.vote_info['dex_flam_slope_weight']
+                    row['dex_flam_slope'] = det.vote_info['dex_flam_slope_weight']
+                except:
+                    pass
+
 
                 try:
                     row['size_in_psf'] = det.vote_info['size_in_psf']

@@ -5712,11 +5712,12 @@ class DetObj:
                         and  (self.spec_obj.spectrum_slope < -4.0e-22):
                     self.likelihood.append(0.0)
                     self.voterid.append(G.VOTE_FLAM_SLOPE)
-                    self.weight.append(0.2) #weak vote
+                    self.weight.append(0.01) #weak vote
                     self.var.append(1)
                     self.prior.append(base_assumption)
                     self.vote_info['dex_flam_slope_vote'] = self.likelihood[-1]
                     self.vote_info['dex_flam_slope_weight'] = self.weight[-1]
+                    self.vote_info['dex_flam_slope'] = self.spec_obj.spectrum_slope
                     log.info(
                         f"{self.entry_id} Aggregate Classification: Flam slope ({self.spec_obj.spectrum_slope:0.4g}) vote: lk({self.likelihood[-1]}) "
                         f"weight({self.weight[-1]})")
