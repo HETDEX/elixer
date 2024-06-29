@@ -5097,7 +5097,7 @@ class DetObj:
             #In the DESI sample, this only votes 8% of the time, but in that 8%, it is correct 85/89 with OII being 1/89
             #and other being 4/89
 
-            if G.VOTER_ACTIVE & G.VOTE_ASYMMETRIC_LINEFLUX and self.estflux > 0: #for now always do this as I want the info, but only vote if the condition is met
+            if G.VOTER_ACTIVE & G.VOTE_ASYMMETRIC_LINEFLUX and self.estflux > 0 and self.gmag_combined > 24.0: #for now always do this as I want the info, but only vote if the condition is met
 
                 line_width = max(3,round(self.fwhm /2.355/G.FLUX_WAVEBIN_WIDTH))
 
@@ -5124,6 +5124,7 @@ class DetObj:
                 rat_err = rat * np.sqrt((lineflux_red_err/lineflux_red)**2 + (lineflux_blue_err/lineflux_blue)**2)
                 did_vote = True
                 rat_err_scale = min(1.0, 0.2 / (rat_err/rat)) #full vote at less than 20% error, and drops from there
+                gmag_scale = utils.sigmoid_linear_interp(24.0,0.25,25.0,1.0,self.gmag_combined)
 
                 self.vote_info['rb_flux_asym'] = rat
                 self.vote_info['rb_flux_asym_err'] = rat_err
@@ -5143,19 +5144,19 @@ class DetObj:
                     if (rat-rat_err) > 1.0 and rat > 1.2: #very clean vote, have never seen an OII here, rare non-Lya
                         self.likelihood.append(1.0)
                         self.voterid.append(G.VOTE_ASYMMETRIC_LINEFLUX)
-                        self.weight.append(0.66 * line_vote_weight_mul)
+                        self.weight.append(0.66 * gmag_scale * line_vote_weight_mul)
                         self.prior.append(base_assumption)
                         self.var.append(1)
                     elif (rat-rat_err) > 1.0: #also very clean vote
                         self.likelihood.append(1.0)
                         self.voterid.append(G.VOTE_ASYMMETRIC_LINEFLUX)
-                        self.weight.append(0.5 * line_vote_weight_mul)
+                        self.weight.append(0.5 * gmag_scale *  line_vote_weight_mul)
                         self.prior.append(base_assumption)
                         self.var.append(1)
                     elif rat > 1.2: #this is a clean vote, but not perfectly so, a very few OII
                         self.likelihood.append(1.0)
                         self.voterid.append(G.VOTE_ASYMMETRIC_LINEFLUX)
-                        self.weight.append(0.5 * rat_err_scale * line_vote_weight_mul)
+                        self.weight.append(0.5 * rat_err_scale * gmag_scale * line_vote_weight_mul)
                         self.prior.append(base_assumption)
                         self.var.append(1)
 
@@ -5200,7 +5201,7 @@ class DetObj:
                 else:
                     log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux (r/b) {rat:0.2f}  +/- {rat_err:0.3f} no vote.")
             else:
-                log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux - no vote. Turned OFF")
+                log.info(f"{self.entry_id} Aggregate Classification: asymmetric line flux - no vote. Turned OFF or negative flux or too bright.")
         except:
             log.debug("Exception in r/b line asymmetry vote.",exc_info=True)
 
