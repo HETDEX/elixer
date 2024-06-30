@@ -2842,7 +2842,7 @@ class DetObj:
 
             try:
                 if self.vote_info['low_weight_correction'] > 0:
-                    corr = np.clip(1.0 - self.vote_info['low_weight_correction'],0.0,1.0)
+                    corr = np.clip(0.5 * (1.0 - self.vote_info['low_weight_correction']),0.0,1.0)
                     log.info(f"Q(z): modifying P(z) from {p:0.2f} to {p*corr:0.2f} due to low voting weight. ")
                     p = p * corr
             except:

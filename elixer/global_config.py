@@ -1416,7 +1416,7 @@ DETFLAG_CORRUPT_DATA                = 0x80000000    #some nontrivial portion of 
 #Voter Flags (32 bit)
 # Turn ON each voter
 ##################################
-VoteFeaturesTable = True #if true, include the P(LyA) extra voting features table in the h5 output
+VoteFeaturesTable = False #if true, include the P(LyA) extra voting features table in the h5 output
 
 #VOTER_ACTIVE = 0xFFFFFFFF
 
