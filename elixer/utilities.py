@@ -19,6 +19,10 @@ from datetime import date
 import fnmatch
 from tqdm import tqdm
 
+from scipy.integrate import quad
+from astropy.cosmology import FlatLambdaCDM
+from astropy import constants as C
+#from astropy import units as u
 
 import sqlite3
 from sqlite3 import Error
@@ -31,6 +35,40 @@ except:
 log = G.Global_Logger('utilities')
 log.setlevel(G.LOG_LEVEL)
 
+
+def comological_volume(solid_angle,z1,z2,cosmo=None):
+    """
+    compute a simple volume between two redshifts given an area to project through and a cosmology
+
+    #note: if want a proper volume, since this is a projection through an area, would need two factors of 1+z
+    #      for the two transverse components of the solid angle
+    #      This is NOT the same as placing a co-moving volume at some redshift, as that would be three factors of 1+z
+
+    :param solid_angle: in sq.degree
+    :param z1: low redshift
+    :param z2: high redshift
+    :return: comoving volume in Mpc3 or None
+    """
+
+    try:
+        # remember, quad can't handle units, so only pass around values
+        def comoving_vol_dz(z):  # co-moving volume in dz slice, Mpc per sr
+            #basically Hogg eq 28, but with comoving distance instead of angular diameter distance * (1+z)**2
+            return  np.power(cosmo.comoving_distance(z).to("Mpc").value, 2) / cosmo.efunc(z)
+
+        if cosmo is None:
+            cosmo = FlatLambdaCDM(H0=70., Om0=0.3, Tcmb0=2.725)
+
+        DH = (C.c.to("km/s") / cosmo.H0).value  # Hubble distance, c/H0 in km/s/Mpc
+               # area  (arcsec to sr)           *  c/H0   * integration of comoving volume between to redshifts
+               # (sr)                             (1/Mpc)    (Mpc / sr)
+        return solid_angle * (np.pi / 180.) ** 2 * DH      * quad(comoving_vol_dz, z1, z2)[0]
+                                                             #just want 1st element from quad (second is the error)
+
+    except:
+        log.debug("Exception! in utilities::cosmological_volume")
+
+    return None
 
 def fracdiff(x1,x2,x1e=0.0,x2e=0.0):
     """
