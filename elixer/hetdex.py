@@ -6583,9 +6583,16 @@ class DetObj:
         if use_continuum:
             continuum_hat, continuum_sd_hat, size_in_psf, diam_in_arcsec = self.combine_all_continuum()
 
-            self.classification_dict['combined_eqw_rest_lya'] = self.estflux / continuum_hat / (self.w/G.LyA_rest)
-            self.classification_dict['combined_eqw_rest_lya_err'] =  self.classification_dict['combined_eqw_rest_lya'] *\
+            try:
+                self.classification_dict['combined_eqw_rest_lya'] = self.estflux / continuum_hat / (self.w/G.LyA_rest)
+                self.classification_dict['combined_eqw_rest_lya_err'] =  self.classification_dict['combined_eqw_rest_lya'] *\
                                                                      np.sqrt((self.estflux_unc/self.estflux)**2 + (continuum_sd_hat/continuum_hat)**2)
+            except:
+                log.error(f"Exception! in combine_all_plae(). Cannot set combined_eqw_rest_lya."
+                          f"estflux {self.estflux} +/- {self.estflux_unc}, "
+                          f"continuum_hat {continuum_hat} +/- {continuum_sd_hat}, w {self.w}",exc_info=True)
+                self.classification_dict['combined_eqw_rest_lya'] = None
+                self.classification_dict['combined_eqw_rest_lya_err'] = None
 
 
 #feed into MC PLAE
