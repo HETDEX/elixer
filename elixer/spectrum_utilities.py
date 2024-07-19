@@ -3805,6 +3805,11 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
                     msg = f"Warning #2! Unexpected number of shot matches {ct}"
                     print(msg)
                     log.warning(msg)
+                    try:
+                        del h5_rows
+                        h5.close()
+                    except:
+                        pass
                     return residual, residual_err, contributors, G.EFR_FLAG_NOT_UNIQUE
 
                 #print(f"size rows: {sys.getsizeof(h5_rows)}")
@@ -3829,6 +3834,14 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
 
                 persist = False  #override the persist flag and do not add this in to our persisting table
                                  #as it can duplicate the shot in this case
+
+                try:
+                    del h5_shotid
+                    del h5_seeing
+                    del h5_response
+                    del d
+                except:
+                    pass
 
             if ct != 1:
                 msg = f"Warning! Unable to find appropriate background residual."
@@ -3874,6 +3887,11 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
             except:
                 flags = 0
 
+            try:
+                del h5_rows
+                h5.close()
+            except:
+                pass
 
             return residual, residual_err,contributors, flags
 
