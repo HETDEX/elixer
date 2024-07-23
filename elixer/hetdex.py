@@ -8949,10 +8949,10 @@ class DetObj:
                                        (abs(fiber_weights[:,1] - fiber.dec) < 0.00003 ))[0]
 
                         if len(fw_idx) == 1:
-                            fiber.raw_weight = fiber_weights[fw_idx,2]
+                            fiber.raw_weight = float(fiber_weights[fw_idx,2])
                             subset_norm_weight += fiber.raw_weight
                     except:
-                        pass
+                        log.error(f"Exception! loading fiber.raw_weight",exc_info=True)
 
                     # check that this is NOT a duplicate
                     for i in range(len(self.fibers)):

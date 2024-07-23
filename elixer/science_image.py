@@ -102,6 +102,10 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
     cutout = None
 
     try:
+        #wrong order ... can happen for some paths IF the position is an absorption feature
+        #and the input sigma is negative or if the sigma is a bad value (like -1)
+        if wave_range[1] < wave_range[0]:
+            wave_range = [wave_range[1],  wave_range[0]]
 
         dw = (wave_range[1]-wave_range[0])/2.0 #this is +/-3 sigma and so this (dw) is now half that range to get the midpoint
         w = wave_range[0]+dw
@@ -111,7 +115,7 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
 
         #now change to the dw that the phot_tools API wants
         if sigma is not None:
-            dw = sigma #the call to phot_tools.xxx turns this into +/- 2*sigma
+            dw = abs(sigma) #the call to phot_tools.xxx turns this into +/- 2*sigma
         else:
             dw /= 3.0 #assumes wave_range is -3*sigma to +3*sigma and dw made half that range just above
 

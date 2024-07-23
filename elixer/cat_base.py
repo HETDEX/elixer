@@ -993,9 +993,9 @@ class Catalog:
                                                               shotid=detobj.survey_shotid, subcont=True,
                                                               convolve_image=False,
                                                               pixscale=pixscale, imsize=3*error*max_rotation_resize,
-                                                              wave_range=[detobj.w - 3.0 / 2.355 * detobj.fwhm,
-                                                                          detobj.w + 3.0 / 2.355 * detobj.fwhm],
-                                                              sigma=detobj.fwhm / 2.355,
+                                                              wave_range=[detobj.w - 3.0 / 2.355 * abs(detobj.fwhm),
+                                                                          detobj.w + 3.0 / 2.355 * abs(detobj.fwhm)],
+                                                              sigma=abs(detobj.fwhm) / 2.355,
                                                               return_coords=False)
 
                     if line_image is not None:
@@ -1346,8 +1346,9 @@ class Catalog:
                                                           coords=SkyCoord(ra=ra,dec=dec,frame='icrs',unit='deg'),
                                                           shotid=detobj.survey_shotid, subcont=True, convolve_image=False,
                                                           pixscale=0.25, imsize=3*error,
-                                                          wave_range=[detobj.w - 3.0/2.355*detobj.fwhm, detobj.w + 3.0/2.355*detobj.fwhm],
-                                                          sigma=detobj.fwhm/2.355,
+                                                          wave_range=[detobj.w - 3.0/2.355*abs(detobj.fwhm),
+                                                                      detobj.w + 3.0/2.355*abs(detobj.fwhm)],
+                                                          sigma=abs(detobj.fwhm)/2.355,
                                                           return_coords=False)
 
                     if line_image is not None:

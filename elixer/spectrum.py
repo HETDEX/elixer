@@ -2449,7 +2449,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         if fd_idx is None:
             fd_idx = np.argmax([fd["score"] for fd in fit_dict_array])
 
-        if fit_dict_array[fd_idx]['score'] <=0:
+        if fit_dict_array[fd_idx]['score'] <=0 and not (targetted_fit and forced_mcmc):
             #nothing at all here
             return None
 

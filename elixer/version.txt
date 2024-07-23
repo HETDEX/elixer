@@ -1,5 +1,11 @@
 changes to elixer by version
 
+1.22.0a15 [2024-07-23]
+* fix (some?) issues with numpy and astropy tables no longer supporting single element array as scalar
+  + note: there are probably more to be found
+* fix call to HETDEX_API make_narrowband_image() where the input wavelength range can be in reverse order (if the
+  sigma or fwhm is negative either due to being an absorber or to an error or unset (-1) value)
+* fix issue where poor fit central line is rejected without MCMC fitting
 
 1.22.0a14 [2024-06-27]
 * if an SEP object is removed from consideration for the combined_continuum calculation, also remove it from
