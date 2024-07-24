@@ -3735,6 +3735,30 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
                 log.warning("Invalid parameters passed to get_empty_fiber_residual()")
                 return residual, residual_err, contributors, G.EFR_FLAG_INVALID_PARAMETERS
 
+            enhanced_error = 0.0 #add to the statistical error, the flanking rtypes
+            #rtype_lo = None
+            #rtype_hi = None
+            if rtype is None or rtype == "":
+                #set to the normal "best" based on the sky type requested
+                if ffsky is False:
+                    #this is local sky
+                    rtype = "t03"
+                    #the two that flank the HSC-gmag stacking set ... 2.8% results in a stack that is slightly too faint
+                    #                                                 3.2% results in a stack that is slightly too bright
+                    #                                                 3.0% is overall best, swaps with 2.8 to 3.2 at about 25g
+                    #rtype_lo = "t028"
+                    #rtype_hi = "t032"
+                    enhanced_error = 0.00038 #this is an average of the "average" difference for t028 - t03, t03 - t032
+                                             #mean vs median about the same; this is between 3500AA dn 5500AA
+                elif rescor is False:
+                    #this is normal ffsky
+                    log.error("Nominal best not yet defined for ffsky")
+                    return residual, residual_err, contributors, G.EFR_FLAG_INVALID_PARAMETERS
+                else:
+                    #this is rescor
+                    log.error("Nominal best not yet defined for ffsky+rescor")
+                    return residual, residual_err, contributors, G.EFR_FLAG_INVALID_PARAMETERS
+
             #todo: update this for generic columns
             col = rtype+"_fluxd"
             col_err = rtype+"_fluxd_err"
@@ -3768,7 +3792,7 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
                         msg = f"Warning #1! Unexpected number of shot matches {ct}"
                         print(msg)
                         log.warning(msg)
-                        return residual, residual_err, contributors, G.EFR_FLAG_NOT_UNIQUE
+                        return residual, residual_err+enhanced_error, contributors, G.EFR_FLAG_NOT_UNIQUE
                     elif ct == 1:
                         idx = np.where(sel)[0][0]
                         # we have what we want already,so just return it
@@ -3777,10 +3801,10 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
                         contributors = np.array(T[col_contrib][idx])
                         flags = np.array(T['flags'][idx])
                         if replace_nan is not None:
-                            return np.nan_to_num(residual,nan=replace_nan), np.nan_to_num(residual_err,nan=replace_nan),\
+                            return np.nan_to_num(residual,nan=replace_nan), np.nan_to_num(residual_err,nan=replace_nan)+enhanced_error,\
                                    contributors, flags
                         else:
-                            return residual, residual_err, contributors, flags
+                            return residual, residual_err+enhanced_error, contributors, flags
 
            #open the corresponding h5 file
             try:
@@ -3810,7 +3834,7 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
                         h5.close()
                     except:
                         pass
-                    return residual, residual_err, contributors, G.EFR_FLAG_NOT_UNIQUE
+                    return residual, residual_err+enhanced_error, contributors, G.EFR_FLAG_NOT_UNIQUE
 
                 #print(f"size rows: {sys.getsizeof(h5_rows)}")
                 # else == 0 and we fall down to the next block
@@ -3847,7 +3871,7 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
                 msg = f"Warning! Unable to find appropriate background residual."
                 print(msg)
                 log.warning(msg)
-                return residual, residual_err,contributors, G.EFR_FLAG_NO_RESIDUAL
+                return residual, residual_err+enhanced_error,contributors, G.EFR_FLAG_NO_RESIDUAL
 
             # if we made it here, there should be exactly one row in rows
             if ffsky and not add_rescor:
@@ -3893,7 +3917,7 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
             except:
                 pass
 
-            return residual, residual_err,contributors, flags
+            return residual, residual_err+enhanced_error,contributors, flags
 
         except Exception as e:
             log.warning("Exception in get_empty_fiber_residual_h5.", exc_info=True)
@@ -3902,10 +3926,10 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
             flags |= G.EFR_FLAG_FUNCTION_EXCEPTION
 
         if replace_nan is not None:
-            return np.nan_to_num(residual, nan=replace_nan), np.nan_to_num(residual_err,nan=replace_nan), \
+            return np.nan_to_num(residual, nan=replace_nan), np.nan_to_num(residual_err,nan=replace_nan)+enhanced_error, \
                     contributors, flags
         else:
-            return residual, residual_err, contributors, flags
+            return residual, residual_err+enhanced_error, contributors, flags
 #end get_empty_fiber_residual_h5()
 
 
