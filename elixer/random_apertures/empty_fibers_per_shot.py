@@ -1168,7 +1168,7 @@ super_tab['avg5'] = np.nanmedian(rd['f5'],axis=1) #5090-5500
 #                               may need different threshold
 if flux_col == "calfib":
     norm_min = -0.05
-    norm_max = 0.05
+    norm_max = 0.05   #about g ~ 25
     #first bin, at exteme blue is different
     sel =       np.array(super_tab['avg1'] > norm_min) & np.array(super_tab['avg1'] < 0.25) #3500-3860
     sel = sel & np.array(super_tab['avg2'] > norm_min) & np.array(super_tab['avg2'] < norm_max) #3860-4270
@@ -1178,7 +1178,7 @@ if flux_col == "calfib":
 
 elif flux_col == "calfib_ffsky":
     norm_min = -0.05
-    norm_max = 0.05
+    norm_max = 0.05 #about g ~ 25
     #first bin, at exteme blue is different
     sel =       np.array(super_tab['avg1'] > norm_min) & np.array(super_tab['avg1'] < 0.25) #3500-3860
     sel = sel & np.array(super_tab['avg2'] > norm_min) & np.array(super_tab['avg2'] < norm_max) #3860-4270
@@ -1187,9 +1187,9 @@ elif flux_col == "calfib_ffsky":
     sel = sel & np.array(super_tab['avg5'] > norm_min) & np.array(super_tab['avg5'] < norm_max) #5090-5500
 elif flux_col == "calfib_ffsky_rescor":
     norm_min = -0.05
-    norm_max = 0.05
-    #first bin, at exteme blue is different
-    sel =       np.array(super_tab['avg1'] > norm_min) & np.array(super_tab['avg1'] < 0.25) #3500-3860
+    norm_max = 0.05 #about g ~ 25
+    #unlike the other two, the exteme blue for rescor is about the same ... very flat comparitively
+    sel =       np.array(super_tab['avg1'] > norm_min) & np.array(super_tab['avg1'] < norm_max) #3500-3860
     sel = sel & np.array(super_tab['avg2'] > norm_min) & np.array(super_tab['avg2'] < norm_max) #3860-4270
     sel = sel & np.array(super_tab['avg3'] > norm_min) & np.array(super_tab['avg3'] < norm_max) #4270-4860
     sel = sel & np.array(super_tab['avg4'] > norm_min) & np.array(super_tab['avg4'] < norm_max) #4860-5090
