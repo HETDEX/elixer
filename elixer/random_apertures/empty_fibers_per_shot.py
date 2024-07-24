@@ -1141,7 +1141,20 @@ if rescor:
 # next, cut all fibers with obvious continuum or deeply negative problems
 ############################################################################
 print(f"{shotid} removing continuum fibers ....  {datetime.datetime.now()}")
-rd = split_spectra_into_bins(super_tab['calfib'],super_tab['calfibe'],sort=False,trim=None)
+
+if losky:
+    flux_col = 'calfib'
+elif ffsky:
+    flux_col = 'calfib_ffsky'
+elif rescor:
+    flux_col = "calfib_ffsky_rescor"
+else: #safety
+    print(f"Problem. Unknown sky model for continuum cut.")
+    exit(-1)
+
+print(f"Using {flux_col} for continuum cut")
+
+rd = split_spectra_into_bins(super_tab[flux_col],super_tab['calfibe'],sort=False,trim=None)
 
 super_tab['avg1'] = np.nanmedian(rd['f1'],axis=1) #3500-3860
 super_tab['avg2'] = np.nanmedian(rd['f2'],axis=1) #3860-4270
@@ -1149,16 +1162,42 @@ super_tab['avg3'] = np.nanmedian(rd['f3'],axis=1) #4270-4860
 super_tab['avg4'] = np.nanmedian(rd['f4'],axis=1) #4860-5090
 super_tab['avg5'] = np.nanmedian(rd['f5'],axis=1) #5090-5500
 
+#2024-07-24 ... all these are CURRENTLY the same, but may want to tune to each type
+# needs investigation ... for example, rescor tends to slighly oversubtract, so the thresholds may not be appropriate
+#                     .... and ffsky shape is different than llsky, esp i nthe blue so that first block (3500-3860)
+#                               may need different threshold
+if flux_col == "calfib":
+    norm_min = -0.05
+    norm_max = 0.05
+    #first bin, at exteme blue is different
+    sel =       np.array(super_tab['avg1'] > norm_min) & np.array(super_tab['avg1'] < 0.25) #3500-3860
+    sel = sel & np.array(super_tab['avg2'] > norm_min) & np.array(super_tab['avg2'] < norm_max) #3860-4270
+    sel = sel & np.array(super_tab['avg3'] > norm_min) & np.array(super_tab['avg3'] < norm_max) #4270-4860
+    sel = sel & np.array(super_tab['avg4'] > norm_min) & np.array(super_tab['avg4'] < norm_max) #4860-5090
+    sel = sel & np.array(super_tab['avg5'] > norm_min) & np.array(super_tab['avg5'] < norm_max) #5090-5500
 
-norm_min = -0.05
-norm_max = 0.05
-#first bin, at exteme blue is different
-sel =       np.array(super_tab['avg1'] > norm_min) & np.array(super_tab['avg1'] < 0.25) #3500-3860
+elif flux_col == "calfib_ffsky":
+    norm_min = -0.05
+    norm_max = 0.05
+    #first bin, at exteme blue is different
+    sel =       np.array(super_tab['avg1'] > norm_min) & np.array(super_tab['avg1'] < 0.25) #3500-3860
+    sel = sel & np.array(super_tab['avg2'] > norm_min) & np.array(super_tab['avg2'] < norm_max) #3860-4270
+    sel = sel & np.array(super_tab['avg3'] > norm_min) & np.array(super_tab['avg3'] < norm_max) #4270-4860
+    sel = sel & np.array(super_tab['avg4'] > norm_min) & np.array(super_tab['avg4'] < norm_max) #4860-5090
+    sel = sel & np.array(super_tab['avg5'] > norm_min) & np.array(super_tab['avg5'] < norm_max) #5090-5500
+elif flux_col == "calfib_ffsky_rescor":
+    norm_min = -0.05
+    norm_max = 0.05
+    #first bin, at exteme blue is different
+    sel =       np.array(super_tab['avg1'] > norm_min) & np.array(super_tab['avg1'] < 0.25) #3500-3860
+    sel = sel & np.array(super_tab['avg2'] > norm_min) & np.array(super_tab['avg2'] < norm_max) #3860-4270
+    sel = sel & np.array(super_tab['avg3'] > norm_min) & np.array(super_tab['avg3'] < norm_max) #4270-4860
+    sel = sel & np.array(super_tab['avg4'] > norm_min) & np.array(super_tab['avg4'] < norm_max) #4860-5090
+    sel = sel & np.array(super_tab['avg5'] > norm_min) & np.array(super_tab['avg5'] < norm_max) #5090-5500
+else: #safety
+    print(f"Problem. Unknown column ({col}) for continuum cut.")
+    exit(-1)
 
-sel = sel & np.array(super_tab['avg2'] > norm_min) & np.array(super_tab['avg2'] < norm_max) #3860-4270
-sel = sel & np.array(super_tab['avg3'] > norm_min) & np.array(super_tab['avg3'] < norm_max) #4270-4860
-sel = sel & np.array(super_tab['avg4'] > norm_min) & np.array(super_tab['avg4'] < norm_max) #4860-5090
-sel = sel & np.array(super_tab['avg5'] > norm_min) & np.array(super_tab['avg5'] < norm_max) #5090-5500
 print(f"{shotid} removed {len(super_tab) - np.count_nonzero(sel)} continuum fibers ....")
 super_tab = super_tab[sel] #base for both local and ffsky
 
