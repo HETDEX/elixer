@@ -1176,18 +1176,18 @@ if flux_col == "calfib":
     sel = sel & np.array(super_tab['avg4'] > norm_min) & np.array(super_tab['avg4'] < norm_max) #4860-5090
     sel = sel & np.array(super_tab['avg5'] > norm_min) & np.array(super_tab['avg5'] < norm_max) #5090-5500
 
-elif flux_col == "calfib_ffsky":
-    norm_min = -0.05
-    norm_max = 0.05 #about g ~ 25
+elif flux_col == "calfib_ffsky": #runs about 0.6 mag brigher than same for local sky
+    norm_min = -0.10
+    norm_max = 0.10 #about g ~ 24.4
     #first bin, at exteme blue is different
     sel =       np.array(super_tab['avg1'] > norm_min) & np.array(super_tab['avg1'] < 0.25) #3500-3860
     sel = sel & np.array(super_tab['avg2'] > norm_min) & np.array(super_tab['avg2'] < norm_max) #3860-4270
     sel = sel & np.array(super_tab['avg3'] > norm_min) & np.array(super_tab['avg3'] < norm_max) #4270-4860
     sel = sel & np.array(super_tab['avg4'] > norm_min) & np.array(super_tab['avg4'] < norm_max) #4860-5090
     sel = sel & np.array(super_tab['avg5'] > norm_min) & np.array(super_tab['avg5'] < norm_max) #5090-5500
-elif flux_col == "calfib_ffsky_rescor":
-    norm_min = -0.05
-    norm_max = 0.05 #about g ~ 25
+elif flux_col == "calfib_ffsky_rescor": #runs about 1 mag fainter than same for local sky
+    norm_min = -0.024
+    norm_max = 0.024 #about g ~ 26
     #unlike the other two, the exteme blue for rescor is about the same ... very flat comparitively
     sel =       np.array(super_tab['avg1'] > norm_min) & np.array(super_tab['avg1'] < norm_max) #3500-3860
     sel = sel & np.array(super_tab['avg2'] > norm_min) & np.array(super_tab['avg2'] < norm_max) #3860-4270

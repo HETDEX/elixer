@@ -13,7 +13,7 @@ if SAVE_AS_H5:
     import tables
 
 
-args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
+#args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so need to cast here
 #"random_apertures_"
 #"fiber_summary_"
 #"coord_apertures_"
