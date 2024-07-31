@@ -1168,7 +1168,7 @@ super_tab['avg5'] = np.nanmedian(rd['f5'],axis=1) #5090-5500
 #                               may need different threshold
 if flux_col == "calfib":
     norm_min = -0.05
-    norm_max = 0.05   #about g ~ 25
+    norm_max =  0.05   #about g ~ 25
     #first bin, at exteme blue is different
     sel =       np.array(super_tab['avg1'] > norm_min) & np.array(super_tab['avg1'] < 0.25) #3500-3860
     sel = sel & np.array(super_tab['avg2'] > norm_min) & np.array(super_tab['avg2'] < norm_max) #3860-4270
@@ -1177,8 +1177,8 @@ if flux_col == "calfib":
     sel = sel & np.array(super_tab['avg5'] > norm_min) & np.array(super_tab['avg5'] < norm_max) #5090-5500
 
 elif flux_col == "calfib_ffsky": #runs about 0.6 mag brigher than same for local sky
-    norm_min = -0.10
-    norm_max = 0.10 #about g ~ 24.4
+    norm_min = -0.02 #similar difference: 0.08 - 0.05 = 0.03; so -0.05 + 0.03 = -0.02
+    norm_max =  0.08 #about g ~ 24.4
     #first bin, at exteme blue is different
     sel =       np.array(super_tab['avg1'] > norm_min) & np.array(super_tab['avg1'] < 0.25) #3500-3860
     sel = sel & np.array(super_tab['avg2'] > norm_min) & np.array(super_tab['avg2'] < norm_max) #3860-4270
@@ -1186,8 +1186,9 @@ elif flux_col == "calfib_ffsky": #runs about 0.6 mag brigher than same for local
     sel = sel & np.array(super_tab['avg4'] > norm_min) & np.array(super_tab['avg4'] < norm_max) #4860-5090
     sel = sel & np.array(super_tab['avg5'] > norm_min) & np.array(super_tab['avg5'] < norm_max) #5090-5500
 elif flux_col == "calfib_ffsky_rescor": #runs about 1 mag fainter than same for local sky
-    norm_min = -0.024
-    norm_max = 0.024 #about g ~ 26
+    norm_min = -0.05 #tend to oversubtract, so can go more negative and be okay; but is VERY flat, near zero
+                     #but maybe -0.08 is more correct?
+    norm_max =  0.02 #about g ~ 26
     #unlike the other two, the exteme blue for rescor is about the same ... very flat comparitively
     sel =       np.array(super_tab['avg1'] > norm_min) & np.array(super_tab['avg1'] < norm_max) #3500-3860
     sel = sel & np.array(super_tab['avg2'] > norm_min) & np.array(super_tab['avg2'] < norm_max) #3860-4270
