@@ -1,5 +1,11 @@
 changes to elixer by version
 
+1.22.0a16 [2024-08-06]
+* corrections for ffsky and rescor empty fiber fiber selections
+* add in average error and "best" or default error for get_empty_fiber_residual_h5() for the local and ffsky options
+  + still needs rescor option
+
+
 1.22.0a15 [2024-07-23]
 * fix (some?) issues with numpy and astropy tables no longer supporting single element array as scalar
   + note: there are probably more to be found

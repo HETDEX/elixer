@@ -3748,12 +3748,21 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
                     #                                                 3.0% is overall best, swaps with 2.8 to 3.2 at about 25g
                     #rtype_lo = "t028"
                     #rtype_hi = "t032"
+                    #mean (over wavelengths) of average error = 0.0003816568128305999
                     enhanced_error = 0.00038 #this is an average of the "average" difference for t028 - t03, t03 - t032
                                              #mean vs median about the same; this is between 3500AA dn 5500AA
                 elif rescor is False:
                     #this is normal ffsky
-                    log.error("Nominal best not yet defined for ffsky")
-                    return residual, residual_err, contributors, G.EFR_FLAG_INVALID_PARAMETERS
+                    rtype = "t022"
+                    #the two that flank the HSC-gmag stacking set ... 2.0% results in a stack that is slightly too faint
+                    #                                                 2.4% results in a stack that is slightly too bright
+                    #                                                 2.2% is overall best, 2.4 becomes best about 25.2g
+                    #rtype_lo = "t02"
+                    #rtype_hi = "t024"
+                    #notice the enhanced error is almost the same as the local sky one
+                    #mean (over wavelengths) of average error = 0.00038957015674489533
+                    enhanced_error = 0.00039 #this is an average of the "average" difference for t02 - t022, t024 - t022
+                                             #mean vs median about the same; this is between 3500AA dn 5500AA
                 else:
                     #this is rescor
                     log.error("Nominal best not yet defined for ffsky+rescor")

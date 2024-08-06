@@ -1,0 +1,37 @@
+#!/usr/bin/python
+
+import numpy as np
+import os.path as op
+#import glob
+#from tqdm import tqdm
+import sys
+
+#get the run file to use as reference
+cl_args = list(map(str.lower,sys.argv))
+
+sky = cl_args[1].split("_")[-1].split(".")[0]
+if sky == "ll":
+  skycmd = "--local" 
+elif sky == "ff":
+  skycmd = "--ffsky"
+elif sky == "ffrc":
+  skycmd = "--rescor"
+else:
+  print(f"bad sky: {sky}")
+  exit(-1)
+
+#python3 ./empty_fibers_per_shot.py  --ffsky --shot 20190409021
+#python3 ./empty_fibers_per_shot.py  --ffsky --shot 20190409022
+
+#assumes the above format
+shots_in = np.loadtxt(cl_args[1],usecols=[4],dtype=int)
+
+#empty_fibers_20200521020_ff.fits
+#files_out = sorted(glob.glob(f"empty_fibers_*_{sky}.fits"))
+for shot in shots_in:
+  if op.exists(f"empty_fibers_{shot}_{sky}.fits"):
+    continue
+  else:
+    print(f"python3 ./empty_fibers_per_shot.py {skycmd} --shot {shot}")
+
+

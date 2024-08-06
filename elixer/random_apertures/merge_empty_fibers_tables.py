@@ -1,5 +1,7 @@
 # combine (stack) the tables
 import glob
+import os
+
 from astropy.table import Table,vstack
 import sys
 
@@ -108,6 +110,10 @@ if False: #older way ... works, but less efficient
             T.write(table_outname+"_all.fits",format='fits',overwrite=True)
 
 else: #newer way, stack in a single call?
+
+    #this is sloppy and dumb
+    #should factor out and make a common function with table as input
+
     if True:  # LL table
         table_outname = "empty_fibers_ll_"  # prefix
         files = glob.glob("empty_fibers_*ll.fits")
@@ -124,9 +130,17 @@ else: #newer way, stack in a single call?
                         print(f"Converting masked column: {c}")
                         T[c] = np.array(T[c])
 
-                hdf5.write_table_hdf5(T, table_outname + "_all.h5", path="Table", overwrite=False)
+                ext = "_all.h5"
 
-                h5 = tables.open_file(table_outname + "_all.h5", mode='r+')
+                try:
+                    hdf5.write_table_hdf5(T, table_outname + ext, path="Table", overwrite=False)
+                except:  # usually this is just an overwrite issue
+                    if os.path.exists(table_outname + ext):
+                        ext = "_all.h5.new"
+                        print(f"File already exists, now trying to (over)write instead as {table_outname + ext}")
+                        hdf5.write_table_hdf5(T, table_outname + "_all.h5.new", path="Table", overwrite=True)
+
+                h5 = tables.open_file(table_outname + ext, mode='r+')
 
                 try:
                     h5.root.Table.cols.shotid.create_csindex()
@@ -152,9 +166,17 @@ else: #newer way, stack in a single call?
                         print(f"Converting masked column: {c}")
                         T[c] = np.array(T[c])
 
-                hdf5.write_table_hdf5(T, table_outname + "_all.h5", path="Table", overwrite=False)
+                ext = "_all.h5"
 
-                h5 = tables.open_file(table_outname + "_all.h5", mode='r+')
+                try:
+                    hdf5.write_table_hdf5(T, table_outname + ext, path="Table", overwrite=False)
+                except:  # usually this is just an overwrite issue
+                    if os.path.exists(table_outname + ext):
+                        ext = "_all.h5.new"
+                        print(f"File already exists, now trying to (over)write instead as {table_outname + ext}")
+                        hdf5.write_table_hdf5(T, table_outname + "_all.h5.new", path="Table", overwrite=True)
+
+                h5 = tables.open_file(table_outname + ext, mode='r+')
 
                 try:
                     h5.root.Table.cols.shotid.create_csindex()
@@ -180,9 +202,17 @@ else: #newer way, stack in a single call?
                         print(f"Converting masked column: {c}")
                         T[c] = np.array(T[c])
 
-                hdf5.write_table_hdf5(T, table_outname + "_all.h5", path="Table", overwrite=False)
+                ext = "_all.h5"
 
-                h5 = tables.open_file(table_outname + "_all.h5", mode='r+')
+                try:
+                    hdf5.write_table_hdf5(T, table_outname + ext , path="Table", overwrite=False)
+                except: #usually this is just an overwrite issue
+                    if os.path.exists(table_outname+ext):
+                        ext = "_all.h5.new"
+                        print(f"File already exists, now trying to (over)write instead as {table_outname + ext}")
+                        hdf5.write_table_hdf5(T, table_outname + "_all.h5.new", path="Table", overwrite=True)
+
+                h5 = tables.open_file(table_outname + ext, mode='r+')
 
                 try:
                     h5.root.Table.cols.shotid.create_csindex()
