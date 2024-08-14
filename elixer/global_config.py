@@ -25,7 +25,7 @@ if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
 #version
-__version__ = '1.22.0a16'
+__version__ = '1.22.0a17'
 
 
 #initial working dir
@@ -910,7 +910,10 @@ BROAD_FWHM_AA = BROAD_FWHM_KMS / 3e5 * 4500. #18AA at 1200 km/s @ 4500AA
 
 REALLY_BROAD_FWHM_KMS = 1400.0 #threshold for considering definitely broad (usually as a safety for decsion making)
 REALLY_BROAD_FWHM_AA = REALLY_BROAD_FWHM_KMS / 3e5 * 4500. #21AA at 1200 km/s @ 4500AA
+FWHM_TYPE1_AGN_VELOCITY_THRESHOLD = 1500.0 #km/s #FWHM velocity in emission line above this value might be a type 1 AGN
+                                           #more specificlly AGN here vs just broad or really broad, so a higher threshold
 
+ALLOW_UNKNOWN_CLASSIFICATION = True
 LyA_rest = 1215.67 #vacuum 1216. #A 1215.668 and 1215.674
 OII_rest = 3727.8 #3726.032 + 3728.815  or  3727.319 + 3729.221 (27 + 14 weights?) = 3727.96846
 
@@ -1285,8 +1288,6 @@ SEP_KRON_MUX = 2.5 #source extractor recommend 2.0 or 2.5 (where 2.5 has a 94%+ 
 SEP_DET_THRESH = 1.5 #that is 1.5x background RMS for detection threshold
 SEP_CORRECT_LOST_LIGHT = True #apply the estimated lost light correction
 SHOT_SEEING = None #temporay usage for HSC-g comparison
-
-FWHM_TYPE1_AGN_VELOCITY_THRESHOLD = 1500.0 #km/s #FWHM velocity in emission line above this value might be a type 1 AGN
 
 CALIBRATION_PLYA_VOTE_THRESH = 0.5 #this is the basline to which votes are calibrated, DO NOT CHANGE IT
                                 #if you want more or less strict, use the PLYA_VOTE_THRESH* below -or- use the

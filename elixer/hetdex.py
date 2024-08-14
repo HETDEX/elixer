@@ -2079,6 +2079,22 @@ class DetObj:
                 multiline_top_reduced_min_score_mult = 1.0
 
 
+            try:
+                broad = self.fwhm_kms > G.BROAD_FWHM_KMS #+ self.fwhm_kms_unc > G.BROAD_FWHM_KMS
+            except:
+                try:
+                    broad = self.fwhm / self.w * 3e5 > G.BROAD_FWHM_KMS
+                except:
+                    broad = self.fhwm > G.BROAD_FWHM_AA
+
+            try:
+                really_broad = self.fwhm_kms > G.REALLY_BROAD_FWHM_KMS
+            except:
+                try:
+                    really_broad = self.fwhm / self.w * 3e5 > G.REALLY_BROAD_FWHM_KMS
+                except:
+                    really_broad = self.fhwm > G.REALLY_BROAD_FWHM_AA
+
             #the problem is that the spec_obj solution might be weak or even if not, out voted
             #by the P(LyA) classifictionm but just using that with P(LyA) as the confidence
             #then could be incongruous (in that they don't belong together)
@@ -2359,21 +2375,22 @@ class DetObj:
             elif scaled_plae_classification < plya_fixed_lo: #plya_vote_lo: #not LyA ... could still be high-z
 
                 #usually OII execpt if REALLY broad, then more likely MgII or CIV. but have to mark as OII, just lower the Q(z)
-                try:
-                    broad = self.fwhm_kms > G.BROAD_FWHM_KMS #+ self.fwhm_kms_unc > G.BROAD_FWHM_KMS
-                except:
-                    try:
-                        broad = self.fwhm / self.w * 3e5 > G.BROAD_FWHM_KMS
-                    except:
-                        broad = self.fhwm > G.BROAD_FWHM_AA
-
-                try:
-                    really_broad = self.fwhm_kms > G.REALLY_BROAD_FWHM_KMS
-                except:
-                    try:
-                        really_broad = self.fwhm / self.w * 3e5 > G.REALLY_BROAD_FWHM_KMS
-                    except:
-                        really_broad = self.fhwm > G.REALLY_BROAD_FWHM_AA
+                #this is now computed earlier
+                # try:
+                #     broad = self.fwhm_kms > G.BROAD_FWHM_KMS #+ self.fwhm_kms_unc > G.BROAD_FWHM_KMS
+                # except:
+                #     try:
+                #         broad = self.fwhm / self.w * 3e5 > G.BROAD_FWHM_KMS
+                #     except:
+                #         broad = self.fhwm > G.BROAD_FWHM_AA
+                #
+                # try:
+                #     really_broad = self.fwhm_kms > G.REALLY_BROAD_FWHM_KMS
+                # except:
+                #     try:
+                #         really_broad = self.fwhm / self.w * 3e5 > G.REALLY_BROAD_FWHM_KMS
+                #     except:
+                #         really_broad = self.fhwm > G.REALLY_BROAD_FWHM_AA
 
                 use_multi = False
                 try:
@@ -2904,6 +2921,36 @@ class DetObj:
             except:
                 pass
 
+
+            #last check ... allow non-identification if for OII (because it can't be anything else)
+            #basically if pz is very low (< 0.05) and the line is broad, it just can't be OII, but we don't know what
+            #it is. Could even be a broad return to continuum between two absorption lines.
+            #Note: this is as opposed to the normal case where a not-LyA line is assumed to be OII if nothing else matches
+            #      here, this is also TRUE but there is a reason to discount OII (other than wavelength)
+            try:
+                if G.ALLOW_UNKNOWN_CLASSIFICATION and np.isclose(z, self.w / G.OII_rest - 1., atol=0.0001):
+                    set_unknown = False
+
+                    if self.eqw_obs < 0 or self.estflux < 0: #a little redundant with an earlier check
+                        set_unknown = True
+                    elif (possible_agn and p < 0.1) or (really_broad and p <= 0.05) or (broad and p <= 0.02):
+                        set_unknown = True
+                    elif self.w < G.OII_rest - 4.0: #really is already checked, but just incase there is some weird handling
+                        set_unknown = True
+
+                    #maybe an extra for CONTINUUM_RULES?
+                    #? any magnitude checks? should not need any (already done)
+                    #? size checks already done
+
+
+                    if set_unknown:
+                        p = -1
+                        z = -1
+                        self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
+                        log.info(f"No good z match. Current as OII, but cannot be OII so set to unknown.")
+            except:
+                pass
+
             if self.cluster_parent != 0:
                 if z == self.cluster_z and self.cluster_qz > 0:
                     log.info(f"Clustering. Setting Q(z) to cluster parent Q(z): {self.cluster_qz:0.2f}. Overrides other conditions. ")
@@ -2921,7 +2968,7 @@ class DetObj:
             self.best_p_of_z = p
 
             #correction for air vs vac and orbital velocitym etc
-            if apply_vacuum_correction:
+            if z > -1 and apply_vacuum_correction:
                 z = SU.z_correction(z,self.w,shotid=self.survey_shotid)
                 log.info(
                     f"{self.entry_id} Applied redshift corection. Old z = {self.best_z_uncorrected}. New z = {self.best_z}.")

@@ -1,5 +1,10 @@
 changes to elixer by version
 
+
+1.22.0a17 [2024-08-14]
+* add config option, ALLOW_UNKNOWN_CLASSIFICATION (default TRUE), that will allow ELiXer to set the z = -1 and pz = -1
+  (aka z and Q(z)) if there are no good solutions but OII really is not an option
+
 1.22.0a16 [2024-08-06]
 * corrections for ffsky and rescor empty fiber fiber selections
 * add in average error and "best" or default error for get_empty_fiber_residual_h5() for the local and ffsky options
