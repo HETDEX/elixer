@@ -663,8 +663,8 @@ def sum_zPDF(target_z,pdf,zarray,delta_z=0.25):
     :return: the summed P(z)
     """
     try:
-        left,_,_ = getnearpos(np.array(zarray).astype(float),max(0,target_z-delta_z))
-        right,_,_ = getnearpos(np.array(zarray).astype(float),target_z+delta_z)
+        _,left,_ = getnearpos(np.array(zarray).astype(float),max(0,target_z-delta_z))
+        _,_,right = getnearpos(np.array(zarray).astype(float),target_z+delta_z)
         p_z = np.sum(pdf[left:right+1]) / np.sum(pdf)
     except:
         p_z = 0

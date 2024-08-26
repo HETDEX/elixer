@@ -26,6 +26,7 @@ UNSET_FLOAT = -999.999
 UNSET_INT = -99999
 UNSET_STR = ""
 UNSET_NAN = np.nan
+TEST_LINE_FIT = True #set to TRUE to temporarily test the line fitting in ELiXer vs original pipeline
 
 log = G.Global_Logger('hdf5_logger')
 log.setlevel(G.LOG_LEVEL)
@@ -199,6 +200,29 @@ class Detections(tables.IsDescription):
     color_ug = tables.Float32Col(shape=(3,),dflt=[np.nan,np.nan,np.nan] ) #as color, blue max, red_max
     color_ur = tables.Float32Col(shape=(3,),dflt=[np.nan,np.nan,np.nan] ) #as color, blue max, red_max
     color_gr = tables.Float32Col(shape=(3,),dflt=[np.nan,np.nan,np.nan] ) #as color, blue max, red_max
+
+
+    #temporary testing
+    if TEST_LINE_FIT:
+        flux_line_mcmc = tables.Float32Col(dflt=UNSET_FLOAT)  # actual flux not flux density
+        flux_line_err_mcmc = tables.Float32Col(dflt=UNSET_FLOAT)
+        flux_line_fit = tables.Float32Col(dflt=UNSET_FLOAT)  # actual flux not flux density
+        flux_line_err_fit = tables.Float32Col(dflt=UNSET_FLOAT)
+
+        continuum_line_mcmc = tables.Float32Col(dflt=UNSET_FLOAT) #continuum (y-offset) from Gaussian fit to the line
+        continuum_line_err_mcmc = tables.Float32Col(dflt=UNSET_FLOAT)
+        continuum_line_fit = tables.Float32Col(dflt=UNSET_FLOAT)  # continuum (y-offset) from Gaussian fit to the line
+        continuum_line_err_fit = tables.Float32Col(dflt=UNSET_FLOAT)
+
+        fwhm_line_aa_mcmc = tables.Float32Col(dflt=UNSET_FLOAT)
+        fwhm_line_aa_err_mcmc = tables.Float32Col(dflt=UNSET_FLOAT)
+        fwhm_line_aa_fit = tables.Float32Col(dflt=UNSET_FLOAT)
+        fwhm_line_aa_err_fit= tables.Float32Col(dflt=UNSET_FLOAT)
+
+        wavelength_obs_mcmc = tables.Float32Col(dflt=UNSET_FLOAT)
+        wavelength_obs_err_mcmc = tables.Float32Col(dflt=UNSET_FLOAT)
+        wavelength_obs_fit = tables.Float32Col(dflt=UNSET_FLOAT)
+        wavelength_obs_err_fit = tables.Float32Col(dflt=UNSET_FLOAT)
 
 class SpectraLines(tables.IsDescription):
     detectid = tables.Int64Col(pos=0)  # unique HETDEX detection ID 1e9+
@@ -1220,6 +1244,50 @@ def append_entry(fileh,det,overwrite=False):
                 row['color_gr'] = det.color_gr[:]
         except:
             row['color_gr'] = [np.nan,np.nan,np.nan]
+
+
+
+
+        if TEST_LINE_FIT:
+            if (det.spec_obj is not None) and (det.spec_obj.central_eli is not None):
+                row['flux_line_mcmc'] = det.spec_obj.central_eli.mcmc_line_flux
+                row['flux_line_err_mcmc'] = 0.5 * (det.spec_obj.central_eli.mcmc_line_flux_tuple[1] + det.spec_obj.central_eli.mcmc_line_flux_tuple[2])
+                row['flux_line_fit'] = det.spec_obj.central_eli.fit_line_flux
+                row['flux_line_err_fit'] = det.spec_obj.central_eli.fit_line_flux_err
+                row['continuum_line_mcmc'] = det.spec_obj.central_eli.mcmc_continuum
+                row['continuum_line_err_mcmc'] =  0.5 * (det.spec_obj.central_eli.mcmc_continuum_tuple[1] + det.spec_obj.central_eli.mcmc_continuum_tuple[2])
+                row['continuum_line_fit'] = det.spec_obj.central_eli.fit_continuum
+                row['continuum_line_err_fit'] = det.spec_obj.central_eli.fit_continuum_err
+
+                row['fwhm_line_aa_mcmc'] = det.spec_obj.central_eli.mcmc_sigma[0] * 2.355
+                row['fwhm_line_aa_err_mcmc'] = 0.5*(det.spec_obj.central_eli.mcmc_sigma[1]+det.spec_obj.central_eli.mcmc_sigma[2]) * 2.355
+
+                row['fwhm_line_aa_fit'] = det.spec_obj.central_eli.fit_sigma * 2.355
+                row['fwhm_line_aa_err_fit'] = det.spec_obj.central_eli.fit_sigma_err * 2.355
+
+                row['wavelength_obs_mcmc'] = det.spec_obj.central_eli.mcmc_x0[0]
+                row['wavelength_obs_err_mcmc'] = 0.5*(det.spec_obj.central_eli.mcmc_x0[1]+det.spec_obj.central_eli.mcmc_x0[2])
+                row['wavelength_obs_fit'] = det.spec_obj.central_eli.fit_x0
+                row['wavelength_obs_err_fit'] = det.spec_obj.central_eli.fit_x0_err
+
+            else:
+                row['flux_line_mcmc'] = -999.0
+                row['flux_line_err_mcmc'] = -999.0
+                row['flux_line_fit'] = -999.0
+                row['flux_line_err_fit'] = -999.0
+                row['continuum_line_mcmc'] = -999.0
+                row['continuum_line_err_mcmc'] = -999.0
+                row['continuum_line_fit'] = -999.0
+                row['continuum_line_err_fit'] = -999.0
+
+                row['fwhm_line_aa_mcmc'] = -999.0
+                row['fwhm_line_aa_err_mcmc'] = -999.0
+                row['fwhm_line_aa_fit'] = -999.0
+                row['fwhm_line_aa_err_fit'] = -999.0
+                row['wavelength_obs_mcmc'] = -999.0
+                row['wavelength_obs_err_mcmc'] = -999.0
+                row['wavelength_obs_fit'] = -999.0
+                row['wavelength_obs_err_fit'] = -999.0
 
         row.append()
         dtb.flush()

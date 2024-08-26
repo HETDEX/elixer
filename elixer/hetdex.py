@@ -2931,7 +2931,8 @@ class DetObj:
                 if G.ALLOW_UNKNOWN_CLASSIFICATION and np.isclose(z, self.w / G.OII_rest - 1., atol=0.0001):
                     set_unknown = False
 
-                    if self.eqw_obs < 0 or self.estflux < 0: #a little redundant with an earlier check
+                    if self.estflux < 0 or (self.spec_obj is not None and self.spec_obj.central_eli is not None and
+                            self.spec_obj.central_eli.absorber): #a little redundant with an earlier check
                         set_unknown = True
                     elif (possible_agn and p < 0.1) or (really_broad and p <= 0.05) or (broad and p <= 0.02):
                         set_unknown = True
@@ -3124,26 +3125,55 @@ class DetObj:
                     #OII
                     try:
                         if self.w > (G.OII_rest - 2.0):
-                            test_z = self.w / G.OII_rest - 1.0
-                            zPDF_OII_area = SU.sum_zPDF(test_z, b.phot_z_pdf_pz, b.phot_z_pdf_z, 0.1 * test_z)
+                            z_oii = self.w / G.OII_rest - 1.0
+                            zPDF_OII_area = SU.sum_zPDF(z_oii, b.phot_z_pdf_pz, b.phot_z_pdf_z, delta_z=0.1)# * z_oii)
                         else:
                             zPDF_OII_area = -1.
+                            z_oii = -1.
                     except:
                         zPDF_OII_area = -1.
                         log.debug("Exception computing zPDF_OII_area",exc_info=True)
 
                     #LyA
                     try:
-                        test_z = self.w / G.LyA_rest - 1.0
-                        zPDF_LyA_area = SU.sum_zPDF(test_z, b.phot_z_pdf_pz, b.phot_z_pdf_z, 0.1 * test_z)
+                        z_lya = self.w / G.LyA_rest - 1.0
+                        zPDF_LyA_area = SU.sum_zPDF(z_lya, b.phot_z_pdf_pz, b.phot_z_pdf_z, delta_z=0.1)# * z_lya)
                     except:
                         zPDF_LyA_area = -1.
                         log.debug("Exception computing zPDF_LyA_area",exc_info=True)
 
+                    #whatever the reported z is ... (could also be a duplicate of LyA or OII)
+                    try:
+                        zPDF_area = SU.sum_zPDF(b.phot_z, b.phot_z_pdf_pz, b.phot_z_pdf_z, delta_z=0.1)# * b.phot_z)  # sum +/- 10 %
+                    except:
+                        zPDF_area = -1
+
                     list_z.append({'z':b.phot_z,'z_err':min(0.25, b.phot_z * 0.2),'boost':G.ALL_CATATLOG_PHOT_Z_BOOST,'name':b.catalog_name,
-                                   'mag':b.bid_mag,'filter':b.bid_filter,'distance':b.distance,'type':"p",'zPDF_area':-1,
-                                   'zPDF_OII_area':zPDF_OII_area, 'zPDF_LyA_area':zPDF_LyA_area,
+                                   'mag':b.bid_mag,'filter':b.bid_filter,'distance':b.distance,'type':"p",'zPDF_area':zPDF_area,
+                                   'z_oii':z_oii, 'zPDF_OII_area':zPDF_OII_area,
+                                   'z_lya':z_lya, 'zPDF_LyA_area':zPDF_LyA_area,
                                    'zPDF_z':b.phot_z_pdf_z, 'zPDF_pz':b.phot_z_pdf_pz})
+
+                    #*might* append a additional peaks if phot_z is not OII or LyA but those are significant peaks
+                    if not np.isclose(b.phot_z,z_oii,atol=0.1) and zPDF_area > 0 and zPDF_OII_area / zPDF_area >= 0.5:
+                        list_z.append(
+                            {'z': z_oii, 'z_err': 0.25, 'boost': G.ALL_CATATLOG_PHOT_Z_BOOST,
+                             'name': b.catalog_name,
+                             'mag': b.bid_mag, 'filter': b.bid_filter, 'distance': b.distance, 'type': "p",
+                             'zPDF_area': zPDF_OII_area,
+                             'z_oii': z_oii, 'zPDF_OII_area': zPDF_OII_area,
+                             'z_lya': z_lya, 'zPDF_LyA_area': zPDF_LyA_area,
+                             'zPDF_z': b.phot_z_pdf_z, 'zPDF_pz': b.phot_z_pdf_pz})
+
+                    if not np.isclose(b.phot_z,z_lya,atol=0.1) and zPDF_area > 0 and zPDF_LyA_area / zPDF_area >= 0.5:
+                        list_z.append(
+                            {'z': z_lya, 'z_err': 0.25, 'boost': G.ALL_CATATLOG_PHOT_Z_BOOST,
+                             'name': b.catalog_name,
+                             'mag': b.bid_mag, 'filter': b.bid_filter, 'distance': b.distance, 'type': "p",
+                             'zPDF_area': zPDF_LyA_area,
+                             'z_oii': z_oii, 'zPDF_OII_area': zPDF_OII_area,
+                             'z_lya': z_lya, 'zPDF_LyA_area': zPDF_LyA_area,
+                             'zPDF_z': b.phot_z_pdf_z, 'zPDF_pz': b.phot_z_pdf_pz})
 
             #first scan existing z solutions and see if they have a matching photz with zPDF; if yes, then boost their
             #scores by the zPDF in the z-region AND mark them as already phitz boosted so we don't double boost below
@@ -3237,21 +3267,29 @@ class DetObj:
                     #likely to be the HETDEX detection line anyway)
 
                     rank_scale = 1.0 if line.rank <= 2 else 1.0/(line.rank-1.0)
-                    boost = boost * rank_scale * (1.0 if bid['z_err'] > 0.1 else 2.0) + line_score
-                    if bid['zPDF_area'] == -1: #there is no zPDF
+                    #adjust the scoring boost based on the rough uncertainty in the redshift and the normalized area in the zPDF
+                    if bid['zPDF_area'] > 0.3:
+                        area_boost_mul = 1.0
+                    elif bid['zPDF_area'] >= 0:
+                        area_boost_mul = bid['zPDF_area'] / 0.3
+                    else: #not set? handled later (note: if there IS a zPDF, it should alreeady be set)
+                        area_boost_mul = 1.0
 
-                        #could still be an area, just not set yet
+                    boost = boost * rank_scale * area_boost_mul * (2.0 if bid['z_err'] <= 0.1 else 1.0) + line_score
+
+                    if bid['zPDF_area'] == -1.: #there is no zPDF
+                        #could still be an area, just not set yet (THIS SHOULD NOT BE THE CASE)
                         try:
                             if bid['zPDF_z'] is not None and len(bid['zPDF_z']) > 0:
                                 test_z = self.w / line.w_rest - 1.0
                                 zPDF_area = SU.sum_zPDF(test_z, b.phot_z_pdf_pz, b.phot_z_pdf_z, 0.1 * test_z)
                             else:
-                                zPDF_area = -1
+                                zPDF_area = -1.
                         except:
                             zPDF_area = -1.
                             log.debug("Exception computing zPDF_area", exc_info=True)
 
-                        if zPDF_area != -1:
+                        if zPDF_area != -1.:
                             #accept and give a weight IF the zPDF_area for THIS line is significantly greater
                             #than that for LyA and OII ... othewise, keep the weight low as it does not help much
 
@@ -3289,7 +3327,7 @@ class DetObj:
                                 log.debug(f"[{self.entry_id}] zPDF for {line.w_rest:0.1f} favors flat z. "
                                           f"Norm area {zPDF_area:0.3f}")
                                 boost = max(boost,G.MULTILINE_MIN_SOLUTION_SCORE) * 0.1 #basically no info
-                        else: #there is no zPDF, just a phot-z report
+                        else: #there is no zPDF, just a phot-z report, so reduce the boost
                             if bid['z'] < 0.5: #more likely to be accurate and help with LyA vs OII
                                 boost *= 0.75
                             else: #less accurate and can erroneously confuse LyA with CIV, CIII, MgII

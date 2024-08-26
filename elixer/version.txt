@@ -1,5 +1,9 @@
 changes to elixer by version
 
+1.22.0a18 [2024-08-26]
+* allow multi-modal phot-z PDF to also vote for OII or LyA if there is power around OII or LyA even if it is not the maximum
+  + weighting also includes the fractional area of the P(z) around the corresponding redshifts
+
 
 1.22.0a17 [2024-08-14]
 * add config option, ALLOW_UNKNOWN_CLASSIFICATION (default TRUE), that will allow ELiXer to set the z = -1 and pz = -1

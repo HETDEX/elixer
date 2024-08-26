@@ -1359,11 +1359,13 @@ class EmissionLineInfo:
             #if recommend_mcmc: #this was a marginal LSQ fit, so replace key the "fit_xxx" with the mcmc values
             if self.mcmc_x0 is not None:
                 fit_scale = 10.0**(-1*values_units)
-                true_flux_conv = G.HETDEX_FLUX_BASE_CGS * fit_scale #often there is an extra 10x to undo
-                if true_flux_conv != 0:
-                    true_flux_conv = 1.0/true_flux_conv
-                else:
-                    true_flux_conv = 1.0 #do nothing
+                true_flux_conv = 1.0 #DD 2024-08-26 ... this should already be correct now so the adjustment code below is
+                                     #no longer necessary?
+                # true_flux_conv = G.HETDEX_FLUX_BASE_CGS * fit_scale #often there is an extra 10x to undo
+                # if true_flux_conv != 0:
+                #     true_flux_conv = 1.0/true_flux_conv
+                # else:
+                #     true_flux_conv = 1.0 #do nothing
 
                 self.fit_x0 = self.mcmc_x0[0]
                 self.fit_x0_err = 0.5*(self.mcmc_x0[1]+self.mcmc_x0[2])
