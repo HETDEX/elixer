@@ -2179,12 +2179,12 @@ class DetObj:
                     if unsure:
                         #all the confidence now comes from the multiline score
                         if (num_solutions > 1) and (self.spec_obj.solutions[1].frac_score > 0):
-                            if (self.spec_obj.solutions[0].frac_score / self.spec_obj.solutions[1].frac_score) > 1.9:
+                            if (idx ==0 and self.spec_obj.solutions[0].frac_score / self.spec_obj.solutions[1].frac_score) > 1.9:
                                 #notice: 1.9 is used instead of 2.0 due to rounding
                                 #i.e. if only two solutions at 0.66 and 0.34 ==> 0.66/0.34 = 1.94
                                 p = SU.map_multiline_score_to_confidence(sol.scale_score)
                             else:
-                                p = SU.map_multiline_score_to_confidence(sol.scale_score) * sol.frac_score
+                                p = SU.map_multiline_score_to_confidence(sol.scale_score) * sol.frac_score / self.spec_obj.solutions[0].frac_score
                         else:
                             p = SU.map_multiline_score_to_confidence(sol.scale_score)
 
@@ -3095,6 +3095,14 @@ class DetObj:
             if (self.bid_target_list is None) or not G.CHECK_ALL_CATALOG_BID_Z:
                 return
 
+            max_z = 4.0 #to sum over for normalization (set to None to use the entire zPDF)
+            #!! Notice: we are NOT integrating under a curve here, just summing over the discrete zPDF values
+            #between two points ... the z +/- delta_z
+            delta_z = 0.1 # symmetric fixed +/- z to either side of test z to check for "power" or area of zPDF
+            min_power = 0.15 #no boost/score below this relative "peak" normalized percentage
+            max_power = 0.30 #full boost at or above this relative "peak" normalized percentage
+
+
             #allow each catalog, each match to be scored independently
             #s|t multiple hits to the same spec_z and/or phot_z each boost that solution
             #(usually a form of confirmation)
@@ -3126,7 +3134,7 @@ class DetObj:
                     try:
                         if self.w > (G.OII_rest - 2.0):
                             z_oii = self.w / G.OII_rest - 1.0
-                            zPDF_OII_area = SU.sum_zPDF(z_oii, b.phot_z_pdf_pz, b.phot_z_pdf_z, delta_z=0.1)# * z_oii)
+                            zPDF_OII_area = SU.sum_zPDF(z_oii, b.phot_z_pdf_pz, b.phot_z_pdf_z, max_z=max_z, delta_z=delta_z)# * z_oii)
                         else:
                             zPDF_OII_area = -1.
                             z_oii = -1.
@@ -3137,14 +3145,14 @@ class DetObj:
                     #LyA
                     try:
                         z_lya = self.w / G.LyA_rest - 1.0
-                        zPDF_LyA_area = SU.sum_zPDF(z_lya, b.phot_z_pdf_pz, b.phot_z_pdf_z, delta_z=0.1)# * z_lya)
+                        zPDF_LyA_area = SU.sum_zPDF(z_lya, b.phot_z_pdf_pz, b.phot_z_pdf_z, max_z=max_z, delta_z=delta_z)# * z_lya)
                     except:
                         zPDF_LyA_area = -1.
                         log.debug("Exception computing zPDF_LyA_area",exc_info=True)
 
                     #whatever the reported z is ... (could also be a duplicate of LyA or OII)
                     try:
-                        zPDF_area = SU.sum_zPDF(b.phot_z, b.phot_z_pdf_pz, b.phot_z_pdf_z, delta_z=0.1)# * b.phot_z)  # sum +/- 10 %
+                        zPDF_area = SU.sum_zPDF(b.phot_z, b.phot_z_pdf_pz, b.phot_z_pdf_z, max_z=max_z, delta_z=delta_z)# * b.phot_z)  # sum +/- 10 %
                     except:
                         zPDF_area = -1
 
@@ -3155,7 +3163,8 @@ class DetObj:
                                    'zPDF_z':b.phot_z_pdf_z, 'zPDF_pz':b.phot_z_pdf_pz})
 
                     #*might* append a additional peaks if phot_z is not OII or LyA but those are significant peaks
-                    if not np.isclose(b.phot_z,z_oii,atol=0.1) and zPDF_area > 0 and zPDF_OII_area / zPDF_area >= 0.5:
+                    if not np.isclose(b.phot_z,z_oii,atol=0.1) and zPDF_area > 0 and \
+                            ((zPDF_OII_area / zPDF_area >= 0.5) or (zPDF_OII_area > min_power)):
                         list_z.append(
                             {'z': z_oii, 'z_err': 0.25, 'boost': G.ALL_CATATLOG_PHOT_Z_BOOST,
                              'name': b.catalog_name,
@@ -3165,7 +3174,8 @@ class DetObj:
                              'z_lya': z_lya, 'zPDF_LyA_area': zPDF_LyA_area,
                              'zPDF_z': b.phot_z_pdf_z, 'zPDF_pz': b.phot_z_pdf_pz})
 
-                    if not np.isclose(b.phot_z,z_lya,atol=0.1) and zPDF_area > 0 and zPDF_LyA_area / zPDF_area >= 0.5:
+                    if not np.isclose(b.phot_z,z_lya,atol=0.1) and zPDF_area > 0 and \
+                            ((zPDF_LyA_area / zPDF_area >= 0.5) or (zPDF_LyA_area > min_power)):
                         list_z.append(
                             {'z': z_lya, 'z_err': 0.25, 'boost': G.ALL_CATATLOG_PHOT_Z_BOOST,
                              'name': b.catalog_name,
@@ -3181,12 +3191,12 @@ class DetObj:
             if self.spec_obj.solutions is None:
                 self.spec_obj.solutions = []
 
-
+            #Compare to EXISTING solutions
             for s in self.spec_obj.solutions:
                 for b in self.bid_target_list:
                     try:
                         if b.phot_z_pdf_pz is not None and len(b.phot_z_pdf_pz) > 1:
-                            zPDF_area = SU.sum_zPDF(s.z,b.phot_z_pdf_pz,b.phot_z_pdf_z,0.1*s.z) #sum +/- 10 %
+                            zPDF_area = SU.sum_zPDF(s.z,b.phot_z_pdf_pz,b.phot_z_pdf_z,max_z=max_z, delta_z=delta_z)#*s.z) #sum +/- 10 %
                             #sanity check
                             if 0 < zPDF_area < 1.0:
                                 #don't care about any emission line ranks here
@@ -3202,14 +3212,17 @@ class DetObj:
                                 #mark so we don't repeat with a fixed z ... BUT we can repeat with independent zPDFs
                                 s.photz_zPDF_boosted += 1
 
-                                #update the z_list
-                                for lz in list_z:
-                                    if lz['distance'] == b.distance and lz['z'] == b.phot_z:
-                                        lz['zPDF_area'] = zPDF_area
+                                #update the z_list  ?
+                                # NO. This is just checking to see if the zPDF has any power at this solution
+                                # NOT if there is a match for this solution to the zPDF report
+                                # for lz in list_z:
+                                #     if lz['distance'] == b.distance and lz['z'] == b.phot_z:
+                                #         lz['zPDF_area'] = zPDF_area
 
                     except:
                         log.info("Exception",exc_info=True)
 
+            #check to add as a new solution
             for bid in list_z:
                 boost = bid['boost']
                 z = bid['z']
@@ -3268,12 +3281,20 @@ class DetObj:
 
                     rank_scale = 1.0 if line.rank <= 2 else 1.0/(line.rank-1.0)
                     #adjust the scoring boost based on the rough uncertainty in the redshift and the normalized area in the zPDF
-                    if bid['zPDF_area'] > 0.3:
+                    # if bid['zPDF_area'] > 0.3:
+                    #     area_boost_mul = 1.0
+                    # elif bid['zPDF_area'] >= 0:
+                    #     area_boost_mul = bid['zPDF_area'] / 0.3
+                    # else: #not set? handled later (note: if there IS a zPDF, it should alreeady be set)
+                    #     area_boost_mul = 1.0
+
+                    if bid['zPDF_area'] >= max_power:
                         area_boost_mul = 1.0
-                    elif bid['zPDF_area'] >= 0:
-                        area_boost_mul = bid['zPDF_area'] / 0.3
-                    else: #not set? handled later (note: if there IS a zPDF, it should alreeady be set)
-                        area_boost_mul = 1.0
+                    elif bid['zPDF_area'] >= min_power:
+                        area_boost_mul = bid['zPDF_area'] / max_power
+                    else: #do not consider
+                        area_boost_mul = 0.0
+
 
                     boost = boost * rank_scale * area_boost_mul * (2.0 if bid['z_err'] <= 0.1 else 1.0) + line_score
 
@@ -3282,7 +3303,7 @@ class DetObj:
                         try:
                             if bid['zPDF_z'] is not None and len(bid['zPDF_z']) > 0:
                                 test_z = self.w / line.w_rest - 1.0
-                                zPDF_area = SU.sum_zPDF(test_z, b.phot_z_pdf_pz, b.phot_z_pdf_z, 0.1 * test_z)
+                                zPDF_area = SU.sum_zPDF(test_z, b.phot_z_pdf_pz, b.phot_z_pdf_z, max_z=max_z, delta_z=delta_z)# * test_z)
                             else:
                                 zPDF_area = -1.
                         except:
@@ -3312,20 +3333,20 @@ class DetObj:
                             if oii_area_excess > area_frac_excess and lya_area_excess > area_frac_excess:
                                 boost = max(boost,G.MULTILINE_MIN_SOLUTION_SCORE)  * (1.0 + zPDF_area) #area is normalized to 1.0
                                 log.debug(f"[{self.entry_id}] zPDF for {line.w_rest:0.1f} exceeds LyA and OII. "
-                                          f"Norm area {zPDF_area:0.3f}")
+                                          f"Norm area {zPDF_area:0.4f}")
                             elif oii_area_excess > area_frac_excess: #only better than OII ... so does not rule out LyA
                                 boost = max(boost,G.MULTILINE_MIN_SOLUTION_SCORE) * zPDF_area  #notice NOT 1+zPDF_area, so this is a decrease, but the larger
                                                     #the area, the smaller the decrease
                                 log.debug(f"[{self.entry_id}] zPDF for {line.w_rest:0.1f} favors mid-high z. "
-                                          f"Norm area {zPDF_area:0.3f}")
+                                          f"Norm area {zPDF_area:0.4f}")
                             elif lya_area_excess > area_frac_excess: #only better than LyA
                                 boost = max(boost,G.MULTILINE_MIN_SOLUTION_SCORE) * zPDF_area  #notice NOT 1+zPDF_area, so this is a decrease, but the larger
                                                     #the area, the smaller the decrease
                                 log.debug(f"[{self.entry_id}] zPDF for {line.w_rest:0.1f} favors low-mid z. "
-                                           f"Norm area {zPDF_area:0.3f}")
+                                           f"Norm area {zPDF_area:0.4f}")
                             else: #not better than either ... can still be a solution, but gets reduced boost
                                 log.debug(f"[{self.entry_id}] zPDF for {line.w_rest:0.1f} favors flat z. "
-                                          f"Norm area {zPDF_area:0.3f}")
+                                          f"Norm area {zPDF_area:0.4f}")
                                 boost = max(boost,G.MULTILINE_MIN_SOLUTION_SCORE) * 0.1 #basically no info
                         else: #there is no zPDF, just a phot-z report, so reduce the boost
                             if bid['z'] < 0.5: #more likely to be accurate and help with LyA vs OII
@@ -3381,7 +3402,11 @@ class DetObj:
                                 log.debug(f"Adding {sol.emission_line.name} as \"supporting\" line to maintain scaled_score.")
                                 sol.lines.append(sol.emission_line) #have to add as if it is an extra line
                                 #otherwise the scaled score gets knocked way down
-                                log.info(f"Catalog z: Adding new solution {line.name}({line.w_rest}): score = {sol.score}")
+                                if bid['zPDF_area'] != 1.:
+                                    log.info(
+                                        f"Catalog z: Adding new solution {line.name}({line.w_rest}): score = {sol.score}, zPDF_area = {bid['zPDF_area']:0.4f}")
+                                else:
+                                    log.info(f"Catalog z: Adding new solution {line.name}({line.w_rest}): score = {sol.score}")
                             else: # reduce the weight ... but allow to conitnue??
                                 sol.score = G.MULTILINE_MIN_SOLUTION_SCORE
                                 log.info(f"Minimum catalog new solution {line.name}({line.w_rest}). Failed consistency check. Solution score set to {sol.score}")
@@ -3403,8 +3428,23 @@ class DetObj:
 
                     rank_scale = 1.0 if line.rank <= 2 else 1.0/(line.rank-1.0)
 
+                    # if bid['zPDF_area'] > 0.3:
+                    #     area_boost_mul = 1.0
+                    # elif bid['zPDF_area'] >= 0:
+                    #     area_boost_mul = bid['zPDF_area'] / 0.3
+                    # else: #not set? handled later (note: if there IS a zPDF, it should alreeady be set)
+                    #     area_boost_mul = 1.0
 
-                    boost = boost * rank_scale * (1.0 if bid['z_err'] > 0.1 else 2.0) + line_score
+                    if bid['zPDF_area'] >= max_power:
+                        area_boost_mul = 1.0
+                    elif bid['zPDF_area'] >= min_power:
+                        area_boost_mul = bid['zPDF_area'] / max_power
+                    else: #do not consider
+                        area_boost_mul = 0.0
+
+                    boost = boost * rank_scale * area_boost_mul * (2.0 if bid['z_err'] <= 0.1 else 1.0) + line_score
+
+                    #boost = boost * rank_scale * (1.0 if bid['z_err'] > 0.1 else 2.0) + line_score
 
                     #check the existing solutions ... if there is a corresponding z solution, boost its score
                     new_solution = True
@@ -3412,7 +3452,8 @@ class DetObj:
                         if s.central_rest == line.w_rest:
                             new_solution = False
                             if s.photz_zPDF_boosted == 0: #if this has not already been boosted by a zPDF
-                                log.info(f"Boosting ({'phot-z' if phot_z_only else 'spec-z'}) existing solution:  {line.name}({line.w_rest}) + {boost}")
+                                log.info(f"Boosting ({'phot-z' if phot_z_only else 'spec-z'}) existing solution:  "
+                                         f"{line.name}({line.w_rest}) + {boost}")
                                 s.score += boost
                                 s.photz_single_boosted += 1
 

@@ -651,7 +651,7 @@ def get_best_gmag(flux_density, flux_density_err, wavelengths):
     return best_gmag, best_gmag_unc, best_gmag_cgs_cont, best_gmag_cgs_cont_unc
 
 
-def sum_zPDF(target_z,pdf,zarray,delta_z=0.25):
+def sum_zPDF(target_z,pdf,zarray,delta_z=0.25,max_z=None):
     """
     Sum up the zPDF probabilties over a range of redshifts
     Does not assume the zPDF is normalized to 1.0 and forces a normalization in the sum
@@ -660,12 +660,19 @@ def sum_zPDF(target_z,pdf,zarray,delta_z=0.25):
     :param pdf: the zPDF probabilities P(z)
     :param zarray: array of redshifts that match up with the P(z) (e.g. the z in the P(z)
     :param delta_z: the redshift range over which to sum (e.g. target_z +/- delta_z)
+    :param max_z: the upper redshift range against which to sum for the normalization
     :return: the summed P(z)
     """
     try:
         _,left,_ = getnearpos(np.array(zarray).astype(float),max(0,target_z-delta_z))
         _,_,right = getnearpos(np.array(zarray).astype(float),target_z+delta_z)
-        p_z = np.sum(pdf[left:right+1]) / np.sum(pdf)
+        max_right = len(pdf)
+
+        if max_z is not None:
+            _,_,right_pdf = getnearpos(np.array(zarray).astype(float),max_z)
+            max_right = min(right_pdf+1, max_right)
+
+        p_z = np.sum(pdf[left:right+1]) / np.sum(pdf[0:max_right])
     except:
         p_z = 0
         log.info("Exception! Exception checking P(z) in spectrum_utilities sum_zPDF.",exc_info=True)
