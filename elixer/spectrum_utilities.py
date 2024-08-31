@@ -3758,7 +3758,7 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
                     #mean (over wavelengths) of average error = 0.0003816568128305999
                     enhanced_error = 0.00038 #this is an average of the "average" difference for t028 - t03, t03 - t032
                                              #mean vs median about the same; this is between 3500AA dn 5500AA
-                elif rescor is False:
+                elif add_rescor is False:
                     #this is normal ffsky
                     rtype = "t022"
                     #the two that flank the HSC-gmag stacking set ... 2.0% results in a stack that is slightly too faint

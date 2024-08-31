@@ -3149,6 +3149,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             if mcmc.mcmc_A is not None:
                 eli.mcmc_a = np.array(mcmc.mcmc_A)
                 if (values_dx is not None) and (values_dx > 0):
+                    #have to divide out the width of the bins since that was not already accounted for
+                    #e.g. we pass in fluxes in a 2AA wide bin and need to "normalize" to the bin width
                     eli.mcmc_dx = values_dx
                     eli.mcmc_line_flux = eli.mcmc_a[0]/values_dx
                     eli.mcmc_line_flux_tuple =  np.array(mcmc.mcmc_A)/values_dx
