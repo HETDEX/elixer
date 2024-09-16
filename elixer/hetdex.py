@@ -628,6 +628,7 @@ class DetObj:
         self.cluster_z = -1
         self.cluster_qz = -1
         self.cluster_list = None
+        self.cluster_updated_z =False
         self.flags = 0 #bit mapped flags (32bit) to warn consumer about problems with the detection or its classification
                        #flags are defined in global_config.py
         self.needs_review = np.int8(0) #set to 1 if a manual review is needed
@@ -2285,7 +2286,7 @@ class DetObj:
                         #so 0.4 to 0.6 is no-man's land, but the prob or confidence will be very low anyway
                         #keep the z, but reduce the p(z)
                         #if pscore > p:
-                        if (p <= 0) or (pscore / p > 0.9): #give a slight nod to the multi-line score
+                        if (p <= 0) or (pscore / p > 0.9) or (self.cluster_parent != 0 and pscore/p > 0.5): #give a slight nod to the multi-line score
 
                             p = max(0.05,pscore - p)
                             log.info(f"Q(z): Multiline solution favors z = {sol.z}; {pscore}. "
@@ -2944,7 +2945,7 @@ class DetObj:
                     #? size checks already done
 
 
-                    if set_unknown:
+                    if set_unknown and self.cluster_parent != 0:
                         p = -1
                         z = -1
                         self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
@@ -2957,10 +2958,13 @@ class DetObj:
                     log.info(f"Clustering. Setting Q(z) to cluster parent Q(z): {self.cluster_qz:0.2f}. Overrides other conditions. ")
                     p = self.cluster_qz
                     z = self.cluster_z #NOTE THIS IS ALREADY vacuum corrected
+                    self.cluster_updated_z = True
+                    self.status = 0 #could have been pushed away if a cluster attempt failed on an different iteration with different thresholds
                     apply_vacuum_correction = False
                 else:
                     #this WAS an attempt to cluster but failed so DO NOT UPDATE the original
-                    self.status = -1 # so this will NOT update the existing record
+                    if not self.cluster_updated_z: #at least one was updated
+                        self.status = -1 # so this will NOT update the existing record
                     log.info(
                         f"[{self.entry_id}] Clustering. Failed to agree on redshift. Will not update orginal record.")
 
@@ -3155,8 +3159,8 @@ class DetObj:
                         zPDF_area = SU.sum_zPDF(b.phot_z, b.phot_z_pdf_pz, b.phot_z_pdf_z, max_z=max_z, delta_z=delta_z)# * b.phot_z)  # sum +/- 10 %
                     except:
                         zPDF_area = -1
-
-                    list_z.append({'z':b.phot_z,'z_err':min(0.25, b.phot_z * 0.2),'boost':G.ALL_CATATLOG_PHOT_Z_BOOST,'name':b.catalog_name,
+                    #limit error on photz to 0.1 to 0.25 with in-between values at 20% of the peak redshift
+                    list_z.append({'z':b.phot_z,'z_err':min(0.25,max(0.1, b.phot_z * 0.2)),'boost':G.ALL_CATATLOG_PHOT_Z_BOOST,'name':b.catalog_name,
                                    'mag':b.bid_mag,'filter':b.bid_filter,'distance':b.distance,'type':"p",'zPDF_area':zPDF_area,
                                    'z_oii':z_oii, 'zPDF_OII_area':zPDF_OII_area,
                                    'z_lya':z_lya, 'zPDF_LyA_area':zPDF_LyA_area,

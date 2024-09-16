@@ -6334,7 +6334,7 @@ def main():
             # re-check status as it may have changed
             for h in hd_list:
                 for e in h.emis_list:
-                    if e.status < 0:
+                    if e.status < 0 and not e.cluster_updated_z:
                         try:
                             log.info(f"[{e.entry_id}] Status changed. Report will not be generated.")
                             file_sel = [str(e.entry_id) in f.filename for f in file_list]

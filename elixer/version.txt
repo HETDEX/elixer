@@ -1,5 +1,12 @@
 changes to elixer by version
 
+
+1.22.0a19 [2024-09-16]
+* adjust phot-z unspecified error scaling to be clipped between 0.1 to 0.25 in z with the intermediate values set by
+  the proposed z * 20%
+* fix detection object status change to -1 if any P(Lya) threshold rejects clustering (instead of ALL must reject the
+  clustering)
+
 1.22.0a18 [2024-08-26]
 * allow multi-modal phot-z PDF to also vote for OII or LyA if there is power around OII or LyA even if it is not the maximum
   + weighting also includes the fractional area of the P(z) around the corresponding redshifts
