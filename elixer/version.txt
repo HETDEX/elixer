@@ -1,6 +1,9 @@
 changes to elixer by version
 
 
+1.22.0 [2024-09-16]
+* promote to main branch for HDR4+ re-run
+
 1.22.0a19 [2024-09-16]
 * adjust phot-z unspecified error scaling to be clipped between 0.1 to 0.25 in z with the intermediate values set by
   the proposed z * 20%
