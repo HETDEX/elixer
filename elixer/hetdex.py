@@ -5934,7 +5934,8 @@ class DetObj:
                 plae_hat_50_thresh = self.plae_poii_midpoint(self.w, trans_waves=[4000.0,5000.0], trans_thresh=[1.0,2.0])
 
                 #if ew-ew_err > 20 and self.classification_dict['plae_hat_lo'] > plae_hat_lo_thresh:
-                if self.classification_dict['plae_hat'] > plae_hat_50_thresh:
+                if self.classification_dict['plae_hat'] > plae_hat_50_thresh or \
+                        (self.sn > 8.0 and self.sigma > G.LINEWIDTH_SIGMA_TRANSITION and self.classification_dict['plae_hat'] >= 0.85):
                     if (ew - ew_err) > 20.0:
                         #correction toward LyA
 
@@ -5975,12 +5976,14 @@ class DetObj:
 
                     else:
                         log.info(
-                            f"{self.entry_id} Aggregate Classification: EW + PLAE/POII correction vote no vote. Did not meet minimum requirements."
+                            f"{self.entry_id} Aggregate Classification: EW + PLAE/POII correction vote no vote. "
+                            f"Did not meet minimum requirements."
                             f" ew +/- ew_err: {ew:0.2f} +/- {ew_err:0.2f} in unclear region.")
 
                 else:
                     log.info(
-                        f"{self.entry_id} Aggregate Classification: EW + PLAE/POII correction vote no vote. Did not meet minimum requirements."
+                        f"{self.entry_id} Aggregate Classification: EW + PLAE/POII correction vote no vote. D"
+                        f"id not meet minimum requirements."
                         f" PLAE(hat): {self.classification_dict['plae_hat']} vs midpoint {plae_hat_50_thresh:0.2f}")
         except:
             pass
