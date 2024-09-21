@@ -5933,9 +5933,14 @@ class DetObj:
                 #plae_hat_50_thresh = plae_poii_midpoint(self.w,low_thresh=1.0,high_thresh=2.0)
                 plae_hat_50_thresh = self.plae_poii_midpoint(self.w, trans_waves=[4000.0,5000.0], trans_thresh=[1.0,2.0])
 
+                try:
+                    sigma_lo = self.sigma - self.sigma_unc
+                except:
+                    sigma_lo  = self.sigma
+
                 #if ew-ew_err > 20 and self.classification_dict['plae_hat_lo'] > plae_hat_lo_thresh:
                 if self.classification_dict['plae_hat'] > plae_hat_50_thresh or \
-                        (self.sn > 8.0 and self.sigma > G.LINEWIDTH_SIGMA_TRANSITION and self.classification_dict['plae_hat'] >= 0.85):
+                        (self.sn > 10.0 and sigma_lo > G.LINEWIDTH_SIGMA_TRANSITION and self.classification_dict['plae_hat'] >= 0.80):
                     if (ew - ew_err) > 20.0:
                         #correction toward LyA
 
@@ -7076,7 +7081,7 @@ class DetObj:
             else:
                 cgs_limit = G.HETDEX_CONTINUUM_FLUX_LIMIT # cgs_24p5
 
-            cgs_fc =  cgs_limit * 1.2 #start downweighting at 20% brighter than hard limit
+            #cgs_fc =  cgs_limit * 1.2 #start downweighting at 20% brighter than hard limit
 
             if not self.best_gmag_cgs_cont_unc: #None or 0.0
                 log.debug(f"{self.entry_id} Combine ALL Continuum: HETDEX wide estimate has no uncertainty. "
@@ -7092,7 +7097,12 @@ class DetObj:
                 #as we go fainter than the limit we rapidly fall to zero by 10% past the flux limit
 
                 rat = (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) / cgs_limit
-                w = 1.0 / (1.0 + np.exp(-40 * (rat -0.015) + 40.5)) * 4.0
+                log.debug(f"{self.entry_id} Combine ALL Continuum: Best continuum estimate / estimate flux limit: {rat:0.2f}")
+                #flatten out the voting weight right near the limit
+                if 1.0 < rat < 1.1:
+                    w = 1.0
+                else:
+                    w = 1.0 / (1.0 + np.exp(-40 * (rat -0.015) + 40.5)) * 4.0
                 continuum.append(self.best_gmag_cgs_cont)
                 weight.append(w)
                 continuum_sep_idx.append(-1)

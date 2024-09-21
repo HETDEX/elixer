@@ -969,8 +969,10 @@ HETDEX_FLUX_BASE_CGS = 1e-17
 COMPUTE_HETDEX_MAG_LIMIT = True #if true, use the IFU fibers to compute a limit for the detection (otherwise just use
                                 #HETDEX_CONTINUUM_MAG_LIMIT
 COMPUTE_HETDEX_MAG_LIMIT_FULL_IFU = False #if True, use the full IFU, if False use the amp(s) for the top 4 fibers
-HETDEX_CONTINUUM_MAG_LIMIT = 25.0 #24.5 #generous, truth is closer to 24.few
-HETDEX_CONTINUUM_FLUX_LIMIT =  5.38e-19 #flux-density based on 25 mag limit (really more like 24.5)
+HETDEX_CONTINUUM_MAG_LIMIT = 24.8 #25.0 #generous, truth is closer to 24.few
+HETDEX_CONTINUUM_FLUX_LIMIT =  6.46e-19 #5.38e-19 #flux-density based on 25 mag limit (really more like 24.5 to 24.8)
+#HETDEX_NOMINAL_BEST_CASE_MAG_LIMIT = 25.2 #anything fainter is more likley due to some data error
+#HETDEX_NOMINAL_BEST_CASE_FLUX_LIMIT = 4.47e-19 #BUT, should turn this OFF if something changes, like longer exposure
 
 HETDEX_BLUE_SAFE_WAVE = 3600.0 #65; 3600 [idx 6] #use when summing over or fitting to spectrum as whole
 HETDEX_RED_SAFE_WAVE = 5400.0 #index 965
