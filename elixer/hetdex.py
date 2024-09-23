@@ -7098,11 +7098,12 @@ class DetObj:
 
                 rat = (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) / cgs_limit
                 log.debug(f"{self.entry_id} Combine ALL Continuum: Best continuum estimate / estimate flux limit: {rat:0.2f}")
-                #flatten out the voting weight right near the limit
-                if 1.0 < rat < 1.1:
-                    w = 1.0
-                else:
+                if rat < 1.0:
                     w = 1.0 / (1.0 + np.exp(-40 * (rat -0.015) + 40.5)) * 4.0
+                    #w = utils.sigmoid_linear_interp(1.0, 1.0, 0.9, 0.0, rat)
+                else:#linear instead of sigmoid
+                    w = utils.sigmoid_linear_interp(1.2,4.0,1.0,1.0,rat)
+
                 continuum.append(self.best_gmag_cgs_cont)
                 weight.append(w)
                 continuum_sep_idx.append(-1)
