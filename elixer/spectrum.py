@@ -5036,6 +5036,7 @@ class Classifier_Solution:
         self.galaxy_mask_d25 = None #mark if in galaxy mask
         self.separation = 0 #set to angular separation if this solution comes from an external catalog (like SDSS)
 
+        self.external_catalog_solution = False #set to true if this came from an external catalog
         self.photz_zPDF_boosted = 0 #score has been boosted by one (or more) photz PDFs (count of the # of boosts)
         self.specz_boosted = 0 #ditto but for specz
         self.photz_single_boosted = 0 #ditto but for a fixed, single value photz w/o a zPDF
@@ -5427,6 +5428,26 @@ class Spectrum:
                             log.info(f"Undo absorption line down-scoring for H&K solution.")
                     except:
                         log.debug("Exception.",exc_info=True)
+
+
+                    if s.external_catalog_solution:
+                        #this came from an external catalog only, it is not an elixer solution with a catalog boost
+                        #spec z keeps the most
+                        #photz_zPDF_boosted keeps the next most
+                        #normal photz keeps the least
+                        if s.specz_boosted:
+                            pass #leave as is
+                        elif s.photz_zPDF_boosted:
+                            old_score = s.score
+                            s.score /= 2.0
+                            log.debug(f"Reducing score of external catalog photz with zPDF. {s.name}, z={s.z:0.4f} Old score ({old_score:0.4f}), new score ({s.score:0.4f})")
+                        else:
+                            old_score = s.score
+                            s.score /= 4.0
+                            log.debug(f"Reducing score of external catalog photz without zPDF. {s.name}, z={s.z:0.4f} Old score ({old_score:0.4f}), new score ({s.score:0.4f})")
+
+
+
                     s.frac_score = s.score/sum_score
                     s.scale_score = s.prob_real * G.MULTILINE_WEIGHT_PROB_REAL + \
                                     min(1.0, s.score / G.MULTILINE_FULL_SOLUTION_SCORE) *  G.MULTILINE_WEIGHT_SOLUTION_SCORE + \

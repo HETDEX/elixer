@@ -3046,9 +3046,9 @@ class DetObj:
                     log.info(f"Boosting existing solution:  {line.name}({line.w_rest}) + {boost}")
                     s.score += boost
 
-
             if new_solution:
                 sol = elixer_spectrum.Classifier_Solution()
+                sol.external_catalog_solution = True
                 sol.z = z
                 sol.best_pz = self.cluster_list[i]['neighbor_qz'] #assign parent's Q(z) [only here if there was no other solution already]
                 sol.central_rest = line.w_rest
@@ -3204,7 +3204,7 @@ class DetObj:
                             #sanity check
                             if 0 < zPDF_area < 1.0:
                                 #don't care about any emission line ranks here
-                                #AND YES, I do want the MULTILINE_FULL_SOLUTION_SCORE ince that is based on a full score
+                                #AND YES, I do want the MULTILINE_FULL_SOLUTION_SCORE since that is based on a full score
                                 #and the expectation is the area under the photz PDF is going to be, typically,
                                 #maxed at few x 0.1. (If it happens to be extemely high, approaching 1.0, then
                                 #we assume it to be approaching a spec_z quality
@@ -3370,6 +3370,7 @@ class DetObj:
                                 s.photz_single_boosted += 1
 
 
+
                     if new_solution and (line.solution):
                         found_line_z = self.w/line.w_rest-1.0 #check the found line against the anchor line
                         if (z - bid['z_err'] <   found_line_z < z + bid['z_err']) or \
@@ -3379,6 +3380,8 @@ class DetObj:
                             boost /= 2.0 #cut in half for a new solution (as opposed to boosting an existing solution)
                             sol = elixer_spectrum.Classifier_Solution()
                             sol.z = self.w/line.w_rest - 1.0
+                            sol.external_catalog_solution = True
+                            sol.specz_boosted = bid['z_err'] < 0.1
                             sol.central_rest = line.w_rest
                             sol.name = line.name
                             sol.color = line.color
@@ -3401,9 +3404,11 @@ class DetObj:
                                 sol.score = boost
                                 #if one of the primaries ... z:[1.88,3.53] = LyA or z:[0,0.49], then this needs an
                                 #extra boost since it is only a single line
-                                if (0 < sol.z < 0.49) or (1.88 < sol.z < 3.53):
-                                    sol.score += sol.emission_line.line_score
-                                log.debug(f"Adding {sol.emission_line.name} as \"supporting\" line to maintain scaled_score.")
+                                #but you only get the scoring BOOST if this is a spec-z match
+                                if ((0 < sol.z < 0.49) or (1.88 < sol.z < 3.53)) and not phot_z_only:
+                                   sol.score += sol.emission_line.line_score
+                                   log.debug(f"Adding {sol.emission_line.name} as \"supporting\" line to maintain scaled_score.")
+
                                 sol.lines.append(sol.emission_line) #have to add as if it is an extra line
                                 #otherwise the scaled score gets knocked way down
                                 if bid['zPDF_area'] != 1.:
@@ -3478,6 +3483,8 @@ class DetObj:
                             if self.spec_obj.single_emission_line_redshift(line,self.w):
                                 boost /= 2.0 #cut in half for a new solution (as opposed to boosting an existing solution)
                                 sol = elixer_spectrum.Classifier_Solution()
+                                sol.external_catalog_solution = True
+                                sol.specz_boosted = bid['z_err'] < 0.1
                                 sol.z = self.w/line.w_rest - 1.0
                                 sol.central_rest = line.w_rest
                                 sol.name = line.name
@@ -3592,6 +3599,8 @@ class DetObj:
                             if new_solution and (line.solution):
                                 log.info(f"Galaxy mask: Adding new solution {line.name}({line.w_rest}): score = {boost}")
                                 sol = elixer_spectrum.Classifier_Solution()
+                                sol.external_catalog_solution = True
+                                sol.specz_boosted = bid['z_err'] < 0.1
                                 sol.z = self.w/line.w_rest - 1.0
                                 sol.central_rest = line.w_rest
                                 sol.name = line.name
@@ -3701,6 +3710,8 @@ class DetObj:
                                     boost /= 2.0 #cut in half for a new solution (as opposed to boosting an existing solution)
                                     log.info(f"SDSS z: Adding new solution {line.name}({line.w_rest}): score = {boost}")
                                     sol = elixer_spectrum.Classifier_Solution()
+                                    sol.external_catalog_solution = True
+                                    sol.specz_boosted = bid['z_err'] < 0.1
                                     sol.z = self.w/line.w_rest - 1.0
                                     sol.central_rest = line.w_rest
                                     sol.name = line.name
