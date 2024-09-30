@@ -6646,7 +6646,8 @@ class DetObj:
                 # log.info(f"Low voting weight ({tot_weight}). Adding in {plya_vote_thresh} vote at {1.0-tot_weight} weight.")
                 # likelihood.append(plya_vote_thresh)
                 # here I DO want 0.5 not the tuned threshold
-                log.info(f"Low voting weight ({tot_weight}). Adding in 0.5 vote at {1.0 - tot_weight} weight.")
+                log.info(f"{self.entry_id} Aggregate Classification: Low voting weight ({tot_weight:0.4f}). "
+                         f"Adding in 0.5 vote at {1.0 - tot_weight:0.4f} weight.")
                 self.likelihood.append(0.5)
                 self.voterid.append(G.VOTE_LOW_WEIGHT_CORRECTION)
                 self.weight.append(1.0 - tot_weight)
@@ -6669,9 +6670,9 @@ class DetObj:
         self.var = np.array(self.var)  # right now, this is just weight based, all variances are set to 1
         self.prior = np.array(self.prior)  # not using Bayes yet, so this is ignored
 
-        logstring = f"P(Lya) weighted voting. {len(self.weight)} votes as (vote x weight)\n"
+        logstring = f"{self.entry_id} P(Lya) voting. {len(self.weight)} votes as (vote x weight): "
         for i in range(len(self.weight)):
-            logstring += f"({self.likelihood[i]:0.4f}x{self.weight[i]})  "
+            logstring += f"({self.likelihood[i]:0.2f} x {self.weight[i]:0.4f})  "
         # for l_vote,l_weight,l_var,l_prior in zip(likelihood,weight,var,prior):
         #     logstring += f"({l_vote:0.4f}x{l_weight})  "
         log.info(logstring)
