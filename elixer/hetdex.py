@@ -3776,7 +3776,7 @@ class DetObj:
         try:
             #3003173114 example type ... narrow line with strong negative dip
             #if (self.fwhm < 4.5) and (self.fwhm + self.fwhm_unc < 6.0) and self.spec_obj.central_eli is not None:
-            if (self.fwhm < 5.6) and (self.fwhm + self.fwhm_unc < 6.8) and self.spec_obj.central_eli is not None:
+            if (self.fwhm < 4.5) and (self.fwhm + self.fwhm_unc < 6.0) and self.spec_obj.central_eli is not None:
 
                 try:#check blue and red sides for strong negative dip (vs what is predicted)
                     #look at 3sigma to 5 sigma?
@@ -3800,12 +3800,27 @@ class DetObj:
                 except:
                     log.info("Exception (b) in hetdex.py check_for_bad_pixels.", exc_info=True)
 
+            if (self.fwhm < 7.0) and (self.fwhm + self.fwhm_unc < 8.5) and self.spec_obj.central_eli is not None:
                 try:
+                    #these should already be sorted, but for broader one, 9 bins is not enough
                     #test 2, using the calfib
-                    avg_fiber_collapse = np.nanmedian(np.array([f.central_emis_counts for f in self.fibers]), axis=0)
-                    zone1 = np.nanmean(avg_fiber_collapse[0:3])
-                    zone2 = np.nanmean(avg_fiber_collapse[3:6])
-                    zone3 = np.nanmean(avg_fiber_collapse[6:9])
+                    # if len(self.fibers) > 5: #don't need this part ... they are already sorted from highest to lowest weight
+                    #     min_weight = sorted(np.array([f.relative_weight for f in self.fibers]))[-5]
+                    # else:
+                    #     min_weight = 0
+                    #
+                    # avg_fiber_collapse = np.nanmedian(np.array([f.central_emis_counts if f.relative_weight > min_weight
+                    #                                             else np.full(9,np.nan) for f in self.fibers]), axis=0)
+
+                    avg_fiber_collapse = np.nanmedian(np.array([f.central_emis_counts for f in self.fibers[0:4]]), axis=0)
+                    if self.fwhm < 5.5:
+                        zone1 = np.nanmean(avg_fiber_collapse[0:3])
+                        zone2 = np.nanmean(avg_fiber_collapse[3:6])
+                        zone3 = np.nanmean(avg_fiber_collapse[6:9])
+                    else: #broader central line
+                        zone1 = np.nanmean(avg_fiber_collapse[0:2])
+                        zone2 = np.nanmean(avg_fiber_collapse[3:6])
+                        zone3 = np.nanmean(avg_fiber_collapse[7:9])
 
                     if zone2 > 0 and (zone1 < 0 and abs(zone1/zone2) > 0.5) or \
                        (zone3 < 0 and abs(zone3 / zone2) > 0.5):
