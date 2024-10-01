@@ -3542,7 +3542,7 @@ class DetObj:
         if G.CHECK_FOR_METEOR:
             self.check_for_meteor()
 
-        self.check_for_bad_pixel()
+        #self.check_for_bad_pixel() #moved to after the datakeep dictionary is built so have access to more fiber data
 
         try:
             possible_lines = []
@@ -3775,26 +3775,46 @@ class DetObj:
 
         try:
             #3003173114 example type ... narrow line with strong negative dip
-            if (self.fwhm < 4.5) and (self.fwhm + self.fwhm_unc < 6.0) and self.spec_obj.central_eli is not None:
-                #check blue and red sides for strong negative dip (vs what is predicted)
-                #look at 3sigma to 5 sigma?
-                eli = self.spec_obj.central_eli
-                if eli.raw_wave is not None and len(eli.raw_wave) > 0:
-                    #peak_bin = SU.getnearpos(eli.raw_wave,eli.fit_x0)
-                    blue_start,*_ = SU.getnearpos(eli.raw_wave, eli.fit_x0 - eli.fit_sigma * 5) #an index is returned
-                    blue_stop,*_ = SU.getnearpos(eli.raw_wave, eli.fit_x0 - eli.fit_sigma * 3)
+            #if (self.fwhm < 4.5) and (self.fwhm + self.fwhm_unc < 6.0) and self.spec_obj.central_eli is not None:
+            if (self.fwhm < 5.6) and (self.fwhm + self.fwhm_unc < 6.8) and self.spec_obj.central_eli is not None:
 
-                    red_start,*_ = SU.getnearpos(eli.raw_wave, eli.fit_x0 + eli.fit_sigma * 3)  # an index is returned
-                    red_stop,*_ = SU.getnearpos(eli.raw_wave, eli.fit_x0 + eli.fit_sigma * 5)
+                try:#check blue and red sides for strong negative dip (vs what is predicted)
+                    #look at 3sigma to 5 sigma?
+                    eli = self.spec_obj.central_eli
+                    if eli.raw_wave is not None and len(eli.raw_wave) > 0:
+                        #peak_bin = SU.getnearpos(eli.raw_wave,eli.fit_x0)
+                        blue_start,*_ = SU.getnearpos(eli.raw_wave, eli.fit_x0 - eli.fit_sigma * 5) #an index is returned
+                        blue_stop,*_ = SU.getnearpos(eli.raw_wave, eli.fit_x0 - eli.fit_sigma * 3)
 
-                    blue_side = np.mean(eli.raw_vals[blue_start:blue_stop+1]) - eli.fit_y
-                    red_side = np.mean(eli.raw_vals[red_start:red_stop+1]) - eli.fit_y
+                        red_start,*_ = SU.getnearpos(eli.raw_wave, eli.fit_x0 + eli.fit_sigma * 3)  # an index is returned
+                        red_stop,*_ = SU.getnearpos(eli.raw_wave, eli.fit_x0 + eli.fit_sigma * 5)
 
-                    #either or both sides must be negative and the difference / mean
-                    if ((blue_side < 0) or (red_side < 0)) and (abs((blue_side-red_side)/np.mean([blue_side ,red_side])) > 2.0):
+                        blue_side = np.nanmean(eli.raw_vals[blue_start:blue_stop+1]) - eli.fit_y
+                        red_side = np.nanmean(eli.raw_vals[red_start:red_stop+1]) - eli.fit_y
+
+                        #either or both sides must be negative and the difference / mean
+                        if ((blue_side < 0) or (red_side < 0)) and (abs((blue_side-red_side)/np.mean([blue_side ,red_side])) > 2.0):
+                            self.flags |= G.DETFLAG_BAD_PIXELS
+                            self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
+                            log.info(f"{self.entry_id} detection possibly caused by bad pixels.")
+                except:
+                    log.info("Exception (b) in hetdex.py check_for_bad_pixels.", exc_info=True)
+
+                try:
+                    #test 2, using the calfib
+                    avg_fiber_collapse = np.nanmedian(np.array([f.central_emis_counts for f in self.fibers]), axis=0)
+                    zone1 = np.nanmean(avg_fiber_collapse[0:3])
+                    zone2 = np.nanmean(avg_fiber_collapse[3:6])
+                    zone3 = np.nanmean(avg_fiber_collapse[6:9])
+
+                    if zone2 > 0 and (zone1 < 0 and abs(zone1/zone2) > 0.5) or \
+                       (zone3 < 0 and abs(zone3 / zone2) > 0.5):
                         self.flags |= G.DETFLAG_BAD_PIXELS
+                        self.flags |= G.DETFLAG_QUESTIONABLE_DETECTION
                         self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
-                        log.info(f"{self.entry_id} detection possibly caused by bad pixels.")
+                        log.info(f"{self.entry_id} detection possibly caused by bad pixels or bad sky. Extemely low to side of emission.")
+                except:
+                    log.info("Exception (c) in hetdex.py check_for_bad_pixels.", exc_info=True)
 
         except:
             #not a severe exception so just log an move on
@@ -12674,6 +12694,7 @@ class HETDEX:
             e.status = -1
             return None
 
+        e.check_for_bad_pixel()
         e.get_probabilities()
 
         if e.w > 0:

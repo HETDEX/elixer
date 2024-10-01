@@ -1,5 +1,7 @@
 changes to elixer by version
 
+1.22.1a1 [2024-10-01]
+* testing detection of oversubtraction causing adjacent emission detection
 
 1.22.0 [2024-09-16]
 * promote to main branch for HDR4+ re-run
