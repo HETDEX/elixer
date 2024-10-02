@@ -3903,8 +3903,8 @@ class DetObj:
                     rat_width = 4 #4 bins to check
                     rat_keep = 2 #keep lowest 2 bins
 
-                    min_thresh = 1.5
-                    full_thresh = 2.0
+                    min_thresh = 1.3
+                    full_thresh = 1.7
 
                     testnum = min(4, len(self.fibers))
                     # these are already sorted s|t the highest weight is first
