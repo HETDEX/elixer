@@ -3776,7 +3776,8 @@ class DetObj:
         try:
             #3003173114 example type ... narrow line with strong negative dip
             #if (self.fwhm < 4.5) and (self.fwhm + self.fwhm_unc < 6.0) and self.spec_obj.central_eli is not None:
-            if (self.fwhm < 4.5) and (self.fwhm + self.fwhm_unc < 6.0) and self.spec_obj.central_eli is not None:
+            #method 1
+            if False: #(self.fwhm < 4.5) and (self.fwhm + self.fwhm_unc < 6.0) and self.spec_obj.central_eli is not None:
 
                 try:#check blue and red sides for strong negative dip (vs what is predicted)
                     #look at 3sigma to 5 sigma?
@@ -3903,9 +3904,9 @@ class DetObj:
                     rat_width = 4 #4 bins to check
                     rat_keep = 2 #keep lowest 2 bins
 
-                    min_thresh = 1.2 #3 of 4 fibers  AND
-                    med_thresh = 1.5 #2 of 4 fibers or
-                    full_thresh = 1.7 #1 of 4 fibers
+                    min_thresh = 1.15 #3 of 4 fibers
+                    med_thresh = 1.50 #2 of 4 fibers
+                    full_thresh = 1.8 #1 of 4 fibers
 
                     testnum = min(4, len(self.fibers))
                     # these are already sorted s|t the highest weight is first
@@ -3986,18 +3987,33 @@ class DetObj:
                     med_thresh_ct = int(0.5 * testnum)
                     #must meet the min_thresh_ct and either med_thrsh_ct or one over the full threshold
 
-                    if (    ( (np.count_nonzero(rat1 >= min_thresh) >= min_thresh_ct) and
-                              (  (np.count_nonzero(rat1 >= med_thresh) >= med_thresh_ct)  or
-                                 (np.count_nonzero(rat1 >= full_thresh) >= 1))  and
-                              np.count_nonzero([ x < y for x,y in zip(outside1, rat1)]) >= min_thresh_ct ) or
-                            (  (np.count_nonzero(rat2 >= min_thresh) >= min_thresh_ct) and
-                               ( (np.count_nonzero(rat2 >= med_thresh) >= med_thresh_ct) or
-                                 (np.count_nonzero(rat2 >= full_thresh) >= 1)) and
-                              np.count_nonzero([ x < y for x,y in zip(outside2, rat2)]) >= min_thresh_ct) ):
+                    #blue side (must have at least  2 out of 3 of conditions 1,2,3 AND condition 4)
+                    cond1 =  np.count_nonzero(rat1 >= min_thresh) >= min_thresh_ct
+                    cond2 =  np.count_nonzero(rat1 >= med_thresh) >= med_thresh_ct
+                    cond3 =  np.count_nonzero(rat1 >= full_thresh) >= 1
+                    cond4 =  np.count_nonzero([ x < y for x,y in zip(outside1, rat1)]) >= min_thresh_ct
 
+                    blue_cond = np.count_nonzero(np.array([cond1,cond2,cond3])) >= 2 and cond4
+
+                    #red side (must have at least 2 out of 3 of conditions 1,2,3 AND condition 4)
+                    cond1 =  np.count_nonzero(rat2 >= min_thresh) >= min_thresh_ct
+                    cond2 =  np.count_nonzero(rat2 >= med_thresh) >= med_thresh_ct
+                    cond3 =  np.count_nonzero(rat2 >= full_thresh) >= 1
+                    cond4 =  np.count_nonzero([ x < y for x,y in zip(outside2, rat2)]) >= min_thresh_ct
+
+                    red_cond = np.count_nonzero(np.array([cond1,cond2,cond3])) >= 2 and cond4
+
+                    # if (    ( (np.count_nonzero(rat1 >= min_thresh) >= min_thresh_ct) and
+                    #           (  (np.count_nonzero(rat1 >= med_thresh) >= med_thresh_ct)  or
+                    #              (np.count_nonzero(rat1 >= full_thresh) >= 1))  and
+                    #           np.count_nonzero([ x < y for x,y in zip(outside1, rat1)]) >= min_thresh_ct ) or
+                    #         (  (np.count_nonzero(rat2 >= min_thresh) >= min_thresh_ct) and
+                    #            ( (np.count_nonzero(rat2 >= med_thresh) >= med_thresh_ct) or
+                    #              (np.count_nonzero(rat2 >= full_thresh) >= 1)) and
+                    #           np.count_nonzero([ x < y for x,y in zip(outside2, rat2)]) >= min_thresh_ct) ):
+
+                    if blue_cond or red_cond:
                         self.flags |= G.DETFLAG_BAD_PIXELS
-                        self.flags |= G.DETFLAG_QUESTIONABLE_DETECTION
-                        self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
                         log.info(
                             f"{self.entry_id} detection possibly caused by bad pixels or bad sky. Extemely low to side of emission.")
                 except:
