@@ -3883,7 +3883,12 @@ class DetObj:
                     log.info("Exception (c) in hetdex.py check_for_bad_pixels.", exc_info=True)
 
             # method 4, using calfib
-            #todo: should check retun to around zero
+            # summary: use top 4 fibers
+            #          3 of 4 must show strong negative to left or right of emission (with at least one be very strong negative)
+            #          and must return to near zero continuing outward a few more wavelength bins
+            # e.g. pattern like normal ... very negative ... emission ... very negative ... normal
+            #      OR           normal ... very negative ... emission ... normal        ... normal
+            #      OR           normal ...        normal ... emission ... very negative ... normal
             if (self.fwhm < 7.0) and (self.fwhm + self.fwhm_unc < 8.5) and self.spec_obj.central_eli is not None:
                 try:
 
@@ -3892,10 +3897,6 @@ class DetObj:
                     outside1 = [] #spectrum just to the outside of the emission line area to the blue
                     outside2 = [] #spectrum just to the outside of the emission line area to the red
                     weights = []
-
-                    #self.fibers[x].panacea_idx is the index into self.fibers[x].fits.calfib
-                    #self.fibers[0].fits.calfib[self.fibers[0].panacea_idx]
-
 
                     w_idx , *_ = central_wave_idx = utils.getnearpos(G.CALFIB_WAVEGRID,self.w)
                     step_idx = int(np.floor(self.fwhm / G.FLUX_WAVEBIN_WIDTH))
@@ -3988,11 +3989,6 @@ class DetObj:
                             ( (np.count_nonzero(rat2 >= min_thresh) >= min_thresh_ct) and
                               (np.count_nonzero(rat2 >= full_thresh) >= 1) and
                               np.count_nonzero([ x < y for x,y in zip(outside2, rat2)]) > min_thresh_ct) ):
-                        # most have to be > 1
-                        # if ( (np.count_nonzero(rat1 > 1) > testnum -1) and
-                        #         (np.sum(rat1*weights)/np.sum(weights) > thresh) or
-                        #     (np.count_nonzero(rat2 > 1) > testnum - 1) and
-                        #         (np.sum(rat2 * weights) / np.sum(weights) > thresh)):
 
                         self.flags |= G.DETFLAG_BAD_PIXELS
                         self.flags |= G.DETFLAG_QUESTIONABLE_DETECTION
