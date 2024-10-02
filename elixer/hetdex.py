@@ -3542,7 +3542,7 @@ class DetObj:
         if G.CHECK_FOR_METEOR:
             self.check_for_meteor()
 
-        #self.check_for_bad_pixel() #moved to after the datakeep dictionary is built so have access to more fiber data
+        self.check_for_bad_pixel() #only move to after the datakeep dictionary is built if need other fiber data than calfib
 
         try:
             possible_lines = []
@@ -3903,8 +3903,9 @@ class DetObj:
                     rat_width = 4 #4 bins to check
                     rat_keep = 2 #keep lowest 2 bins
 
-                    min_thresh = 1.2
-                    full_thresh = 1.7
+                    min_thresh = 1.2 #3 of 4 fibers  AND
+                    med_thresh = 1.5 #2 of 4 fibers or
+                    full_thresh = 1.7 #1 of 4 fibers
 
                     testnum = min(4, len(self.fibers))
                     # these are already sorted s|t the highest weight is first
@@ -3982,12 +3983,16 @@ class DetObj:
                     outside2 = np.array(outside2)
 
                     min_thresh_ct = int(0.75 * testnum)
+                    med_thresh_ct = int(0.5 * testnum)
+                    #must meet the min_thresh_ct and either med_thrsh_ct or one over the full threshold
 
                     if (    ( (np.count_nonzero(rat1 >= min_thresh) >= min_thresh_ct) and
-                              (np.count_nonzero(rat1 >= full_thresh) >= 1)  and
+                              (  (np.count_nonzero(rat1 >= med_thresh) >= med_thresh_ct)  or
+                                 (np.count_nonzero(rat1 >= full_thresh) >= 1))  and
                               np.count_nonzero([ x < y for x,y in zip(outside1, rat1)]) >= min_thresh_ct ) or
-                            ( (np.count_nonzero(rat2 >= min_thresh) >= min_thresh_ct) and
-                              (np.count_nonzero(rat2 >= full_thresh) >= 1) and
+                            (  (np.count_nonzero(rat2 >= min_thresh) >= min_thresh_ct) and
+                               ( (np.count_nonzero(rat2 >= med_thresh) >= med_thresh_ct) or
+                                 (np.count_nonzero(rat2 >= full_thresh) >= 1)) and
                               np.count_nonzero([ x < y for x,y in zip(outside2, rat2)]) >= min_thresh_ct) ):
 
                         self.flags |= G.DETFLAG_BAD_PIXELS
@@ -12876,7 +12881,7 @@ class HETDEX:
             e.status = -1
             return None
 
-        e.check_for_bad_pixel()
+        #e.check_for_bad_pixel() #only needs to be here if extraded fiber is used (if using calfib the earlier location is fine
         e.get_probabilities()
 
         if e.w > 0:
