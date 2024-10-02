@@ -3812,7 +3812,8 @@ class DetObj:
                     # avg_fiber_collapse = np.nanmedian(np.array([f.central_emis_counts if f.relative_weight > min_weight
                     #                                             else np.full(9,np.nan) for f in self.fibers]), axis=0)
 
-                    avg_fiber_collapse = np.nanmedian(np.array([f.central_emis_counts for f in self.fibers[0:4]]), axis=0)
+                    #avg_fiber_collapse = np.nanmedian(np.array([f.central_emis_counts for f in self.fibers[0:4]]), axis=0)
+                    avg_fiber_collapse = np.nanmedian(np.array([f.central_emis_counts for f in self.fibers]), axis=0)
                     if True: #self.fwhm < 5.5:
                         zone1 = np.nanmean(avg_fiber_collapse[0:3])
                         zone2 = np.nanmean(avg_fiber_collapse[3:6])
