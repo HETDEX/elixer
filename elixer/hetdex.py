@@ -3835,7 +3835,9 @@ class DetObj:
                     log.info("Exception (c) in hetdex.py check_for_bad_pixels.", exc_info=True)
 
             # method 3, should switch to calfib and go a bit broader
-            if (self.fwhm < 7.0) and (self.fwhm + self.fwhm_unc < 8.5) and self.spec_obj.central_eli is not None:
+            # this is pretty good, small chance of erroneous hit (3006822570, 4022355558)
+            # but otherwise seems to catch > 90%
+            if False: #(self.fwhm < 7.0) and (self.fwhm + self.fwhm_unc < 8.5) and self.spec_obj.central_eli is not None:
                 try:
 
                     rat1 = []
@@ -3880,6 +3882,103 @@ class DetObj:
                 except:
                     log.info("Exception (c) in hetdex.py check_for_bad_pixels.", exc_info=True)
 
+            # method 4, using calfib
+            if (self.fwhm < 7.0) and (self.fwhm + self.fwhm_unc < 8.5) and self.spec_obj.central_eli is not None:
+                try:
+
+                    rat1 = []
+                    rat2 = []
+                    weights = []
+
+                    #self.fibers[x].panacea_idx is the index into self.fibers[x].fits.calfib
+                    #self.fibers[0].fits.calfib[self.fibers[0].panacea_idx]
+
+
+                    w_idx , *_ = central_wave_idx = utils.getnearpos(G.CALFIB_WAVEGRID,self.w)
+                    step_idx = int(np.floor(self.fwhm / G.FLUX_WAVEBIN_WIDTH))
+                    rat_width = 4 #4 bins to check
+                    rat_keep = 2 #keep lowest 2 bins
+
+                    min_thresh = 1.5
+                    full_thresh = 2.0
+
+                    testnum = min(4, len(self.fibers))
+                    # these are already sorted s|t the highest weight is first
+                    for fiber in self.fibers[0:testnum]:  # or maybe just the top several
+
+                        left = w_idx - step_idx - rat_width
+                        right = w_idx + step_idx + rat_width
+                        if left < 0:
+                            no_zone1 = True
+                        else:
+                            no_zone1 = False
+                        if right > 1036:
+                            no_zone3 = True
+                        else:
+                            no_zone3 = False
+
+                        left = max(left,0)
+                        right = min(1036,right)
+
+
+                        flux = fiber.fits.calfib[fiber.panacea_idx][left:right+1]
+                        if no_zone1:
+                            zone1 = 0.0
+                        else: #really should be lowest and adjacent
+                            i = np.argmin(flux[0:rat_width+1])
+                            if i > 0:
+                                v2 = min(flux[i-1],flux[i+1])
+                            else:
+                                v2 = flux[i+1]
+                            #zone1 = np.nanmean(sorted(flux[0:rat_width+1])[:rat_keep])
+                            zone1 = (flux[i] + v2)/2.0
+
+
+                        #top 2
+                        i = np.argmax(flux[rat_width+1:-rat_width]) + rat_width+1
+                        v2 = max(flux[i-1],flux[i+1])
+                        #zone2 = np.nanmean(flux[rat_width+1:-rat_width])
+                        zone2 = (flux[i] + v2)/2.0
+
+                        if no_zone3:
+                            zone3 = 0.0
+                        else:
+                            i = np.argmin(flux[-rat_width:]) + len(flux)-rat_width
+                            if i >= len(flux)-1:
+                                v2 = flux[i-1]
+                            else:
+                                v2 = min(flux[i-1],flux[i+1])
+                            #zone3 = np.nanmean(sorted(flux[-rat_width:])[:rat_keep])
+                            zone3 = (flux[i] + v2)/2.0
+
+
+                        # usually the dip is on ly one or two pixels wide, so just use the two smallest in that range of 3
+                        weights.append(fiber.relative_weight)
+                        rat1.append((zone2 - zone1) / zone2)  # blue side
+                        rat2.append((zone2 - zone3) / zone2)  # red side
+
+                    rat1 = np.array(rat1)
+                    rat2 = np.array(rat2)
+                    weights = np.array(weights)
+
+
+                    if ((np.count_nonzero(rat1 >= min_thresh) >= 0.75 * testnum) and
+                            (np.count_nonzero(rat1 >= full_thresh) >= 1) or
+                            (np.count_nonzero(rat2 >= min_thresh) >= 0.75 * testnum) and
+                            (np.count_nonzero(rat2 >= full_thresh) >= 1)):
+                        # most have to be > 1
+                        # if ( (np.count_nonzero(rat1 > 1) > testnum -1) and
+                        #         (np.sum(rat1*weights)/np.sum(weights) > thresh) or
+                        #     (np.count_nonzero(rat2 > 1) > testnum - 1) and
+                        #         (np.sum(rat2 * weights) / np.sum(weights) > thresh)):
+
+                        self.flags |= G.DETFLAG_BAD_PIXELS
+                        self.flags |= G.DETFLAG_QUESTIONABLE_DETECTION
+                        self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
+                        log.info(
+                            f"{self.entry_id} detection possibly caused by bad pixels or bad sky. Extemely low to side of emission.")
+                except:
+                    log.info("Exception (c) in hetdex.py check_for_bad_pixels.", exc_info=True)
 
         except:
             #not a severe exception so just log an move on
@@ -14490,7 +14589,7 @@ class HETDEX:
                 datakeep['fw_spec'].append(fits.fe_data[loc, :])
                 datakeep['fw_specwave'].append(wave[:])
 
-                #todo: set the weights correctly
+
                 datakeep['fiber_weight'].append(fiber.relative_weight)
                 datakeep['thruput'].append(fiber.fluxcal_central_emis_thru)
 
