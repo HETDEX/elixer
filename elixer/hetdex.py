@@ -3800,7 +3800,9 @@ class DetObj:
                 except:
                     log.info("Exception (b) in hetdex.py check_for_bad_pixels.", exc_info=True)
 
-            if (self.fwhm < 7.0) and (self.fwhm + self.fwhm_unc < 8.5) and self.spec_obj.central_eli is not None:
+
+            #method 2
+            if False: #(self.fwhm < 7.0) and (self.fwhm + self.fwhm_unc < 8.5) and self.spec_obj.central_eli is not None:
                 try:
                     #these should already be sorted, but for broader one, 9 bins is not enough
                     #test 2, using the calfib
@@ -3831,6 +3833,53 @@ class DetObj:
                         log.info(f"{self.entry_id} detection possibly caused by bad pixels or bad sky. Extemely low to side of emission.")
                 except:
                     log.info("Exception (c) in hetdex.py check_for_bad_pixels.", exc_info=True)
+
+            # method 3, should switch to calfib and go a bit broader
+            if (self.fwhm < 7.0) and (self.fwhm + self.fwhm_unc < 8.5) and self.spec_obj.central_eli is not None:
+                try:
+
+                    rat1 = []
+                    rat2 = []
+                    weights = []
+
+                    testnum = min(4,len(self.fibers))
+                    #these are already sorted s|t the highest weight is first
+                    for fiber in self.fibers[0:testnum]: #or maybe just the top several
+                        # usually the dip is on ly one or two pixels wide, so just use the two smallest in that range of 3
+                        zone1 = np.nanmean(sorted(fiber.central_emis_counts[0:3])[:2])
+                        zone2 = np.nanmean(fiber.central_emis_counts[3:6])
+                        zone3 = np.nanmean(sorted(fiber.central_emis_counts[6:9])[:2])
+                        weights.append(fiber.relative_weight)
+                        rat1.append((zone2-zone1)/zone2) #blue side
+                        rat2.append((zone2-zone3)/zone2) #red side
+
+                    rat1 = np.array(rat1)
+                    rat2 = np.array(rat2)
+                    weights = np.array(weights)
+
+                    min_thresh  = 1.2
+                    full_thresh = 1.5
+
+
+                    if ( (np.count_nonzero(rat1 >= min_thresh) >= 0.75 * testnum) and
+                         (np.count_nonzero(rat1 >= full_thresh) >=  1)  or
+                         (np.count_nonzero(rat2 >= min_thresh) >= 0.75 * testnum) and
+                         (np.count_nonzero(rat2 >= full_thresh) >= 1)) :
+
+                    #most have to be > 1
+                    # if ( (np.count_nonzero(rat1 > 1) > testnum -1) and
+                    #         (np.sum(rat1*weights)/np.sum(weights) > thresh) or
+                    #     (np.count_nonzero(rat2 > 1) > testnum - 1) and
+                    #         (np.sum(rat2 * weights) / np.sum(weights) > thresh)):
+
+                        self.flags |= G.DETFLAG_BAD_PIXELS
+                        self.flags |= G.DETFLAG_QUESTIONABLE_DETECTION
+                        self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
+                        log.info(
+                            f"{self.entry_id} detection possibly caused by bad pixels or bad sky. Extemely low to side of emission.")
+                except:
+                    log.info("Exception (c) in hetdex.py check_for_bad_pixels.", exc_info=True)
+
 
         except:
             #not a severe exception so just log an move on
