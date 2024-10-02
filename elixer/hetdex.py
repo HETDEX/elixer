@@ -3883,11 +3883,14 @@ class DetObj:
                     log.info("Exception (c) in hetdex.py check_for_bad_pixels.", exc_info=True)
 
             # method 4, using calfib
+            #todo: should check retun to around zero
             if (self.fwhm < 7.0) and (self.fwhm + self.fwhm_unc < 8.5) and self.spec_obj.central_eli is not None:
                 try:
 
                     rat1 = []
                     rat2 = []
+                    outside1 = [] #spectrum just to the outside of the emission line area to the blue
+                    outside2 = [] #spectrum just to the outside of the emission line area to the red
                     weights = []
 
                     #self.fibers[x].panacea_idx is the index into self.fibers[x].fits.calfib
@@ -3922,6 +3925,17 @@ class DetObj:
 
 
                         flux = fiber.fits.calfib[fiber.panacea_idx][left:right+1]
+
+                        try:
+                            return_left = np.nanmedian(fiber.fits.calfib[fiber.panacea_idx][left-5:left])
+                        except:
+                            return_left = 0 #assume is back to zero
+
+                        try:
+                            return_right = np.nanmedian(fiber.fits.calfib[fiber.panacea_idx][right:right+6])
+                        except:
+                            return_right = 0 #assume is back to zero
+
                         if no_zone1:
                             zone1 = 0.0
                         else: #really should be lowest and adjacent
@@ -3957,15 +3971,23 @@ class DetObj:
                         rat1.append((zone2 - zone1) / zone2)  # blue side
                         rat2.append((zone2 - zone3) / zone2)  # red side
 
+                        outside1.append((zone2-return_left)/zone2)
+                        outside2.append((zone2-return_right)/zone2)
+
                     rat1 = np.array(rat1)
                     rat2 = np.array(rat2)
                     weights = np.array(weights)
+                    outside1 = np.array(outside1)
+                    outside2 = np.array(outside2)
 
+                    min_thresh_ct = int(0.75 * testnum)
 
-                    if ((np.count_nonzero(rat1 >= min_thresh) >= 0.75 * testnum) and
-                            (np.count_nonzero(rat1 >= full_thresh) >= 1) or
-                            (np.count_nonzero(rat2 >= min_thresh) >= 0.75 * testnum) and
-                            (np.count_nonzero(rat2 >= full_thresh) >= 1)):
+                    if (    ( (np.count_nonzero(rat1 >= min_thresh) >= min_thresh_ct) and
+                              (np.count_nonzero(rat1 >= full_thresh) >= 1)  and
+                              np.count_nonzero([ x < y for x,y in zip(outside1, rat1)]) > min_thresh_ct ) or
+                            ( (np.count_nonzero(rat2 >= min_thresh) >= min_thresh_ct) and
+                              (np.count_nonzero(rat2 >= full_thresh) >= 1) and
+                              np.count_nonzero([ x < y for x,y in zip(outside2, rat2)]) > min_thresh_ct) ):
                         # most have to be > 1
                         # if ( (np.count_nonzero(rat1 > 1) > testnum -1) and
                         #         (np.sum(rat1*weights)/np.sum(weights) > thresh) or
