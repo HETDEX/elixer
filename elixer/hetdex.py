@@ -3903,7 +3903,7 @@ class DetObj:
                     rat_width = 4 #4 bins to check
                     rat_keep = 2 #keep lowest 2 bins
 
-                    min_thresh = 1.3
+                    min_thresh = 1.2
                     full_thresh = 1.7
 
                     testnum = min(4, len(self.fibers))
@@ -3985,10 +3985,10 @@ class DetObj:
 
                     if (    ( (np.count_nonzero(rat1 >= min_thresh) >= min_thresh_ct) and
                               (np.count_nonzero(rat1 >= full_thresh) >= 1)  and
-                              np.count_nonzero([ x < y for x,y in zip(outside1, rat1)]) > min_thresh_ct ) or
+                              np.count_nonzero([ x < y for x,y in zip(outside1, rat1)]) >= min_thresh_ct ) or
                             ( (np.count_nonzero(rat2 >= min_thresh) >= min_thresh_ct) and
                               (np.count_nonzero(rat2 >= full_thresh) >= 1) and
-                              np.count_nonzero([ x < y for x,y in zip(outside2, rat2)]) > min_thresh_ct) ):
+                              np.count_nonzero([ x < y for x,y in zip(outside2, rat2)]) >= min_thresh_ct) ):
 
                         self.flags |= G.DETFLAG_BAD_PIXELS
                         self.flags |= G.DETFLAG_QUESTIONABLE_DETECTION
