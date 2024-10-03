@@ -3897,13 +3897,15 @@ class DetObj:
                     rat2 = []
                     outside1 = [] #spectrum just to the outside of the emission line area to the blue
                     outside2 = [] #spectrum just to the outside of the emission line area to the red
-                    weights = []
+                    #weights = [] #not using weights right now ... since just using the top 4 fibers and looking
+                                  #for an overall pattern
 
                     w_idx , *_ = central_wave_idx = utils.getnearpos(G.CALFIB_WAVEGRID,self.w)
                     step_idx = int(np.floor(self.fwhm / G.FLUX_WAVEBIN_WIDTH))
                     rat_width = 4 #4 bins to check
                     rat_keep = 2 #keep lowest 2 bins
 
+                    first_thresh = 1.3 #1st fiber
                     min_thresh = 1.15 #3 of 4 fibers
                     med_thresh = 1.50 #2 of 4 fibers
                     full_thresh = 1.8 #1 of 4 fibers
@@ -3970,7 +3972,7 @@ class DetObj:
 
 
                         # usually the dip is on ly one or two pixels wide, so just use the two smallest in that range of 3
-                        weights.append(fiber.relative_weight)
+                        #weights.append(fiber.relative_weight)
                         rat1.append((zone2 - zone1) / zone2)  # blue side
                         rat2.append((zone2 - zone3) / zone2)  # red side
 
@@ -3979,7 +3981,7 @@ class DetObj:
 
                     rat1 = np.array(rat1)
                     rat2 = np.array(rat2)
-                    weights = np.array(weights)
+                    #weights = np.array(weights)
                     outside1 = np.array(outside1)
                     outside2 = np.array(outside2)
 
@@ -3988,7 +3990,7 @@ class DetObj:
                     #must meet the min_thresh_ct and either med_thrsh_ct or one over the full threshold
 
                     #blue side (must have at least  2 out of 3 of conditions 1,2,3 AND condition 4)
-                    cond1 =  np.count_nonzero(rat1 >= min_thresh) >= min_thresh_ct
+                    cond1 =  rat1[0] >= first_thresh and np.count_nonzero(rat1 >= min_thresh) >= min_thresh_ct
                     cond2 =  np.count_nonzero(rat1 >= med_thresh) >= med_thresh_ct
                     cond3 =  np.count_nonzero(rat1 >= full_thresh) >= 1
                     cond4 =  np.count_nonzero([ x < y for x,y in zip(outside1, rat1)]) >= min_thresh_ct
@@ -3996,7 +3998,7 @@ class DetObj:
                     blue_cond = np.count_nonzero(np.array([cond1,cond2,cond3])) >= 2 and cond4
 
                     #red side (must have at least 2 out of 3 of conditions 1,2,3 AND condition 4)
-                    cond1 =  np.count_nonzero(rat2 >= min_thresh) >= min_thresh_ct
+                    cond1 =  rat2[0] >= first_thresh and np.count_nonzero(rat2 >= min_thresh) >= min_thresh_ct
                     cond2 =  np.count_nonzero(rat2 >= med_thresh) >= med_thresh_ct
                     cond3 =  np.count_nonzero(rat2 >= full_thresh) >= 1
                     cond4 =  np.count_nonzero([ x < y for x,y in zip(outside2, rat2)]) >= min_thresh_ct
