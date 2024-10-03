@@ -3908,7 +3908,7 @@ class DetObj:
                     first_thresh = 1.3 #1st fiber
                     min_thresh = 1.15 #3 of 4 fibers
                     med_thresh = 1.50 #2 of 4 fibers
-                    full_thresh = 1.8 #1 of 4 fibers
+                    full_thresh = 1.7 #1 of 4 fibers
 
                     testnum = min(4, len(self.fibers))
                     # these are already sorted s|t the highest weight is first
@@ -3992,7 +3992,7 @@ class DetObj:
                     #blue side (must have at least  2 out of 3 of conditions 1,2,3 AND condition 4)
                     cond1 =  rat1[0] >= first_thresh and np.count_nonzero(rat1 >= min_thresh) >= min_thresh_ct
                     cond2 =  np.count_nonzero(rat1 >= med_thresh) >= med_thresh_ct
-                    cond3 =  np.count_nonzero(rat1 >= full_thresh) >= 1
+                    cond3 =  (np.count_nonzero(rat1 >= full_thresh) >= 1) or (np.count_nonzero(rat1 >= med_thresh) >= min_thresh_ct)
                     cond4 =  np.count_nonzero([ x < y for x,y in zip(outside1, rat1)]) >= min_thresh_ct
 
                     blue_cond = np.count_nonzero(np.array([cond1,cond2,cond3])) >= 2 and cond4
@@ -4000,7 +4000,7 @@ class DetObj:
                     #red side (must have at least 2 out of 3 of conditions 1,2,3 AND condition 4)
                     cond1 =  rat2[0] >= first_thresh and np.count_nonzero(rat2 >= min_thresh) >= min_thresh_ct
                     cond2 =  np.count_nonzero(rat2 >= med_thresh) >= med_thresh_ct
-                    cond3 =  np.count_nonzero(rat2 >= full_thresh) >= 1
+                    cond3 =  (np.count_nonzero(rat2 >= full_thresh) >= 1)  or (np.count_nonzero(rat1 >= med_thresh) >= min_thresh_ct)
                     cond4 =  np.count_nonzero([ x < y for x,y in zip(outside2, rat2)]) >= min_thresh_ct
 
                     red_cond = np.count_nonzero(np.array([cond1,cond2,cond3])) >= 2 and cond4
