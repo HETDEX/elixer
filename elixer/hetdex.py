@@ -3996,6 +3996,7 @@ class DetObj:
                     cond4 =  np.count_nonzero([ x < y for x,y in zip(outside1, rat1)]) >= min_thresh_ct
 
                     blue_cond = np.count_nonzero(np.array([cond1,cond2,cond3])) >= 2 and cond4
+                    log.info(f"{[self.entry_id]} Temp: {np.around(rat1,3)}; c1({cond1})  c2({cond2})  c3({cond3})  c4({cond4}), blue({blue_cond})")
 
                     #red side (must have at least 2 out of 3 of conditions 1,2,3 AND condition 4)
                     cond1 =  rat2[0] >= first_thresh and np.count_nonzero(rat2 >= min_thresh) >= min_thresh_ct
@@ -4004,6 +4005,9 @@ class DetObj:
                     cond4 =  np.count_nonzero([ x < y for x,y in zip(outside2, rat2)]) >= min_thresh_ct
 
                     red_cond = np.count_nonzero(np.array([cond1,cond2,cond3])) >= 2 and cond4
+
+                    log.info(
+                        f"{[self.entry_id]} Temp: {np.around(rat2, 3)}; c1({cond1})  c2({cond2})  c3({cond3})  c4({cond4}), red({red_cond})")
 
                     # if (    ( (np.count_nonzero(rat1 >= min_thresh) >= min_thresh_ct) and
                     #           (  (np.count_nonzero(rat1 >= med_thresh) >= med_thresh_ct)  or
