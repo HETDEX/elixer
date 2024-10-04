@@ -3103,12 +3103,12 @@ class DetObj:
             def photz_vote(detobj, bid):
                 try:
 
-                    min_area = 0.10  # no boost/score below this relative "peak" normalized percentage
+                    min_area = 0.05  # no boost/score below this relative "peak" normalized percentage
                     max_area = 0.30  # full boost at or above this relative "peak" normalized percentage
 
-                    agree_low = None
-                    agree_mid = None
-                    agree_hi  = None
+                    agree_low = -1
+                   # agree_mid = -1
+                    agree_hi  = -1
 
                     if bid['zPDF_area'] is None or bid['zPDF_area'] <= 0:
                         #minimum vote
@@ -3121,20 +3121,20 @@ class DetObj:
                     if bid['zPDF_OII_area'] >= 0 and bid['zPDF_area']/bid['zPDF_OII_area'] < 1.5: #similar areas
                         if G.PHOTZ_VOTE_LOW_Z_BIN[0] <= bid['z'] < G.PHOTZ_VOTE_LOW_Z_BIN[1]:
                             #consider this to be an agreement with OII
-                            agree_low = True
+                            agree_low = 1
                         else:
-                            agree_low = False
+                            agree_low = 0
 
                     if bid['zPDF_LyA_area'] >= 0 and bid['zPDF_area'] / bid['zPDF_LyA_area'] < 1.5:  # similar areas
                         if G.PHOTZ_VOTE_HI_Z_BIN[0] <= bid['z'] < G.PHOTZ_VOTE_HI_Z_BIN[1]:
                             # consider this to be an agreement with LyA
-                            agree_hi = True
+                            agree_hi = 1
                         else:
-                            agree_hi = False
+                            agree_hi = 0
 
-                    if (agree_low and agree_hi) or (agree_low == False) or (agree_hi == False):
-                        #no vote at all ... unclear photz
-                        return
+                    # if (agree_low and agree_hi) or (agree_low == False) or (agree_hi == False):
+                    #     #no vote at all ... unclear photz
+                    #     return
 
                     #otherwise we have a single unique vote in some bin
                     w = utils.simple_linear_interp(min_area,G.PHOTZ_VOTE_MIN_WEIGHT,max_area,G.PHOTZ_VOTE_MAX_WEIGHT,bid['zPDF_area'])
@@ -3142,6 +3142,26 @@ class DetObj:
                     if np.count_nonzero(sel_already_exists) == 0:
                         detobj.phot_z_votes.append(bid['z'])
                         detobj.phot_z_vote_weights.append(w)
+
+                    if agree_low < 1 and bid['zPDF_OII_area'] > min_area:# or agree_low == 0:  # also get LyA vote
+                        #also get OII vote
+                        w = utils.simple_linear_interp(min_area, G.PHOTZ_VOTE_MIN_WEIGHT,
+                                                       max_area,G.PHOTZ_VOTE_MAX_WEIGHT, bid['zPDF_OII_area'])
+                        sel_already_exists = np.array(detobj.phot_z_votes == bid['z_oii']) & \
+                                             np.array(detobj.phot_z_vote_weights == w)
+                        if np.count_nonzero(sel_already_exists) == 0:
+                            detobj.phot_z_votes.append(bid['z_oii'])
+                            detobj.phot_z_vote_weights.append(w)
+
+                    if agree_hi < 1 and bid['zPDF_LyA_area'] > min_area:# or not agree_hi: #also get LyA vote
+                        w = utils.simple_linear_interp(min_area, G.PHOTZ_VOTE_MIN_WEIGHT,
+                                                       max_area,G.PHOTZ_VOTE_MAX_WEIGHT, bid['zPDF_LyA_area'])
+                        sel_already_exists = np.array(detobj.phot_z_votes == bid['z_lya']) & \
+                                             np.array(detobj.phot_z_vote_weights == w)
+                        if np.count_nonzero(sel_already_exists) == 0:
+                            detobj.phot_z_votes.append(bid['z_lya'])
+                            detobj.phot_z_vote_weights.append(w)
+
                 except:
                     log.info("Exception! in hetdex.py DetObj::check_spec_solutions_vs_catalog_counterparts(), photz_vote", exc_info=True)
 
