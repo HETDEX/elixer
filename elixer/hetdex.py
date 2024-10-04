@@ -3893,13 +3893,6 @@ class DetObj:
             if (self.fwhm < 7.0) and (self.fwhm + self.fwhm_unc < 8.5) and self.spec_obj.central_eli is not None:
                 try:
 
-                    rat1 = []
-                    rat2 = []
-                    outside1 = [] #spectrum just to the outside of the emission line area to the blue
-                    outside2 = [] #spectrum just to the outside of the emission line area to the red
-                    #weights = [] #not using weights right now ... since just using the top 4 fibers and looking
-                                  #for an overall pattern
-
                     w_idx , *_ = central_wave_idx = utils.getnearpos(G.CALFIB_WAVEGRID,self.w)
                     step_idx = int(np.floor(self.fwhm / G.FLUX_WAVEBIN_WIDTH))
                     rat_width = 4 #4 bins to check
@@ -3911,117 +3904,183 @@ class DetObj:
                     full_thresh = 1.7 #1 of 4 fibers
 
                     testnum = min(4, len(self.fibers))
-                    # these are already sorted s|t the highest weight is first
-                    for fiber in self.fibers[0:testnum]:  # or maybe just the top several
 
-                        left = w_idx - step_idx - rat_width
-                        right = w_idx + step_idx + rat_width
-                        if left < 0:
-                            no_zone1 = True
+                    left = w_idx - step_idx - rat_width
+                    right = w_idx + step_idx + rat_width
+                    if left < 0:
+                        no_zone1 = True
+                    else:
+                        no_zone1 = False
+                    if right > 1036:
+                        no_zone3 = True
+                    else:
+                        no_zone3 = False
+
+                    left = max(left, 0)
+                    right = min(1036, right)
+
+                    #full (PSF weighted stack)
+                    flux_slice = self.sumspec_flux[left:right+1]
+
+                    try:
+                        return_left = np.nanmedian(self.sumspec_flux[left - 5:left])
+                    except:
+                        return_left = 0  # assume is back to zero
+
+                    try:
+                        return_right = np.nanmedian(self.sumspec_flux[right:right + 6])
+                    except:
+                        return_right = 0  # assume is back to zero
+
+                    if no_zone1:
+                        zone1 = 0.0
+                    else:  # really should be lowest and adjacent
+                        i = np.argmin(flux_slice[0:rat_width + 1])
+                        if i > 0:
+                            v2 = min(flux_slice[i - 1], flux_slice[i + 1])
                         else:
-                            no_zone1 = False
-                        if right > 1036:
-                            no_zone3 = True
+                            v2 = flux_slice[i + 1]
+                        # zone1 = np.nanmean(sorted(flux_slice[0:rat_width+1])[:rat_keep])
+                        zone1 = (flux_slice[i] + v2) / 2.0
+
+                    # top 2
+                    i = np.argmax(flux_slice[rat_width + 1:-rat_width]) + rat_width + 1
+                    v2 = max(flux_slice[i - 1], flux_slice[i + 1])
+                    # zone2 = np.nanmean(flux_slice[rat_width+1:-rat_width])
+                    zone2 = (flux_slice[i] + v2) / 2.0
+
+                    if no_zone3:
+                        zone3 = 0.0
+                    else:
+                        i = np.argmin(flux_slice[-rat_width:]) + len(flux_slice) - rat_width
+                        if i >= len(flux_slice) - 1:
+                            v2 = flux_slice[i - 1]
                         else:
-                            no_zone3 = False
+                            v2 = min(flux_slice[i - 1], flux_slice[i + 1])
+                        # zone3 = np.nanmean(sorted(flux_slice[-rat_width:])[:rat_keep])
+                        zone3 = (flux_slice[i] + v2) / 2.0
 
-                        left = max(left,0)
-                        right = min(1036,right)
+                    # usually the dip is on ly one or two pixels wide, so just use the two smallest in that range of 3
+                    # weights.append(fiber.relative_weight)
+                    rat1 = (zone2 - zone1) / zone2  # blue side
+                    rat2 = (zone2 - zone3) / zone2  # red side
 
+                    outside1 = (zone2 - return_left) / zone2
+                    outside2 = (zone2 - return_right) / zone2
 
-                        flux = fiber.fits.calfib[fiber.panacea_idx][left:right+1]
-
-                        try:
-                            return_left = np.nanmedian(fiber.fits.calfib[fiber.panacea_idx][left-5:left])
-                        except:
-                            return_left = 0 #assume is back to zero
-
-                        try:
-                            return_right = np.nanmedian(fiber.fits.calfib[fiber.panacea_idx][right:right+6])
-                        except:
-                            return_right = 0 #assume is back to zero
-
-                        if no_zone1:
-                            zone1 = 0.0
-                        else: #really should be lowest and adjacent
-                            i = np.argmin(flux[0:rat_width+1])
-                            if i > 0:
-                                v2 = min(flux[i-1],flux[i+1])
-                            else:
-                                v2 = flux[i+1]
-                            #zone1 = np.nanmean(sorted(flux[0:rat_width+1])[:rat_keep])
-                            zone1 = (flux[i] + v2)/2.0
-
-
-                        #top 2
-                        i = np.argmax(flux[rat_width+1:-rat_width]) + rat_width+1
-                        v2 = max(flux[i-1],flux[i+1])
-                        #zone2 = np.nanmean(flux[rat_width+1:-rat_width])
-                        zone2 = (flux[i] + v2)/2.0
-
-                        if no_zone3:
-                            zone3 = 0.0
-                        else:
-                            i = np.argmin(flux[-rat_width:]) + len(flux)-rat_width
-                            if i >= len(flux)-1:
-                                v2 = flux[i-1]
-                            else:
-                                v2 = min(flux[i-1],flux[i+1])
-                            #zone3 = np.nanmean(sorted(flux[-rat_width:])[:rat_keep])
-                            zone3 = (flux[i] + v2)/2.0
-
-
-                        # usually the dip is on ly one or two pixels wide, so just use the two smallest in that range of 3
-                        #weights.append(fiber.relative_weight)
-                        rat1.append((zone2 - zone1) / zone2)  # blue side
-                        rat2.append((zone2 - zone3) / zone2)  # red side
-
-                        outside1.append((zone2-return_left)/zone2)
-                        outside2.append((zone2-return_right)/zone2)
-
-                    rat1 = np.array(rat1)
-                    rat2 = np.array(rat2)
-                    #weights = np.array(weights)
-                    outside1 = np.array(outside1)
-                    outside2 = np.array(outside2)
-
-                    min_thresh_ct = int(0.75 * testnum)
-                    med_thresh_ct = int(0.5 * testnum)
-                    #must meet the min_thresh_ct and either med_thrsh_ct or one over the full threshold
-
-                    #blue side (must have at least  2 out of 3 of conditions 1,2,3 AND condition 4)
-                    cond1 =  rat1[0] >= first_thresh and np.count_nonzero(rat1 >= min_thresh) >= min_thresh_ct
-                    cond2 =  np.count_nonzero(rat1 >= med_thresh) >= med_thresh_ct
-                    cond3 =  (np.count_nonzero(rat1 >= full_thresh) >= 1) or (np.count_nonzero(rat1 >= med_thresh) >= min_thresh_ct)
-                    cond4 =  np.count_nonzero([ x < y for x,y in zip(outside1, rat1)]) >= min_thresh_ct
-
-                    blue_cond = np.count_nonzero(np.array([cond1,cond2,cond3])) >= 2 and cond4
-                    log.info(f"{[self.entry_id]} Temp: {np.around(rat1,3)}; c1({cond1})  c2({cond2})  c3({cond3})  c4({cond4}), blue({blue_cond})")
-
-                    #red side (must have at least 2 out of 3 of conditions 1,2,3 AND condition 4)
-                    cond1 =  rat2[0] >= first_thresh and np.count_nonzero(rat2 >= min_thresh) >= min_thresh_ct
-                    cond2 =  np.count_nonzero(rat2 >= med_thresh) >= med_thresh_ct
-                    cond3 =  (np.count_nonzero(rat2 >= full_thresh) >= 1)  or (np.count_nonzero(rat1 >= med_thresh) >= min_thresh_ct)
-                    cond4 =  np.count_nonzero([ x < y for x,y in zip(outside2, rat2)]) >= min_thresh_ct
-
-                    red_cond = np.count_nonzero(np.array([cond1,cond2,cond3])) >= 2 and cond4
-
-                    log.info(
-                        f"{[self.entry_id]} Temp: {np.around(rat2, 3)}; c1({cond1})  c2({cond2})  c3({cond3})  c4({cond4}), red({red_cond})")
-
-                    # if (    ( (np.count_nonzero(rat1 >= min_thresh) >= min_thresh_ct) and
-                    #           (  (np.count_nonzero(rat1 >= med_thresh) >= med_thresh_ct)  or
-                    #              (np.count_nonzero(rat1 >= full_thresh) >= 1))  and
-                    #           np.count_nonzero([ x < y for x,y in zip(outside1, rat1)]) >= min_thresh_ct ) or
-                    #         (  (np.count_nonzero(rat2 >= min_thresh) >= min_thresh_ct) and
-                    #            ( (np.count_nonzero(rat2 >= med_thresh) >= med_thresh_ct) or
-                    #              (np.count_nonzero(rat2 >= full_thresh) >= 1)) and
-                    #           np.count_nonzero([ x < y for x,y in zip(outside2, rat2)]) >= min_thresh_ct) ):
-
-                    if blue_cond or red_cond:
-                        self.flags |= G.DETFLAG_BAD_PIXELS
+                    #MUST pass this condition
+                    if (outside1 < rat1 >= first_thresh) or (outside2 < rat2 >= first_thresh):
                         log.info(
-                            f"{self.entry_id} detection possibly caused by bad pixels or bad sky. Extemely low to side of emission.")
+                            f"{[self.entry_id]} Temp: main {outside1:0.2f},{rat1:0.2f},{first_thresh:0.2f}  : {outside2:0.2f}, {rat2:0.2f},{first_thresh:0.2f}")
+
+
+                        #now check all the individual fibers, redfine rat? and outside? to be arrays
+                        rat1 = []
+                        rat2 = []
+                        outside1 = [] #spectrum just to the outside of the emission line area to the blue
+                        outside2 = [] #spectrum just to the outside of the emission line area to the red
+                        #weights = [] #not using weights right now ... since just using the top 4 fibers and looking
+                                      #for an overall pattern
+
+
+
+                        # these are already sorted s|t the highest weight is first
+                        for fiber in self.fibers[0:testnum]:  # or maybe just the top several
+
+                            flux_slice = fiber.fits.calfib[fiber.panacea_idx][left:right+1]
+
+                            try:
+                                return_left = np.nanmedian(fiber.fits.calfib[fiber.panacea_idx][left-5:left])
+                            except:
+                                return_left = 0 #assume is back to zero
+
+                            try:
+                                return_right = np.nanmedian(fiber.fits.calfib[fiber.panacea_idx][right:right+6])
+                            except:
+                                return_right = 0 #assume is back to zero
+
+                            if no_zone1:
+                                zone1 = 0.0
+                            else: #really should be lowest and adjacent
+                                i = np.argmin(flux_slice[0:rat_width+1])
+                                if i > 0:
+                                    v2 = min(flux_slice[i-1],flux_slice[i+1])
+                                else:
+                                    v2 = flux_slice[i+1]
+                                #zone1 = np.nanmean(sorted(flux_slice[0:rat_width+1])[:rat_keep])
+                                zone1 = (flux_slice[i] + v2)/2.0
+
+
+                            #top 2
+                            i = np.argmax(flux_slice[rat_width+1:-rat_width]) + rat_width+1
+                            v2 = max(flux_slice[i-1],flux_slice[i+1])
+                            #zone2 = np.nanmean(flux_slice[rat_width+1:-rat_width])
+                            zone2 = (flux_slice[i] + v2)/2.0
+
+                            if no_zone3:
+                                zone3 = 0.0
+                            else:
+                                i = np.argmin(flux_slice[-rat_width:]) + len(flux_slice)-rat_width
+                                if i >= len(flux_slice)-1:
+                                    v2 = flux_slice[i-1]
+                                else:
+                                    v2 = min(flux_slice[i-1],flux_slice[i+1])
+                                #zone3 = np.nanmean(sorted(flux_slice[-rat_width:])[:rat_keep])
+                                zone3 = (flux_slice[i] + v2)/2.0
+
+
+                            # usually the dip is on ly one or two pixels wide, so just use the two smallest in that range of 3
+                            #weights.append(fiber.relative_weight)
+                            rat1.append((zone2 - zone1) / zone2)  # blue side
+                            rat2.append((zone2 - zone3) / zone2)  # red side
+
+                            outside1.append((zone2-return_left)/zone2)
+                            outside2.append((zone2-return_right)/zone2)
+
+                        rat1 = np.array(rat1)
+                        rat2 = np.array(rat2)
+                        #weights = np.array(weights)
+                        outside1 = np.array(outside1)
+                        outside2 = np.array(outside2)
+
+                        min_thresh_ct = int(0.75 * testnum)
+                        med_thresh_ct = int(0.5 * testnum)
+                        #must meet the min_thresh_ct and either med_thrsh_ct or one over the full threshold
+
+                        #blue side (must have at least  2 out of 3 of conditions 1,2,3 AND condition 4)
+                        #the WHOLE stack must look normal->negative->emision
+                        cond1 =  rat1[0] >= first_thresh and np.count_nonzero(rat1 >= min_thresh) >= min_thresh_ct
+                        cond2 =  np.count_nonzero(rat1 >= med_thresh) >= med_thresh_ct
+                        cond3 =  (np.count_nonzero(rat1 >= full_thresh) >= 1) or (np.count_nonzero(rat1 >= med_thresh) >= min_thresh_ct)
+                        cond4 =  np.count_nonzero([ x < y for x,y in zip(outside1, rat1)]) >= min_thresh_ct
+
+                        blue_cond = np.count_nonzero(np.array([cond1,cond2,cond3])) >= 2 and cond4
+                        log.info(f"{[self.entry_id]} Temp: {np.around(rat1,3)}; c1({cond1})  c2({cond2})  c3({cond3})  c4({cond4}), blue({blue_cond})")
+
+                        #red side (must have at least 2 out of 3 of conditions 1,2,3 AND condition 4)
+                        cond1 =  rat2[0] >= first_thresh and np.count_nonzero(rat2 >= min_thresh) >= min_thresh_ct
+                        cond2 =  np.count_nonzero(rat2 >= med_thresh) >= med_thresh_ct
+                        cond3 =  (np.count_nonzero(rat2 >= full_thresh) >= 1)  or (np.count_nonzero(rat1 >= med_thresh) >= min_thresh_ct)
+                        cond4 =  np.count_nonzero([ x < y for x,y in zip(outside2, rat2)]) >= min_thresh_ct
+
+                        red_cond = np.count_nonzero(np.array([cond1,cond2,cond3])) >= 2 and cond4
+
+                        log.info(
+                            f"{[self.entry_id]} Temp: {np.around(rat2, 3)}; c1({cond1})  c2({cond2})  c3({cond3})  c4({cond4}), red({red_cond})")
+
+                        # if (    ( (np.count_nonzero(rat1 >= min_thresh) >= min_thresh_ct) and
+                        #           (  (np.count_nonzero(rat1 >= med_thresh) >= med_thresh_ct)  or
+                        #              (np.count_nonzero(rat1 >= full_thresh) >= 1))  and
+                        #           np.count_nonzero([ x < y for x,y in zip(outside1, rat1)]) >= min_thresh_ct ) or
+                        #         (  (np.count_nonzero(rat2 >= min_thresh) >= min_thresh_ct) and
+                        #            ( (np.count_nonzero(rat2 >= med_thresh) >= med_thresh_ct) or
+                        #              (np.count_nonzero(rat2 >= full_thresh) >= 1)) and
+                        #           np.count_nonzero([ x < y for x,y in zip(outside2, rat2)]) >= min_thresh_ct) ):
+
+                        if blue_cond or red_cond:
+                            self.flags |= G.DETFLAG_BAD_PIXELS
+                            log.info(
+                                f"{self.entry_id} detection possibly caused by bad pixels or bad sky. Extemely low to side of emission.")
                 except:
                     log.info("Exception (c) in hetdex.py check_for_bad_pixels.", exc_info=True)
 
