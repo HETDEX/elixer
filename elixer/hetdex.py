@@ -3971,7 +3971,7 @@ class DetObj:
                     #MUST pass this condition
                     if (outside1 < rat1 >= first_thresh) or (outside2 < rat2 >= first_thresh):
                         log.info(
-                            f"{[self.entry_id]} Temp: main {outside1:0.2f},{rat1:0.2f},{first_thresh:0.2f}  : {outside2:0.2f}, {rat2:0.2f},{first_thresh:0.2f}")
+                            f"{[self.entry_id]} Temp: main {outside1:0.2f},{rat1:0.2f},{first_thresh:0.2f}  : {outside2:0.2f},{rat2:0.2f},{first_thresh:0.2f}")
 
 
                         #now check all the individual fibers, redfine rat? and outside? to be arrays
