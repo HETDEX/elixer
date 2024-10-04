@@ -1200,6 +1200,14 @@ BANDPASS_PREFER_G = True #if true use g band over r if both present, otherwise u
 CHECK_ALL_CATALOG_BID_Z = True
 ALL_CATATLOG_SPEC_Z_BOOST = MULTILINE_FULL_SOLUTION_SCORE * 2.0 #i.e. +100.0 #addititive to the base solution score
 ALL_CATATLOG_PHOT_Z_BOOST = 5.0        #ie. +5; some are more reliable than others but this is a broad brush
+PHOTZ_USAGE = 1 # 0 = do not use at all (ignore photz)
+                # 1 = photz can vote for low, mid, high-z and support solutions BUT cannot introduce new redshift solutions
+                # 2 = photz can introduce new redshift solutions
+PHOTZ_VOTE_MIN_WEIGHT = 0.1 #if no zPDF
+PHOTZ_VOTE_MAX_WEIGHT = 0.5 #with zPDF and a spike
+PHOTZ_VOTE_LOW_Z_BIN = [-0.01,0.70] #includes left, excludes right
+PHOTZ_VOTE_MID_Z_BIN = [0.70,1.50]
+PHOTZ_VOTE_HI_Z_BIN  = [1.50,4.50]
 
 USE_PHOTO_CATS = True  #default normal is True .... use photometry catalogs (if False only generate the top (HETDEX) part)
 

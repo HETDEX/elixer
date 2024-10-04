@@ -623,7 +623,8 @@ class DetObj:
         self.aperture_sky_subtraction_residual_err = None
         self.aperture_sky_subtraction_residual_flat = None
 
-        self.phot_z_votes = []
+        self.phot_z_votes = [] #redshift value
+        self.phot_z_vote_weights = [] #corresponding nominal vote weight
         self.cluster_parent = 0 #detectid of anohter HETDEX source that is the cluster (specifically, redshift) for this object
         self.cluster_z = -1
         self.cluster_qz = -1
@@ -1252,26 +1253,26 @@ class DetObj:
         except:
             log.warning(f"Exception in DetObj compact().",exc_info=True)
 
-
-    def get_phot_z_vote(self):
-        try:
-            if len(self.phot_z_votes) > 0:
-                z = np.mean(self.phot_z_votes) #all weighted equally
-                #todo: later see if can get the acutal PDFs or uncertainties to weigh the average
-                if -0.1 < z < 0.7: #low Z ... favors OII
-                    if abs((self.w/G.OII_rest -1.0)-z) < 0.5:
-                        #consistent
-                        return self.w/G.OII_rest -1.0
-                elif 1.7 < z < 3.7: #high z .... favors LAE
-                    if abs((self.w/G.LyA_rest -1.0)-z) < 0.5:
-                        #consistent
-                        return self.w/G.LyA_rest -1.0
-                else: #no vote; don't trust in mid-z range, or z > 4
-                    return -1
-        except:
-            return -1
-
-        return -1
+    #[DEFUNCT] 2024-10-04
+    # def get_phot_z_vote(self):
+    #     try:
+    #         if len(self.phot_z_votes) > 0:
+    #             z = np.mean(self.phot_z_votes) #all weighted equally
+    #             #todo: later see if can get the acutal PDFs or uncertainties to weigh the average
+    #             if -0.1 < z < 0.7: #low Z ... favors OII
+    #                 if abs((self.w/G.OII_rest -1.0)-z) < 0.5:
+    #                     #consistent
+    #                     return self.w/G.OII_rest -1.0
+    #             elif 1.7 < z < 3.7: #high z .... favors LAE
+    #                 if abs((self.w/G.LyA_rest -1.0)-z) < 0.5:
+    #                     #consistent
+    #                     return self.w/G.LyA_rest -1.0
+    #             else: #no vote; don't trust in mid-z range, or z > 4
+    #                 return -1
+    #     except:
+    #         return -1
+    #
+    #     return -1
 
     def unique_sep_neighbors(self):
         """
@@ -3099,6 +3100,53 @@ class DetObj:
             if (self.bid_target_list is None) or not G.CHECK_ALL_CATALOG_BID_Z:
                 return
 
+            def photz_vote(detobj, bid):
+                try:
+
+                    min_area = 0.10  # no boost/score below this relative "peak" normalized percentage
+                    max_area = 0.30  # full boost at or above this relative "peak" normalized percentage
+
+                    agree_low = None
+                    agree_mid = None
+                    agree_hi  = None
+
+                    if bid['zPDF_area'] is None or bid['zPDF_area'] <= 0:
+                        #minimum vote
+                        sel_already_exists = np.array(detobj.phot_z_votes == bid['z']) & np.array(detobj.phot_z_vote_weights == G.PHOTZ_VOTE_MIN_WEIGHT)
+                        if np.count_nonzero(sel_already_exists) == 0:
+                            detobj.phot_z_votes.append(bid['z'])
+                            detobj.phot_z_vote_weights.append(G.PHOTZ_VOTE_MIN_WEIGHT)
+                        return
+
+                    if bid['zPDF_OII_area'] >= 0 and bid['zPDF_area']/bid['zPDF_OII_area'] < 1.5: #similar areas
+                        if G.PHOTZ_VOTE_LOW_Z_BIN[0] <= bid['z'] < G.PHOTZ_VOTE_LOW_Z_BIN[1]:
+                            #consider this to be an agreement with OII
+                            agree_low = True
+                        else:
+                            agree_low = False
+
+                    if bid['zPDF_LyA_area'] >= 0 and bid['zPDF_area'] / bid['zPDF_LyA_area'] < 1.5:  # similar areas
+                        if G.PHOTZ_VOTE_HI_Z_BIN[0] <= bid['z'] < G.PHOTZ_VOTE_HI_Z_BIN[1]:
+                            # consider this to be an agreement with LyA
+                            agree_hi = True
+                        else:
+                            agree_hi = False
+
+                    if (agree_low and agree_hi) or (agree_low == False) or (agree_hi == False):
+                        #no vote at all ... unclear photz
+                        return
+
+                    #otherwise we have a single unique vote in some bin
+                    w = utils.simple_linear_interp(min_area,G.PHOTZ_VOTE_MIN_WEIGHT,max_area,G.PHOTZ_VOTE_MAX_WEIGHT,bid['zPDF_area'])
+                    sel_already_exists = np.array(detobj.phot_z_votes == bid['z']) & np.array(detobj.phot_z_vote_weights == w)
+                    if np.count_nonzero(sel_already_exists) == 0:
+                        detobj.phot_z_votes.append(bid['z'])
+                        detobj.phot_z_vote_weights.append(w)
+                except:
+                    log.info("Exception! in hetdex.py DetObj::check_spec_solutions_vs_catalog_counterparts(), photz_vote", exc_info=True)
+
+
+
             max_z = 4.0 #to sum over for normalization (set to None to use the entire zPDF)
             #!! Notice: we are NOT integrating under a curve here, just summing over the discrete zPDF values
             #between two points ... the z +/- delta_z
@@ -3131,7 +3179,7 @@ class DetObj:
 
                 #then check phot-z (lower boost)
                 #allowed to have the smaller of 0.5 or 20% error in z
-                if b.phot_z is not None and b.phot_z > -0.02:
+                if G.PHOTZ_USAGE > 0 and b.phot_z is not None and b.phot_z > -0.02:
 
                     #pre-compute OII and LyA Area under zPDF
                     #OII
@@ -3372,56 +3420,60 @@ class DetObj:
 
 
                     if new_solution and (line.solution):
-                        found_line_z = self.w/line.w_rest-1.0 #check the found line against the anchor line
-                        if (z - bid['z_err'] <   found_line_z < z + bid['z_err']) or \
-                           ( 1.5 < z < 4.0 and line.w_rest == G.LyA_rest) or \
-                           ( 0  < z < 0.7 and line.w_rest == G.OII_rest):
-                            #want to bump these if the found lines are consistent??
-                            boost /= 2.0 #cut in half for a new solution (as opposed to boosting an existing solution)
-                            sol = elixer_spectrum.Classifier_Solution()
-                            sol.z = self.w/line.w_rest - 1.0
-                            sol.external_catalog_solution = True
-                            sol.specz_boosted = bid['z_err'] < 0.1
-                            sol.central_rest = line.w_rest
-                            sol.name = line.name
-                            sol.color = line.color
-                            sol.emission_line = deepcopy(line)
-                            #add the central line info for flux, etc to line (basic info)
-                            if central_eli is not None:
-                                sol.emission_line.line_score =central_eli.line_score
-                                sol.emission_line.flux = central_eli.line_flux
-                                sol.emission_line.flux_err = central_eli.line_flux_err
-                                sol.emission_line.snr = central_eli.snr
+                        if (bid['type']=='p' and G.PHOTZ_USAGE < 2):
+                            #cannot add a new solution, but can vote
+                            photz_vote(self,bid)
+                        else:
+                            found_line_z = self.w/line.w_rest-1.0 #check the found line against the anchor line
+                            if (z - bid['z_err'] <   found_line_z < z + bid['z_err']) or \
+                               ( 1.5 < z < 4.0 and line.w_rest == G.LyA_rest) or \
+                               ( 0  < z < 0.7 and line.w_rest == G.OII_rest):
+                                #want to bump these if the found lines are consistent??
+                                boost /= 2.0 #cut in half for a new solution (as opposed to boosting an existing solution)
+                                sol = elixer_spectrum.Classifier_Solution()
+                                sol.z = self.w/line.w_rest - 1.0
+                                sol.external_catalog_solution = True
+                                sol.specz_boosted = bid['z_err'] < 0.1
+                                sol.central_rest = line.w_rest
+                                sol.name = line.name
+                                sol.color = line.color
+                                sol.emission_line = deepcopy(line)
+                                #add the central line info for flux, etc to line (basic info)
+                                if central_eli is not None:
+                                    sol.emission_line.line_score =central_eli.line_score
+                                    sol.emission_line.flux = central_eli.line_flux
+                                    sol.emission_line.flux_err = central_eli.line_flux_err
+                                    sol.emission_line.snr = central_eli.snr
 
-                            sol.emission_line.w_obs = self.w
-                            sol.emission_line.solution = True
-                            sol.prob_noise = 0
-                            sol.photz_single_boosted += 1
-                            sol.photz_zPDF_boosted += 1 #so this won't get a duplicate boost below
-                            #sol.score = boost
+                                sol.emission_line.w_obs = self.w
+                                sol.emission_line.solution = True
+                                sol.prob_noise = 0
+                                sol.photz_single_boosted += 1
+                                sol.photz_zPDF_boosted += 1 #so this won't get a duplicate boost below
+                                #sol.score = boost
 
-                            if self.spec_obj.consistency_checks(sol):
-                                sol.score = boost
-                                #if one of the primaries ... z:[1.88,3.53] = LyA or z:[0,0.49], then this needs an
-                                #extra boost since it is only a single line
-                                #but you only get the scoring BOOST if this is a spec-z match
-                                if ((0 < sol.z < 0.49) or (1.88 < sol.z < 3.53)) and not phot_z_only:
-                                   sol.score += sol.emission_line.line_score
-                                   log.debug(f"Adding {sol.emission_line.name} as \"supporting\" line to maintain scaled_score.")
+                                if self.spec_obj.consistency_checks(sol):
+                                    sol.score = boost
+                                    #if one of the primaries ... z:[1.88,3.53] = LyA or z:[0,0.49], then this needs an
+                                    #extra boost since it is only a single line
+                                    #but you only get the scoring BOOST if this is a spec-z match
+                                    if ((0 < sol.z < 0.49) or (1.88 < sol.z < 3.53)) and not phot_z_only:
+                                       sol.score += sol.emission_line.line_score
+                                       log.debug(f"Adding {sol.emission_line.name} as \"supporting\" line to maintain scaled_score.")
 
-                                sol.lines.append(sol.emission_line) #have to add as if it is an extra line
-                                #otherwise the scaled score gets knocked way down
-                                if bid['zPDF_area'] != 1.:
-                                    log.info(
-                                        f"Catalog z: Adding new solution {line.name}({line.w_rest}): score = {sol.score}, zPDF_area = {bid['zPDF_area']:0.4f}")
-                                else:
-                                    log.info(f"Catalog z: Adding new solution {line.name}({line.w_rest}): score = {sol.score}")
-                            else: # reduce the weight ... but allow to conitnue??
-                                sol.score = G.MULTILINE_MIN_SOLUTION_SCORE
-                                log.info(f"Minimum catalog new solution {line.name}({line.w_rest}). Failed consistency check. Solution score set to {sol.score}")
+                                    sol.lines.append(sol.emission_line) #have to add as if it is an extra line
+                                    #otherwise the scaled score gets knocked way down
+                                    if bid['zPDF_area'] != 1.:
+                                        log.info(
+                                            f"Catalog z: Adding new solution {line.name}({line.w_rest}): score = {sol.score}, zPDF_area = {bid['zPDF_area']:0.4f}")
+                                    else:
+                                        log.info(f"Catalog z: Adding new solution {line.name}({line.w_rest}): score = {sol.score}")
+                                else: # reduce the weight ... but allow to conitnue??
+                                    sol.score = G.MULTILINE_MIN_SOLUTION_SCORE
+                                    log.info(f"Minimum catalog new solution {line.name}({line.w_rest}). Failed consistency check. Solution score set to {sol.score}")
 
 
-                            self.spec_obj.solutions.append(sol)
+                                self.spec_obj.solutions.append(sol)
 
 
                 #basic line set
@@ -3479,7 +3531,9 @@ class DetObj:
                         #NOTE: the w_obs in line is NOT NECESSARILY CORRECT, the line variable here is not a fitted line
                         #it is just from the list of lines to check and the w_obs can have junk in it
 
-                        if not phot_z_only:# or (line.w_rest == G.OII_rest and line.z/:
+                        if (bid['type'] == 'p' and G.PHOTZ_USAGE < 2):
+                            photz_vote(self,bid)
+                        elif not phot_z_only:# or (line.w_rest == G.OII_rest and line.z/:
                             if self.spec_obj.single_emission_line_redshift(line,self.w):
                                 boost /= 2.0 #cut in half for a new solution (as opposed to boosting an existing solution)
                                 sol = elixer_spectrum.Classifier_Solution()
@@ -3517,8 +3571,8 @@ class DetObj:
 
 
                                 self.spec_obj.solutions.append(sol)
-                        else:
-                            self.phot_z_votes.append(z)
+                        #else:
+                        #    self.phot_z_votes.append(z)
 
 
 
@@ -5834,25 +5888,55 @@ class DetObj:
         # max 0.5 vote
         ###################################
         if G.VOTER_ACTIVE & G.VOTE_PHOTZ:
-            phot_z = self.get_phot_z_vote()
-            if -0.1 < phot_z < 0.7:
-                self.likelihood.append(0.0)
-                self.voterid.append(G.VOTE_PHOTZ)
-                self.weight.append(0.5)
-                self.var.append(1)
-                self.prior.append(base_assumption)
-                log.info(f"{self.entry_id} Aggregate Classification: phot_z vote (low-z): lk({self.likelihood[-1]}) weight({self.weight[-1]})")
-            elif 1.7 < phot_z < 3.7:
-                self.likelihood.append(1.0)
-                self.voterid.append(G.VOTE_PHOTZ)
-                self.weight.append(0.5)
-                self.var.append(1)
-                self.prior.append(base_assumption)
-                log.info(f"{self.entry_id} Aggregate Classification: phot_z vote (high-z): lk({self.likelihood[-1]}) weight({self.weight[-1]})")
-            else:
-                log.info(f"{self.entry_id} Aggregate Classification: phot_z vote - no vote.")
-        else:
-            log.info(f"{self.entry_id} Aggregate Classification: phot_z vote - no vote. Turned OFF")
+            try:
+                for photz,photw in zip(self.phot_z_votes,self.phot_z_vote_weights):
+                    if G.PHOTZ_VOTE_LOW_Z_BIN[0] <= photz < G.PHOTZ_VOTE_LOW_Z_BIN[1]:
+                        #low z vote AGAINST LyA
+                        self.likelihood.append(0.0)
+                        self.voterid.append(G.VOTE_PHOTZ)
+                        self.weight.append(photw)
+                        self.var.append(1)
+                        self.prior.append(base_assumption)
+                        log.info(f"{self.entry_id} Aggregate Classification: phot_z vote (low-z): lk({self.likelihood[-1]}) weight({self.weight[-1]})")
+                    elif G.PHOTZ_VOTE_MID_Z_BIN[0] <= photz < G.PHOTZ_VOTE_MID_Z_BIN[1]:
+                        #mid z vote ?ambiguous or against LyA ?
+                        self.likelihood.append(0.5)
+                        self.voterid.append(G.VOTE_PHOTZ)
+                        self.weight.append(photw)
+                        self.var.append(1)
+                        self.prior.append(base_assumption)
+                        log.info(f"{self.entry_id} Aggregate Classification: phot_z vote (mid-z): lk({self.likelihood[-1]}) weight({self.weight[-1]})")
+                    elif G.PHOTZ_VOTE_HI_Z_BIN[0] <= photz < G.PHOTZ_VOTE_HI_Z_BIN[1]:
+                        #high z vote, FOR LyA
+                        self.likelihood.append(1.0)
+                        self.voterid.append(G.VOTE_PHOTZ)
+                        self.weight.append(photw)
+                        self.var.append(1)
+                        self.prior.append(base_assumption)
+                        log.info(f"{self.entry_id} Aggregate Classification: phot_z vote (high-z): lk({self.likelihood[-1]}) weight({self.weight[-1]})")
+            except:
+                log.info(f"Exception! {self.entry_id} Aggregate Classification: photz - no vote.", exc_info=True)
+
+        # OLD basic method
+        #     phot_z = self.get_phot_z_vote()
+        #     if -0.1 < phot_z < 0.7:
+        #         self.likelihood.append(0.0)
+        #         self.voterid.append(G.VOTE_PHOTZ)
+        #         self.weight.append(0.5)
+        #         self.var.append(1)
+        #         self.prior.append(base_assumption)
+        #         log.info(f"{self.entry_id} Aggregate Classification: phot_z vote (low-z): lk({self.likelihood[-1]}) weight({self.weight[-1]})")
+        #     elif 1.7 < phot_z < 3.7:
+        #         self.likelihood.append(1.0)
+        #         self.voterid.append(G.VOTE_PHOTZ)
+        #         self.weight.append(0.5)
+        #         self.var.append(1)
+        #         self.prior.append(base_assumption)
+        #         log.info(f"{self.entry_id} Aggregate Classification: phot_z vote (high-z): lk({self.likelihood[-1]}) weight({self.weight[-1]})")
+        #     else:
+        #         log.info(f"{self.entry_id} Aggregate Classification: phot_z vote - no vote.")
+        # else:
+        #     log.info(f"{self.entry_id} Aggregate Classification: phot_z vote - no vote. Turned OFF")
 
 
 
