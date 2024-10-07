@@ -5060,7 +5060,7 @@ class DetObj:
                         # diameter_lae.append({"z":z,"kpc":diam_kpc,"weight":w,"likelihood":lk})
                         log.info(
                             f"{self.entry_id} Aggregate Classification, angular size ({self.classification_dict['diam_in_arcsec']:0.2})\". Likely OII:"
-                            f" z(OII)({z_oii:#.4g}) weight({self.weight[-1]:#.5g}) likelihood({self.likelihood[-1]:#.5g})")
+                            f" z(OII)({z_oii:#.4g}) weight({self.weight[-1]:#.5g}) lk ({self.likelihood[-1]:#.5g})")
 
                         self.vote_info['size_in_psf_vote'] = self.likelihood[-1]
                         self.vote_info['size_in_psf_weight'] = self.weight[-1]
@@ -5083,7 +5083,7 @@ class DetObj:
                             #diameter_lae.append({"z":z,"kpc":diam_kpc,"weight":w,"likelihood":lk})
                             log.info(
                                 f"{self.entry_id} Aggregate Classification, angular size ({self.classification_dict['diam_in_arcsec']:0.2})\", added physical size. Unlikely OII:"
-                                f" z(OII)({z_oii:#.4g}) kpc({diam_kpc:#.4g}) weight({self.weight[-1]:#.5g}) likelihood({self.likelihood[-1]:#.5g})")
+                                f" z(OII)({z_oii:#.4g}) kpc({diam_kpc:#.4g}) weight({self.weight[-1]:#.5g}) lk({self.likelihood[-1]:#.5g})")
 
                             self.vote_info['size_in_psf_vote'] = self.likelihood[-1]
                             self.vote_info['size_in_psf_weight'] = self.weight[-1]
@@ -5100,7 +5100,7 @@ class DetObj:
                             #diameter_lae.append({"z":z,"kpc":diam_kpc,"weight":w,"likelihood":lk})
                             log.info(
                                 f"{self.entry_id} Aggregate Classification, angular size ({self.classification_dict['diam_in_arcsec']:0.2})\", added physical size. Unlikely OII:"
-                                f" z(OII)({z_oii:#.4g}) kpc({diam_kpc:#.4g}) weight({self.weight[-1]:#.5g}) likelihood({self.likelihood[-1]:#.5g})")
+                                f" z(OII)({z_oii:#.4g}) kpc({diam_kpc:#.4g}) weight({self.weight[-1]:#.5g}) lk({self.likelihood[-1]:#.5g})")
 
                             self.vote_info['size_in_psf_vote'] = self.likelihood[-1]
                             self.vote_info['size_in_psf_weight'] = self.weight[-1]
@@ -6380,7 +6380,6 @@ class DetObj:
                             f"weight({self.weight[-1]}); ew-ew_err: { ew-ew_err:0.2f}, PLAE(hat): {self.classification_dict['plae_hat']}")
 
 
-
                     elif (ew + ew_err) < 20.0:
                         #correction toward OII
                         w = min(abs(ew-20.0) / 15.0, 0.25) + min((self.classification_dict['plae_hat'] - 1.0) / 10.0,
@@ -7497,9 +7496,9 @@ class DetObj:
 
 
             if (self.hetdex_gmag_limit is not None):
-                cgs_limit = SU.mag2cgs(self.hetdex_gmag_limit,self.w) * 0.9 #give a 10% slop
+                cgs_limit = SU.mag2cgs(self.hetdex_gmag_limit,self.w) * 0.8 #give a 20% slop
             else:
-                cgs_limit = G.HETDEX_CONTINUUM_FLUX_LIMIT * 0.9 #give a 10% slop # cgs_24p5
+                cgs_limit = G.HETDEX_CONTINUUM_FLUX_LIMIT * 0.8 #give a 20% slop # cgs_24p5
 
             #cgs_fc =  cgs_limit * 1.2 #start downweighting at 20% brighter than hard limit
 
@@ -7519,8 +7518,8 @@ class DetObj:
                 rat = (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) / cgs_limit
                 log.debug(f"{self.entry_id} Combine ALL Continuum: Best continuum estimate / estimate flux limit: {rat:0.2f}")
                 if rat < 1.0:
-                    w = 1.0 / (1.0 + np.exp(-40 * (rat -0.015) + 40.5)) * 4.0
-                    #w = utils.sigmoid_linear_interp(1.0, 1.0, 0.9, 0.0, rat)
+                    #w = 1.0 / (1.0 + np.exp(-40 * (rat -0.015) + 40.5)) * 4.0 #older v1.19 and similar
+                    w = utils.sigmoid_linear_interp(1.0, 1.0, 0.8, 0.0, rat)
                 else:#linear instead of sigmoid
                     w = utils.sigmoid_linear_interp(1.2,4.0,1.0,1.0,rat)
 
@@ -7598,7 +7597,9 @@ class DetObj:
         aperture_radius = 0.0
         try:
 
-            filters = ['f606w','g','r']  #reduced_weight_filters = ['f606w','r'] #reduced_weight_factor = 0.66
+            filters = ['f606w','g','r']
+            reduced_weight_filters = ['f606w','r']
+            reduced_weight_factor = 0.66
             for a in self.aperture_details_list: #has both forced aperture and sextractor
                 sep_ctr += 1
                 try:
@@ -7676,7 +7677,7 @@ class DetObj:
                                 #mag is set to the (safety) mag limit
                                 if a['mag'] <= 24.0:
                                     #no useful information
-                                    log.info(f"Combine ALL continuum: mag ({a['mag']}) at mag limit ({a['mag_limit']}) brighter than 24,"
+                                    log.info(f"{self.entry_id} Combine ALL continuum: mag ({a['mag']}) at mag limit ({a['mag_limit']}) brighter than 24,"
                                              f" no useful information.")
                                     #just skip it
                                 else:
@@ -7702,16 +7703,20 @@ class DetObj:
 
                                     if w < 0:
                                         w = 0.0
-                                        log.info(f"Combine ALL continuum: mag ({a['mag']}) at mag limit ({a['mag_limit']}) brigher than 24,"
+                                        log.info(f"{self.entry_id} Combine ALL continuum: mag ({a['mag']}) at mag limit ({a['mag_limit']}) brigher than 24,"
                                                  f" zero weight applied.")
                                     else:
                                         w = min(1.0,w)
-                                        log.info(f"Combine ALL continuum: mag ({a['mag']}) at mag limit ({a['mag_limit']}) fainter than 24,"
+                                        log.info(f"{self.entry_id} Combine ALL continuum: mag ({a['mag']}) at mag limit ({a['mag_limit']}) fainter than 24,"
                                                  f" scaled weight {w} applied.")
 
                                     variance.append(cont_var)
                                     continuum.append(cont)
                                     continuum_sep_idx.append(sep_ctr)
+                                    if a['filter_name'] in reduced_weight_filters:
+                                        w = w * reduced_weight_factor
+                                        log.info(f"{self.entry_id} Combine ALL continuum: {a['mag']:0.2f} from reduced weight filter: {a['filter_name']},"
+                                                 f" scaled weight {w} applied.")
                                     weight.append(w)
                                     cont_type.append("a"+a['filter_name'])
                                     aperture_radius = a['radius']
@@ -7773,6 +7778,11 @@ class DetObj:
                                             log.info(f"{self.entry_id} Combine ALL Continuum: {a['catalog_name']}-{a['filter_name']}"
                                              f"EliXer aperture encompasses one or more objects. Excluding from consideration.")
                                         else: #using the elixer aperture values
+                                            if a['filter_name'] in reduced_weight_filters:
+                                                w = w * reduced_weight_factor
+                                                log.info(
+                                                    f"{self.entry_id} Combine ALL continuum: {a['mag']} from reduced weight filter: {a['filter_name']},"
+                                                    f" scaled weight {w} applied.")
                                             weight.append(w)
                                             variance.append(cont_var)
                                             continuum.append(cont)
@@ -7794,6 +7804,12 @@ class DetObj:
                                     try:
                                         if a['mag_limit'] > deep_detect:
                                             deep_detect = a['mag_limit']
+
+                                        if a['filter_name'] in reduced_weight_filters:
+                                            w = w * reduced_weight_factor
+                                            log.info(
+                                                f"{self.entry_id} Combine ALL continuum: {a['mag']} from reduced weight filter: {a['filter_name']},"
+                                                f" scaled weight {w} applied.")
 
                                         weight.append(w)
                                         variance.append(cont_var)
@@ -7849,7 +7865,14 @@ class DetObj:
             if self.best_counterpart.bid_filter.lower() in ['g','r','f606w']:
                 if  not np.all(nondetect) or (np.all(nondetect) and self.best_counterpart.distance < 0.5):
                     #only willing to use this if there are other non-detects OR if this is right on top of our position
-                    weight.append(1)
+
+                    w = 1.0
+                    if self.best_counterpart.bid_filter.lower() in reduced_weight_filters:
+                        w = w * reduced_weight_factor
+                        log.info(f"{self.entry_id} Combine ALL continuum: best counterpart from reduced weight filter: {self.best_counterpart.bid_filter.lower()},"
+                                 f" scaled weight {w} applied.")
+
+                    weight.append(w)
                     continuum.append(self.best_counterpart.bid_flux_est_cgs)
                     continuum_sep_idx.append(-1)
                     variance.append(max( self.best_counterpart.bid_flux_est_cgs*self.best_counterpart.bid_flux_est_cgs*0.04,
