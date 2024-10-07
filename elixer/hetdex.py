@@ -7529,17 +7529,20 @@ class DetObj:
 
                 cont_type.append('hdw') #HETDEX wide (just a label to help track)
 
-                if w > 0.9:
+                if rat >= 1.0: #w > 0.9:
                     nondetect.append(0)
                     variance.append(self.best_gmag_cgs_cont_unc * self.best_gmag_cgs_cont_unc)
                     gmag_at_limit = False
                 else:
-                    variance.append((cgs_limit-cgs_faint_limit)**2)
-                    if (self.hetdex_gmag_limit is not None) and (self.best_gmag is not None) and (self.hetdex_gmag_limit <= self.best_gmag):
-                        nondetect.append(1)
-                        gmag_at_limit = True
-                    else:
-                        nondetect.append(0)
+                    variance.append(self.best_gmag_cgs_cont_unc * self.best_gmag_cgs_cont_unc)
+                    #variance.append((cgs_limit-cgs_faint_limit)**2)
+                    nondetect.append(1)
+                    gmag_at_limit = True
+                    # if (self.hetdex_gmag_limit is not None) and (self.best_gmag is not None) and (self.hetdex_gmag_limit <= self.best_gmag):
+                    #     nondetect.append(1)
+                    #     gmag_at_limit = True
+                    # else:
+                    #     nondetect.append(0)
 
 
                 log.info(
@@ -7992,14 +7995,17 @@ class DetObj:
                 continuum = np.array(continuum)
                 deepest = np.min(continuum[sel])
 
-                try:
-                    faint_detect = np.min(continuum[nondetect==0])
+                try: #want all the detects that actually count ... if the weight is much less than 1.0, then ignore those
+                    sel_detect = np.array(nondetect==0) & np.array(np.array(weight) > 0.9)
+                    faint_detect = np.min(continuum[sel_detect])
                 except:
                     faint_detect = -9e99 #an error OR they are all non-detects
 
                 #now reselect to all detects and the deepest non-detect
+                #BUT we also want to keep hdw
                 if deepest > faint_detect:
                     sel = (nondetect == 0) | (continuum==deepest)
+                    sel = sel | np.array( np.array(cont_type) == 'hdw') #always include the hetdex specrum one ... the weight will take care of non-detect issue for it
                 else:
                     log.info(f"Removing deepest non-detect {deepest:0.4g} since fainter than faintest positive detection {faint_detect:0.4g} ...")
                     sel = (nondetect == 0)
@@ -8091,7 +8097,7 @@ class DetObj:
 
                     #then (standard) inverse variance
                     continuum_hat = np.sum(continuum * weight / variance) / np.sum(weight / variance)
-                    continuum_sd_hat = np.sqrt(np.sum(weight * variance) / np.sum(weight))
+                    continuum_sd_hat = np.sqrt(np.sum(weight*weight * variance) / np.sum(weight*weight))
 
 
                     ## or do we just want to average as Gaussians
@@ -8103,12 +8109,12 @@ class DetObj:
                     log.debug("Exception using biweight clipping in hetdex::combine_all_contiuum(). "
                               "Switching to full array inverse variance",exc_info=True)
                     continuum_hat = np.sum(continuum * weight / variance) / np.sum(weight / variance)
-                    continuum_sd_hat = np.sqrt(np.sum(weight * variance) / np.sum(weight))
+                    continuum_sd_hat = np.sqrt(np.sum(weight*weight * variance) / np.sum(weight*weight))
             else:
                 #v2 = variance*variance
                 log.debug(f"{self.entry_id} Using inverse variance in hetdex::combin_all_continuum()...")
                 continuum_hat = np.sum(continuum * weight / variance) / np.sum(weight / variance)
-                continuum_sd_hat = np.sqrt(np.sum(weight*variance)/np.sum(weight))
+                continuum_sd_hat = np.sqrt(np.sum(weight*weight*variance)/np.sum(weight*weight))
 
 
             #now try and figure a best geuss extent from the SEP objects, but kick out

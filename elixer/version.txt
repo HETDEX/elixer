@@ -1,5 +1,12 @@
 changes to elixer by version
 
+
+1.22.1a2 [2024-10-07]
+* fix issue where including the HETDEX spectrum continuum estimate when at or just beyond the flux limit (depth)
+  caused true non-detects in the imaging to be dropped instead of keeping a single non-detect with the deepest imaging
+  when no detections are found. Normal behavior is to keep all imaging detections and no non-detects if there are
+  any detctions and if there are no detections, keep the single, deepest non-detect.
+
 1.22.1a1 [2024-10-01]
 * testing detection of oversubtraction causing adjacent emission detection
 
