@@ -7496,9 +7496,9 @@ class DetObj:
 
 
             if (self.hetdex_gmag_limit is not None):
-                cgs_limit = SU.mag2cgs(self.hetdex_gmag_limit,self.w) * 0.8 #give a 20% slop
+                cgs_limit = SU.mag2cgs(self.hetdex_gmag_limit,G.DEX_G_EFF_LAM)
             else:
-                cgs_limit = G.HETDEX_CONTINUUM_FLUX_LIMIT * 0.8 #give a 20% slop # cgs_24p5
+                cgs_limit = G.HETDEX_CONTINUUM_FLUX_LIMIT
 
             #cgs_fc =  cgs_limit * 1.2 #start downweighting at 20% brighter than hard limit
 
@@ -7512,16 +7512,24 @@ class DetObj:
                (self.best_gmag_cgs_cont > 0) and (self.best_gmag_cgs_cont_unc > 0):
 
                 #use a sigmoid s|t when the flux-error is at the flux limit you get at vote of 1
-                #when brighter than the flux limit, the vote moves up to a max of 4 by 1.2x the limit
+                #when brighter than the flux limit, the vote moves up to a max of 4 by 1.6x the limit (about 0.5 mag brighter than limit)
                 #as we go fainter than the limit we rapidly fall to zero by 10% past the flux limit
 
+                #rel_unc = self.best_gmag_cgs_cont_unc / self.best_gmag_cgs_cont
                 rat = (self.best_gmag_cgs_cont - self.best_gmag_cgs_cont_unc) / cgs_limit
-                log.debug(f"{self.entry_id} Combine ALL Continuum: Best continuum estimate / estimate flux limit: {rat:0.2f}")
-                if rat < 1.0:
+                best_case_rat = self.best_gmag_cgs_cont  / cgs_limit #give it the nominal case
+                log.debug(f"{self.entry_id} Combine ALL Continuum: Best continuum estimate / estimate flux limit: {rat:0.2f} to {best_case_rat:0.2f}")
+                if best_case_rat < 1.0:
+                    w = 0.0
+                elif rat < 1.0:
                     #w = 1.0 / (1.0 + np.exp(-40 * (rat -0.015) + 40.5)) * 4.0 #older v1.19 and similar
                     w = utils.sigmoid_linear_interp(1.0, 1.0, 0.8, 0.0, rat)
-                else:#linear instead of sigmoid
-                    w = utils.sigmoid_linear_interp(1.2,4.0,1.0,1.0,rat)
+                else:#linear instead of sigmoid ... by 1.6x (or 0.5 mag) brigher than limit, this gets a 4x weight
+                    #
+                    w = utils.sigmoid_linear_interp(1.6,4.0,1.0,1.0,rat)
+
+                #regardless, always git a minimum vote
+                w = max(0.1,w)
 
                 continuum.append(self.best_gmag_cgs_cont)
                 weight.append(w)
@@ -7534,8 +7542,10 @@ class DetObj:
                     variance.append(self.best_gmag_cgs_cont_unc * self.best_gmag_cgs_cont_unc)
                     gmag_at_limit = False
                 else:
-                    variance.append(self.best_gmag_cgs_cont_unc * self.best_gmag_cgs_cont_unc)
-                    #variance.append((cgs_limit-cgs_faint_limit)**2)
+                    if rat >= 0.5:
+                        variance.append(self.best_gmag_cgs_cont_unc * self.best_gmag_cgs_cont_unc)
+                    else:
+                        variance.append((cgs_limit-cgs_faint_limit)**2)
                     nondetect.append(1)
                     gmag_at_limit = True
                     # if (self.hetdex_gmag_limit is not None) and (self.best_gmag is not None) and (self.hetdex_gmag_limit <= self.best_gmag):
@@ -7991,7 +8001,7 @@ class DetObj:
             sel = nondetect == 1
             if np.sum(sel) >= 1:
 
-                log.info("Removing all non-detects other than deepest...")
+                log.info(f"{self.entry_id} Combine All Continuum: Removing all non-detects other than deepest...")
                 continuum = np.array(continuum)
                 deepest = np.min(continuum[sel])
 
@@ -8007,10 +8017,10 @@ class DetObj:
                     sel = (nondetect == 0) | (continuum==deepest)
                     sel = sel | np.array( np.array(cont_type) == 'hdw') #always include the hetdex specrum one ... the weight will take care of non-detect issue for it
                 else:
-                    log.info(f"Removing deepest non-detect {deepest:0.4g} since fainter than faintest positive detection {faint_detect:0.4g} ...")
+                    log.info(f"{self.entry_id} Combine All Continuum: Removing deepest non-detect {deepest:0.4g} since fainter than faintest positive detection {faint_detect:0.4g} ...")
                     sel = (nondetect == 0)
 
-                log.info(f"Removed {np.array(cont_type)[np.invert(sel)]}")
+                log.info(f"{self.entry_id} Combine All Continuum: Removed {np.array(cont_type)[np.invert(sel)]}")
 
                 continuum = np.array(continuum)[sel]
                 variance = np.array(variance)[sel]
@@ -8036,9 +8046,9 @@ class DetObj:
                     if np.sqrt(variance[i]) > (1.3 *continuum[i]):
                         if len(continuum) > 2:
                             weight[i] = 0
-                            log.info(f"Error (sd) ({np.sqrt(variance[i])}): {variance[i]} too high vs continuum {continuum[i]}. Weight zeroed.")
+                            log.info(f"{self.entry_id} Combine All Continuum: Error (sd) ({np.sqrt(variance[i])}): {variance[i]} too high vs continuum {continuum[i]}. Weight zeroed.")
                         else:
-                            log.info(f"Warning (sd) ({np.sqrt(variance[i])}): {variance[i]} too high vs continuum {continuum[i]}, but weight kept as too few to zero out.")
+                            log.info(f"{self.entry_id} Combine All Continuum: Warning (sd) ({np.sqrt(variance[i])}): {variance[i]} too high vs continuum {continuum[i]}, but weight kept as too few to zero out.")
                 except:
                     if len(continuum) > 2:
                         weight[i] = 0
@@ -8067,7 +8077,7 @@ class DetObj:
             #if more than 3, use weighted biweight to down play any outliers (even if lower variance)
             if len(continuum) > 2:
                 try:
-                    log.debug(f"{self.entry_id} Using biweight clipping in hetdex::combin_all_continuum()...")
+                    log.debug(f"{self.entry_id} Combine All Continuum: Using biweight clipping in hetdex::combin_all_continuum()...")
 
                     #first, regular biweight
                     continuum_hat = weighted_biweight.biweight_location(continuum)
@@ -8087,16 +8097,16 @@ class DetObj:
                         #for logging (flip selection)
                         sel = np.where(diff >= sigma)
                         if len(sel[0]) > 0:
-                            log.debug(f"{self.entry_id} Removed {len(sel[0])} estimate(s) {original_continuum[sel]} sigma({diff[sel]}). (clipped at {sigma} sigma)")
+                            log.debug(f"{self.entry_id} Combine All Continuum: Removed {len(sel[0])} estimate(s) {original_continuum[sel]} sigma({diff[sel]}). (clipped at {sigma} sigma)")
 
                             for sep_idx in continuum_sep_idx[sel]:
                                 if not np.isnan(sep_idx) and sep_idx >= 0:
                                     removed_sep_idx.append(sep_idx)
                     else:
-                        log.debug(f"{self.entry_id} cut too severe. Unable to remove any.")
+                        log.debug(f"{self.entry_id} Combine All Continuum: cut too severe. Unable to remove any.")
 
                     #then (standard) inverse variance
-                    continuum_hat = np.sum(continuum * weight / variance) / np.sum(weight / variance)
+                    continuum_hat = np.sum(continuum * weight  / variance) / np.sum(weight  / variance)
                     continuum_sd_hat = np.sqrt(np.sum(weight*weight * variance) / np.sum(weight*weight))
 
 
@@ -8108,12 +8118,12 @@ class DetObj:
                 except:
                     log.debug("Exception using biweight clipping in hetdex::combine_all_contiuum(). "
                               "Switching to full array inverse variance",exc_info=True)
-                    continuum_hat = np.sum(continuum * weight / variance) / np.sum(weight / variance)
+                    continuum_hat = np.sum(continuum * weight  / variance) / np.sum(weight / variance)
                     continuum_sd_hat = np.sqrt(np.sum(weight*weight * variance) / np.sum(weight*weight))
             else:
                 #v2 = variance*variance
-                log.debug(f"{self.entry_id} Using inverse variance in hetdex::combin_all_continuum()...")
-                continuum_hat = np.sum(continuum * weight / variance) / np.sum(weight / variance)
+                log.debug(f"{self.entry_id} Combine All Continuum: Using inverse variance in hetdex::combin_all_continuum()...")
+                continuum_hat = np.sum(continuum * weight   / variance) / np.sum(weight  / variance)
                 continuum_sd_hat = np.sqrt(np.sum(weight*weight*variance)/np.sum(weight*weight))
 
 
@@ -8122,7 +8132,7 @@ class DetObj:
             try:
                 #recall, sep_idx is really just a counter to match up
                 if len(removed_sep_idx) > 0:
-                    log.info("Removing rejected SEP objects from best guess extent consideration...")
+                    log.info(f"{self.entry_id} Combine All Continuum: Removing rejected SEP objects from best guess extent consideration...")
                     for sep_idx in removed_sep_idx:
                         try:
                             #should be exactly one (note if none are found, this is an exception and we skip and move on)
