@@ -3137,7 +3137,7 @@ class DetObj:
                     #     return
 
                     #otherwise we have a single unique vote in some bin
-                    w = utils.simple_linear_interp(min_area,G.PHOTZ_VOTE_MIN_WEIGHT,max_area,G.PHOTZ_VOTE_MAX_WEIGHT,bid['zPDF_area'])
+                    w = utils.simple_linear_interp(min_area,G.PHOTZ_VOTE_MIN_WEIGHT,max_area,G.PHOTZ_VOTE_MAX_WEIGHT,bid['zPDF_area'],clip=True)
                     sel_already_exists = np.array(detobj.phot_z_votes == bid['z']) & np.array(detobj.phot_z_vote_weights == w)
                     if np.count_nonzero(sel_already_exists) == 0:
                         detobj.phot_z_votes.append(bid['z'])
@@ -3146,7 +3146,7 @@ class DetObj:
                     if agree_low < 1 and bid['zPDF_OII_area'] > min_area:# or agree_low == 0:  # also get LyA vote
                         #also get OII vote
                         w = utils.simple_linear_interp(min_area, G.PHOTZ_VOTE_MIN_WEIGHT,
-                                                       max_area,G.PHOTZ_VOTE_MAX_WEIGHT, bid['zPDF_OII_area'])
+                                                       max_area,G.PHOTZ_VOTE_MAX_WEIGHT, bid['zPDF_OII_area'],clip=True)
                         sel_already_exists = np.array(detobj.phot_z_votes == bid['z_oii']) & \
                                              np.array(detobj.phot_z_vote_weights == w)
                         if np.count_nonzero(sel_already_exists) == 0:
@@ -3155,7 +3155,7 @@ class DetObj:
 
                     if agree_hi < 1 and bid['zPDF_LyA_area'] > min_area:# or not agree_hi: #also get LyA vote
                         w = utils.simple_linear_interp(min_area, G.PHOTZ_VOTE_MIN_WEIGHT,
-                                                       max_area,G.PHOTZ_VOTE_MAX_WEIGHT, bid['zPDF_LyA_area'])
+                                                       max_area,G.PHOTZ_VOTE_MAX_WEIGHT, bid['zPDF_LyA_area'],clip=True)
                         sel_already_exists = np.array(detobj.phot_z_votes == bid['z_lya']) & \
                                              np.array(detobj.phot_z_vote_weights == w)
                         if np.count_nonzero(sel_already_exists) == 0:
@@ -3970,7 +3970,7 @@ class DetObj:
             if (self.fwhm < 7.0) and (self.fwhm + self.fwhm_unc < 8.5) and self.spec_obj.central_eli is not None:
                 try:
 
-                    sn_scale = utils.simple_linear_interp(5.0,1.5,5.5,1.0,self.snr)
+                    sn_scale = utils.simple_linear_interp(5.0,1.5,5.5,1.0,self.snr,clip=True)
 
 
                     w_idx , *_ = central_wave_idx = utils.getnearpos(G.CALFIB_WAVEGRID,self.w)

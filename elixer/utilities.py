@@ -1464,7 +1464,7 @@ def getnearpos(array,value):
     return idx, lt, gt
 
 
-def simple_linear_interp(x1,y1,x2,y2,x):
+def simple_linear_interp(x1,y1,x2,y2,x,clip=False):
     """
 
     :param x1:
@@ -1472,6 +1472,7 @@ def simple_linear_interp(x1,y1,x2,y2,x):
     :param x2:
     :param y2:
     :param x: the point you want to evaluate
+    :param clip: if true, returned value must lie between y1 and y2 (basically becomes like sigmoid_linear_interp)
     :return:
     """
     try:
@@ -1479,7 +1480,10 @@ def simple_linear_interp(x1,y1,x2,y2,x):
         m = (y2-y1)/(x2-x1)
         b = y1 - m * x1
 
-        return m * x + b
+        if clip:
+            return np.clip(m * x + b, min(y1,y2),max(y1,y2))
+        else:
+            return m * x + b
     except:
         return None
 
