@@ -3970,7 +3970,7 @@ class DetObj:
             if (self.fwhm < 7.0) and (self.fwhm + self.fwhm_unc < 8.5) and self.spec_obj.central_eli is not None:
                 try:
 
-                    sn_scale = utils.simple_linear_interp(5.0,1.5,5.5,1.0,self.snr,clip=True)
+                    sn_scale = utils.simple_linear_interp(5.0,1.5,5.6,1.0,self.snr,clip=True)
 
 
                     w_idx , *_ = central_wave_idx = utils.getnearpos(G.CALFIB_WAVEGRID,self.w)
@@ -3983,6 +3983,8 @@ class DetObj:
                     min_thresh = min(2.0,1.15  * sn_scale) #3 of 4 fibers
                     med_thresh = min(2.0,1.50  * sn_scale) #2 of 4 fibers
                     full_thresh = min(2.0,1.7  * sn_scale) #1 of 4 fibers
+                    absurd_thresh = 5.0*sn_scale #if the ratio is above this there is somethig else wrong OR the sn is so poor to be meaningless
+
 
                     testnum = min(4, len(self.fibers))
 
@@ -4117,6 +4119,13 @@ class DetObj:
 
                             outside1.append((zone2-return_left)/zone2)
                             outside2.append((zone2-return_right)/zone2)
+
+                            if rat1[-1] > absurd_thresh:
+                                rat1[-1] = -1 #won't count
+                                outside1[-1] = 0
+                            if rat2[-1] > absurd_thresh:
+                                rat2[-1] = -1 #won't count
+                                outside2[-1] = 0
 
                         rat1 = np.array(rat1)
                         rat2 = np.array(rat2)
@@ -7488,9 +7497,9 @@ class DetObj:
 
 
             if (self.hetdex_gmag_limit is not None):
-                cgs_limit = SU.mag2cgs(self.hetdex_gmag_limit,self.w)
+                cgs_limit = SU.mag2cgs(self.hetdex_gmag_limit,self.w) * 0.9 #give a 10% slop
             else:
-                cgs_limit = G.HETDEX_CONTINUUM_FLUX_LIMIT # cgs_24p5
+                cgs_limit = G.HETDEX_CONTINUUM_FLUX_LIMIT * 0.9 #give a 10% slop # cgs_24p5
 
             #cgs_fc =  cgs_limit * 1.2 #start downweighting at 20% brighter than hard limit
 
@@ -7519,7 +7528,7 @@ class DetObj:
                 weight.append(w)
                 continuum_sep_idx.append(-1)
 
-                cont_type.append('hdw') #HETDEX wide
+                cont_type.append('hdw') #HETDEX wide (just a label to help track)
 
                 if w > 0.9:
                     nondetect.append(0)
@@ -7589,7 +7598,7 @@ class DetObj:
         aperture_radius = 0.0
         try:
 
-            filters = ['f606w','g','r']
+            filters = ['f606w','g','r']  #reduced_weight_filters = ['f606w','r'] #reduced_weight_factor = 0.66
             for a in self.aperture_details_list: #has both forced aperture and sextractor
                 sep_ctr += 1
                 try:
