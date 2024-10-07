@@ -3964,18 +3964,25 @@ class DetObj:
             # e.g. pattern like normal ... very negative ... emission ... very negative ... normal
             #      OR           normal ... very negative ... emission ... normal        ... normal
             #      OR           normal ...        normal ... emission ... very negative ... normal
+
+            #for low SN is is too easy to get above thresholds with just random noise, so this is overly broad in selection
+            #for SNR < 5.5(ish)
             if (self.fwhm < 7.0) and (self.fwhm + self.fwhm_unc < 8.5) and self.spec_obj.central_eli is not None:
                 try:
+
+                    sn_scale = utils.simple_linear_interp(4.8,1.5,5.5,1.0)
+
 
                     w_idx , *_ = central_wave_idx = utils.getnearpos(G.CALFIB_WAVEGRID,self.w)
                     step_idx = int(np.floor(self.fwhm / G.FLUX_WAVEBIN_WIDTH))
                     rat_width = 4 #4 bins to check
                     rat_keep = 2 #keep lowest 2 bins
 
-                    first_thresh = 1.3 #1st fiber
-                    min_thresh = 1.15 #3 of 4 fibers
-                    med_thresh = 1.50 #2 of 4 fibers
-                    full_thresh = 1.7 #1 of 4 fibers
+                    psf_weighted_thresh = min(2.0,1.5 * sn_scale)
+                    first_thresh = min(2.0, 1.3 * sn_scale) #1st fiber
+                    min_thresh = min(2.0,1.15  * sn_scale) #3 of 4 fibers
+                    med_thresh = min(2.0,1.50  * sn_scale) #2 of 4 fibers
+                    full_thresh = min(2.0,1.7  * sn_scale) #1 of 4 fibers
 
                     testnum = min(4, len(self.fibers))
 
@@ -4043,7 +4050,7 @@ class DetObj:
                     outside2 = (zone2 - return_right) / zone2
 
                     #MUST pass this condition
-                    if (outside1 < rat1 >= first_thresh) or (outside2 < rat2 >= first_thresh):
+                    if (outside1 < rat1 >= psf_weighted_thresh) or (outside2 < rat2 >= psf_weighted_thresh):
                         log.info(
                             f"{[self.entry_id]} Temp: main {outside1:0.2f},{rat1:0.2f},{first_thresh:0.2f}  : {outside2:0.2f},{rat2:0.2f},{first_thresh:0.2f}")
 
