@@ -3978,7 +3978,7 @@ class DetObj:
                     rat_width = 4 #4 bins to check
                     rat_keep = 2 #keep lowest 2 bins
 
-                    psf_weighted_thresh = min(2.0,1.5 * sn_scale)
+                    psf_weighted_thresh = min(2.0,1.3 * sn_scale)
                     first_thresh = min(2.0, 1.3 * sn_scale) #1st fiber
                     min_thresh = min(2.0,1.15  * sn_scale) #3 of 4 fibers
                     med_thresh = min(2.0,1.50  * sn_scale) #2 of 4 fibers
