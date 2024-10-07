@@ -3970,7 +3970,7 @@ class DetObj:
             if (self.fwhm < 7.0) and (self.fwhm + self.fwhm_unc < 8.5) and self.spec_obj.central_eli is not None:
                 try:
 
-                    sn_scale = utils.simple_linear_interp(4.8,1.5,5.5,1.0)
+                    sn_scale = utils.simple_linear_interp(5.0,1.5,5.5,1.0,self.snr)
 
 
                     w_idx , *_ = central_wave_idx = utils.getnearpos(G.CALFIB_WAVEGRID,self.w)
