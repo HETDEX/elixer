@@ -3103,6 +3103,10 @@ class DetObj:
             def photz_vote(detobj, bid):
                 try:
 
+                    if not bid['selected']:
+                        #only the "selected" best counterpart match gets a vote
+                        return
+
                     min_area = 0.05  # no boost/score below this relative "peak" normalized percentage
                     max_area = 0.30  # full boost at or above this relative "peak" normalized percentage
 
@@ -3194,7 +3198,7 @@ class DetObj:
                 if b.spec_z is not None and b.spec_z > -0.02:
                     list_z.append({'z':b.spec_z,'z_err':0.01,'boost':G.ALL_CATATLOG_SPEC_Z_BOOST,'name':b.catalog_name,
                                    'mag':b.bid_mag,'filter':b.bid_filter,'distance':b.distance,'type':'s','zPDF_area':1.0,
-                                   'zPDF_OII_area':-1.0, 'zPDF_LyA_area':-1.0})
+                                   'zPDF_OII_area':-1.0, 'zPDF_LyA_area':-1.0,'selected':b.selected})
                     #set zPDF_area = 1 ... not really a zPDF, but this is a spec-z so assume a "perfect" zPDF
 
                 #then check phot-z (lower boost)
@@ -3232,7 +3236,8 @@ class DetObj:
                                    'mag':b.bid_mag,'filter':b.bid_filter,'distance':b.distance,'type':"p",'zPDF_area':zPDF_area,
                                    'z_oii':z_oii, 'zPDF_OII_area':zPDF_OII_area,
                                    'z_lya':z_lya, 'zPDF_LyA_area':zPDF_LyA_area,
-                                   'zPDF_z':b.phot_z_pdf_z, 'zPDF_pz':b.phot_z_pdf_pz})
+                                   'zPDF_z':b.phot_z_pdf_z, 'zPDF_pz':b.phot_z_pdf_pz,
+                                   'selected':b.selected})
 
                     #*might* append a additional peaks if phot_z is not OII or LyA but those are significant peaks
                     if not np.isclose(b.phot_z,z_oii,atol=0.1) and zPDF_area > 0 and \
@@ -3244,7 +3249,7 @@ class DetObj:
                              'zPDF_area': zPDF_OII_area,
                              'z_oii': z_oii, 'zPDF_OII_area': zPDF_OII_area,
                              'z_lya': z_lya, 'zPDF_LyA_area': zPDF_LyA_area,
-                             'zPDF_z': b.phot_z_pdf_z, 'zPDF_pz': b.phot_z_pdf_pz})
+                             'zPDF_z': b.phot_z_pdf_z, 'zPDF_pz': b.phot_z_pdf_pz,'selected':b.selected})
 
                     if not np.isclose(b.phot_z,z_lya,atol=0.1) and zPDF_area > 0 and \
                             ((zPDF_LyA_area / zPDF_area >= 0.5) or (zPDF_LyA_area > min_power)):
@@ -3255,7 +3260,7 @@ class DetObj:
                              'zPDF_area': zPDF_LyA_area,
                              'z_oii': z_oii, 'zPDF_OII_area': zPDF_OII_area,
                              'z_lya': z_lya, 'zPDF_LyA_area': zPDF_LyA_area,
-                             'zPDF_z': b.phot_z_pdf_z, 'zPDF_pz': b.phot_z_pdf_pz})
+                             'zPDF_z': b.phot_z_pdf_z, 'zPDF_pz': b.phot_z_pdf_pz,'selected':b.selected})
 
             #first scan existing z solutions and see if they have a matching photz with zPDF; if yes, then boost their
             #scores by the zPDF in the z-region AND mark them as already phitz boosted so we don't double boost below
@@ -7537,12 +7542,17 @@ class DetObj:
 
                 cont_type.append('hdw') #HETDEX wide (just a label to help track)
 
-                if rat >= 1.0: #w > 0.9:
+                if rat >= 1.2: #consider this a continuum detection
                     nondetect.append(0)
                     variance.append(self.best_gmag_cgs_cont_unc * self.best_gmag_cgs_cont_unc)
                     gmag_at_limit = False
+                elif rat >= 1.0: #for continuum purposes consider this a non-detction, but keep the uncertainty as is
+                                 #and do not mark as being at the limit
+                    nondetect.append(1)
+                    variance.append(self.best_gmag_cgs_cont_unc * self.best_gmag_cgs_cont_unc)
+                    gmag_at_limit = False
                 else:
-                    if rat >= 0.5:
+                    if rat >= 0.8:
                         variance.append(self.best_gmag_cgs_cont_unc * self.best_gmag_cgs_cont_unc)
                     else:
                         variance.append((cgs_limit-cgs_faint_limit)**2)
@@ -7998,7 +8008,8 @@ class DetObj:
         #remove the non-detects except for the deepest or if fainter than the faintest positive detection
         try:
             nondetect=np.array(nondetect)
-            sel = nondetect == 1
+            #do NOT use hetdex spectrum
+            sel = np.array(nondetect == 1) #& np.array(cont_type != 'hdw') & np.array(cont_type != 'hdn')
             if np.sum(sel) >= 1:
 
                 log.info(f"{self.entry_id} Combine All Continuum: Removing all non-detects other than deepest...")
