@@ -8033,6 +8033,7 @@ class DetObj:
             #do NOT use hetdex spectrum
             sel = np.array(nondetect == 1) #& np.array(cont_type != 'hdw') & np.array(cont_type != 'hdn')
             continuum = np.array(continuum)
+            cont_type = np.array(cont_type)
 
             #this is clunky but works ...
             if np.sum(sel) >= 1:
@@ -8056,18 +8057,17 @@ class DetObj:
                         deepest_g_detect = -9e99 #there are no detects
 
 
-
                     try:
-                        s = (np.array(cont_type == "ag") | np.array(cont_type == "f606w")) & np.array(nondetect == 0)
-                        deepest_r_detect = np.min(continuum[s])
-                    except:
-                        deepest_r_detect = -9e99
-
-                    try:
-                        s = (np.array(cont_type == "ag") | np.array(cont_type == "f606w")) & np.array(nondetect == 1)
+                        s = (np.array(cont_type == "ar") | np.array(cont_type == "f606w")) & np.array(nondetect == 1)
                         deepest_r_nondetect = np.min(continuum[s])
-                    except:
+                    except: #there are no nondetects
                         deepest_r_nondetect = -9e99
+
+                    try:
+                        s = ( np.array(cont_type == "ar") | np.array(cont_type == "f606w")) & np.array(nondetect == 0)
+                        deepest_r_detect = np.min(continuum[s])
+                    except: #there are no detects
+                        deepest_r_detect = -9e99
 
 
                     for i in range(len(continuum)):
