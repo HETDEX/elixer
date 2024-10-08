@@ -8107,7 +8107,11 @@ class DetObj:
 
                     #then (standard) inverse variance
                     continuum_hat = np.sum(continuum * weight  / variance) / np.sum(weight  / variance)
-                    continuum_sd_hat = np.sqrt(np.sum(weight*weight * variance) / np.sum(weight*weight))
+                   # continuum_sd_hat = np.sqrt(np.sum(weight*weight * variance) / np.sum(weight*weight))
+
+                    #treating consintuum_sd_hat as the uncertainty, so use error prop instead (with weights)
+                    continuum_sd_hat = continuum_hat *  np.sqrt(
+                        np.sum( np.sqrt(variance)/continuum *  weight * variance) /  np.sum(weight * variance) )
 
 
                     ## or do we just want to average as Gaussians
@@ -8119,13 +8123,19 @@ class DetObj:
                     log.debug("Exception using biweight clipping in hetdex::combine_all_contiuum(). "
                               "Switching to full array inverse variance",exc_info=True)
                     continuum_hat = np.sum(continuum * weight  / variance) / np.sum(weight / variance)
-                    continuum_sd_hat = np.sqrt(np.sum(weight*weight * variance) / np.sum(weight*weight))
+                    #continuum_sd_hat = np.sqrt(np.sum(weight*weight * variance) / np.sum(weight*weight))
+                    # treating consintuum_sd_hat as the uncertainty, so use error prop instead (with weights)
+                    continuum_sd_hat = continuum_hat *  np.sqrt(
+                        np.sum( np.sqrt(variance)/continuum *  weight * variance) /  np.sum(weight * variance) )
+
             else:
                 #v2 = variance*variance
                 log.debug(f"{self.entry_id} Combine All Continuum: Using inverse variance in hetdex::combin_all_continuum()...")
                 continuum_hat = np.sum(continuum * weight   / variance) / np.sum(weight  / variance)
-                continuum_sd_hat = np.sqrt(np.sum(weight*weight*variance)/np.sum(weight*weight))
-
+                #continuum_sd_hat = np.sqrt(np.sum(weight*weight*variance)/np.sum(weight*weight))
+                # treating consintuum_sd_hat as the uncertainty, so use error prop instead (with weights)
+                continuum_sd_hat = continuum_hat * np.sqrt(
+                    np.sum(np.sqrt(variance) / continuum * weight * variance) / np.sum(weight * variance))
 
             #now try and figure a best geuss extent from the SEP objects, but kick out
             #any whose flux was rejected from consideration
