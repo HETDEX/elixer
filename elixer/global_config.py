@@ -1291,6 +1291,7 @@ LAE_EW_MAG_TRIGGER_MIN = 15.0 #if the associated EW_rest(LyA) is greater than th
 LINEWIDTH_SIGMA_TRANSITION = 4.5  #larger than this, is increasingly more likely to be LyA, below .. could be either
 LINEWIDTH_SIGMA_MAX_OII = 7.6 #there just are not any larger than this (FWHM > 21) #have seen up to 7.6AA or so,
                                # with 20 to 30% error gets to around 9AA
+LINEWIDTH_SIGMA_AGN_VOTE = 10.0
 
 SEP_FIXED_APERTURE_RADIUS = 1.0 #RADIUS in arcsec ... used at the barycenter position of SEP objects
 SEP_FIXED_APERTURE_PSF = False #if true apply the HETDEX seeing PSF

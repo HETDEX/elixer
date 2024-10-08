@@ -5763,11 +5763,14 @@ class DetObj:
                 if vote_line_sigma > G.LINEWIDTH_SIGMA_TRANSITION: #unlikely OII (FHWM 16.5)
                     #check the rest EW if LyA. If low, then reduce the vote weight
 
-                    w = utils.sigmoid_linear_interp(G.LINEWIDTH_SIGMA_TRANSITION, 0.0,
+                    if (vote_line_sigma -vote_line_sigma_unc ) >= G.LINEWIDTH_SIGMA_AGN_VOTE:
+                        w = 1.0
+                    else:
+                        w = utils.sigmoid_linear_interp(G.LINEWIDTH_SIGMA_TRANSITION, 0.0,
                                               G.LINEWIDTH_SIGMA_MAX_OII, 0.5,
                                               vote_line_sigma-vote_line_sigma_unc)  * line_vote_weight_mul
 
-                        #w = min(vote_line_sigma / G.LINEWIDTH_SIGMA_TRANSITION - 1.0, 1.0) * line_vote_weight_mul #limit to 1.0 max
+                    #w = min(vote_line_sigma / G.LINEWIDTH_SIGMA_TRANSITION - 1.0, 1.0) * line_vote_weight_mul #limit to 1.0 max
 
                     #modify for horrible fit
                     if vote_line_sigma > 20.0 and vote_line_sigma/vote_line_sigma_unc < 2.0 and self.snr < 7.5:
