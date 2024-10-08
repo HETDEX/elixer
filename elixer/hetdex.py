@@ -7446,6 +7446,7 @@ class DetObj:
         weight = [] #rules based weights
         cont_type = [] #what was the input
         nondetect = []
+        filter_depth = []
         deep_non_detect = 0 #deepest g or r band imaging without a detection
         deep_detect = 0 #deepest g or r band imaging with a detection  (source extractor only)
 
@@ -7544,6 +7545,7 @@ class DetObj:
                 continuum_sep_idx.append(-1)
 
                 cont_type.append('hdw') #HETDEX wide (just a label to help track)
+                filter_depth.append(cgs_limit)
 
                 if rat >= 1.2: #consider this a continuum detection
                     nondetect.append(0)
@@ -7591,6 +7593,7 @@ class DetObj:
                         variance.append(self.hetdex_cont_cgs_unc*self.hetdex_cont_cgs_unc)
                         weight.append(0.2) #never very high
                         cont_type.append('hdn') #HETDEX-narrow
+                        filter_depth.append(cgs_limit)
                         nondetect.append(0)
                         log.debug(f"{self.entry_id} Combine All Continuum: Added HETDEX estimate ({continuum[-1]:#.4g}) "
                                   f"sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
@@ -7609,6 +7612,7 @@ class DetObj:
 
                         weight.append(0.0) #never very high
                         cont_type.append('hdn')
+                        filter_depth.append(cgs_limit)
                         nondetect.append(1)
                         log.debug(f"{self.entry_id} Combine ALL Continuum: Failed HETDEX estimate, setting to lower limit  "
                                   f"({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) weight({weight[-1]:#.2f})")
@@ -7745,6 +7749,10 @@ class DetObj:
                                                  f" scaled weight {w} applied.")
                                     weight.append(w)
                                     cont_type.append("a"+a['filter_name'])
+                                    try:
+                                        filter_depth.append(SU.mag2cgs(a['mag_limit'],SU.filter_iso(a['filter_name'],5000.0)))
+                                    except:
+                                        filter_depth.append(-1)
                                     aperture_radius = a['radius']
                                     nondetect.append(1)
 
@@ -7814,6 +7822,11 @@ class DetObj:
                                             continuum.append(cont)
                                             continuum_sep_idx.append(sep_ctr)
                                             cont_type.append("a" + a['filter_name'])
+                                            try:
+                                                filter_depth.append(
+                                                    SU.mag2cgs(a['mag_limit'], SU.filter_iso(a['filter_name'], 5000.0)))
+                                            except:
+                                                filter_depth.append(-1)
                                             if w <= 0:
                                                 nondetect.append(1)
                                             else:
@@ -7842,6 +7855,11 @@ class DetObj:
                                         continuum.append(cont)
                                         continuum_sep_idx.append(sep_ctr)
                                         cont_type.append("a" + a['filter_name'])
+                                        try:
+                                            filter_depth.append(
+                                                SU.mag2cgs(a['mag_limit'], SU.filter_iso(a['filter_name'], 5000.0)))
+                                        except:
+                                            filter_depth.append(-1)
                                         nondetect.append(0)
                                         aperture_radius = a['radius']
 
@@ -7905,6 +7923,7 @@ class DetObj:
                                          self.best_counterpart.bid_flux_est_cgs_unc*self.best_counterpart.bid_flux_est_cgs_unc))
 
                     cont_type.append("c" + self.best_counterpart.bid_filter.lower())
+                    filter_depth.append(-1)
                     nondetect.append(0)
                     log.debug(
                         f"{self.entry_id} Combine All Continuum: Added catalog bid target estimate"
@@ -8013,28 +8032,82 @@ class DetObj:
             nondetect=np.array(nondetect)
             #do NOT use hetdex spectrum
             sel = np.array(nondetect == 1) #& np.array(cont_type != 'hdw') & np.array(cont_type != 'hdn')
+            continuum = np.array(continuum)
+
+            #this is clunky but works ...
             if np.sum(sel) >= 1:
+                #there is at least one non-detect
+                log.info(f"{self.entry_id} Combine All Continuum: Removing all non-detects other than deepest by filter ...")
 
-                log.info(f"{self.entry_id} Combine All Continuum: Removing all non-detects other than deepest...")
-                continuum = np.array(continuum)
-                deepest = np.min(continuum[sel])
+                if True: #new
+                    #there are rarely more than a few measures at all, so just loop so can compare only to same filter
+                    keep = np.full(len(continuum),True)
 
-                try: #want all the detects that actually count ... if the weight is much less than 1.0, then ignore those
-                    sel_detect = np.array(nondetect==0) & np.array(np.array(weight) > 0.9)
-                    faint_detect = np.min(continuum[sel_detect])
-                except:
-                    faint_detect = -9e99 #an error OR they are all non-detects
+                    try:
+                        s = np.array(cont_type=="ag") & np.array(nondetect==1)
+                        deepest_g_nondetect = np.min(continuum[s])
+                    except:
+                        deepest_g_nondetect = -9e99 #there are no non-detects
 
-                #now reselect to all detects and the deepest non-detect
-                #BUT we also want to keep hdw
-                if deepest > faint_detect:
-                    sel = (nondetect == 0) | (continuum==deepest)
-                    sel = sel | np.array( np.array(cont_type) == 'hdw') #always include the hetdex specrum one ... the weight will take care of non-detect issue for it
-                else:
-                    log.info(f"{self.entry_id} Combine All Continuum: Removing deepest non-detect {deepest:0.4g} since fainter than faintest positive detection {faint_detect:0.4g} ...")
-                    sel = (nondetect == 0)
+                    try:
+                        s = np.array(cont_type=="ag") & np.array(nondetect==0)
+                        deepest_g_detect = np.min(continuum[s])
+                    except:
+                        deepest_g_detect = -9e99 #there are no detects
 
-                log.info(f"{self.entry_id} Combine All Continuum: Removed {np.array(cont_type)[np.invert(sel)]}")
+
+
+                    try:
+                        s = (np.array(cont_type == "ag") | np.array(cont_type == "f606w")) & np.array(nondetect == 0)
+                        deepest_r_detect = np.min(continuum[s])
+                    except:
+                        deepest_r_detect = -9e99
+
+                    try:
+                        s = (np.array(cont_type == "ag") | np.array(cont_type == "f606w")) & np.array(nondetect == 1)
+                        deepest_r_nondetect = np.min(continuum[s])
+                    except:
+                        deepest_r_nondetect = -9e99
+
+
+                    for i in range(len(continuum)):
+                        if deepest_g_nondetect > 0 and cont_type[i] =='ag':
+                            if nondetect[i] == 1: #this is a non-detect
+                                if (continuum[i] < deepest_g_detect) or (continuum[i] > deepest_g_nondetect):
+                                    keep[i] = False
+                        elif deepest_r_nondetect > 0 and (cont_type[i] =='ar' or cont_type[i] =='f606w'):
+                            if nondetect[i] == 1:  # this is a non-detect
+                                if (continuum[i] < deepest_r_detect) or (continuum[i] > deepest_r_nondetect):
+                                    keep[i] = False
+
+                    sel = keep
+                    if np.count_nonzero(sel) != len(sel):
+                        log.info(
+                            f"{self.entry_id} Combine All Continuum: Removed {np.array(cont_type)[np.invert(sel)]}")
+
+
+                else: #this lumps all filters together (where the above block splits g from r+f606w)
+
+                    log.info(f"{self.entry_id} Combine All Continuum: Removing all non-detects other than deepest...")
+                    continuum = np.array(continuum)
+                    deepest = np.min(continuum[sel])
+
+                    try: #want all the detects that actually count ... if the weight is much less than 1.0, then ignore those
+                        sel_detect = np.array(nondetect==0) & np.array(np.array(weight) > 0.6)
+                        faint_detect = np.min(continuum[sel_detect])
+                    except:
+                        faint_detect = -9e99 #an error OR they are all non-detects
+
+                    #now reselect to all detects and the deepest non-detect
+                    #BUT we also want to keep hdw
+                    if deepest > faint_detect:
+                        sel = (nondetect == 0) | (continuum==deepest)
+                        sel = sel | np.array( np.array(cont_type) == 'hdw') #always include the hetdex specrum one ... the weight will take care of non-detect issue for it
+                    else:
+                        log.info(f"{self.entry_id} Combine All Continuum: Removing deepest non-detect {deepest:0.4g} since fainter than faintest positive detection {faint_detect:0.4g} ...")
+                        sel = (nondetect == 0)
+
+                    log.info(f"{self.entry_id} Combine All Continuum: Removed {np.array(cont_type)[np.invert(sel)]}")
 
                 continuum = np.array(continuum)[sel]
                 variance = np.array(variance)[sel]
