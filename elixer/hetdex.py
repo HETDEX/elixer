@@ -7153,7 +7153,7 @@ class DetObj:
                 self.classification_dict['combined_eqw_rest_lya_err'] =  self.classification_dict['combined_eqw_rest_lya'] *\
                                                                      np.sqrt((self.estflux_unc/self.estflux)**2 + (continuum_sd_hat/continuum_hat)**2)
             except:
-                log.error(f"Exception! in combine_all_plae(). Cannot set combined_eqw_rest_lya."
+                log.error(f"Exception! in combine_all_plae(). Cannot set combined_eqw_rest_lya. "
                           f"estflux {self.estflux} +/- {self.estflux_unc}, "
                           f"continuum_hat {continuum_hat} +/- {continuum_sd_hat}, w {self.w}",exc_info=True)
                 self.classification_dict['combined_eqw_rest_lya'] = None
@@ -7905,31 +7905,36 @@ class DetObj:
         # it effectively brings that magnitude estimate in twice (once for the aperture and once for the catalog object
         # that ostensibly used that (or similar) aperture
 
-        if self.best_counterpart is not None and self.best_counterpart.bid_filter is not None:
-            if self.best_counterpart.bid_filter.lower() in ['g','r','f606w']:
-                if  not np.all(nondetect) or (np.all(nondetect) and self.best_counterpart.distance < 0.5):
-                    #only willing to use this if there are other non-detects OR if this is right on top of our position
+        try:
+            if self.best_counterpart is not None and self.best_counterpart.bid_filter is not None:
+                if self.best_counterpart.bid_filter.lower() in ['g','r','f606w']:
+                    if  not np.all(nondetect) or (np.all(nondetect) and self.best_counterpart.distance < 0.5):
+                        #only willing to use this if there are other non-detects OR if this is right on top of our position
+                        if self.best_counterpart.bid_flux_est_cgs > 0 and self.best_counterpart.bid_flux_est_cgs_unc > 0 and \
+                            self.best_counterpart.bid_flux_est_cgs_unc < self.best_counterpart.bid_flux_est_cgs:
 
-                    w = 1.0
-                    if self.best_counterpart.bid_filter.lower() in reduced_weight_filters:
-                        w = w * reduced_weight_factor
-                        log.info(f"{self.entry_id} Combine ALL continuum: best counterpart from reduced weight filter: {self.best_counterpart.bid_filter.lower()},"
-                                 f" scaled weight {w} applied.")
 
-                    weight.append(w)
-                    continuum.append(self.best_counterpart.bid_flux_est_cgs)
-                    continuum_sep_idx.append(-1)
-                    variance.append(max( self.best_counterpart.bid_flux_est_cgs*self.best_counterpart.bid_flux_est_cgs*0.04,
-                                         self.best_counterpart.bid_flux_est_cgs_unc*self.best_counterpart.bid_flux_est_cgs_unc))
+                            w = 1.0
+                            if self.best_counterpart.bid_filter.lower() in reduced_weight_filters:
+                                w = w * reduced_weight_factor
+                                log.info(f"{self.entry_id} Combine ALL continuum: best counterpart from reduced weight filter: {self.best_counterpart.bid_filter.lower()},"
+                                         f" scaled weight {w} applied.")
 
-                    cont_type.append("c" + self.best_counterpart.bid_filter.lower())
-                    filter_depth.append(-1)
-                    nondetect.append(0)
-                    log.debug(
-                        f"{self.entry_id} Combine All Continuum: Added catalog bid target estimate"
-                        f" ({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) "
-                        f"weight({weight[-1]:#.2f}) filter({self.best_counterpart.bid_filter.lower()}) dist({self.best_counterpart.distance})")
+                            weight.append(w)
+                            continuum.append(self.best_counterpart.bid_flux_est_cgs)
+                            continuum_sep_idx.append(-1)
+                            variance.append(max( self.best_counterpart.bid_flux_est_cgs*self.best_counterpart.bid_flux_est_cgs*0.04,
+                                                 self.best_counterpart.bid_flux_est_cgs_unc*self.best_counterpart.bid_flux_est_cgs_unc))
 
+                            cont_type.append("c" + self.best_counterpart.bid_filter.lower())
+                            filter_depth.append(-1)
+                            nondetect.append(0)
+                            log.debug(
+                                f"{self.entry_id} Combine All Continuum: Added catalog bid target estimate"
+                                f" ({continuum[-1]:#.4g}) sd({np.sqrt(variance[-1]):#.4g}) "
+                                f"weight({weight[-1]:#.2f}) filter({self.best_counterpart.bid_filter.lower()}) dist({self.best_counterpart.distance})")
+        except:
+            pass
         # if False: #choosing the last argument as this is a mix of probabilites and even in the "best" case is an over counting
         #     try:
         #         #which aperture filter?
@@ -8029,11 +8034,24 @@ class DetObj:
 
         #remove the non-detects except for the deepest or if fainter than the faintest positive detection
         try:
-            nondetect=np.array(nondetect)
-            #do NOT use hetdex spectrum
-            sel = np.array(nondetect == 1) #& np.array(cont_type != 'hdw') & np.array(cont_type != 'hdn')
+
+
             continuum = np.array(continuum)
+            variance = np.array(variance)
+            weight = np.array(weight)
             cont_type = np.array(cont_type)
+            nondetect = np.array(nondetect)
+            continuum_sep_idx = np.array(continuum_sep_idx)
+
+            #sanity check ... canot have negative continuum
+            sel = continuum > 0
+            continuum = np.array(continuum)[sel]
+            variance = np.array(variance)[sel]
+            weight = np.array(weight)[sel]
+            cont_type = np.array(cont_type)[sel]
+            nondetect = np.array(nondetect)[sel]
+            continuum_sep_idx = np.array(continuum_sep_idx)[sel]
+
 
             #this is clunky but works ...
             if np.sum(sel) >= 1:
@@ -8041,41 +8059,56 @@ class DetObj:
                 log.info(f"{self.entry_id} Combine All Continuum: Removing all non-detects other than deepest by filter ...")
 
                 if True: #new
+
+                    # Now remove nondetects (except for deepest)
+                    sel = np.array(nondetect == 1)  # & np.array(cont_type != 'hdw') & np.array(cont_type != 'hdn')
+                    filter_list = []
+
+                    for f in cont_type:
+                        if f in ["ag", "cg"]:
+                            filter_list.append("g")
+                        elif f in ["ar", "cr", "af606w", "cf606w"]:
+                            filter_list.append("r")
+                        else:
+                            filter_list.append("x")
+
+                    filter_list = np.array(filter_list)
+
                     #there are rarely more than a few measures at all, so just loop so can compare only to same filter
                     keep = np.full(len(continuum),True)
 
                     try:
-                        s = np.array(cont_type=="ag") & np.array(nondetect==1)
+                        s = np.array(filter_list=="g") & np.array(nondetect==1)
                         deepest_g_nondetect = np.min(continuum[s])
                     except:
                         deepest_g_nondetect = -9e99 #there are no non-detects
 
                     try:
-                        s = np.array(cont_type=="ag") & np.array(nondetect==0)
+                        s = np.array(filter_list=="g") & np.array(nondetect==0)
                         deepest_g_detect = np.min(continuum[s])
                     except:
                         deepest_g_detect = -9e99 #there are no detects
 
 
                     try:
-                        s = (np.array(cont_type == "ar") | np.array(cont_type == "f606w")) & np.array(nondetect == 1)
+                        s = np.array(filter_list == "r")  & np.array(nondetect == 1)
                         deepest_r_nondetect = np.min(continuum[s])
                     except: #there are no nondetects
                         deepest_r_nondetect = -9e99
 
                     try:
-                        s = ( np.array(cont_type == "ar") | np.array(cont_type == "f606w")) & np.array(nondetect == 0)
+                        s = np.array(filter_list == "r") & np.array(nondetect == 0)
                         deepest_r_detect = np.min(continuum[s])
                     except: #there are no detects
                         deepest_r_detect = -9e99
 
 
                     for i in range(len(continuum)):
-                        if deepest_g_nondetect > 0 and cont_type[i] =='ag':
+                        if deepest_g_nondetect > 0 and filter_list[i] =='g':
                             if nondetect[i] == 1: #this is a non-detect
                                 if (continuum[i] < deepest_g_detect) or (continuum[i] > deepest_g_nondetect):
                                     keep[i] = False
-                        elif deepest_r_nondetect > 0 and (cont_type[i] =='ar' or cont_type[i] =='f606w'):
+                        elif deepest_r_nondetect > 0 and filter_list[i] =='r':
                             if nondetect[i] == 1:  # this is a non-detect
                                 if (continuum[i] < deepest_r_detect) or (continuum[i] > deepest_r_nondetect):
                                     keep[i] = False
@@ -8194,11 +8227,15 @@ class DetObj:
 
                     #then (standard) inverse variance
                     continuum_hat = np.sum(continuum * weight  / variance) / np.sum(weight  / variance)
-                   # continuum_sd_hat = np.sqrt(np.sum(weight*weight * variance) / np.sum(weight*weight))
+                    continuum_sd_hat = np.sqrt(np.sum(variance * (weight * variance)) / np.sum(weight * variance))
 
+                   # continuum_sd_hat = np.sqrt(np.sum(weight*weight * variance) / np.sum(weight*weight))
                     #treating consintuum_sd_hat as the uncertainty, so use error prop instead (with weights)
-                    continuum_sd_hat = continuum_hat *  np.sqrt(
-                        np.sum( np.sqrt(variance)/continuum *  weight * variance) /  np.sum(weight * variance) )
+                    # !!! No, this one is the wrong propogation ... it should just be sqrt(sum(squre of errors * weights))
+                    # and since variance is the square of the assumed error (the std dev), just use variance ..
+                    # which is a little weird since the vaiance is both  the square of the error AND part of the weight
+                    # continuum_sd_hat = continuum_hat *  np.sqrt(
+                    #     np.sum( np.sqrt(variance)/continuum *  (weight / variance)) /  np.sum(weight / variance) )
 
 
                     ## or do we just want to average as Gaussians
@@ -8210,19 +8247,27 @@ class DetObj:
                     log.debug("Exception using biweight clipping in hetdex::combine_all_contiuum(). "
                               "Switching to full array inverse variance",exc_info=True)
                     continuum_hat = np.sum(continuum * weight  / variance) / np.sum(weight / variance)
+                    continuum_sd_hat = np.sqrt(np.sum(variance * (weight * variance)) / np.sum(weight * variance))
                     #continuum_sd_hat = np.sqrt(np.sum(weight*weight * variance) / np.sum(weight*weight))
+                    # !!! No, this one is the wrong propogation ... it should just be sqrt(sum(squre of errors * weights))
+                    # and since variance is the square of the assumed error (the std dev), just use variance ..
+                    # which is a little weird since the vaiance is both  the square of the error AND part of the weight
                     # treating consintuum_sd_hat as the uncertainty, so use error prop instead (with weights)
-                    continuum_sd_hat = continuum_hat *  np.sqrt(
-                        np.sum( np.sqrt(variance)/continuum *  weight * variance) /  np.sum(weight * variance) )
+                    #continuum_sd_hat = continuum_hat *  np.sqrt(
+                    #    np.sum( np.sqrt(variance)/continuum *  (weight / variance)) /  np.sum(weight / variance) )
 
             else:
                 #v2 = variance*variance
                 log.debug(f"{self.entry_id} Combine All Continuum: Using inverse variance in hetdex::combin_all_continuum()...")
                 continuum_hat = np.sum(continuum * weight   / variance) / np.sum(weight  / variance)
+                continuum_sd_hat = np.sqrt(np.sum(variance * (weight * variance)) / np.sum(weight * variance))
                 #continuum_sd_hat = np.sqrt(np.sum(weight*weight*variance)/np.sum(weight*weight))
                 # treating consintuum_sd_hat as the uncertainty, so use error prop instead (with weights)
-                continuum_sd_hat = continuum_hat * np.sqrt(
-                    np.sum(np.sqrt(variance) / continuum * weight * variance) / np.sum(weight * variance))
+                # !!! No, this one is the wrong propogation ... it should just be sqrt(sum(squre of errors * weights))
+                #and since variance is the square of the assumed error (the std dev), just use variance ..
+                #which is a little weird since the vaiance is both  the square of the error AND part of the weight
+                #continuum_sd_hat = continuum_hat * np.sqrt(
+                #    np.sum(np.sqrt(variance) / continuum * (weight / variance)) / np.sum(weight / variance))
 
             #now try and figure a best geuss extent from the SEP objects, but kick out
             #any whose flux was rejected from consideration
