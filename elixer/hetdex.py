@@ -3679,7 +3679,7 @@ class DetObj:
                                 log.info(f"Galaxy mask: Adding new solution {line.name}({line.w_rest}): score = {boost}")
                                 sol = elixer_spectrum.Classifier_Solution()
                                 sol.external_catalog_solution = True
-                                sol.specz_boosted = bid['z_err'] < 0.1
+                                sol.specz_boosted = z_err < 0.1
                                 sol.z = self.w/line.w_rest - 1.0
                                 sol.central_rest = line.w_rest
                                 sol.name = line.name
@@ -3790,7 +3790,7 @@ class DetObj:
                                     log.info(f"SDSS z: Adding new solution {line.name}({line.w_rest}): score = {boost}")
                                     sol = elixer_spectrum.Classifier_Solution()
                                     sol.external_catalog_solution = True
-                                    sol.specz_boosted = bid['z_err'] < 0.1
+                                    sol.specz_boosted = z_err < 0.1
                                     sol.z = self.w/line.w_rest - 1.0
                                     sol.central_rest = line.w_rest
                                     sol.name = line.name
