@@ -726,6 +726,11 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
             log.debug("LineFlux error < 0")
             lineFlux_err = 0
 
+        if lineFlux_err > lineFlux:
+            log.debug(f"LineFlux error large: {lineFlux_err:0.4g}. Set to lineflux: {lineFlux:0.4g}")
+            lineFlux_err = lineFlux
+
+
         if (continuum_err is None):
             log.debug("Continuum error is None")
             continuum_err = 0
@@ -733,6 +738,11 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
         if (continuum_err < 0):
             log.debug("Continuum error < 0")
             continuum_err = 0
+
+
+        if continuum_err > continuum:
+            log.debug(f"continuum error large: {continuum_err:0.4g}. Set to continuum: {continuum:0.4g}")
+            continuum_err = continuum
 
         if continuum_err == lineFlux_err == 0:
             log.debug("Continuum error and Lineflux error set to zero. Single run only (no mc).")
