@@ -3972,14 +3972,20 @@ class DetObj:
 
             #for low SN is is too easy to get above thresholds with just random noise, so this is overly broad in selection
             #for SNR < 5.5(ish)
-            if (self.fwhm < 7.0) and (self.fwhm + self.fwhm_unc < 8.5) and self.spec_obj.central_eli is not None:
-                try:
 
+            if self.fwhm < 1.0: #there is something seriously wrong here
+                self.flags |= G.DETFLAG_BAD_PIXELS
+                self.flags |= G.DETFLAG_QUESTIONABLE_DETECTION
+                self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
+                log.info(
+                    f"{self.entry_id} detection possibly caused by bad pixels? Absurd line fwhm: {self.fwhm}")
+
+            elif (self.fwhm < 7.0) and (self.fwhm + self.fwhm_unc < 8.5) and self.spec_obj.central_eli is not None:
+                try:
                     sn_scale = utils.simple_linear_interp(5.0,1.5,5.6,1.0,self.snr,clip=True)
 
-
                     w_idx , *_ = central_wave_idx = utils.getnearpos(G.CALFIB_WAVEGRID,self.w)
-                    step_idx = int(np.floor(self.fwhm / G.FLUX_WAVEBIN_WIDTH))
+                    step_idx = max(1,int(np.floor(self.fwhm / G.FLUX_WAVEBIN_WIDTH)))
                     rat_width = 4 #4 bins to check
                     rat_keep = 2 #keep lowest 2 bins
 
