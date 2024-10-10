@@ -862,8 +862,8 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
             while tryagain < _max_sample_retry:
                 lf = np.random.normal(lineFlux, lineFlux_err)
                 cn = np.random.normal(continuum, continuum_err)
-                if cn > continuum_bright_limit:
-                    cn = np.random.normal(continuum, continuum * G.CONTINUUM_BRIGHT_REL_ERR_LIMIT) #ontinuum_bright_limit
+                #if cn > continuum_bright_limit:
+                #    cn = np.random.normal(continuum, continuum * G.CONTINUUM_BRIGHT_REL_ERR_LIMIT) #ontinuum_bright_limit
                 if lf > 0 and cn > 0:
                     ew  = lf / cn
                     break

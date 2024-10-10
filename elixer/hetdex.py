@@ -7576,7 +7576,8 @@ class DetObj:
                     if rat >= 0.8:
                         variance.append(self.best_gmag_cgs_cont_unc * self.best_gmag_cgs_cont_unc)
                     else:
-                        variance.append((cgs_limit-cgs_faint_limit)**2)
+                        #variance.append((cgs_limit-cgs_faint_limit)**2)
+                        variance.append((self.best_gmag_cgs_cont*G.CONTINUUM_NONDETECT_REL_ERR) ** 2)
                     nondetect.append(1)
                     gmag_at_limit = True
                     # if (self.hetdex_gmag_limit is not None) and (self.best_gmag is not None) and (self.hetdex_gmag_limit <= self.best_gmag):
@@ -7617,7 +7618,8 @@ class DetObj:
                         continuum.append(cgs_limit)
                         continuum_sep_idx.append(-1)
                         # set to itself as a big error (basically, 100% error)
-                        variance.append(cgs_limit * cgs_limit)
+                        #variance.append(cgs_limit * cgs_limit)
+                        variance.append((cgs_limt * G.CONTINUUM_NONDETECT_REL_ERR)**2)
 
                         #does it make any sense to attempt to use the calculated error in this case? it is the
                         #error on a value that is rejected as meaningless (below the limit or negative)
@@ -7756,7 +7758,8 @@ class DetObj:
                                         log.info(f"{self.entry_id} Combine ALL continuum: mag ({a['mag']}) at mag limit ({a['mag_limit']}) fainter than 24,"
                                                  f" scaled weight {w} applied.")
 
-                                    variance.append(cont_var)
+                                    #variance.append(cont_var)
+                                    variance.append((cont*G.CONTINUUM_NONDETECT_REL_ERR)**2)
                                     continuum.append(cont)
                                     continuum_sep_idx.append(sep_ctr)
                                     if a['filter_name'] in reduced_weight_filters:
@@ -7834,7 +7837,7 @@ class DetObj:
                                                     f"{self.entry_id} Combine ALL continuum: {a['mag']} from reduced weight filter: {a['filter_name']},"
                                                     f" scaled weight {w} applied.")
                                             weight.append(w)
-                                            variance.append(cont_var)
+                                            #variance.append(cont_var)
                                             continuum.append(cont)
                                             continuum_sep_idx.append(sep_ctr)
                                             cont_type.append("a" + a['filter_name'])
@@ -7844,8 +7847,10 @@ class DetObj:
                                             except:
                                                 filter_depth.append(-1)
                                             if w <= 0:
+                                                variance.append((cont*G.CONTINUUM_NONDETECT_REL_ERR)**2)
                                                 nondetect.append(1)
                                             else:
+                                                variance.append(cont_var)
                                                 nondetect.append(0)
                                             aperture_radius = a['radius']
 
@@ -8360,9 +8365,9 @@ class DetObj:
             self.classification_dict['continuum_sd_stat_err'] = continuum_sd_hat
 
 
-            if continuum_sd_hat / continuum_hat > G.CONTINUUM_BRIGHT_REL_ERR_LIMIT:
-                log.info(f"{self.entry_id} Combine All Continuum: limiting symmetric relative error on continuum to 0.25. Was {continuum_sd_hat:0.4g}, now {continuum_hat * 0.25:0.4g}")
-                continuum_sd_hat = continuum_hat * G.CONTINUUM_BRIGHT_REL_ERR_LIMIT
+            # if continuum_sd_hat / continuum_hat > G.CONTINUUM_BRIGHT_REL_ERR_LIMIT:
+            #     log.info(f"{self.entry_id} Combine All Continuum: limiting symmetric relative error on continuum to 0.25. Was {continuum_sd_hat:0.4g}, now {continuum_hat * 0.25:0.4g}")
+            #     continuum_sd_hat = continuum_hat * G.CONTINUUM_BRIGHT_REL_ERR_LIMIT
 
             self.classification_dict['continuum_sd_hat'] = continuum_sd_hat
             self.classification_dict['size_in_psf'] = size_in_psf
