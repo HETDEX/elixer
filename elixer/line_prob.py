@@ -758,7 +758,7 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
         p_lae_list = []
         p_oii_list = []
 
-        continuum_bright_limit = min(continuum+continuum_err, continuum * (1 + G.CONTINUUM_BRIGHT_REL_ERR_LIMIT))
+        continuum_bright_limit = min(continuum+continuum_err, continuum * (1. + G.CONTINUUM_BRIGHT_REL_ERR_LIMIT))
 
         global UNIVERSE_CONFIG, FLUX_LIMIT_FN
         if UNIVERSE_CONFIG is None:

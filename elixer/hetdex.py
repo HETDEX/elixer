@@ -6023,8 +6023,13 @@ class DetObj:
                     g_faint = None
 
                 try:
-                    g_bright=  SU.cgs2mag(self.classification_dict['continuum_hat']+self.classification_dict['continuum_hat_err'],
+                    g_bright =  SU.cgs2mag(self.classification_dict['continuum_hat']+self.classification_dict['continuum_hat_err'],
                                                          SU.filter_iso_dict['g'])
+
+                    g_bright_limit = SU.cgs2mag(
+                        self.classification_dict['continuum_hat'] * (1. + G.CONTINUUM_BRIGHT_REL_ERR_LIMIT),
+                        SU.filter_iso_dict['g'])
+                    g_bright = min(g_bright_limit,g_bright)
                 except:
                     g_bright = None
 
