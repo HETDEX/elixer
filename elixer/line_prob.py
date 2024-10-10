@@ -758,6 +758,8 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
         p_lae_list = []
         p_oii_list = []
 
+        continuum_bright_limit = min(continuum+continuum_err, continuum * 1.2)
+
         global UNIVERSE_CONFIG, FLUX_LIMIT_FN
         if UNIVERSE_CONFIG is None:
             try:
@@ -855,6 +857,8 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
             while tryagain < _max_sample_retry:
                 lf = np.random.normal(lineFlux, lineFlux_err)
                 cn = np.random.normal(continuum, continuum_err)
+                if cn > continuum_bright_limit:
+                    cn = continuum_bright_limit
                 if lf > 0 and cn > 0:
                     ew  = lf / cn
                     break
