@@ -989,6 +989,8 @@ CONTINUUM_FLOOR_COUNTS = 6.5 #5 sigma * 6 counts / sqrt(40 angstroms/1.9 angs pe
 
 CONTINUUM_THRESHOLD_FOR_ABSORPTION_CHECK = 2.0e-17 # erg/s/cm2/AA (near gmag 21)
 
+CONTINUUM_BRIGHT_REL_ERR_LIMIT = 0.20
+
 USE_MASKED_CONTINUUM_FOR_BEST_EW = False #if true use the emission/aborption masked spectrum, else use as a band-pass
 
 Fiber_Radius = 0.75 #arcsec

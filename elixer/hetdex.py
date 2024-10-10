@@ -8343,6 +8343,11 @@ class DetObj:
 
 
             self.classification_dict['continuum_hat'] = continuum_hat
+
+            if continuum_sd_hat / continuum_hat > G.CONTINUUM_BRIGHT_REL_ERR_LIMIT:
+                log.info(f"{self.entry_id} Combine All Continuum: limiting symmetric relative error on continuum to 0.25. Was {continuum_sd_hat:0.4g}, now {continuum_hat * 0.25:0.4g}")
+                continuum_sd_hat = continuum_hat * G.CONTINUUM_BRIGHT_REL_ERR_LIMIT
+
             self.classification_dict['continuum_sd_hat'] = continuum_sd_hat
             self.classification_dict['size_in_psf'] = size_in_psf
             self.classification_dict['base_psf'] = base_psf #the PSF from which the measure came OR the max of those that contributed to the measure
