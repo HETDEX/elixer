@@ -663,7 +663,7 @@ def prob_LAE(wl_obs,lineFlux,lineFlux_err=None, ew_obs=None, ew_obs_err=None, c_
 def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err=None, ew_obs=None, ew_obs_err=None,
                 c_obs=None, which_color=None, addl_wavelengths=None, addl_fluxes=None,addl_errors=None, sky_area=None,
                 cosmo=None, lae_priors=None, ew_case=None, W_0=None, z_OII=None, sigma=None,
-                num_mc=G.MC_PLAE_SAMPLE_SIZE, confidence=G.MC_PLAE_CONF_INTVL):
+                num_mc=G.MC_PLAE_SAMPLE_SIZE, confidence=G.MC_PLAE_CONF_INTVL, continuum_err_statistical=None):
     """
 
     :param wl_obs:
@@ -849,6 +849,11 @@ def mc_prob_LAE(wl_obs,lineFlux,lineFlux_err=None, continuum=None, continuum_err
                    #then passed in on subsequent calls to speed up processing
         #ct = 0
         #for lf,ew in zip(lineflux_array,ew_obs_array):
+        # if continuum_err_statistical is not None:
+        #     continuum_err_use = continuum_err_statistical
+        # else:
+        #     continuum_err_use = continuum_err
+
         for i in range(num_mc):
             tryagain = 0
             lf = 0

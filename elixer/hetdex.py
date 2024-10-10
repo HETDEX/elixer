@@ -7172,6 +7172,10 @@ class DetObj:
 
 
 #feed into MC PLAE
+            try:
+                continuum_sd_err_statistical = self.classification_dict['continuum_sd_stat_err']
+            except:
+                continuum_sd_err_statistical= None
             p_lae_oii_ratio, p_lae, p_oii, plae_errors =  line_prob.mc_prob_LAE(
                                                             wl_obs=self.w,
                                                             lineFlux=self.estflux,lineFlux_err=self.estflux_unc,
@@ -7179,7 +7183,8 @@ class DetObj:
                                                             c_obs=None, which_color=None,
                                                             addl_fluxes=[], addl_wavelengths=[],
                                                             sky_area=None,cosmo=None, lae_priors=None,
-                                                            ew_case=None, W_0=None,z_OII=None, sigma=None)
+                                                            ew_case=None, W_0=None,z_OII=None, sigma=None,
+                                                            continuum_err_statistical=continuum_sd_err_statistical)
 
 
 
@@ -8091,8 +8096,10 @@ class DetObj:
                     try:
                         s = np.array(filter_list=="g") & np.array(nondetect==1)
                         deepest_g_nondetect = np.min(continuum[s])
+                        self.classification_dict['nondetect_g'] = True
                     except:
                         deepest_g_nondetect = -9e99 #there are no non-detects
+                        self.classification_dict['nondetect_g'] = False
 
                     try:
                         s = np.array(filter_list=="g") & np.array(nondetect==0)
@@ -8104,8 +8111,10 @@ class DetObj:
                     try:
                         s = np.array(filter_list == "r")  & np.array(nondetect == 1)
                         deepest_r_nondetect = np.min(continuum[s])
+                        self.classification_dict['nondetect_r'] = True
                     except: #there are no nondetects
                         deepest_r_nondetect = -9e99
+                        self.classification_dict['nondetect_r'] = False
 
                     try:
                         s = np.array(filter_list == "r") & np.array(nondetect == 0)
@@ -8348,6 +8357,8 @@ class DetObj:
 
 
             self.classification_dict['continuum_hat'] = continuum_hat
+            self.classification_dict['continuum_sd_stat_err'] = continuum_sd_hat
+
 
             if continuum_sd_hat / continuum_hat > G.CONTINUUM_BRIGHT_REL_ERR_LIMIT:
                 log.info(f"{self.entry_id} Combine All Continuum: limiting symmetric relative error on continuum to 0.25. Was {continuum_sd_hat:0.4g}, now {continuum_hat * 0.25:0.4g}")
@@ -8363,6 +8374,7 @@ class DetObj:
         except:
 
             log.debug("Exception handling estimation in DetObj:combine_all_continuum", exc_info=True)
+
 
         return None, None, None, None
 

@@ -5,7 +5,7 @@ merge existing ELiXer catalogs
 """
 
 
-__version__ = '0.8.0' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
+__version__ = '0.8.1' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -182,6 +182,9 @@ class Detections(tables.IsDescription):
     spurious_reason = tables.StringCol(itemsize=32,dflt=UNSET_STR)
     combined_continuum = tables.Float32Col(dflt=UNSET_FLOAT)   #combination of all continuum estimates
     combined_continuum_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    combined_continuum_err_stat = tables.Float32Col(dflt=UNSET_FLOAT)
+    combined_continuum_nondetect = tables.Int32Col(dflt=UNSET_INT)
+
 
     combined_eqw_rest_lya = tables.Float32Col(dflt=UNSET_FLOAT)
     combined_eqw_rest_lya_err = tables.Float32Col(dflt=UNSET_FLOAT)
@@ -1118,6 +1121,17 @@ def append_entry(fileh,det,overwrite=False):
                 #last two are new
                 row['combined_continuum'] = det.classification_dict['continuum_hat']
                 row['combined_continuum_err'] = det.classification_dict['continuum_hat_err']
+
+                try:
+                    row['combined_continuum_err_stat'] = det.classification_dict['continuum_sd_stat_err']
+                except:
+                    row['combined_continuum_err_stat'] = -1
+
+                try:
+                    nondet = det.classification_dict['nondetect_g'] and det.classification_dict['nondetect_r']
+                    row['combined_continuum_nondetect'] = 1 if nondet else 0
+                except:
+                    row['combined_continuum_nondetect'] = -1
 
                 row['combined_eqw_rest_lya'] = det.classification_dict['combined_eqw_rest_lya']
                 row['combined_eqw_rest_lya_err'] = det.classification_dict['combined_eqw_rest_lya_err']
