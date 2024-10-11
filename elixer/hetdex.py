@@ -7647,7 +7647,7 @@ class DetObj:
 
             filters = ['f606w','g','r']
             reduced_weight_filters = ['f606w','r']
-            reduced_weight_factor = 0.66
+            reduced_weight_factor = 0.8 if G.BANDPASS_PREFER_G else 1.0 #give a bit more weight to g band
             for a in self.aperture_details_list: #has both forced aperture and sextractor
                 sep_ctr += 1
                 try:
@@ -7738,11 +7738,13 @@ class DetObj:
                                         cont_lo = SU.mag2cgs(a['mag_limit'] + 2.5*np.log10(1.2),  #20% error
                                                              lam)  # SU.mag2cgs(a['mag_faint'],lam)
                                         cont_var = avg_var(cont, cont_lo, cont_hi)
+                                        cont_var = min(cont_var,(cont*G.CONTINUUM_NONDETECT_REL_ERR)**2)
                                     except:
                                         #assume could be at limit or out to mag 30? mag 29?
                                         cont_hi = SU.mag2cgs(cgs_faint_limit,lam)
                                         count_lo =  SU.mag2cgs(cgs_faint_limit + 2.5*np.log10(1.2),lam) #20% error
                                         cont_var = avg_var(cont, count_lo, cont_hi)  # treat as a bogus zero error
+                                        cont_var = min(cont_var, (cont * G.CONTINUUM_NONDETECT_REL_ERR) ** 2)
 
                                     #scaled to 0-1.0 from mag24 (==0) to mag25(==1.0), linearly (prob should be more sigmoid-like)
                                     m = 1.0 / (cgs_26-cgs_24) #slope: y =  0 at cgs24 and 1 at cgs26
@@ -7758,8 +7760,7 @@ class DetObj:
                                         log.info(f"{self.entry_id} Combine ALL continuum: mag ({a['mag']}) at mag limit ({a['mag_limit']}) fainter than 24,"
                                                  f" scaled weight {w} applied.")
 
-                                    #variance.append(cont_var)
-                                    variance.append((cont*G.CONTINUUM_NONDETECT_REL_ERR)**2)
+                                    variance.append(cont_var) #yes, tis one is okay ... the limit is handled above
                                     continuum.append(cont)
                                     continuum_sep_idx.append(sep_ctr)
                                     if a['filter_name'] in reduced_weight_filters:
@@ -8108,7 +8109,7 @@ class DetObj:
 
                     try:
                         s = np.array(filter_list=="g") & np.array(nondetect==0)
-                        deepest_g_detect = np.min(continuum[s])
+                        deepest_g_detect = np.min(continuum[s]) #yes I want the "faintest" detection for the comparison
                     except:
                         deepest_g_detect = -9e99 #there are no detects
 
@@ -8123,7 +8124,7 @@ class DetObj:
 
                     try:
                         s = np.array(filter_list == "r") & np.array(nondetect == 0)
-                        deepest_r_detect = np.min(continuum[s])
+                        deepest_r_detect = np.min(continuum[s]) #yes, I want the deepest ("faintest") detection for the comparison
                     except: #there are no detects
                         deepest_r_detect = -9e99
 
@@ -8131,6 +8132,7 @@ class DetObj:
                     for i in range(len(continuum)):
                         if deepest_g_nondetect > 0 and filter_list[i] =='g':
                             if nondetect[i] == 1: #this is a non-detect
+                                 #if the non-detect is fainter than the faintest detect, it should be dropped
                                 if (continuum[i] < deepest_g_detect) or (continuum[i] > deepest_g_nondetect):
                                     keep[i] = False
                         elif deepest_r_nondetect > 0 and filter_list[i] =='r':
@@ -8181,6 +8183,8 @@ class DetObj:
             continuum = np.array(continuum)
             variance = np.array(variance)
             weight = np.array(weight)
+            cont_type = np.array(cont_type)
+            nondetect = np.array(nondetect)
             continuum_sep_idx = np.array(continuum_sep_idx)
             removed_sep_idx = []
 
@@ -8209,6 +8213,8 @@ class DetObj:
                 continuum = np.delete(continuum,sel)
                 variance = np.delete(variance,sel)
                 weight = np.delete(weight,sel)
+                cont_type = np.delete(cont_type,sel)
+                nondetect = np.delete(nondetect,sel)
 
                 for sep_idx in continuum_sep_idx[sel]:
                     if not np.isnan(sep_idx):
@@ -8238,6 +8244,8 @@ class DetObj:
                         continuum = continuum[sel]
                         weight = weight[sel]
                         variance = variance[sel]
+                        cont_type = cont_type[sel]
+                        nondetect = nondetect[sel]
 
                         #for logging (flip selection)
                         sel = np.where(diff >= sigma)
@@ -8364,10 +8372,11 @@ class DetObj:
             self.classification_dict['continuum_hat'] = continuum_hat
             self.classification_dict['continuum_sd_stat_err'] = continuum_sd_hat
 
-
-            # if continuum_sd_hat / continuum_hat > G.CONTINUUM_BRIGHT_REL_ERR_LIMIT:
-            #     log.info(f"{self.entry_id} Combine All Continuum: limiting symmetric relative error on continuum to 0.25. Was {continuum_sd_hat:0.4g}, now {continuum_hat * 0.25:0.4g}")
-            #     continuum_sd_hat = continuum_hat * G.CONTINUUM_BRIGHT_REL_ERR_LIMIT
+            #these are all non-detects, so limit the uncertainty to some fraction of the bright limit
+            if continuum_sd_hat / continuum_hat > G.CONTINUUM_NONDETECT_REL_ERR and (np.count_nonzero(nondetect) == len(nondetect)):
+                log.info(f"{self.entry_id} Combine All Continuum: Non-detection. limiting symmetric relative error on continuum"
+                         f" to {G.CONTINUUM_NONDETECT_REL_ERR}. Was {continuum_sd_hat:0.4g}, now {continuum_hat * G.CONTINUUM_NONDETECT_REL_ERR:0.4g}")
+                continuum_sd_hat = continuum_hat * G.CONTINUUM_NONDETECT_REL_ERR
 
             self.classification_dict['continuum_sd_hat'] = continuum_sd_hat
             self.classification_dict['size_in_psf'] = size_in_psf
