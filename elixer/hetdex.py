@@ -7687,6 +7687,9 @@ class DetObj:
                             if (a['sep_objects'] is not None):
                                 any_sep = len(a['sep_objects']) > 0
                                 if (a['sep_obj_idx'] is not None):
+
+                                    #here ... should we ACTUALLY use it?
+
                                     matched_sep = True
                                     best_guess_extent_sep_idx.append(sep_ctr)
                                     best_guess_extent.append(a['sep_objects'][a['sep_obj_idx']]['a'])

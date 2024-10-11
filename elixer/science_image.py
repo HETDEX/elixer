@@ -1097,6 +1097,7 @@ class science_image():
 
             # now, choose
             dist_to_curve_aa = 0.0
+            dist_to_bary_aa  = 0.0
             if len(inside_objs) != 0:  # there are objects to which the HETDEX point is interior
                 # sort by distance to barycenter
                 inside_objs = sorted(inside_objs, key=lambda x: x[1])
@@ -1106,6 +1107,7 @@ class science_image():
                 outside_objs = sorted(outside_objs, key=lambda x: x[2])
                 selected_idx = outside_objs[0][0]
                 dist_to_curve_aa = outside_objs[0][2] * self.pixel_size #need to covert to arcsec
+                dist_to_bary_aa = outside_objs[0][1] * self.pixel_size #barycenter in arcsec
             else:  # none found at all, so we would use the old-style cicular aperture
                 # todo: aperture stuff
                 log.info("No (source extractor) objects found")
@@ -1118,12 +1120,18 @@ class science_image():
             #todo: incorporate the effective radius of the ellipse? s\t large ellipse gets a little larger max_dist?
             # and a very small ellipse gets (maybe) a little shorted max_dist?
             #effective_radius = 0.5*np.sqrt(d['a']*d['b'])
-            if dist_to_curve_aa > max_dist:
-                log.info("Dist to nearest source extractor oject (%f) exceeds max allowed (%f)"
-                         %(dist_to_curve_aa,max_dist))
+            # if dist_to_curve_aa > max_dist:
+            #     log.info("Dist to nearest source extractor oject (%f) exceeds max allowed (%f)"
+            #              %(dist_to_curve_aa,max_dist))
+            #     return img_objects, None
+
+
+            if dist_to_curve_aa > 0.5 and dist_to_bary_aa > 1.0 and (dist_to_bary_aa/dist_to_curve_aa - 1.0) < 2.0:
+                #too far outside of the object even if within the maximum allowed
+                log.info(f"Distance to curve, {dist_to_curve_aa:0.2f} to nearest source extractor object fails limit check. "
+                         f"Compared to barycenter, {dist_to_bary_aa:0.2f}, the relative ratio: "
+                         f"{dist_to_bary_aa/dist_to_curve_aa - 1.0:0.2f} < 2.0. More than 2x outside curve vs curve to barycenter.")
                 return img_objects, None
-
-
             #selected_idx applies to the objects list
             #IT IS NOT NECESSARILY THE SAME SIZE as img_objects
 

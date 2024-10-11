@@ -1,5 +1,11 @@
 changes to elixer by version
 
+
+1.22.2a1 [2024-10-11]
+* change maximum allowed distance to curve outside of source extractor object to be relative. Cannot exceed twice
+  the distance from curve to barycenter. Previously was fixed 1.25arcsec.
+
+
 1.22.1 [2024-10-08]
 * promote to main
 
