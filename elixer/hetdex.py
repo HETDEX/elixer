@@ -7556,7 +7556,6 @@ class DetObj:
                 #regardless, always git a minimum vote
                 w = max(0.1,w)
 
-                continuum.append(self.best_gmag_cgs_cont)
                 weight.append(w)
                 continuum_sep_idx.append(-1)
 
@@ -7566,18 +7565,22 @@ class DetObj:
                 if rat >= 1.2: #consider this a continuum detection
                     nondetect.append(0)
                     variance.append(self.best_gmag_cgs_cont_unc * self.best_gmag_cgs_cont_unc)
+                    continuum.append(self.best_gmag_cgs_cont)
                     gmag_at_limit = False
                 elif rat >= 1.0: #for continuum purposes consider this a non-detction, but keep the uncertainty as is
                                  #and do not mark as being at the limit
                     nondetect.append(1)
                     variance.append(self.best_gmag_cgs_cont_unc * self.best_gmag_cgs_cont_unc)
+                    continuum.append(self.best_gmag_cgs_cont)
                     gmag_at_limit = False
                 else:
                     if rat >= 0.8:
                         variance.append(self.best_gmag_cgs_cont_unc * self.best_gmag_cgs_cont_unc)
+                        continuum.append(self.best_gmag_cgs_cont)
                     else:
                         #variance.append((cgs_limit-cgs_faint_limit)**2)
-                        variance.append((self.best_gmag_cgs_cont*G.CONTINUUM_NONDETECT_REL_ERR) ** 2)
+                        variance.append((cgs_limit*G.CONTINUUM_NONDETECT_REL_ERR) ** 2)
+                        continuum.append(cgs_limit)
                     nondetect.append(1)
                     gmag_at_limit = True
                     # if (self.hetdex_gmag_limit is not None) and (self.best_gmag is not None) and (self.hetdex_gmag_limit <= self.best_gmag):
