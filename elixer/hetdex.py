@@ -8136,11 +8136,13 @@ class DetObj:
                         if deepest_g_nondetect > 0 and filter_list[i] =='g':
                             if nondetect[i] == 1: #this is a non-detect
                                  #if the non-detect is fainter than the faintest detect, it should be dropped
-                                if (continuum[i] < deepest_g_detect) or (continuum[i] > deepest_g_nondetect):
+                                if (continuum[i] < deepest_g_detect) or (continuum[i] > deepest_g_nondetect) or \
+                                     (not G.BANDPASS_PREFER_G and (continuum[i] < deepest_r_detect)):
                                     keep[i] = False
                         elif deepest_r_nondetect > 0 and filter_list[i] =='r':
                             if nondetect[i] == 1:  # this is a non-detect
-                                if (continuum[i] < deepest_r_detect) or (continuum[i] > deepest_r_nondetect):
+                                if (continuum[i] < deepest_r_detect) or (continuum[i] > deepest_r_nondetect) or \
+                                    (G.BANDPASS_PREFER_G and (continuum[i] < deepest_g_detect)): #favor actual gband detect
                                     keep[i] = False
 
                     sel = keep

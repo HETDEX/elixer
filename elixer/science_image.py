@@ -1126,7 +1126,8 @@ class science_image():
             #     return img_objects, None
 
 
-            if dist_to_curve_aa > max(0.5,G.NUDGE_SEP_MAX_DIST/2.0) and dist_to_bary_aa > 1.0 and (dist_to_bary_aa/dist_to_curve_aa - 1.0) < 2.0:
+            if dist_to_curve_aa > max_dist and dist_to_bary_aa > max_dist and \
+                    (dist_to_bary_aa/dist_to_curve_aa - 1.0) < 2.0:
                 #too far outside of the object even if within the maximum allowed
                 log.info(f"Distance to curve, {dist_to_curve_aa:0.2f} to nearest source extractor object fails limit check. "
                          f"Compared to barycenter, {dist_to_bary_aa:0.2f}, the relative ratio: "
