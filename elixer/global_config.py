@@ -85,11 +85,11 @@ LAUNCH_PDF_VIEWER = None
 
 valid_HDR_Versions = [1,2,2.1,3,3.0,4,4.0,5,5.0]
 
-HDR_Version = "4" #"2.1"
-HDR_Version_float = 4.0
+HDR_Version = "5" #"2.1"
+HDR_Version_float = 5.0
 
-HDR_Latest_Str = "hdr4" #latest available, not necessarily the default or what is being used
-HDR_Latest_Float = 4.0
+HDR_Latest_Str = "hdr5" #latest available, not necessarily the default or what is being used
+HDR_Latest_Float = 5.0
 
 HDR_LAST_GOOD_Version = "4"
 HDR_LAST_GOOD_float = 4.0
