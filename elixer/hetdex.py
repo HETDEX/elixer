@@ -7622,7 +7622,7 @@ class DetObj:
                         continuum_sep_idx.append(-1)
                         # set to itself as a big error (basically, 100% error)
                         #variance.append(cgs_limit * cgs_limit)
-                        variance.append((cgs_limt * G.CONTINUUM_NONDETECT_REL_ERR)**2)
+                        variance.append((cgs_limit * G.CONTINUUM_NONDETECT_REL_ERR)**2)
 
                         #does it make any sense to attempt to use the calculated error in this case? it is the
                         #error on a value that is rejected as meaningless (below the limit or negative)
