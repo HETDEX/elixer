@@ -8091,6 +8091,13 @@ class DetObj:
                     # Now remove nondetects (except for deepest)
                     sel = np.array(nondetect == 1)  # & np.array(cont_type != 'hdw') & np.array(cont_type != 'hdn')
                     filter_list = []
+                    try:
+                        dex_idx = np.argwhere(cont_type=="hdw")[0][0]
+                        dex_nondetect = nondetect[dex_idx]
+                        dex_cont = continuum[dex_idx]
+                    except:
+                        dex_nondetect = None
+                        dex_cont = None
 
                     for f in cont_type:
                         if f in ["ag", "cg"]:
@@ -8139,13 +8146,23 @@ class DetObj:
                         if deepest_g_nondetect > 0 and filter_list[i] =='g':
                             if nondetect[i] == 1: #this is a non-detect
                                  #if the non-detect is fainter than the faintest detect, it should be dropped
-                                if (continuum[i] < deepest_g_detect) or (continuum[i] > deepest_g_nondetect) or \
-                                     (not G.BANDPASS_PREFER_G and (continuum[i] < deepest_r_detect)):
+                                if (continuum[i] < deepest_g_detect) or (continuum[i] > deepest_g_nondetect):
                                     keep[i] = False
+                                elif (not G.BANDPASS_PREFER_G and (continuum[i] < deepest_r_detect)) and \
+                                        not (dex_nondetect and continuum[i] < dex_cont):
+                                        #there is a detection in the other band AND either
+                                        #the dex spectrum is also a detection OR this is brighter than the dex limit
+                                    keep[i] = False
+
+
                         elif deepest_r_nondetect > 0 and filter_list[i] =='r':
                             if nondetect[i] == 1:  # this is a non-detect
-                                if (continuum[i] < deepest_r_detect) or (continuum[i] > deepest_r_nondetect) or \
-                                    (G.BANDPASS_PREFER_G and (continuum[i] < deepest_g_detect)): #favor actual gband detect
+                                if (continuum[i] < deepest_r_detect) or (continuum[i] > deepest_r_nondetect):
+                                    keep[i] = False
+                                elif (G.BANDPASS_PREFER_G and (continuum[i] < deepest_g_detect)) and \
+                                        not (dex_nondetect and continuum[i] < dex_cont):
+                                    # there is a detection in the other band AND either
+                                    # the dex spectrum is also a detection OR this is brighter than the dex limit
                                     keep[i] = False
 
                     sel = keep
