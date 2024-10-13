@@ -7545,15 +7545,16 @@ class DetObj:
                 best_case_rat = self.best_gmag_cgs_cont  / cgs_limit #give it the nominal case
                 log.debug(f"{self.entry_id} Combine ALL Continuum: Best continuum estimate / estimate flux limit: {rat:0.2f} to {best_case_rat:0.2f}")
                 if best_case_rat < 1.0:
-                    w = 0.0
+                    w = 0.1
                 elif rat < 1.0:
                     #w = 1.0 / (1.0 + np.exp(-40 * (rat -0.015) + 40.5)) * 4.0 #older v1.19 and similar
                     w = utils.sigmoid_linear_interp(1.0, 1.0, 0.8, 0.0, rat)
                 else:#linear instead of sigmoid ... by 1.6x (or 0.5 mag) brigher than limit, this gets a 4x weight
-                    #
                     w = utils.sigmoid_linear_interp(1.6,4.0,1.0,1.0,rat)
 
-                #regardless, always git a minimum vote
+                #regardless, always git a vote
+                #if all the imaging are also non-detects, the single deepest wins, so this weight becomes irrelevant
+                #but if there is at least one detection in the imaging, we generally want the detection to carry the weight
                 w = max(0.1,w)
 
                 weight.append(w)
@@ -8086,7 +8087,12 @@ class DetObj:
                 #there is at least one non-detect
                 log.info(f"{self.entry_id} Combine All Continuum: Removing all non-detects other than deepest by filter ...")
 
-                if True: #new
+                if np.count_nonzero(nondetect) == len(nondetect): #they are ALL nondetects
+                    #keep just the deepest (faintest ... since already set to the limits and checked for problems)
+                    faintest = np.min(continuum)
+                    sel = continuum <= faintest
+
+                elif True: #new
 
                     # Now remove nondetects (except for deepest)
                     sel = np.array(nondetect == 1)  # & np.array(cont_type != 'hdw') & np.array(cont_type != 'hdn')
@@ -8146,7 +8152,11 @@ class DetObj:
                         if deepest_g_nondetect > 0 and filter_list[i] =='g':
                             if nondetect[i] == 1: #this is a non-detect
                                  #if the non-detect is fainter than the faintest detect, it should be dropped
-                                if (continuum[i] < deepest_g_detect) or (continuum[i] > deepest_g_nondetect):
+                                 #or if it is brighter than the HETDEX spectrum continuum (which is set to the limit if a
+                                 #  nondetect) ... this is meant to remove non-detects in imaging that is not as deep
+                                 #  as HETDEX (e.g. SDSS)
+                                if (continuum[i] < deepest_g_detect) or (continuum[i] > deepest_g_nondetect) or \
+                                        (continuum[i] > dex_cont):
                                     keep[i] = False
                                 elif (not G.BANDPASS_PREFER_G and (continuum[i] < deepest_r_detect)) and \
                                         not (dex_nondetect and continuum[i] < dex_cont):
@@ -8157,7 +8167,12 @@ class DetObj:
 
                         elif deepest_r_nondetect > 0 and filter_list[i] =='r':
                             if nondetect[i] == 1:  # this is a non-detect
-                                if (continuum[i] < deepest_r_detect) or (continuum[i] > deepest_r_nondetect):
+                                # if the non-detect is fainter than the faintest detect, it should be dropped
+                                # or if it is brighter than the HETDEX spectrum continuum (which is set to the limit if a
+                                #  nondetect) ... this is meant to remove non-detects in imaging that is not as deep
+                                #  as HETDEX (e.g. SDSS)
+                                if (continuum[i] < deepest_r_detect) or (continuum[i] > deepest_r_nondetect)  or \
+                                        (continuum[i] > dex_cont):
                                     keep[i] = False
                                 elif (G.BANDPASS_PREFER_G and (continuum[i] < deepest_g_detect)) and \
                                         not (dex_nondetect and continuum[i] < dex_cont):
