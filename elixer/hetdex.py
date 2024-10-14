@@ -7632,7 +7632,7 @@ class DetObj:
                         # else:
                         #     variance.append(G.HETDEX_CONTINUUM_FLUX_LIMIT * G.HETDEX_CONTINUUM_FLUX_LIMIT) #set to itself as a big error
 
-                        weight.append(0.0) #never very high
+                        weight.append(0.1) #never very high
                         cont_type.append('hdn')
                         filter_depth.append(cgs_limit)
                         nondetect.append(1)
