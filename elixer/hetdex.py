@@ -8156,10 +8156,10 @@ class DetObj:
                                  #  nondetect) ... this is meant to remove non-detects in imaging that is not as deep
                                  #  as HETDEX (e.g. SDSS)
                                 if (continuum[i] < deepest_g_detect) or (continuum[i] > deepest_g_nondetect) or \
-                                        (continuum[i] > dex_cont):
+                                        (dex_cont is not None and continuum[i] > dex_cont):
                                     keep[i] = False
                                 elif (not G.BANDPASS_PREFER_G and (continuum[i] < deepest_r_detect)) and \
-                                        not (dex_nondetect and continuum[i] < dex_cont):
+                                        not (dex_nondetect and dex_cont is not None and continuum[i] < dex_cont):
                                         #there is a detection in the other band AND either
                                         #the dex spectrum is also a detection OR this is brighter than the dex limit
                                     keep[i] = False
@@ -8172,10 +8172,10 @@ class DetObj:
                                 #  nondetect) ... this is meant to remove non-detects in imaging that is not as deep
                                 #  as HETDEX (e.g. SDSS)
                                 if (continuum[i] < deepest_r_detect) or (continuum[i] > deepest_r_nondetect)  or \
-                                        (continuum[i] > dex_cont):
+                                        (dex_cont is not None and continuum[i] > dex_cont):
                                     keep[i] = False
                                 elif (G.BANDPASS_PREFER_G and (continuum[i] < deepest_g_detect)) and \
-                                        not (dex_nondetect and continuum[i] < dex_cont):
+                                        not (dex_nondetect and dex_cont is not None and continuum[i] < dex_cont):
                                     # there is a detection in the other band AND either
                                     # the dex spectrum is also a detection OR this is brighter than the dex limit
                                     keep[i] = False
