@@ -904,11 +904,12 @@ class Catalog:
         best_dict['r'] = {'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['r','f606w']}
         #for HST may have both f775w and f814w, but only show the "best"
         best_dict['i'] = {'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['i','f775w','f814w']}
-        best_dict['z'] = {'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['z',]}
-        best_dict['y'] = {'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['y','f105w']}
+        best_dict['z'] = {'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['z','f090w']}
+        best_dict['y'] = {'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['y','f105w','f115w']}
         best_dict['j'] = {'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['j','f125w']}
-        best_dict['jh'] = {'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['f140w',]}
+        best_dict['jh'] = {'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['f140w','f150w']}
         best_dict['h'] = {'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['h','f160w']}
+        best_dict['other']={'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['f200w','f277w','f356w','f410m','f444w']}
 
         #other WFC3 filters, f140w, between j and h
         #u ~ 3543 AA

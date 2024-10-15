@@ -1478,7 +1478,8 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
             cutout_plae = None
 
             try:  # update non-matched source line with PLAE()
-                if ((mag < 99) or (cont_est != -1)) and (target_flux is not None) and (i['filter'] == 'r'):
+                if ((mag < 99) or (cont_est != -1)) and (target_flux is not None) and \
+                        ((i['filter'] == 'r') or (i['filter']=='g')):
                     # make a "blank" catalog match (e.g. at this specific RA, Dec (not actually from catalog)
                     bid_target = match_summary.BidTarget()
                     bid_target.catalog_name = self.Name
