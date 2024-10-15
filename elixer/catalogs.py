@@ -18,11 +18,15 @@ try:
     from elixer import cat_catch_all
     from elixer import cat_decals_web
     from elixer import cat_cfhtls
-    #from elixer import cat_wise_web
-    #from elixer import cat_hsc_nep
     from elixer import cat_hsc_ssp
-    from elixer import cat_rstr_cosmos_hst_jwst
-    # from elixer import cat_ast376_shela
+    #from elixer import cat_wise_web
+    #restricted catalogs/imaging
+    #from elixer import cat_hsc_nep
+    # from elixer import cat_rstr_ceers_hst_jwst
+    # from elixer import cat_rstr_cosmos_hst_jwst
+    # from elixer import cat_rstr_goodsn_jwst
+    # from elixer import cat_rstr_uds_hst_jwst
+
 except:
     import global_config as G
     import cat_candles_egs_stefanon_2016
@@ -39,10 +43,13 @@ except:
     import cat_decals_web
     import cat_cfhtls
     #import cat_wise_web
-    #import cat_hsc_nep
     import cat_hsc_ssp
-    # from elixer import cat_ast376_shela
-    import cat_rstr_cosmos_hst_jwst
+    #restricted catalogs/imaging
+    # import cat_hsc_nep
+    # import cat_rstr_ceers_hst_jwst
+    # import cat_rstr_cosmos_hst_jwst
+    # import cat_rstr_goodsn_jwst
+    # import cat_rstr_uds_hst_jwst
 
 # log = G.logging.getLogger('Cat_logger')
 # log.setLevel(G.logging.DEBUG)
@@ -116,7 +123,10 @@ class CatalogLibrary:
             #restricted use catalogs/imaging
             # need to uncomment the includes at the top import the necessary class
             #self.cats.append(cat_hsc_nep.HSC_NEP())
-            #self.cats.append(cat_rstr_cosmos_hst_jwst.COSMOS_HST())
+            # self.cats.append(cat_rstr_ceers_hst_jwst.CEERS_HST())
+            # self.cats.append(cat_rstr_cosmos_hst_jwst.COSMOS_HST())
+            # self.cats.append(cat_rstr_goodsn_jwst.GOODSN_JWST())
+            # self.cats.append(cat_rstr_uds_hst_jwst.UDS_HST())
 
     def get_full_catalog_list(self):
         if self.cats is None:

@@ -909,7 +909,8 @@ class Catalog:
         best_dict['j'] = {'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['j','f125w']}
         best_dict['jh'] = {'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['f140w','f150w']}
         best_dict['h'] = {'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['h','f160w']}
-        best_dict['other']={'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['f200w','f277w','f356w','f410m','f444w']}
+        best_dict['other']={'depth': 0,'cat_idx': 0,'cutout_idx': 0,'filters':['f182m','f200w','f210m','f277w','f335m',
+                                                                               'f356w','f410m','f444w','f470n']}
 
         #other WFC3 filters, f140w, between j and h
         #u ~ 3543 AA

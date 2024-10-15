@@ -1,9 +1,9 @@
 from __future__ import print_function
 
 """
-cloned from cat_goods_n.py
+cloned from cat_rstr_cosmos_hst_jwst
 
-This is COSMOS imaging from HST (acs, wfc3) and JWST (nrc)
+This is GOODSN imaging from JWST (nrc)
 
 This is for a special, restricted use.
 """
@@ -45,37 +45,8 @@ log.setlevel(G.LOG_LEVEL)
 
 pd.options.mode.chained_assignment = None  #turn off warning about setting the distance field
 
-COSMOS_HST_BASEPATH = "/work/03564/stevenf/lonestar/JWST_images/COSMOS"
+GOODSN_JWST_BASEPATH = "/work/03564/stevenf/lonestar/JWST_images/GOODSN"
 
-#todo: update with aperture on photometry
-#todo: currently astropy does not like the drz fits files and throws exception with the aperture
-
-def count_to_mag(count,cutout=None,headers=None):
-    if count is not None:
-        #if cutout is not None:
-        #get the conversion factor, each tile is different
-        try:
-            for h in headers:
-                if 'PHOTFLAM' in h:
-                    photoflam = float(h['PHOTFLAM']) #inverse sensitivity, ergs / cm2 / Ang / electron
-                    photozero = float(h['PHOTZPT']) #/ ST magnitude zero point
-                    break
-                else:
-                    log.warning("Cannot compute flux from counts. No defined conversion.")
-                    return 99.9
-
-
-            if not isinstance(count, float):
-                count = count.value
-
-            if count > 0:
-                flux = photoflam*count
-                return  -2.5 * np.log10(flux) + photozero
-            else:
-                return 99.9  # need a better floor
-        except:
-            log.warning("Exception in count_to_mag",exc_info=True)
-            return 99.9
 
 
 def jwst_count_to_mag(count,cutout=None,headers=None):
@@ -112,18 +83,18 @@ def jwst_count_to_mag(count,cutout=None,headers=None):
             log.warning("Exception in count_to_mag",exc_info=True)
             return 99.9
 
-class COSMOS_HST(cat_base.Catalog):
+class GOODSN_JWST(cat_base.Catalog):
 
     # class variables
     MainCatalog = None
-    Name = "COSMOS-HST"
+    Name = "GOODSN-JWST"
     MAG_LIMIT = 30.0 # associated catalog goes deeper, but this is a general limit 29-30 mag
     mean_FWHM = 0.15 #typical use for photometric aperture, but is too good here ... objects that are point
                     #sources may be resolved with HST
 
     # if multiple images, the composite broadest range (filled in by hand)
     #Cat_Coord_Range = None
-    Image_Coord_Range = {'RA_min': 150.017820, 'RA_max': 150.234686, 'Dec_min': 2.147223, 'Dec_max': 2.514713}
+    Image_Coord_Range = {'RA_min': 188.959762, 'RA_max': 189.525705, 'Dec_min': 62.125267, 'Dec_max': 62.364528}
 
     WCS_Manual = True
 
@@ -138,100 +109,9 @@ class COSMOS_HST(cat_base.Catalog):
                "DEEP_SPEC_Z"]  # NOTE: there are no F105W values
 
     CatalogImages = [
-        {'path': COSMOS_HST_BASEPATH,
-         'name': 'primercosmos_acs_f435w_sci.fits',
-         'filter': 'f435w',
-         'instrument': 'ACS WFC',
-         'cols': ["ACS_F435W_FLUX", "ACS_F435W_FLUXERR"],
-         'labels': ["Flux", "Err"],
-         'image': None,
-         'expanded': False,
-         'wcs_manual': True,
-         'aperture': mean_FWHM* 0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
-         'mag_func': count_to_mag,
-         'sky_subtract': False
-         },
 
-        {'path': COSMOS_HST_BASEPATH,
-         'name': 'primercosmos_acs_f606w_sci.fits',
-         'filter': 'f606w',
-         'instrument': 'ACS WFC',
-         'cols': ["ACS_F606W_FLUX", "ACS_F606W_FLUXERR"],
-         'labels': ["Flux", "Err"],
-         'image': None,
-         'expanded': False,
-         'wcs_manual': True,
-         'aperture': mean_FWHM* 0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
-         'mag_func': count_to_mag,
-         'sky_subtract': False
-         },
-        {'path': COSMOS_HST_BASEPATH,
-         'name': 'primercosmos_acs_f814w_sci.fits',
-         'filter': 'f814w',
-         'instrument': 'ACS WFC',
-         'cols': ["ACS_F814W_FLUX", "ACS_F814W_FLUXERR"],
-         'labels': ["Flux", "Err"],
-         'image': None,
-         'expanded': False,
-         'wcs_manual': True,
-         'aperture':mean_FWHM* 0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
-         'mag_func': count_to_mag,
-         'sky_subtract': False
-         },
-        {'path': COSMOS_HST_BASEPATH,
-         'name': 'primercosmos_wfc3_f105w_sci.fits',
-         'filter': 'f105w',
-         'instrument': 'WFC3',
-         'cols': [],
-         'labels': [],
-         'image': None,
-         'expanded': False,
-         'wcs_manual': True,
-         'aperture': mean_FWHM* 0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
-         'mag_func': count_to_mag,
-         'sky_subtract': False
-         },
-        {'path': COSMOS_HST_BASEPATH,
-         'name': 'primercosmos_wfc3_f125w_sci.fits',
-         'filter': 'f125w',
-         'instrument': 'WFC3',
-         'cols': ["WFC3_F125W_FLUX", "WFC3_F125W_FLUXERR"],
-         'labels': ["Flux", "Err"],
-         'image': None,
-         'expanded': False,
-         'wcs_manual': True,
-         'aperture': mean_FWHM* 0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
-         'mag_func': count_to_mag,
-         'sky_subtract': False
-         },
-        {'path': COSMOS_HST_BASEPATH,
-        'name': 'primercosmos_wfc3_f140w_sci.fits',
-        'filter': 'f140w',
-        'instrument': 'WFC3',
-        'cols': ["WFC3_F140W_FLUX", "WFC3_F140W_FLUXERR"],
-        'labels': ["Flux", "Err"],
-        'image': None,
-        'expanded': False,
-        'wcs_manual': True,
-        'aperture': mean_FWHM* 0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
-        'mag_func': count_to_mag,
-        'sky_subtract': False
-        },
-        {'path': COSMOS_HST_BASEPATH,
-         'name': 'primercosmos_wfc3_f160w_sci.fits',
-         'filter': 'f160w',
-         'instrument': 'WFC3',
-         'cols': ["WFC3_F160W_FLUX", "WFC3_F160W_FLUXERR"],
-         'labels': ["Flux", "Err"],
-         'image': None,
-         'expanded': False,
-         'wcs_manual': True,
-         'aperture': mean_FWHM* 0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
-         'mag_func': count_to_mag,
-         'sky_subtract': False
-         },
-        {'path': COSMOS_HST_BASEPATH,
-         'name': 'primercosmos_nrc_f090w_sci.fits',
+        {'path': GOODSN_JWST_BASEPATH,
+         'name': 'goodsn_nrc_f090w_sci.fits',
          'filter': 'f090w',
          'instrument': 'nrc',
          'cols': [],
@@ -243,8 +123,8 @@ class COSMOS_HST(cat_base.Catalog):
          'mag_func': jwst_count_to_mag,
          'sky_subtract': False
          },
-        {'path': COSMOS_HST_BASEPATH,
-         'name': 'primercosmos_nrc_f115w_sci.fits',
+        {'path': GOODSN_JWST_BASEPATH,
+         'name': 'goodsn_nrc_f115w_sci.fits',
          'filter': 'f115w',
          'instrument': 'nrc',
          'cols': [],
@@ -256,8 +136,8 @@ class COSMOS_HST(cat_base.Catalog):
          'mag_func': jwst_count_to_mag,
          'sky_subtract': False
          },
-        {'path': COSMOS_HST_BASEPATH,
-         'name': 'primercosmos_nrc_f150w_sci.fits',
+        {'path': GOODSN_JWST_BASEPATH,
+         'name': 'goodsn_nrc_f150w_sci.fits',
          'filter': 'f150w',
          'instrument': 'nrc',
          'cols': [],
@@ -269,8 +149,21 @@ class COSMOS_HST(cat_base.Catalog):
          'mag_func': jwst_count_to_mag,
          'sky_subtract': False
          },
-        {'path': COSMOS_HST_BASEPATH,
-         'name': 'primercosmos_nrc_f200w_sci.fits',
+        {'path': GOODSN_JWST_BASEPATH,
+         'name': 'goodsn_nrc_f182m_sci.fits',
+         'filter': 'f182m',
+         'instrument': 'nrc',
+         'cols': [],
+         'labels': [],
+         'image': None,
+         'expanded': False,
+         'wcs_manual': True,
+         'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
+         'mag_func': jwst_count_to_mag,
+         'sky_subtract': False
+         },
+        {'path': GOODSN_JWST_BASEPATH,
+         'name': 'goodsn_nrc_f200w_sci.fits',
          'filter': 'f200w',
          'instrument': 'nrc',
          'cols': [],
@@ -282,8 +175,21 @@ class COSMOS_HST(cat_base.Catalog):
          'mag_func': jwst_count_to_mag,
          'sky_subtract': False
          },
-        {'path': COSMOS_HST_BASEPATH,
-         'name': 'primercosmos_nrc_f277w_sci.fits',
+        {'path': GOODSN_JWST_BASEPATH,
+         'name': 'goodsn_nrc_f210m_sci.fits',
+         'filter': 'f210m',
+         'instrument': 'nrc',
+         'cols': [],
+         'labels': [],
+         'image': None,
+         'expanded': False,
+         'wcs_manual': True,
+         'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
+         'mag_func': jwst_count_to_mag,
+         'sky_subtract': False
+         },
+        {'path': GOODSN_JWST_BASEPATH,
+         'name': 'goodsn_nrc_f277w_sci.fits',
          'filter': 'f277w',
          'instrument': 'nrc',
          'cols': [],
@@ -295,8 +201,21 @@ class COSMOS_HST(cat_base.Catalog):
          'mag_func': jwst_count_to_mag,
          'sky_subtract': False
          },
-        {'path': COSMOS_HST_BASEPATH,
-         'name': 'primercosmos_nrc_f356w_sci.fits',
+        {'path': GOODSN_JWST_BASEPATH,
+         'name': 'goodsn_nrc_f335m_sci.fits',
+         'filter': 'f335m',
+         'instrument': 'nrc',
+         'cols': [],
+         'labels': [],
+         'image': None,
+         'expanded': False,
+         'wcs_manual': True,
+         'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
+         'mag_func': jwst_count_to_mag,
+         'sky_subtract': False
+         },
+        {'path': GOODSN_JWST_BASEPATH,
+         'name': 'goodsn_nrc_f356w_sci.fits',
          'filter': 'f356w',
          'instrument': 'nrc',
          'cols': [],
@@ -308,8 +227,8 @@ class COSMOS_HST(cat_base.Catalog):
          'mag_func': jwst_count_to_mag,
          'sky_subtract': False
          },
-        {'path': COSMOS_HST_BASEPATH,
-         'name': 'primercosmos_nrc_f410m_sci.fits',
+        {'path': GOODSN_JWST_BASEPATH,
+         'name': 'goodsn_nrc_f410m_sci.fits',
          'filter': 'f410m',
          'instrument': 'nrc',
          'cols': [],
@@ -321,8 +240,8 @@ class COSMOS_HST(cat_base.Catalog):
          'mag_func': jwst_count_to_mag,
          'sky_subtract': False
          },
-        {'path': COSMOS_HST_BASEPATH,
-         'name': 'primercosmos_nrc_f444w_sci.fits',
+        {'path': GOODSN_JWST_BASEPATH,
+         'name': 'goodsn_nrc_f444w_sci.fits',
          'filter': 'f444w',
          'instrument': 'nrc',
          'cols': [],
@@ -340,7 +259,7 @@ class COSMOS_HST(cat_base.Catalog):
     SupportFilesLocation = None
 
     def __init__(self):
-        super(COSMOS_HST, self).__init__()
+        super(GOODSN_JWST, self).__init__()
 
         # self.dataframe_of_bid_targets = None #defined in base class
         self.dataframe_of_bid_targets_photoz = None
@@ -1625,5 +1544,5 @@ class COSMOS_HST(cat_base.Catalog):
         return fig
 
 #######################################
-# end class COSMOS_HST
+# end class GOODSN_JWST
 #######################################
