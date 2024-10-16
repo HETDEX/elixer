@@ -118,7 +118,7 @@ class GOODSN_JWST(cat_base.Catalog):
          'labels': [],
          'image': None,
          'expanded': False,
-         'wcs_manual': True,
+         'wcs_manual': False,
          'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
          'mag_func': jwst_count_to_mag,
          'sky_subtract': False
@@ -131,7 +131,7 @@ class GOODSN_JWST(cat_base.Catalog):
          'labels': [],
          'image': None,
          'expanded': False,
-         'wcs_manual': True,
+         'wcs_manual': False,
          'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
          'mag_func': jwst_count_to_mag,
          'sky_subtract': False
@@ -144,7 +144,7 @@ class GOODSN_JWST(cat_base.Catalog):
          'labels': [],
          'image': None,
          'expanded': False,
-         'wcs_manual': True,
+         'wcs_manual': False,
          'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
          'mag_func': jwst_count_to_mag,
          'sky_subtract': False
@@ -157,7 +157,7 @@ class GOODSN_JWST(cat_base.Catalog):
          'labels': [],
          'image': None,
          'expanded': False,
-         'wcs_manual': True,
+         'wcs_manual': False,
          'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
          'mag_func': jwst_count_to_mag,
          'sky_subtract': False
@@ -170,7 +170,7 @@ class GOODSN_JWST(cat_base.Catalog):
          'labels': [],
          'image': None,
          'expanded': False,
-         'wcs_manual': True,
+         'wcs_manual': False,
          'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
          'mag_func': jwst_count_to_mag,
          'sky_subtract': False
@@ -183,7 +183,7 @@ class GOODSN_JWST(cat_base.Catalog):
          'labels': [],
          'image': None,
          'expanded': False,
-         'wcs_manual': True,
+         'wcs_manual': False,
          'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
          'mag_func': jwst_count_to_mag,
          'sky_subtract': False
@@ -196,7 +196,7 @@ class GOODSN_JWST(cat_base.Catalog):
          'labels': [],
          'image': None,
          'expanded': False,
-         'wcs_manual': True,
+         'wcs_manual': False,
          'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
          'mag_func': jwst_count_to_mag,
          'sky_subtract': False
@@ -209,7 +209,7 @@ class GOODSN_JWST(cat_base.Catalog):
          'labels': [],
          'image': None,
          'expanded': False,
-         'wcs_manual': True,
+         'wcs_manual': False,
          'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
          'mag_func': jwst_count_to_mag,
          'sky_subtract': False
@@ -222,7 +222,7 @@ class GOODSN_JWST(cat_base.Catalog):
          'labels': [],
          'image': None,
          'expanded': False,
-         'wcs_manual': True,
+         'wcs_manual': False,
          'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
          'mag_func': jwst_count_to_mag,
          'sky_subtract': False
@@ -235,7 +235,7 @@ class GOODSN_JWST(cat_base.Catalog):
          'labels': [],
          'image': None,
          'expanded': False,
-         'wcs_manual': True,
+         'wcs_manual': False,
          'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
          'mag_func': jwst_count_to_mag,
          'sky_subtract': False
@@ -248,7 +248,7 @@ class GOODSN_JWST(cat_base.Catalog):
          'labels': [],
          'image': None,
          'expanded': False,
-         'wcs_manual': True,
+         'wcs_manual': False,
          'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
          'mag_func': jwst_count_to_mag,
          'sky_subtract': False

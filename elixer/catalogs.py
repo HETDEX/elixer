@@ -4,7 +4,7 @@
 import numpy as np
 
 try:
-    from elixer import global_config as G
+    import global_config as G
     from elixer import cat_candles_egs_stefanon_2016
     from elixer import cat_goods_n
     # from elixer import cat_goods_n_finkelstein
@@ -103,7 +103,9 @@ class CatalogLibrary:
         self.cats = list()
         if G.USE_PHOTO_CATS:
             # self.cats.append(cat_ast376_shela.AST376_SHELA())
+            #print("***** TURN CANDLES BACK ON !!!!")
             self.cats.append(cat_candles_egs_stefanon_2016.CANDELS_EGS_Stefanon_2016())
+            #print("***** TURN GOODSN BACK ON !!!!")
             self.cats.append(cat_goods_n.GOODS_N())
             # self.cats.append(cat_goods_n_finkelstein.GOODS_N_FINKELSTEIN())
             # self.cats.append(EGS_GROTH()) #this is of no value right now
@@ -118,6 +120,7 @@ class CatalogLibrary:
             self.cats.append(cat_kpno.KPNO())
             # notice: if comment out KPNO turn off KPNO inclusion in HSC, also need to un-comment the next line to remove from HSC
             # self.cats[-1].INCLUDE_KPNO_G = False
+            #print("**** TURN CFHTLS  BACK ON !!!!")
             self.cats.append(cat_cfhtls.CFHTLS())
 
             #restricted use catalogs/imaging

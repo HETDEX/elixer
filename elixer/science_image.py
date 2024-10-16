@@ -2379,12 +2379,15 @@ class science_image():
             if hasattr(cutout.wcs.wcs, 'cd'):
                 theta = np.arctan2(cutout.wcs.wcs.cd[0, 1], cutout.wcs.wcs.cd[0, 0]) - np.pi/2.
             elif hasattr(cutout.wcs.wcs,'pc'):
-                theta = np.arctan2(cutout.wcs.wcs.pc[0, 1], cutout.wcs.wcs.pc[0, 0]) + np.pi/2.
+                #unlike the read in version of CDx_x vs PCx_x here it is always - pi/2 ??
+                #2024-10-16 previously this was set to + np.pi/2 in the PC case
+                theta = np.arctan2(cutout.wcs.wcs.pc[0, 1], cutout.wcs.wcs.pc[0, 0]) - np.pi/2.
+
 
             #theta = np.pi/2. - np.arctan2(cutout.wcs.wcs.cd[0, 1], cutout.wcs.wcs.cd[0, 0])
 
             if theta < 0: # clockwise rotation
-                theta += 2*np.pi
+                theta += 2.*np.pi #this is the prior normal way (at least when CDx_x is used insetad of PCx_x)
             log.debug("Rotation (radians) = %g" % theta)
             return theta
         except:
