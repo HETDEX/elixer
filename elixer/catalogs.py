@@ -4,7 +4,7 @@
 import numpy as np
 
 try:
-    import global_config as G
+    from elixer import global_config as G
     from elixer import cat_candles_egs_stefanon_2016
     from elixer import cat_goods_n
     # from elixer import cat_goods_n_finkelstein
