@@ -686,9 +686,13 @@ def sum_zPDF(target_z,pdf,zarray,delta_z=0.25,max_z=None):
             max_right = min(right_pdf+1, max_right)
 
         p_z = np.sum(pdf[left:right+1]) / np.sum(pdf[0:max_right])
-    except:
+    except Exception as E:
         p_z = 0
-        log.info("Exception! Exception checking P(z) in spectrum_utilities sum_zPDF.",exc_info=True)
+        try:
+            if len(zarray) != 0:
+                log.info("Exception! Exception checking P(z) in spectrum_utilities sum_zPDF.",exc_info=True)
+        except:
+            log.info(f"Exception! Exception checking P(z) in spectrum_utilities sum_zPDF. {E}",exc_info=True)
 
     return p_z
 
