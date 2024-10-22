@@ -664,17 +664,21 @@ def sum_zPDF(target_z,pdf,zarray,delta_z=0.25,max_z=None):
     :return: the summed P(z)
     """
     try:
-        _,left,_ = getnearpos(np.array(zarray).astype(float),max(0,target_z-delta_z))
-        _,_,right = getnearpos(np.array(zarray).astype(float),target_z+delta_z)
+        l2,left,_ = getnearpos(np.array(zarray).astype(float),max(0,target_z-delta_z))
+        if left is None:
+            left = l2
         max_right = len(pdf)
+        r2,_,right = getnearpos(np.array(zarray).astype(float),min(max_right,target_z+delta_z))
+        if right is None:
+            right = r2
 
         if max_z is not None:
             _,_,right_pdf = getnearpos(np.array(zarray).astype(float),max_z)
             max_right = min(right_pdf+1, max_right)
 
         p_z = np.sum(pdf[left:right+1]) / np.sum(pdf[0:max_right])
-    except:
-        p_z = -1.
+    except Exception as E:
+        p_z = -1
         try:
             if len(zarray) != 0:
                 log.info("Exception! Exception checking P(z) in spectrum_utilities sum_zPDF.",exc_info=True)
