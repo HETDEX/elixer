@@ -8255,11 +8255,14 @@ class DetObj:
                 weight = np.delete(weight,sel)
                 cont_type = np.delete(cont_type,sel)
                 nondetect = np.delete(nondetect,sel)
-                continuum_sep_idx = np.delete(continuum_sep_idx, sel)
 
+                #mark the ones that were removed due to zero weight
                 for sep_idx in continuum_sep_idx:
                     if not np.isnan(sep_idx):
                         removed_sep_idx.append(sep_idx)
+
+                #now update the index list to match the other lists
+                continuum_sep_idx = np.delete(continuum_sep_idx, sel)
 
             elif np.all(sel):
                 #they are all zero weights, so the result would be zero, so need to change to all 1
