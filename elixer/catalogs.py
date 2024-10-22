@@ -102,30 +102,27 @@ class CatalogLibrary:
 
         self.cats = list()
         if G.USE_PHOTO_CATS:
-            # self.cats.append(cat_ast376_shela.AST376_SHELA())
-            #print("***** TURN CANDLES BACK ON !!!!")
             self.cats.append(cat_candles_egs_stefanon_2016.CANDELS_EGS_Stefanon_2016())
-            #print("***** TURN GOODSN BACK ON !!!!")
             self.cats.append(cat_goods_n.GOODS_N())
-            # self.cats.append(cat_goods_n_finkelstein.GOODS_N_FINKELSTEIN())
-            # self.cats.append(EGS_GROTH()) #this is of no value right now
-            #print("!!!!! TURNED OFF SHELA and COSMOS !!!!!!!!!!")
-            #print("!!!!! GO BACK AND TURN OFF SHELA and COSMOS !!!!!!!!!!")
-            #self.cats.append(cat_stack_cosmos.STACK_COSMOS())
-            #self.cats.append(cat_shela.SHELA())
+            #self.cats.append(EGS_GROTH()) #this is of no value right now
+            #self.cats.append(cat_stack_cosmos.STACK_COSMOS()) #little value and memory expensive to load
+            #self.cats.append(cat_shela.SHELA())  #little value and memory/time expensive to load
 
             self.cats.append(cat_hsc.HSC())
-            #print("**** TURN HSC SSP BACK ON !!!!")
             self.cats.append(cat_hsc_ssp.HSC_SSP())
-            self.cats.append(cat_kpno.KPNO())
+            self.cats.append(cat_cfhtls.CFHTLS())
             # notice: if comment out KPNO turn off KPNO inclusion in HSC, also need to un-comment the next line to remove from HSC
             # self.cats[-1].INCLUDE_KPNO_G = False
-            #print("**** TURN CFHTLS  BACK ON !!!!")
-            self.cats.append(cat_cfhtls.CFHTLS())
+            self.cats.append(cat_kpno.KPNO())
+
+            #note: the web only catalogs are controlled via command line options and/or global_config.py
+            # e.g. cat_decals_web, cat_sdss, cat_panstarrs
+            # they are NOT added here !!!
+
 
             #restricted use catalogs/imaging
-            # need to uncomment the includes at the top import the necessary class
-            #self.cats.append(cat_hsc_nep.HSC_NEP())
+            #need to uncomment the includes at the top import the necessary class
+            # self.cats.append(cat_hsc_nep.HSC_NEP())
             # self.cats.append(cat_rstr_ceers_hst_jwst.CEERS_HST())
             # self.cats.append(cat_rstr_cosmos_hst_jwst.COSMOS_HST())
             # self.cats.append(cat_rstr_goodsn_jwst.GOODSN_JWST())
