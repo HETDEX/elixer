@@ -4124,55 +4124,56 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             # DetsIdx = Detections(catalog_type='index', survey=f"hdr{G.HDR_Version}")
             try:
                 NeiTab = G.the_DetectionsIndex.query_by_coord(SkyCoord(ra=ra * U.deg, dec=dec * U.deg), radius=(error + 1/3600.) * U.deg, astropy=True)
-                NeiTab.sort('separation')
+                if NeiTab is not None:
+                    NeiTab.sort('separation')
 
-                unique_surveys = np.unique(np.array(NeiTab['survey']))
+                    unique_surveys = np.unique(np.array(NeiTab['survey']))
 
-                try:
-                    unique_surveys = np.array([x.decode() for x in unique_surveys])
-                except:
-                    pass
-
-                #linesources
-                src_sel = NeiTab['det_type'] == 'line'
-                if np.count_nonzero(src_sel) > 0:
-                    detectids = np.array(NeiTab['detectid'][src_sel])
-                    shotids = np.array(NeiTab['shotid'][src_sel])
-                    ras = np.array(NeiTab['ra'][src_sel])
-                    decs = np.array(NeiTab['dec'][src_sel])
-                    dists = np.array(NeiTab['separation'][src_sel]) # keep in arcsec
-                    emis_line_wave = np.array(NeiTab['wave'][src_sel])
-                    survey_names = np.array(NeiTab['survey'][src_sel])
                     try:
-                        survey_names = np.array([x.decode() for x in survey_names])
+                        unique_surveys = np.array([x.decode() for x in unique_surveys])
                     except:
                         pass
-                    total_detectids += np.count_nonzero(src_sel)
-                    all_ras = ras[:]
-                    all_decs = decs[:]
-                else:
-                    all_ras = []
-                    all_decs = []
 
-                #continuum
-                src_sel = NeiTab['det_type'] == 'cont'
-                if np.count_nonzero(src_sel) > 0:
-                    cont_detectids = np.array(NeiTab['detectid'][src_sel])
-                    cont_shotids = np.array(NeiTab['shotid'][src_sel])
-                    cont_ras = np.array(NeiTab['ra'][src_sel])
-                    cont_decs = np.array(NeiTab['dec'][src_sel])
-                    cont_dists = np.array(NeiTab['separation'][src_sel]) # keep in arcsec
-                    cont_survey_names = np.array(NeiTab['survey'][src_sel])
-                    try:
-                        cont_survey_names = np.array([x.decode() for x in cont_survey_names])
-                    except:
-                        pass
-                    total_detectids += np.count_nonzero(src_sel)
+                    #linesources
+                    src_sel = NeiTab['det_type'] == 'line'
+                    if np.count_nonzero(src_sel) > 0:
+                        detectids = np.array(NeiTab['detectid'][src_sel])
+                        shotids = np.array(NeiTab['shotid'][src_sel])
+                        ras = np.array(NeiTab['ra'][src_sel])
+                        decs = np.array(NeiTab['dec'][src_sel])
+                        dists = np.array(NeiTab['separation'][src_sel]) # keep in arcsec
+                        emis_line_wave = np.array(NeiTab['wave'][src_sel])
+                        survey_names = np.array(NeiTab['survey'][src_sel])
+                        try:
+                            survey_names = np.array([x.decode() for x in survey_names])
+                        except:
+                            pass
+                        total_detectids += np.count_nonzero(src_sel)
+                        all_ras = ras[:]
+                        all_decs = decs[:]
+                    else:
+                        all_ras = []
+                        all_decs = []
 
-                    np.concatenate((all_ras,cont_ras))
-                    np.concatenate((all_decs,cont_decs))
+                    #continuum
+                    src_sel = NeiTab['det_type'] == 'cont'
+                    if np.count_nonzero(src_sel) > 0:
+                        cont_detectids = np.array(NeiTab['detectid'][src_sel])
+                        cont_shotids = np.array(NeiTab['shotid'][src_sel])
+                        cont_ras = np.array(NeiTab['ra'][src_sel])
+                        cont_decs = np.array(NeiTab['dec'][src_sel])
+                        cont_dists = np.array(NeiTab['separation'][src_sel]) # keep in arcsec
+                        cont_survey_names = np.array(NeiTab['survey'][src_sel])
+                        try:
+                            cont_survey_names = np.array([x.decode() for x in cont_survey_names])
+                        except:
+                            pass
+                        total_detectids += np.count_nonzero(src_sel)
 
-                del NeiTab
+                        np.concatenate((all_ras,cont_ras))
+                        np.concatenate((all_decs,cont_decs))
+
+                    del NeiTab
 
             except:
                 log.warning("Exception loading neighbors from HETDEX_API.",exc_info=True)
