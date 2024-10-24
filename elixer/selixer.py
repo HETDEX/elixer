@@ -361,11 +361,22 @@ if MERGE: #this is usually so fast that --tmp does not matter so just leave as i
 if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
+
+
 FILL_CPU_TASKS = 10 #don't add another node until each CPU on the current node(s) hit this number
                     #e.g. roughly the number of detections per CPU (or row in the run.h5 filer),
                     # or the detectios per dispatch_xxxx (generally +/- 1 detection, but at low number of nodes can be
                     # up to 50% more ... so if the fill tasks is 10, could get 15 if only a few nodes are in use)
                     #this is changed based on the server and CPU type below
+
+if "--fill_tasks" in args:
+    i = args.index("--fill_tasks")
+    if i != -1:
+        try:
+            FILL_CPU_TASKS = int(sys.argv[i + 1])
+        except:
+            FILL_CPU_TASKS = 10
+
 MAX_DETECTS_PER_CPU = 9999999 #do not execute this job of the dispatch_xxxx list count exceeds this value
 MAX_TASKS_PER_NODE =1 #default (local machine)
 MAX_NODES=1

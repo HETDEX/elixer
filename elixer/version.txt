@@ -1,9 +1,13 @@
 changes to elixer by version
 
 
-1.22.3a1 [2024-10-16]
+1.22.3a1 [2024-10-24]
 * adding restricted access catalogs for HST, JWST in CEERS, COSMOS, GOODS-N, UDS
-
+* allow user to specify the --fill_tasks on the commnad line for selixer (SLURM). This is the default target number of
+  detections to run per task. It is approximate in that elixer attempts to optimize for the number of tasks per node and
+  the number of nodes, but, nominally, you evenly divide the detections over the configured number of CPUs * Nodes and
+  avoid requesting an additional node or spawaning another task until this threshold is met. Previously was set in
+  selixer.py to a default of 10.
 
 1.22.2 [2024-10-14]
 * promote to release

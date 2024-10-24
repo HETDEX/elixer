@@ -599,6 +599,10 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--fz', help='Temporary and Testing ONLY. Use compressed fits instead of uncompressed.', required=False,
                             action='store_true', default=False)
 
+    #only consumed in selixer, here so it does not break parser
+    parser.add_argument('--fill_tasks', help="Only for selixer. Number of detections to run (approximate) per job line (task). Default is 10.",
+                        required=False, type=int)
+
     try:
         args = parser.parse_args()
     except:
