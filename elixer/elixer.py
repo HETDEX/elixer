@@ -5536,15 +5536,14 @@ def main():
             try:
                 if os.path.exists(os.path.join(G.ORIGINAL_WORKING_DIR,"copy.done")):
                     #this dispatch is already complete
-                    log.info(f"[RECOVERY MODE]: {args.dispatch} already complete. Skipping futher processing.")
-                    print(f"[RECOVERY MODE]: {args.dispatch} already complete. Skipping futher processing.")
-                    log.critical("Main complete.")
-                    print("Main Complete.")
                     done = True
             except:
                 log.warning(f"Exception! Exception checking recovery run for already complete dispatch: {args.dispatch}.",exc_info=True)
 
             if done:
+                log.info(f"[RECOVERY MODE]: {args.dispatch} already complete. Skipping further processing.")
+                print(f"[RECOVERY MODE]: {args.dispatch} already complete. Skipping further processing.")
+
                 for root, dirs, files in os.walk('.', topdown=True):
                     if root != args.tmp and root != "." and root != "/":  # do not remove the top
                         try:
@@ -5552,6 +5551,9 @@ def main():
                         except Exception as E:
                             # this is not so important
                             print(f"Exception! removing  {root}.", f"\n{E}")
+
+                log.critical("Main complete.")
+                print("Main Complete.")
                 exit(0)
 
         #as of 1.18.0a2, will use the ra,dec generated ID to check for completion
