@@ -5530,6 +5530,30 @@ def main():
     master_hdf5_detectid_list = []
 
     if G.RECOVERY_RUN:
+
+        if args.dispatch is not None and args.tmp is not None:
+            done = False
+            try:
+                if os.path.exists(os.path.join(G.ORIGINAL_WORKING_DIR,"copy.done")):
+                    #this dispatch is already complete
+                    log.info(f"[RECOVERY MODE]: {args.dispatch} already complete. Skipping futher processing.")
+                    print(f"[RECOVERY MODE]: {args.dispatch} already complete. Skipping futher processing.")
+                    log.critical("Main complete.")
+                    print("Main Complete.")
+                    done = True
+            except:
+                log.warning(f"Exception! Exception checking recovery run for already complete dispatch: {args.dispatch}.",exc_info=True)
+
+            if done:
+                for root, dirs, files in os.walk('.', topdown=True):
+                    if root != args.tmp and root != "." and root != "/":  # do not remove the top
+                        try:
+                            shutil.rmtree(root)
+                        except Exception as E:
+                            # this is not so important
+                            print(f"Exception! removing  {root}.", f"\n{E}")
+                exit(0)
+
         #as of 1.18.0a2, will use the ra,dec generated ID to check for completion
         # if args.aperture is not None:
         #     #G.RECOVERY_RUN = False
