@@ -653,12 +653,18 @@ def parse_commandline(auto_force=False):
         pass
 
     #--tmp ONLY applies to the elixer.py script, Otherwise, ignore it.
+    #--tmp also should not be used with --cluster
     if args.tmp is not None:
-        if G.MAIN_SCRIPT != 'elixer.py':
+        if args.cluster:
+            print(f"Warning! --tmp ignored with --cluster.")
+            log.info(f"Warning! --tmp ignored with --cluster.")
             args.tmp = None
         else:
-            if args.dispatch is not None:
-                args.dispatch = os.path.join(G.ORIGINAL_WORKING_DIR,args.dispatch)
+            if G.MAIN_SCRIPT != 'elixer.py':
+                args.tmp = None
+            else:
+                if args.dispatch is not None:
+                    args.dispatch = os.path.join(G.ORIGINAL_WORKING_DIR,args.dispatch)
 
     # try:
     #     if args.zeropoint_shift is not None:
