@@ -682,11 +682,13 @@ def sum_zPDF(target_z,pdf,zarray,delta_z=0.25,max_z=None):
             left = l2
         max_right = len(pdf)
         r2,_,right = getnearpos(np.array(zarray).astype(float),min(max_right,target_z+delta_z))
-        if right is None:
+        if right is None: #note: r2 could still be none and this would still fail
             right = r2
 
         if max_z is not None:
-            _,_,right_pdf = getnearpos(np.array(zarray).astype(float),max_z)
+            r2,_,right_pdf = getnearpos(np.array(zarray).astype(float),max_z)
+            if right_pdf is None: #note: r2 could still be none and this would still fail
+                right_pdf = r2
             max_right = min(right_pdf+1, max_right)
 
         p_z = np.sum(pdf[left:right+1]) / np.sum(pdf[0:max_right])

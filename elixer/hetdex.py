@@ -11326,7 +11326,7 @@ class DetObj:
 
 
                 except:
-                    log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra",exc_info=True)
+                    log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra",exc_info=False)
 
             if self.best_masked_cgs_cont is not None and self.best_masked_cgs_cont > 0:
                 self.spec_obj.classify(known_z=self.known_z,
