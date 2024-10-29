@@ -1,6 +1,7 @@
 from __future__ import print_function
 import logging
 import os
+import tarfile
 
 import numpy as np
 from astropy.visualization import ZScaleInterval
@@ -651,6 +652,74 @@ def open_file_from_tar(tarfn, fqfn=None, fn=None,workdir=None): #, close_tar=Tru
     except Exception as E:
         log.error(f"Exception attempting to fetch sub-file {fqfn} or {fn} from {tarfn}:\n {E}")
         return None, None
+
+
+def build_tarfile(tarfn, fn_list=[], basedir=None):
+    """
+    build a new tarfile with a list of filenames (full or relative paths)
+
+    at this time, create only ... no append option, no compression option
+
+    :return: error code, 0 = success, -1 fail, 1 = one or more files failed to be added
+             array of boolean of len(fn_list), True = file added, False = file not added
+
+             Note: common recursive glob to build an fn_list to pass in:
+             glob.glob("/<some relative path>/**/*",recursive=True)
+    """
+
+    try:
+
+        if isinstance(tarfn, str):
+            if op.exists(tarfn):
+                log.error(f"utilities::build_tarfile {tarfn} already exists!")
+                return -1, np.array([])
+
+            tf = tarfile.open(tarfn,"w")
+
+        else:
+            log.error(f"utilities::build_tarfile {tarfn} improper filename (must be a string)!")
+            return -1, np.array([])
+
+        added = []
+        status = 0
+        for fn in fn_list:
+            try:
+                tf.add(fn)
+                added.append(True)
+            except:
+                if os.path.isdir(fn):
+                    #ignore it
+                    added.append(True)
+                else:
+                    added.append(False)
+                    status = 1
+                    log.warning("Exception!",exc_info=True)
+
+        tf.close()
+        added = np.array(added)
+        return status, added
+
+    except Exception as E:
+        log.error(f"Exception attempting to fetch sub-file {fqfn} or {fn} from {tarfn}:\n {E}")
+        return None, None
+
+
+def extract_tarfile(tarfn,outdir="."):
+    """
+
+    :param tarfn:
+    :param outdir: override path to receive extracted files (default = cwd)
+    :return: 0 if okay, else error
+    """
+
+    try:
+        with tarfile.open(tarfn,'r') as f:
+            f.extractall(path=outdir)
+
+        return 0
+    except:
+        log.error(f"Exception attempting to extract {tarfn}",exc_info=True)
+        return -1
 
 def list_shot_types(yyyymmdd,count_exp=False,path="/work/03946/hetdex/maverick/"):
     """

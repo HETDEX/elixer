@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.22.3a2 [2024-10-29]
+* when using --tmp, tar the files then copy to original working directory and untar; this minimizes the file I/O
+  + specific behavior controlled by global_config TMP_COPY_TAR
 
 1.22.3a1 [2024-10-24]
 * adding restricted access catalogs for HST, JWST in CEERS, COSMOS, GOODS-N, UDS

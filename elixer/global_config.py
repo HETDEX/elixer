@@ -25,7 +25,7 @@ if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
 #version
-__version__ = '1.22.3a1'
+__version__ = '1.22.3a2'
 
 
 #initial working dir
@@ -106,7 +106,9 @@ try:
 except:
     pass
 
-
+TMP_COPY_TAR = 3 #when using --tmp, tar the output before copying to the original working dir
+                 #0 = Do not use, 1 = make and copy tar to /scratch, but do not extract,
+                 #2 = copy tar and extract, 3 = copy, extract and delete tar when done
 CORRAL_BASEPATH  = "/corral/utexas/Hobby-Eberly-Telesco"
 ELIXER_SPECIAL = 0 #integer, triggers special behavior in code
 #HDR_DATA_BASEPATH = "/data/03946/hetdex" #defunct 2020-10-01 #TACC wrangler:/data removed

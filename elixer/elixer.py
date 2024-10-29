@@ -7277,31 +7277,78 @@ def main():
         log.critical(f"Copying output from {os.getcwd()} to: {G.ORIGINAL_WORKING_DIR}")
         log.critical(f"There will be no more log entries as this log is part of the copy.")
 
-        print(f"Copying output from {os.getcwd()} to: {G.ORIGINAL_WORKING_DIR}")
-        with open(os.path.join(G.ORIGINAL_WORKING_DIR,"copy.running"),"w+") as outf:
-            outf.write("Copy in progress.")
+        extract_tar_fn = None
 
-        ok_to_rmdir = False
-        for root, dirs, files in os.walk('.',topdown=True):  # do not copy 'cache'; might need to create destination
-            dirs[:] = [dir for dir in dirs if dir != 'cache']
-            #if os.path.basename(root) == 'cache':
-            #    continue #skip the 'cache' directory entirely
-            try:
-                if not os.path.exists(os.path.join(G.ORIGINAL_WORKING_DIR,root)):
-                    os.makedirs(os.path.join(G.ORIGINAL_WORKING_DIR,root),mode=0o755)
-            except Exception as E:
-                print(f"Exception! Copying from --tmp {args.tmp}. Cannot create {os.path.join(G.ORIGINAL_WORKING_DIR,root)}.",
-                      f"\n{E}")
+        if G.TMP_COPY_TAR > 0:
+            fn_list = np.array(glob.glob("./**/*",recursive=True))
+            tarfn = f"{os.path.basename(os.getcwd())}.tar"
+            status,fn_sel = UTIL.build_tarfile(tarfn ,fn_list)
 
-            for file in files:
-                try:
-                    shutil.copy2(os.path.join(root, file), os.path.join(G.ORIGINAL_WORKING_DIR,root))#,copy_function=copy)
-                    os.remove(os.path.join(root, file))
-                    ok_to_rmdir = True
+            if status >= 0: #all or partially good
+                if status > 0: #something failed to be inserted
+                    log.error(f"Failed to add the following files to tar: {fn_list[~fn_sel]}")
+
+                try: #make the recieving dir if it does not already exist
+                    # try:
+                    #     if not os.path.exists(os.path.join(G.ORIGINAL_WORKING_DIR, root)):
+                    #         os.makedirs(os.path.join(G.ORIGINAL_WORKING_DIR, root), mode=0o755)
+                    # except Exception as E:
+                    #     print(
+                    #         f"Exception! Copying from --tmp {args.tmp}. Cannot create {os.path.join(G.ORIGINAL_WORKING_DIR, root)}.",
+                    #         f"\n{E}")
+
+                    #copy the tar file+
+                    shutil.copy2(tarfn, os.path.join(G.ORIGINAL_WORKING_DIR))
+                    extract_tar_fn = os.path.join(G.ORIGINAL_WORKING_DIR,tarfn)
+
+                    #now walk through the tmp dir and delete the files
+                    for root, dirs, files in os.walk('.', topdown=True):
+                        # do not copy 'cache'; might need to create destination
+                        dirs[:] = [dir for dir in dirs if dir != 'cache']
+
+                        for file in files:
+                            try:
+                                os.remove(os.path.join(root, file))
+                                ok_to_rmdir = True
+                            except Exception as E:
+                                print(
+                                    f"Exception! Cannot copy {os.path.join(root, file)} to {os.path.join(G.ORIGINAL_WORKING_DIR, root)}.",
+                                    f"\n{E}")
                 except Exception as E:
                     print(
-                        f"Exception! Cannot copy {os.path.join(root, file)} to {os.path.join(G.ORIGINAL_WORKING_DIR, root)}.",
+                        f"Exception! Cannot copy {os.path.join(root, tarfn)} to {os.path.join(G.ORIGINAL_WORKING_DIR, root)}.",
                         f"\n{E}")
+
+            else: #full fail
+                log.error(f"Error!! Failed to create tar.")
+
+        else:
+
+            print(f"Copying output from {os.getcwd()} to: {G.ORIGINAL_WORKING_DIR}")
+            with open(os.path.join(G.ORIGINAL_WORKING_DIR,"copy.running"),"w+") as outf:
+                outf.write("Copy in progress.")
+
+            ok_to_rmdir = False
+            for root, dirs, files in os.walk('.',topdown=True):  # do not copy 'cache'; might need to create destination
+                dirs[:] = [dir for dir in dirs if dir != 'cache']
+                #if os.path.basename(root) == 'cache':
+                #    continue #skip the 'cache' directory entirely
+                try:
+                    if not os.path.exists(os.path.join(G.ORIGINAL_WORKING_DIR,root)):
+                        os.makedirs(os.path.join(G.ORIGINAL_WORKING_DIR,root),mode=0o755)
+                except Exception as E:
+                    print(f"Exception! Copying from --tmp {args.tmp}. Cannot create {os.path.join(G.ORIGINAL_WORKING_DIR,root)}.",
+                          f"\n{E}")
+
+                for file in files:
+                    try:
+                        shutil.copy2(os.path.join(root, file), os.path.join(G.ORIGINAL_WORKING_DIR,root))#,copy_function=copy)
+                        os.remove(os.path.join(root, file))
+                        ok_to_rmdir = True
+                    except Exception as E:
+                        print(
+                            f"Exception! Cannot copy {os.path.join(root, file)} to {os.path.join(G.ORIGINAL_WORKING_DIR, root)}.",
+                            f"\n{E}")
 
         #create a new file in the original cwd to indicate that the copy is complete (it does not matter, downstream,
         #  if the removal of the --tmp dir succeeds)
@@ -7312,13 +7359,14 @@ def main():
             outf.write("Copy complete.")
 
         #and remove the copy.running file
-        os.remove(os.path.join(G.ORIGINAL_WORKING_DIR,"copy.running"))
+        if G.TMP_COPY_TAR == 0:
+            os.remove(os.path.join(G.ORIGINAL_WORKING_DIR,"copy.running"))
 
         if ok_to_rmdir:
             # for root, dirs, files in os.walk('.',topdown=False):
             #     if root != args.tmp and root != ".": #do not remove the top
             #         os.rmdir(root)
-            for root, dirs, files in os.walk('.',topdown=True):
+            for root, dirs, files in os.walk('.',topdown=False):
                 if root != args.tmp and root != "." and root != "/": #do not remove the top
                     try:
                         shutil.rmtree(root)
@@ -7326,12 +7374,26 @@ def main():
                         #this is not so important
                         print(f"Exception! removing  {root}.",f"\n{E}")
 
-        #free up the tmp location
+            #remember, we are still sitting in the cwd ... like /tmp/elixer/dispatch_xxxx
+            #so this top level directory cannot be removed
+
         #this is WAAAY too dangerous ... just delete the files after the copy
         #if ok_to_rmdir:
         #    shutil.rmtree(os.path.join(args.tmp,"/.")) #THIS!!! is bad ... result is just "/." not <path>+"/."
         #restore to original working dir
         print(f"Copying COMPLETE from {os.getcwd()} to: {G.ORIGINAL_WORKING_DIR}")
+
+        if extract_tar_fn is not None and G.TMP_COPY_TAR > 1:
+            #now need to extract the tar is the correct location
+            print(f"Extracting tar ...")
+            #todo: extract the tar file in the G.ORIGINAL_WORKING_DIR ?? am I already there?
+            if UTIL.extract_tarfile(extract_tar_fn,G.ORIGINAL_WORKING_DIR) == 0:
+                #now remove the tarfile
+                if G.TMP_COPY_TAR > 2:
+                    try:
+                        os.remove(extract_tar_fn)
+                    except:
+                        log.warning(f"Could not remove {extract_tar_fn}",exc_info=True)
 
     # else:
     #     print(f"***** args.tmp {args.tmp}")
