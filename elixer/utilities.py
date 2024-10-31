@@ -23,6 +23,7 @@ from tqdm import tqdm
 from scipy.integrate import quad
 from astropy.cosmology import FlatLambdaCDM
 from astropy import constants as C
+import healpy as hp
 #from astropy import units as u
 
 import sqlite3
@@ -1591,3 +1592,24 @@ def sigmoid_linear_interp(x1, y1, x2, y2, x):
     except:
         return None
 
+
+def get_healpix_region(ra,dec,radius,Nside=32768):
+    """
+    return healpix region (list of healpix IDs (integers)) that contains ra, dec out to radius
+    (Nside needs to match what is being searched to generate the same IDs)
+
+    :param ra: degrees (float)
+    :param dec: degrees (float)
+    :param radius: arcsecs (float)
+    :param Nside: default 2**15 to match HETDEX_API
+    :return: list of healpix ids or None
+    """
+
+    try:
+        hp_region = None
+        vec = hp.ang2vec(ra,dec, lonlat=lonlat)
+        hp_region = hp.query_disc(Nside, vec, (radius / 3600.0 * np.pi / 180))
+    except:
+        log.warning("Exception! get_healpix_region",exc_info=True)
+
+    return hp_region
