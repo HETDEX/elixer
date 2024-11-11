@@ -624,11 +624,22 @@ def parse_commandline(auto_force=False):
             print(f"***** RUNNING SPECIALIZED CODE X{args.special} *****")
             log.critical(f"***** RUNNING SPECIALIZED CODE X{args.special} *****")
             G.__version__ += f"X{args.special}"
-            if args.special == 1:
-                G.CHECK_SDSS_Z_CATALOG = False
-                G.CHECK_GAIA_DEX_CATALOG = False
-                G.CHECK_ALL_CATALOG_BID_Z = False
-                G.CHECK_GALAXY_MASK = False
+
+
+            #toggle G.TMP_COPY_TAR value
+            G.TMP_COPY_TAR = int(G.ELIXER_SPECIAL)
+            print(f"***** RUNNING SPECIALIZED CODE G.TMP_COPY_TAR = {args.special} *****")
+            log.critical(f"***** RUNNING SPECIALIZED CODE G.TMP_COPY_TAR = {args.special} *****")
+
+
+            #deactivate catalogs
+            # if args.special == 1:
+            #     G.CHECK_SDSS_Z_CATALOG = False
+            #     G.CHECK_GAIA_DEX_CATALOG = False
+            #     G.CHECK_ALL_CATALOG_BID_Z = False
+            #     G.CHECK_GALAXY_MASK = False
+
+
             #
             # #residuals
             # if args.special >= 1000:
