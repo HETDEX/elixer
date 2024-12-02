@@ -581,6 +581,8 @@ def parse_commandline(auto_force=False):
                                          "Otherwise use default. See also --zeroflat and --zeropoint",
                         required=False, type=int,default=None)
 
+    #disable this option ... TACC does not like it. Creates too much I/O from /tmp back to /scratch
+    #later will see IGNORE_ARGS_TMP to skip it
     parser.add_argument('--tmp', help="Use the provided path as temporary output. Copy data to original directory at the end.",
                         required=False)
 
@@ -625,14 +627,17 @@ def parse_commandline(auto_force=False):
             log.critical(f"***** RUNNING SPECIALIZED CODE X{args.special} *****")
             G.__version__ += f"X{args.special}"
 
-
+            ########################################
+            #TOGGLE use of --tmp and tar
+            #######################################
             #toggle G.TMP_COPY_TAR value
-            G.TMP_COPY_TAR = int(G.ELIXER_SPECIAL)
-            print(f"***** RUNNING SPECIALIZED CODE G.TMP_COPY_TAR = {args.special} *****")
-            log.critical(f"***** RUNNING SPECIALIZED CODE G.TMP_COPY_TAR = {args.special} *****")
+            # G.TMP_COPY_TAR = int(G.ELIXER_SPECIAL)
+            # print(f"***** RUNNING SPECIALIZED CODE G.TMP_COPY_TAR = {args.special} *****")
+            # log.critical(f"***** RUNNING SPECIALIZED CODE G.TMP_COPY_TAR = {args.special} *****")
 
-
+            #################################
             #deactivate catalogs
+            #################################
             # if args.special == 1:
             #     G.CHECK_SDSS_Z_CATALOG = False
             #     G.CHECK_GAIA_DEX_CATALOG = False
@@ -640,7 +645,9 @@ def parse_commandline(auto_force=False):
             #     G.CHECK_GALAXY_MASK = False
 
 
-            #
+            ##################################################
+            #modify use of residuals / empty fibers
+            ##################################################
             # #residuals
             # if args.special >= 1000:
             #     G.SKY_RESIDUAL_PER_SHOT = True  # if True pull each residusl from the match shot, if False, use the universal model
@@ -666,7 +673,11 @@ def parse_commandline(auto_force=False):
     #--tmp ONLY applies to the elixer.py script, Otherwise, ignore it.
     #--tmp also should not be used with --cluster
     if args.tmp is not None:
-        if args.cluster:
+        if G.IGNORE_ARGS_TMP:
+            print(f"Warning! --tmp ignored due to  TACC I/O issues")
+            log.info(f"Warning! --tmp ignored due to  TACC I/O issues.")
+            args.tmp = None
+        elif args.cluster:
             print(f"Warning! --tmp ignored with --cluster.")
             log.info(f"Warning! --tmp ignored with --cluster.")
             args.tmp = None
