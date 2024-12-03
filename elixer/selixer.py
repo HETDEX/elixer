@@ -341,7 +341,8 @@ if "--slurm" in args:
     except:
         autoqueue_slurm = 1
 
-alloc = "Hobby-Eberly-Telesco"       #alloc="AST23008"
+#alloc = "Hobby-Eberly-Telesco"
+alloc="AST23008"
 if "--alloc" in args:
     i = args.index("--alloc")
     try:
