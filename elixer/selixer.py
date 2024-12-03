@@ -348,7 +348,7 @@ if "--alloc" in args:
     try:
         alloc = sys.argv[i + 1]
     except:
-        alloc = "Hobby-Eberly-Telesco"
+        alloc = "AST23008"
 
 #in most cases, on TACC, the --tmp means we will be using the local /tmp storage to work and then copy at the end
 #this is around 30% faster in I/O vs /scratch, so multiply by 0.6 for some slop room
