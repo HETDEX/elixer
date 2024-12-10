@@ -19,7 +19,7 @@ import os
 import os.path as op
 import datetime
 
-survey_name = "hdr4" #"hdr4" #"hdr2.1"
+survey_name = "hdr5" #"hdr4" #"hdr2.1"
 remove_detection_fibers = True #remove the fibers (usually in 3.5" apertures) that are nominally included in
                                #existing HETDEX detections (emission line or continuum)
 TEST = False
@@ -203,7 +203,7 @@ from elixer import spectrum_utilities as SU
 from elixer import global_config as G
 from elixer import catalogs
 
-survey_name = "hdr4" #"hdr4" #"hdr2.1"
+survey_name = "hdr5" #"hdr4" #"hdr2.1"
 
 #tmppath = "/tmp/hx/"
 #tmppath = "/home/dustin/temp/random_apertures/hx/"
@@ -852,11 +852,11 @@ if True:
 
     try:
         if rescor: #adds just one more column for califb_ffsky_rescor
-            fibers_table = get_fibers_table(shot,add_rescor=True,add_mask=PER_FIBER_PER_WAVE_MASKING,
+            fibers_table = get_fibers_table(shot,survey=survey_name,add_rescor=True,add_mask=PER_FIBER_PER_WAVE_MASKING,
                                             mask_in_place=PER_FIBER_PER_WAVE_MASKING,mask_options=None)
             print(f"{shotid} [DONE] get_fibers_table() + rescor ....  {datetime.datetime.now()}, # rows = {len(fibers_table)}")
         else: #local or ffsky must already be true
-            fibers_table = get_fibers_table(shot,add_rescor=False,add_mask=PER_FIBER_PER_WAVE_MASKING,
+            fibers_table = get_fibers_table(shot,survey=survey_name,add_rescor=False,add_mask=PER_FIBER_PER_WAVE_MASKING,
                                             mask_in_place=PER_FIBER_PER_WAVE_MASKING,mask_options=None)
             print(f"{shotid} [DONE] get_fibers_table()  ....  {datetime.datetime.now()}, # rows = {len(fibers_table)}")
     except Exception as E:
@@ -866,11 +866,11 @@ if True:
         #try again, forcing the mask off? ,,. if this bombs then we are done anyway, so let if abend
         PER_FIBER_PER_WAVE_MASKING = False
         if rescor: #adds just one more column for califb_ffsky_rescor
-            fibers_table = get_fibers_table(shot,add_rescor=True,add_mask=PER_FIBER_PER_WAVE_MASKING,
+            fibers_table = get_fibers_table(shot,survey=survey_name,add_rescor=True,add_mask=PER_FIBER_PER_WAVE_MASKING,
                                             mask_in_place=PER_FIBER_PER_WAVE_MASKING,mask_options=None)
             print(f"{shotid} [DONE] get_fibers_table() + rescor ....  {datetime.datetime.now()}, # rows = {len(fibers_table)}")
         else: #local or ffsky must already be true
-            fibers_table = get_fibers_table(shot,add_rescor=False,add_mask=PER_FIBER_PER_WAVE_MASKING,
+            fibers_table = get_fibers_table(shot,survey=survey_name,add_rescor=False,add_mask=PER_FIBER_PER_WAVE_MASKING,
                                             mask_in_place=PER_FIBER_PER_WAVE_MASKING,mask_options=None)
             print(f"{shotid} [DONE] get_fibers_table()  ....  {datetime.datetime.now()}, # rows = {len(fibers_table)}")
 
@@ -894,7 +894,7 @@ if True:
 
         # load the detetctions for THIS shot (all detections, continuum and line)
         print(f"Loading detections catalog index ... {datetime.datetime.now()}")
-        DI = Detections(catalog_type='index', searchable=True)
+        DI = Detections(survey=survey_name,catalog_type='index', searchable=True)
         q_shotid = shotid
 
         # sn 4.8 as lower limit for lines, sn==0.0 are for the continuum detections
@@ -902,7 +902,7 @@ if True:
         shot_dets = DI.hdfile.root.DetectIndex.read_where("(shotid==q_shotid) & ((sn > 4.8) | (sn==0.0))",
                                                           field="detectid")
 
-        #print(f"Num dets {len(shot_dets)}")
+        print(f"Num dets {len(shot_dets)}")
 
         fibers = []
         print(f"Fetching fiber_ids ... {datetime.datetime.now()}")
@@ -952,10 +952,31 @@ if True:
                 except:
                     pass
 
-        #todo: HDR5 Lines
+        # HDR5 Lines
+        # HDR5 Lines
+        sel_det = np.array(shot_dets >= 5000000000) & np.array(shot_dets < 5090000000)
+        if np.count_nonzero(sel_det) > 0:
+            #print(np.count_nonzero(sel_det))
+            dcat = Detections("hdr5", catalog_type="lines")
+            for d in shot_dets[sel_det]:
+                try:
+                    fibers += [x[4] for x in dcat.get_fiber_info(d)]
+                except:
+                    pass
 
 
-        #todo: HDR5 Continuum
+
+        #HDR5 Continuum
+        sel_det = np.array(shot_dets >= 5090000000)
+        if np.count_nonzero(sel_det) > 0:
+            #print(np.count_nonzero(sel_det))
+            dcat = Detections("hdr5", catalog_type="continuum")
+            for d in shot_dets[sel_det]:
+                try:
+                    fibers += [x[4] for x in dcat.get_fiber_info(d)]
+                except:
+                    pass
+
 
         ###################################
         # now, remove the fibers

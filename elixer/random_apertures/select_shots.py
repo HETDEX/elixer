@@ -7,17 +7,18 @@ select the shots to be fed to the random apertures
 import numpy as np
 from hetdex_api.config import HDRconfig
 from hetdex_api.survey import Survey
+import os.path as op
+from astropy.table import Table
 
-
-version = '4.0.0'
-survey_name = "hdr4"
+version = '5.0.0'
+survey_name = "hdr5"
 hetdex_api_config = HDRconfig(survey_name)
 survey = Survey(survey_name)
 survey_table=survey.return_astropy_table()
 
 if True: #trim away those with no detections?
     #this is a big file, so it is better to run this on TACC
-    catfile = op.join(config.hdr_dir[survey_name], 'catalogs', 'source_catalog_' + version + '.fits')
+    catfile = op.join(hetdex_api_config.hdr_dir[survey_name], 'catalogs', 'source_catalog_' + version + '.fits')
     source_table = Table.read(catfile)
 
     #shots with zero detections (bad shots or not science shots) will NOT be in the source_table,
