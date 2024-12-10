@@ -122,6 +122,14 @@ else: #newer way, stack in a single call?
         T = vstack([Table.read(f,format="fits") for f in files])
 
         if T is not None:
+
+            #if there is an existing merged table already, then append what we just read to it
+            if os.path.exists(table_outname + "_all.fits"):
+                print(f"Merged table already exists. Appending ... ")
+                T0 = Table.read(table_outname + "_all.fits",format="fits")
+                T = vstack([T0,T])
+                del T0
+
             T.write(table_outname + "_all.fits", format='fits', overwrite=True)
 
             if SAVE_AS_H5:
@@ -158,6 +166,13 @@ else: #newer way, stack in a single call?
         T = vstack([Table.read(f, format="fits") for f in files])
 
         if T is not None:
+            #if there is an existing merged table already, then append what we just read to it
+            if os.path.exists(table_outname + "_all.fits"):
+                print(f"Merged table already exists. Appending ... ")
+                T0 = Table.read(table_outname + "_all.fits",format="fits")
+                T = vstack([T0,T])
+                del T0
+
             T.write(table_outname + "_all.fits", format='fits', overwrite=True)
 
             if SAVE_AS_H5:
@@ -194,6 +209,13 @@ else: #newer way, stack in a single call?
         T = vstack([Table.read(f, format="fits") for f in files])
 
         if T is not None:
+            #if there is an existing merged table already, then append what we just read to it
+            if os.path.exists(table_outname + "_all.fits"):
+                print(f"Merged table already exists. Appending ... ")
+                T0 = Table.read(table_outname + "_all.fits",format="fits")
+                T = vstack([T0,T])
+                del T0
+
             T.write(table_outname + "_all.fits", format='fits', overwrite=True)
 
             if SAVE_AS_H5:
