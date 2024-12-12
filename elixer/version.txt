@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.22.3 [2024-12-12]
+* promote to main -- note: no classification differences vs 1.22.2 (HDR5 version)
+
 1.22.3a3 [2024-12-02]
 * disable --tmp switch due to I/O issues copying from /tmp to /scratch. The option is still listed, but is turned off
   in global_config.py
