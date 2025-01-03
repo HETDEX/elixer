@@ -25,7 +25,7 @@ if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
 #version
-__version__ = '1.22.3'
+__version__ = '1.22.4a1'
 
 
 #initial working dir
@@ -1587,9 +1587,16 @@ BGR_RES_APER_TAB_FF_IDX_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_res
 
 try:
     BGR_BASEPATH =  os.path.join(HDR_BASEPATH,"catalogs/avg_empty_fibers")
+    if not os.path.exists(BGR_BASEPATH):
+        log.warning(f"{BGR_BASEPATH} does not exist. Trying latest path instead ...")
+        BGR_BASEPATH = f"/scratch/projects/hetdex/{HDR_Latest_Str}/catalogs/avg_empty_fibers"
 except:
     log.warning("Unable to configure BGR_BASEPATH. Using default.")
     BGR_BASEPATH = f"/scratch/projects/hetdex/{HDR_Latest_Str}/catalogs/avg_empty_fibers"
+
+if not os.path.exists(BGR_BASEPATH):
+    log.warning(f"{BGR_BASEPATH} does not exist. Average Empty Fiber corrections not available...")
+
 
 BGR_RES_FIBER_TAB_LL = None
 BGR_RES_FIBER_TAB_FF = None

@@ -102,12 +102,26 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
     cutout = None
 
     try:
+        max_waverange = 150.0
         #wrong order ... can happen for some paths IF the position is an absorption feature
         #and the input sigma is negative or if the sigma is a bad value (like -1)
         if wave_range[1] < wave_range[0]:
             wave_range = [wave_range[1],  wave_range[0]]
 
+        #for super-broad lines (unlikely real, probably a bad fit), need to limit this max range
+        #plus, should NOT go past either red or blue end
+        dw = wave_range[1] - wave_range[0]
+        if dw > max_waverange:
+            avg = 0.5 *(wave_range[1] + wave_range[0])
+            wave_range[0] = avg - max_waverange/2.0
+            wave_range[1] = avg + max_waverange/2.0
+            log.debug(f"Lineflux map request wavelength range exceedes limit ({max_waverange}). Reduced to {wave_range}")
+
+        wave_range[0] = max(G.CALFIB_WAVEGRID[0], wave_range[0])
+        wave_range[1] = min(G.CALFIB_WAVEGRID[-1], wave_range[1])
+
         dw = (wave_range[1]-wave_range[0])/2.0 #this is +/-3 sigma and so this (dw) is now half that range to get the midpoint
+
         w = wave_range[0]+dw
 
         if w == 0:

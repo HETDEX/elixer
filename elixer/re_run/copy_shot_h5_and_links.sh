@@ -35,6 +35,7 @@ from tqdm import tqdm
 
 #safety check, make sure we are where we should be
 working_root = "/home/dustin/test/"
+#working_root = "/scratch/projects/hetdex/hdr3/"
 if os.getcwd()[:len(working_root)] != working_root:
     print(f"Wrong directory. Must only run under {working_root}, under hdr<x>/reductions/data/")
     exit(-1)
@@ -48,9 +49,13 @@ if not os.path.isdir(f"{os.getcwd()}/used_shots"):
     exit(-1)
 
 cl_args = list(map(str,sys.argv))
-curr_shots = np.loadtxt(cl_args[1],dtype=int)
-if curr_shots[0] == 0:
-    curr_shots = np.delete(curr_shots,0)
+if cl_args[1] != "skip":
+  reset_only = False
+  curr_shots = np.loadtxt(cl_args[1],dtype=int)
+  if curr_shots[0] == 0:
+      curr_shots = np.delete(curr_shots,0)
+else:
+  reset_only = True
 
 fail = False
 try:
@@ -80,18 +85,26 @@ if prev_fn is not None:
             if os.path.isfile(shotfn) and not os.path.islink(shotfn):
                 ##delete the file
                 #os.remove(shotfn)
-                #no ... just move it to a temp location for safety ... user should manually delete from there
-                shutil.move(shotfn,os.path.join(f"./used_shots/{shotfn}"))
+                if os.path.islink(os.path.join(f"./symlinks/{shotfn}")):
+                  #IF the link exists, mv the shot file and restore the link
+                  #no ... just move it to a temp location for safety ... user should manually delete from there
+                  shutil.move(shotfn,os.path.join(f"./used_shots/{shotfn}"))
 
-                #restore the link
-                shutil.copy2(os.path.join(f"./symlinks/{shotfn}"),shotfn,follow_symlinks=False)
-                mv_ct += 1
+                  #restore the link
+                  shutil.copy2(os.path.join(f"./symlinks/{shotfn}"),shotfn,follow_symlinks=False)
+                  mv_ct += 1
+                #else: #this link did not exist, this was a flat file already, so ignore and move on
+                #  pass
 
     if mv_ct == 0:
         print("Warning! No files moved/restored. Are the <current> <previous> inputs correct?")
 else:
     print("No previous file provided")
 
+
+if reset_only:
+  print("Reset Only. Exiting.")
+  exit(0)
 
 
 for shot in tqdm(curr_shots):

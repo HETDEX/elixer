@@ -1,5 +1,9 @@
 changes to elixer by version
 
+
+1.22.4a1 [2025-01-03]
+* limit maximum wavelength range for make_narrowband_image() (e.g. lineflux maps) to 150 AA
+
 1.22.3 [2024-12-12]
 * promote to main -- note: no classification differences vs 1.22.2 (HDR5 version)
 
