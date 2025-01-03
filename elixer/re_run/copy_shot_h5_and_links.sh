@@ -56,6 +56,7 @@ if cl_args[1] != "skip":
       curr_shots = np.delete(curr_shots,0)
 else:
   reset_only = True
+  curr_shots = []
 
 fail = False
 try:
