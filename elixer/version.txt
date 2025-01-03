@@ -2,7 +2,10 @@ changes to elixer by version
 
 
 1.22.4a1 [2025-01-03]
-* limit maximum wavelength range for make_narrowband_image() (e.g. lineflux maps) to 150 AA
+* turn off continuum subtraction for lineflux map if too close to the spectral edge
+  + turn off if central wavelength is less than 3496.0 or greater than 5519.99
+  + clip between 3496.0 and 5519.99 otherwise
+* limit maximum wavelength range for lineflux map to 1000AA (really anything above 150AA is non-sense for emission lines)
 
 1.22.3 [2024-12-12]
 * promote to main -- note: no classification differences vs 1.22.2 (HDR5 version)

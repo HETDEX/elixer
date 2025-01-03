@@ -102,7 +102,15 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
     cutout = None
 
     try:
-        max_waverange = 150.0
+        max_waverange = 1000.0
+        max_red = 5519.99 #max allowable
+        min_blue = 3496.0 #minimum allowable
+        ctr_wave = 0.5 *(wave_range[1] + wave_range[0])
+
+        #cannot do continuum subtraction if we are too close to the edge of the spectral window
+        if not min_blue <= ctr_wave <= max_red:
+            subcont = False
+
         #wrong order ... can happen for some paths IF the position is an absorption feature
         #and the input sigma is negative or if the sigma is a bad value (like -1)
         if wave_range[1] < wave_range[0]:
@@ -112,16 +120,15 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
         #plus, should NOT go past either red or blue end
         dw = wave_range[1] - wave_range[0]
         if dw > max_waverange:
-            avg = 0.5 *(wave_range[1] + wave_range[0])
-            wave_range[0] = avg - max_waverange/2.0
-            wave_range[1] = avg + max_waverange/2.0
+            wave_range[0] = ctr_wave - max_waverange/2.0
+            wave_range[1] = ctr_wave + max_waverange/2.0
             log.debug(f"Lineflux map request wavelength range exceedes limit ({max_waverange}). Reduced to {wave_range}")
 
-        wave_range[0] = max(G.CALFIB_WAVEGRID[0], wave_range[0])
-        wave_range[1] = min(G.CALFIB_WAVEGRID[-1], wave_range[1])
+        if subcont: #cannot do continuum subtraction if we are too close to the edge of the spectral window
+            wave_range[0] = max(min_blue, wave_range[0])
+            wave_range[1] = min(max_red, wave_range[1])
 
         dw = (wave_range[1]-wave_range[0])/2.0 #this is +/-3 sigma and so this (dw) is now half that range to get the midpoint
-
         w = wave_range[0]+dw
 
         if w == 0:
