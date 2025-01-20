@@ -3503,216 +3503,204 @@ def get_empty_aperture_residual(hdr=G.HDR_Version,rtype=None,shotid=None,seeing=
 
     return residual, residual_err
 
-def get_empty_fiber_residual(hdr=G.HDR_Version, rtype=None, shotid=None, seeing=None, response=None,
-                                ffsky=False, add_rescor=False, persist=False):
-        """
-        Similar to fetch_xxx but deliberately renamed with different parameters to force caller to think about it and
-        deliberately break old code if attempting to just substitute in as this behavior is different.
-
-        Must supply shotid or seeing + response
-
-        If there is no matching shotid, return the nearest from simple cartesian distance for seeing, response
-
-        Always returns in observed frame with in-air wavelengths
-
-        Always in 1AA bins as flux denity (erg/s/sm2/AA) in 1e-17 scale
-
-        :param hdr: str ('3' or '4', etc)
-        :param rtype: one of the available types of residuals, based on the method of construction for the residual.
-                     'raw': stack of ALL fibers (exclduing those marked bad). No continuum trimming
-                     'trim': stack of ALL fibers after removing bad fibers and after continuum trimming.
-                     [now all remaining are based on 'trim' but with per-wavelength based selection]
-                     't01' to 't05': exclude the top 1% (t01) to top 5% (t05) per wavelength bin
-                     'sc3','sc5': sigma clip at 3-sigma and 5-sigma per wavelength bin (high and low)
-                     'ir67','ir95','ir99': exclude the outer (high and low) 1/6, e.g. keep the interior 67%, 95%, and 99%
-                     <more to come>
-        :param shotid: integer dateVshot
-        :param seeing: float
-        :param response: float i.e response_4540
-        :param ffsky: if True, return the ffsky version, else the local sky subtraction version
-        :param add_rescor: if True, use the extra residual correction (e.g. Maja's work). Affects ffsky=True ONLY
-        :param persist: if True, keep the table of residuals open at a memory cost
-        :return:
-        """
-
-        def sr_dist(s1, r1, s2, r2):
-            try:
-                return np.sqrt((s1 - s2) ** 2 + (r1 - r2) ** 2)
-            except:
-                return np.nan
-
-        residual = None
-        residual_err = None
-        contributors = None
-        flags = 0
-        try:
-            if shotid is None and (seeing is None or response is None):
-                print("Invalid parameters passed to get_empty_fiber_residual()")
-                log.warning("Invalid parameters passed to get_empty_fiber_residual()")
-                return residual, residual_err, contributors, G.EFR_FLAG_INVALID_PARAMETERS
-
-            #todo: update this for generic columns
-            col = rtype+"_fluxd"
-            col_err = rtype+"_fluxd_err"
-            col_contrib = rtype+"_contrib"
-            # which column is wanted
-            # if rtype in ['raw','trim','t01','t02','t03','t04','t05','sc3','sc5','ir67','ir95','ir99']:
-            #     col = rtype+"_fluxd"
-            #     col_err = rtype+"_fluxd_err"
-            #     col_contrib = rtype+"_contrib"
-            # else:
-            #     msg = f"Warning! Unable to find appropriate background residual. rtype not (yet) supported: {rtype}"
-            #     print(msg)
-            #     log.warning(msg)
-            #     return residual, residual_err, contributors
-
-            T = None
-            idx = -1
-            # try the running tables first
-            if shotid is not None:
-                if ffsky and not add_rescor and G.BGR_RES_FIBER_TAB_FF_RUN is not None:
-                    T = G.BGR_RES_FIBER_TAB_FF_RUN
-                elif ffsky and add_rescor and G.BGR_RES_FIBER_TAB_FFRC_RUN is not None:
-                    T = G.BGR_RES_FIBER_TAB_FFRC_RUN
-                elif not ffsky and G.BGR_RES_FIBER_TAB_LL_RUN is not None:
-                    T = G.BGR_RES_FIBER_TAB_LL_RUN
-
-                if T is not None:
-                    sel = np.array(T['shotid'] == shotid)
-                    ct = np.count_nonzero(sel)
-                    if ct > 1:
-                        msg = f"Warning #1! Unexpected number of shot matches {ct}"
-                        print(msg)
-                        log.warning(msg)
-                        return residual, residual_err, contributors, G.EFR_FLAG_NOT_UNIQUE
-                    elif ct == 1:
-                        idx = np.where(sel)[0][0]
-                        # we have what we want already,so just return it
-                        residual = np.array(T[col][idx])
-                        residual_err = np.array(T[col_err][idx])
-                        contributors = np.array(T[col_contrib][idx])
-                        flags = np.array(T['flags'][idx])
-                        return residual, residual_err, contributors, flags
-
-            # we don't have it already, so check the index to find the row we want to read
-            if ffsky and not add_rescor:
-                if G.BGR_RES_FIBER_TAB_FF_IDX is None:
-                    # load the table
-                    T = Table.read(G.BGR_RES_FIBER_TAB_FF_IDX_FN)
-                    if persist:
-                        G.BGR_RES_FIBER_TAB_FF_IDX = T
-                else:
-                    T = G.BGR_RES_FIBER_TAB_FF_IDX
-            elif ffsky and add_rescor:
-                if G.BGR_RES_FIBER_TAB_FFRC_IDX is None:
-                    # load the table
-                    T = Table.read(G.BGR_RES_FIBER_TAB_FFRC_IDX_FN)
-                    if persist:
-                        G.BGR_RES_FIBER_TAB_FFRC_IDX = T
-                else:
-                    T = G.BGR_RES_FIBER_TAB_FFRC_IDX
-            else:
-                if G.BGR_RES_FIBER_TAB_LL_IDX is None:
-                    # load the table
-                    T = Table.read(G.BGR_RES_FIBER_TAB_LL_IDX_FN)
-                    if persist:
-                        G.BGR_RES_FIBER_TAB_LL_IDX = T
-                else:
-                    T = G.BGR_RES_FIBER_TAB_LL_IDX
-
-            if shotid is not None:
-                sel = np.array(T['shotid'] == shotid)
-                ct = np.count_nonzero(sel)
-                if ct > 1:
-                    msg = f"Warning #2! Unexpected number of shot matches {ct}"
-                    print(msg)
-                    log.warning(msg)
-                    return residual, residual_err, contributors, G.EFR_FLAG_NOT_UNIQUE
-                elif ct == 1:
-                    idx = np.where(sel)[0][0]
-                # else == 0 and we fall down to the next block
-
-            if idx < 0 and not (seeing is None and response is None):
-                d = np.array([sr_dist(seeing, response, s, r) for s, r in zip(T['seeing'], T['response'])])
-                # todo: could be a bit smarter and take the nearest few and then select by nearest date?
-                # would require the shotid be passed and then used in combination
-                idx = np.nanargmin(d)
-                persist = False #override the persist flag and do not add this in to our persisting table
-                                 #as it can duplicate the shot in this case
-
-            if idx < 0:
-                msg = f"Warning! Unable to find appropriate background residual."
-                print(msg)
-                log.warning(msg)
-                return residual, residual_err,contributors, G.EFR_FLAG_NO_RESIDUAL
-
-            # read in that one row
-            if ffsky and not add_rescor:
-                Trow = Table.read(G.BGR_RES_FIBER_TAB_FF_FN, memmap=True)[idx]
-                if persist:
-                    if G.BGR_RES_FIBER_TAB_FF_RUN is None:
-                        G.BGR_RES_FIBER_TAB_FF_RUN = Table(Trow)
-                    else:
-                        G.BGR_RES_FIBER_TAB_FF_RUN.add_row(Trow)
-            elif ffsky and add_rescor:
-                Trow = Table.read(G.BGR_RES_FIBER_TAB_FFRC_FN, memmap=True)[idx]
-                if persist:
-                    if G.BGR_RES_FIBER_TAB_FFRC_RUN is None:
-                        G.BGR_RES_FIBER_TAB_FFRC_RUN = Table(Trow)
-                    else:
-                        G.BGR_RES_FIBER_TAB_FFRC_RUN.add_row(Trow)
-            else:
-                Trow = Table.read(G.BGR_RES_FIBER_TAB_LL_FN, memmap=True)[idx]
-                if persist:
-                    if G.BGR_RES_FIBER_TAB_LL_RUN is None:
-                        G.BGR_RES_FIBER_TAB_LL_RUN = Table(Trow)
-                    else:
-                        G.BGR_RES_FIBER_TAB_LL_RUN.add_row(Trow)
-
-            residual = np.array(Trow[col])
-            residual_err = np.array(Trow[col_err])
-            contributors = np.array(Trow[col_contrib])
-
-            try: #older ones may not have the flags
-                flags = int(Trow['flags'])
-            except:
-                flags = 0
-
-
-            return residual, residual_err,contributors, flags
-
-        except Exception as e:
-            log.warning("Exception in get_empty_fiber_residual.", exc_info=True)
-            flags |= G.EFR_FLAG_FUNCTION_EXCEPTION
-
-        return residual, residual_err, contributors, flags
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#DEFUNCT
+# def get_empty_fiber_residual(hdr=G.HDR_Version, rtype=None, shotid=None, seeing=None, response=None,
+#                                 ffsky=False, add_rescor=False, persist=False):
+#         """
+#         Similar to fetch_xxx but deliberately renamed with different parameters to force caller to think about it and
+#         deliberately break old code if attempting to just substitute in as this behavior is different.
+#
+#         Must supply shotid or seeing + response
+#
+#         If there is no matching shotid, return the nearest from simple cartesian distance for seeing, response
+#
+#         Always returns in observed frame with in-air wavelengths
+#
+#         Always in 1AA bins as flux denity (erg/s/sm2/AA) in 1e-17 scale
+#
+#         :param hdr: str ('3' or '4', etc)
+#         :param rtype: one of the available types of residuals, based on the method of construction for the residual.
+#                      'raw': stack of ALL fibers (exclduing those marked bad). No continuum trimming
+#                      'trim': stack of ALL fibers after removing bad fibers and after continuum trimming.
+#                      [now all remaining are based on 'trim' but with per-wavelength based selection]
+#                      't01' to 't05': exclude the top 1% (t01) to top 5% (t05) per wavelength bin
+#                      'sc3','sc5': sigma clip at 3-sigma and 5-sigma per wavelength bin (high and low)
+#                      'ir67','ir95','ir99': exclude the outer (high and low) 1/6, e.g. keep the interior 67%, 95%, and 99%
+#                      <more to come>
+#         :param shotid: integer dateVshot
+#         :param seeing: float
+#         :param response: float i.e response_4540
+#         :param ffsky: if True, return the ffsky version, else the local sky subtraction version
+#         :param add_rescor: if True, use the extra residual correction (e.g. Maja's work). Affects ffsky=True ONLY
+#         :param persist: if True, keep the table of residuals open at a memory cost
+#         :return:
+#         """
+#
+#         def sr_dist(s1, r1, s2, r2):
+#             try:
+#                 return np.sqrt((s1 - s2) ** 2 + (r1 - r2) ** 2)
+#             except:
+#                 return np.nan
+#
+#         residual = None
+#         residual_err = None
+#         contributors = None
+#         flags = 0
+#         try:
+#             if shotid is None and (seeing is None or response is None):
+#                 print("Invalid parameters passed to get_empty_fiber_residual()")
+#                 log.warning("Invalid parameters passed to get_empty_fiber_residual()")
+#                 return residual, residual_err, contributors, G.EFR_FLAG_INVALID_PARAMETERS
+#
+#             #todo: update this for generic columns
+#             col = rtype+"_fluxd"
+#             col_err = rtype+"_fluxd_err"
+#             col_contrib = rtype+"_contrib"
+#             # which column is wanted
+#             # if rtype in ['raw','trim','t01','t02','t03','t04','t05','sc3','sc5','ir67','ir95','ir99']:
+#             #     col = rtype+"_fluxd"
+#             #     col_err = rtype+"_fluxd_err"
+#             #     col_contrib = rtype+"_contrib"
+#             # else:
+#             #     msg = f"Warning! Unable to find appropriate background residual. rtype not (yet) supported: {rtype}"
+#             #     print(msg)
+#             #     log.warning(msg)
+#             #     return residual, residual_err, contributors
+#
+#             T = None
+#             idx = -1
+#             # try the running tables first
+#             if shotid is not None:
+#                 if ffsky and not add_rescor and G.BGR_RES_FIBER_TAB_FF_RUN is not None:
+#                     T = G.BGR_RES_FIBER_TAB_FF_RUN
+#                 elif ffsky and add_rescor and G.BGR_RES_FIBER_TAB_FFRC_RUN is not None:
+#                     T = G.BGR_RES_FIBER_TAB_FFRC_RUN
+#                 elif not ffsky and G.BGR_RES_FIBER_TAB_LL_RUN is not None:
+#                     T = G.BGR_RES_FIBER_TAB_LL_RUN
+#
+#                 if T is not None:
+#                     sel = np.array(T['shotid'] == shotid)
+#                     ct = np.count_nonzero(sel)
+#                     if ct > 1:
+#                         msg = f"Warning #1! Unexpected number of shot matches {ct}"
+#                         print(msg)
+#                         log.warning(msg)
+#                         return residual, residual_err, contributors, G.EFR_FLAG_NOT_UNIQUE
+#                     elif ct == 1:
+#                         idx = np.where(sel)[0][0]
+#                         # we have what we want already,so just return it
+#                         residual = np.array(T[col][idx])
+#                         residual_err = np.array(T[col_err][idx])
+#                         contributors = np.array(T[col_contrib][idx])
+#                         flags = np.array(T['flags'][idx])
+#                         return residual, residual_err, contributors, flags
+#
+#             # we don't have it already, so check the index to find the row we want to read
+#             if ffsky and not add_rescor:
+#                 if G.BGR_RES_FIBER_TAB_FF_IDX is None:
+#                     # load the table
+#                     T = Table.read(G.BGR_RES_FIBER_TAB_FF_IDX_FN)
+#                     if persist:
+#                         G.BGR_RES_FIBER_TAB_FF_IDX = T
+#                 else:
+#                     T = G.BGR_RES_FIBER_TAB_FF_IDX
+#             elif ffsky and add_rescor:
+#                 if G.BGR_RES_FIBER_TAB_FFRC_IDX is None:
+#                     # load the table
+#                     T = Table.read(G.BGR_RES_FIBER_TAB_FFRC_IDX_FN)
+#                     if persist:
+#                         G.BGR_RES_FIBER_TAB_FFRC_IDX = T
+#                 else:
+#                     T = G.BGR_RES_FIBER_TAB_FFRC_IDX
+#             else:
+#                 if G.BGR_RES_FIBER_TAB_LL_IDX is None:
+#                     # load the table
+#                     T = Table.read(G.BGR_RES_FIBER_TAB_LL_IDX_FN)
+#                     if persist:
+#                         G.BGR_RES_FIBER_TAB_LL_IDX = T
+#                 else:
+#                     T = G.BGR_RES_FIBER_TAB_LL_IDX
+#
+#             if shotid is not None:
+#                 sel = np.array(T['shotid'] == shotid)
+#                 ct = np.count_nonzero(sel)
+#                 if ct > 1:
+#                     msg = f"Warning #2! Unexpected number of shot matches {ct}"
+#                     print(msg)
+#                     log.warning(msg)
+#                     return residual, residual_err, contributors, G.EFR_FLAG_NOT_UNIQUE
+#                 elif ct == 1:
+#                     idx = np.where(sel)[0][0]
+#                 # else == 0 and we fall down to the next block
+#
+#             if idx < 0 and not (seeing is None and response is None):
+#                 d = np.array([sr_dist(seeing, response, s, r) for s, r in zip(T['seeing'], T['response'])])
+#                 # todo: could be a bit smarter and take the nearest few and then select by nearest date?
+#                 # would require the shotid be passed and then used in combination
+#                 idx = np.nanargmin(d)
+#                 persist = False #override the persist flag and do not add this in to our persisting table
+#                                  #as it can duplicate the shot in this case
+#
+#             if idx < 0:
+#                 msg = f"Warning! Unable to find appropriate background residual."
+#                 print(msg)
+#                 log.warning(msg)
+#                 return residual, residual_err,contributors, G.EFR_FLAG_NO_RESIDUAL
+#
+#             # read in that one row
+#             if ffsky and not add_rescor:
+#                 Trow = Table.read(G.BGR_RES_FIBER_TAB_FF_FN, memmap=True)[idx]
+#                 if persist:
+#                     if G.BGR_RES_FIBER_TAB_FF_RUN is None:
+#                         G.BGR_RES_FIBER_TAB_FF_RUN = Table(Trow)
+#                     else:
+#                         G.BGR_RES_FIBER_TAB_FF_RUN.add_row(Trow)
+#             elif ffsky and add_rescor:
+#                 Trow = Table.read(G.BGR_RES_FIBER_TAB_FFRC_FN, memmap=True)[idx]
+#                 if persist:
+#                     if G.BGR_RES_FIBER_TAB_FFRC_RUN is None:
+#                         G.BGR_RES_FIBER_TAB_FFRC_RUN = Table(Trow)
+#                     else:
+#                         G.BGR_RES_FIBER_TAB_FFRC_RUN.add_row(Trow)
+#             else:
+#                 Trow = Table.read(G.BGR_RES_FIBER_TAB_LL_FN, memmap=True)[idx]
+#                 if persist:
+#                     if G.BGR_RES_FIBER_TAB_LL_RUN is None:
+#                         G.BGR_RES_FIBER_TAB_LL_RUN = Table(Trow)
+#                     else:
+#                         G.BGR_RES_FIBER_TAB_LL_RUN.add_row(Trow)
+#
+#             residual = np.array(Trow[col])
+#             residual_err = np.array(Trow[col_err])
+#             contributors = np.array(Trow[col_contrib])
+#
+#             try: #older ones may not have the flags
+#                 flags = int(Trow['flags'])
+#             except:
+#                 flags = 0
+#
+#
+#             return residual, residual_err,contributors, flags
+#
+#         except Exception as e:
+#             log.warning("Exception in get_empty_fiber_residual.", exc_info=True)
+#             flags |= G.EFR_FLAG_FUNCTION_EXCEPTION
+#
+#         return residual, residual_err, contributors, flags
+#
+#
+#
+#
+#
+#
 
 
 #
 # using single HDF5 with index vs Astropy Tables with separate index table is about the same
 #
-
 def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seeing=None, response=None,
                                 ffsky=False, add_rescor=False, persist=False, replace_nan=None):
         """
@@ -3956,6 +3944,10 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
             except:
                 pass
 
+            #check return
+            if np.count_nonzero(residual) < 1:
+                flags |= G.EFR_FLAG_ALL_ZERO
+
             return residual, residual_err+enhanced_error,contributors, flags
 
         except Exception as e:
@@ -3964,6 +3956,9 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
                 print(traceback.format_exc())
             flags |= G.EFR_FLAG_FUNCTION_EXCEPTION
 
+        if np.count_nonzero(residual) < 1 or np.count_nonzero(np.isnan(residual)) == len(residual):
+            flags |= G.EFR_FLAG_ALL_ZERO
+
         if replace_nan is not None:
             return np.nan_to_num(residual, nan=replace_nan), np.nan_to_num(residual_err,nan=replace_nan)+enhanced_error, \
                     contributors, flags
@@ -3971,6 +3966,8 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
             return residual, residual_err+enhanced_error, contributors, flags
 #end get_empty_fiber_residual_h5()
 
+#also replace (alias) the old .fits based version with the _h5 function
+get_empty_fiber_residual = get_empty_fiber_residual_h5
 
 
 def list_empty_fiber_residual_rtype(hdr=G.HDR_Version, ffsky=False, add_rescor=False,):

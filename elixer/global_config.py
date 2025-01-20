@@ -1598,30 +1598,32 @@ if not os.path.exists(BGR_BASEPATH):
     log.warning(f"{BGR_BASEPATH} does not exist. Average Empty Fiber corrections not available...")
 
 
-BGR_RES_FIBER_TAB_LL = None
-BGR_RES_FIBER_TAB_FF = None
-BGR_RES_FIBER_TAB_FFRC = None #extra residual correction (e.g. from Maja's work)
-
-BGR_RES_FIBER_TAB_LL_RUN = None #running table, only has the rows we've used so far
-BGR_RES_FIBER_TAB_FF_RUN = None
-BGR_RES_FIBER_TAB_FFRC_RUN = None
-
-BGR_RES_FIBER_TAB_LL_IDX = None
-BGR_RES_FIBER_TAB_FF_IDX = None
-BGR_RES_FIBER_TAB_FFRC_IDX = None
-
 BGR_RES_FIBER_H5_LL_FN = op.join(BGR_BASEPATH,"BGR_RES_FIBER_H5_LL.h5")
 BGR_RES_FIBER_H5_FF_FN = op.join(BGR_BASEPATH,"BGR_RES_FIBER_H5_FF.h5")
 BGR_RES_FIBER_H5_FFRC_FN = op.join(BGR_BASEPATH,"BGR_RES_FIBER_H5_FFRC.h5")
 
-BGR_RES_FIBER_TAB_LL_FN = op.join(BGR_BASEPATH,"BGR_RES_FIBER_TAB_LL.fits")
-BGR_RES_FIBER_TAB_FF_FN = op.join(BGR_BASEPATH,"BGR_RES_FIBER_TAB_FF.fits")
-BGR_RES_FIBER_TAB_FFRC_FN = op.join(BGR_BASEPATH,"BGR_RES_FIBER_TAB_FFRC.fits")
+BGR_RES_FIBER_TAB_LL_RUN = None #running table, only has the rows we've used so far (also used with h5 version)
+BGR_RES_FIBER_TAB_FF_RUN = None
+BGR_RES_FIBER_TAB_FFRC_RUN = None
 
-#just ra, dec, shotid, seeing and respoonse ... not the full data
-BGR_RES_FIBER_TAB_LL_IDX_FN = op.join(BGR_BASEPATH,"BGR_RES_FIBER_TAB_LL_IDX.fits")
-BGR_RES_FIBER_TAB_FF_IDX_FN = op.join(BGR_BASEPATH,"BGR_RES_FIBER_TAB_FF_IDX.fits")
-BGR_RES_FIBER_TAB_FFRC_IDX_FN = op.join(BGR_BASEPATH,"BGR_RES_FIBER_TAB_FFRC_IDX.fits")
+#now using ONLY the h5 versions
+#
+# BGR_RES_FIBER_TAB_LL_IDX = None
+# BGR_RES_FIBER_TAB_FF_IDX = None
+# BGR_RES_FIBER_TAB_FFRC_IDX = None
+#
+# BGR_RES_FIBER_TAB_LL = None
+# BGR_RES_FIBER_TAB_FF = None
+# BGR_RES_FIBER_TAB_FFRC = None #extra residual correction (e.g. from Maja's work)
+#
+# BGR_RES_FIBER_TAB_LL_FN = op.join(BGR_BASEPATH,"BGR_RES_FIBER_TAB_LL.fits")
+# BGR_RES_FIBER_TAB_FF_FN = op.join(BGR_BASEPATH,"BGR_RES_FIBER_TAB_FF.fits")
+# BGR_RES_FIBER_TAB_FFRC_FN = op.join(BGR_BASEPATH,"BGR_RES_FIBER_TAB_FFRC.fits")
+#
+## just ra, dec, shotid, seeing and respoonse ... not the full data
+# BGR_RES_FIBER_TAB_LL_IDX_FN = op.join(BGR_BASEPATH,"BGR_RES_FIBER_TAB_LL_IDX.fits")
+# BGR_RES_FIBER_TAB_FF_IDX_FN = op.join(BGR_BASEPATH,"BGR_RES_FIBER_TAB_FF_IDX.fits")
+# BGR_RES_FIBER_TAB_FFRC_IDX_FN = op.join(BGR_BASEPATH,"BGR_RES_FIBER_TAB_FFRC_IDX.fits")
 
 BGR_RES_FIBER_DEFAULT_RTYPE = "trim"
 #######################################
@@ -1644,3 +1646,4 @@ EFR_FLAG_TOO_MANY_DETECTION_FIBERS      = 0x00000010
                                #set if more than 2/3 of fibers are in detections
                                #this is either something like M101 -OR- a bad shot? maybe lots of satellites or meteors
                                #but that seems unlikely
+EFR_FLAG_ALL_ZERO                       = 0x00000020 #residual is all zero valued, possible merge issue
