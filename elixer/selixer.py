@@ -612,11 +612,11 @@ elif hostname == "lonestar6" or hostname == 'ls6':
             if MERGE:
                 MAX_TASKS = 100
                 MAX_NODES = 2
-                MAX_TASKS_PER_NODE = 50  # memory can be a problem, even for merge
+                MAX_TASKS_PER_NODE = 16  # memory can be a problem, even for merge
             else:
                 MAX_TASKS = 10000
                 MAX_NODES = 100
-                MAX_TASKS_PER_NODE = 2
+                MAX_TASKS_PER_NODE = 16
             # MAX_TASKS = MAX_NODES * MAX_TASKS_PER_NODE  # 2000
     TIME_OVERHEAD = 4.0  # MINUTES of overhead to get started (per task call ... just a safety)
 
