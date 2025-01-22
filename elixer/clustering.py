@@ -126,6 +126,42 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
                 #G.DETFLAG_LARGE_NEIGHBOR, #irrelevant, it is likely this large neighbor we'd classify against
                 # G.DETFLAG_LARGE_SKY_SUB,
                 # G.DETFLAG_POSSIBLE_PN,
+                # the rest are irrelevant here
+            ]
+
+            #this applies to the possibel clsuter PARENT ... don't accept a parent with these flags
+            parent_bad_flags = [
+                # G.DETFLAG_FOLLOWUP_NEEDED, #not enough by itself
+                # G.DETFLAG_IMAGING_MAG_INCONSISTENT,
+                # G.DETFLAG_DEX_GMAG_INCONSISTENT,
+                G.DETFLAG_UNCERTAIN_CLASSIFICATION,
+                G.DETFLAG_BLENDED_SPECTRA,
+                # G.DETFLAG_COUNTERPART_NOT_FOUND,
+                # G.DETFLAG_DISTANT_COUNTERPART,
+                # G.DETFLAG_COUNTERPART_MAG_MISMATCH,
+                # G.DETFLAG_NO_IMAGING,
+                # G.DETFLAG_POOR_IMAGING,
+                # G.DETFLAG_LARGE_SKY_SUB,
+                # G.DETFLAG_EXT_CAT_QUESTIONABLE_Z,
+                # G.DETFLAG_Z_FROM_NEIGHBOR,
+                # G.DETFLAG_DEXSPEC_GMAG_INCONSISTENT,
+                # G.DETFLAG_LARGE_NEIGHBOR,
+                # G.DETFLAG_POSSIBLE_LOCAL_TRANSIENT,
+                G.DETFLAG_BAD_PIXEL_FLAT,
+                G.DETFLAG_DUPLICATE_FIBERS,
+                G.DETFLAG_NEGATIVE_SPECTRUM,
+                # G.DETFLAG_POOR_THROUGHPUT,
+                G.DETFLAG_BAD_DITHER_NORM,
+                G.DETFLAG_POOR_SHOT,
+                G.DETFLAG_QUESTIONABLE_DETECTION,
+                G.DETFLAG_EXCESSIVE_ZERO_PIXELS,
+                G.DETFLAG_POSSIBLE_PN,
+                # G.DETFLAG_NO_DUST_CORRECTION,
+                G.DETFLAG_BAD_PIXELS,
+                G.DETFLAG_BAD_EMISSION_LINE,
+                # G.DETFLAG_NO_ZEROPOINT,
+                G.DETFLAG_BAD_FIBERTRACE,
+                G.DETFLAG_CORRUPT_DATA
             ]
 
             if np.any([flags & x for x in bad_flags_list]) == 0: #if there are flags, skip this check as we are going to check this object regardless
@@ -208,6 +244,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
         line_scores = np.zeros(len(neighbor_ids))
         line_w_obs = np.zeros(len(neighbor_ids))
         used_in_solution = np.full(len(neighbor_ids),False)
+        neighbor_flags = rows['flags']
 
         w1 = target_wave - target_wave_err - delta_lambda
         w2 = target_wave + target_wave_err + delta_lambda
@@ -216,8 +253,16 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
         sp = spectrum.Spectrum() #dummy spectrum for utilities
 
         for i,id in enumerate(neighbor_ids):
+            if str(id)[2] == '9': #continuum source
+                sel[i] = False
+                continue
+
             lrows = ltb.read_where("(detectid==id) & (sn > 4.5) & (score > 5.0) & (wavelength > w1) & (wavelength < w2)")
             if len(lrows) != 1:
+                sel[i] = False
+                continue
+
+            if np.any([neighbor_flags[i] & x for x in parent_bad_flags]) != 0:  # has some flags
                 sel[i] = False
                 continue
 
@@ -247,7 +292,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
                                                                            #in which case, used can be False
 
         if np.sum(sel) == 0:
-            log.info(f"Clustering on {detectid}. No neighbors meet minimum emission line requirements.")
+            log.info(f"Clustering on {detectid}. No neighbors meet minimum emission line and flagging requirements.")
             return cluster_dict
 
         #is there a mix of z that would trigger a flag?
@@ -324,6 +369,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
                         keep_going.append(True)
                 else:
                     keep_going.append(True)
+
         if np.count_nonzero(keep_going) == 0:
             log.info(f"Clustering on {detectid}. Neighbors at same z or no improvement in P(z)")
             return cluster_dict
@@ -337,6 +383,12 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
         #or it could be the same object from a better shot
         # if utilities.angular_distance(target_ra,target_dec,rows[best_idx]['ra'],rows[best_idx]['dec']) < 0.5:
         #     log.info(f"Clustering on {detectid}. Neighbor too close.")
+        #     return cluster_dict
+
+
+        #check that the best parent is not flagged (enforced earlier)
+        # if np.any([rows[best_idx]['flags'] & x for x in parent_bad_flags]) != 0: #has some flags
+        #     log.info(f"Clustering on {detectid}. Neighbor ({rows[best_idx]['detectid']}) has disqualifying flags.")
         #     return cluster_dict
 
         #check that the emission line IS USED in the solution

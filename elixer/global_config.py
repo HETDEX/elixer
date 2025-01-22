@@ -1260,6 +1260,8 @@ CLUSTER_WAVE_SEARCH = 2.0 #in AA from line center
 CLUSTER_MAG_THRESH = 23.0 #must be brighter than this to be a cluster parent
 CLUSTER_SELF_MAG_THRESH = 21.0 #if brighter than this don't bother (unless there are flags)
 CLUSTER_SCORE_BOOST = 100.0
+CLUSTER_ABORT_IF_NO_LINES = True #if there are no lines to match for clustering, do NOT generate a new report
+                                 #since it would be the same as the old report
 
 ALLOW_BROADLINE_FIT = True
 BROADLINE_GMAG_MAX = 23.0 #must be less than (brighter) than this value to auto-trip broad conditions

@@ -1,13 +1,17 @@
 changes to elixer by version
 
 
-1.22.4a1 [2025-01-20]
+1.22.4a1 [2025-01-22]
 * turn off continuum subtraction for lineflux map if too close to the spectral edge
   + turn off if central wavelength is less than 3496.0 or greater than 5519.99
   + clip between 3496.0 and 5519.99 otherwise
 * limit maximum wavelength range for lineflux map to 1000AA (really anything above 150AA is non-sense for emission lines)
 * disable spectrum_utilities get_empty_fiber_residual() in favor of the h5 version ONLY get_empty_fiber_residual_h5()
   + get_empty_fiber_residual() is aliased to get_empty_fiber_residual_h5()
+* when clustering, if the clustering condition cannot be vetted as no emission lines are found in the current source,
+  optionally abort the processing and move on to the next detection (global_config::CLUSTER_ABORT_IF_NO_LINES)
+* enforce flagging requirements on potential clustering parents
+* fix bug where clustering parent was being labeled an external catalog source without a zPDF (which lowers its weight)
 
 1.22.3 [2024-12-12]
 * promote to main -- note: no classification differences vs 1.22.2 (HDR5 version)

@@ -2967,7 +2967,8 @@ class DetObj:
                     if not self.cluster_updated_z: #at least one was updated
                         self.status = -1 # so this will NOT update the existing record
                     log.info(
-                        f"[{self.entry_id}] Clustering. Failed to agree on redshift. Will not update orginal record.")
+                        f"[{self.entry_id}] Clustering. Failed to agree on redshift. z {z:0.4f} != {self.cluster_z:0.4f}, "
+                        f"q(z): {self.cluster_qz:0.2f}. Will not update orginal record.")
 
 
             self.best_z_uncorrected = z
@@ -3031,7 +3032,11 @@ class DetObj:
                                               aa_error=G.NOMINAL_WAVELENGTH_MATCH_MAX_OFFSET,  #maybe a bit wide, and varies some with wavelength
                                               allow_absorption=False)
             if lines is None or len(lines) == 0: #unexpected
-                log.error("No lines returned to match clustering redshift.")
+                if G.CLUSTER_ABORT_IF_NO_LINES:
+                    log.error("No lines returned to match clustering redshift. Setting abort flag (status = -1).")
+                    self.status = -1
+                else:
+                    log.error("No lines returned to match clustering redshift.")
                 return
 
             #should only be one, but just to be safe, enforce as the highest ranking (lowest rank value) line
@@ -3049,7 +3054,7 @@ class DetObj:
 
             if new_solution:
                 sol = elixer_spectrum.Classifier_Solution()
-                sol.external_catalog_solution = True
+                sol.external_catalog_solution = False #THIS IS NOT an external cat solution ... this is clustering
                 sol.z = z
                 sol.best_pz = self.cluster_list[i]['neighbor_qz'] #assign parent's Q(z) [only here if there was no other solution already]
                 sol.central_rest = line.w_rest
