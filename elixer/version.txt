@@ -1,6 +1,10 @@
 changes to elixer by version
 
 
+1.22.4 [2025-01-22]
+* promote to main -- note: no classification differences vs 1.22.2 (HDR5 version) -- but fixes bugs and clustering
+
+
 1.22.4a1 [2025-01-22]
 * turn off continuum subtraction for lineflux map if too close to the spectral edge
   + turn off if central wavelength is less than 3496.0 or greater than 5519.99
