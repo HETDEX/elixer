@@ -100,6 +100,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
                 target_gmag_err = 2.0
                 log.debug(f"Clustering: Detectid {detectid} capped gmag error to {target_gmag_err} from {old}")
 
+
             # if (flags & G.DETFLAG_DISTANT_COUNTERPART) or (flags & G.DETFLAG_COUNTERPART_MAG_MISMATCH) or
             #     (flags &)
 
@@ -210,8 +211,19 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
             target_z_3 = target_z
             target_pz_3 = target_pz
 
+
+
+
         target_wave = target_rows[0]['wavelength_obs']
         target_wave_err = target_rows[0]['wavelength_obs_err']
+        target_rest = target_wave / (1. + target_z)
+
+
+        if target_pz > 0.05:
+            if 3724 < target_rest < 3734 or 5002 < target_rest < 5013:
+                log.info(f"Clustering: Detectid {detectid} likely OII-37327 or OIII-5007. Skipping")
+                return cluster_dict
+
 
         deg_err = delta_arcsec / 3600.0
 
@@ -242,6 +254,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
         #check lines
         neighbor_ids = rows['detectid']
         neighbor_z = rows[z_col]
+        neighbor_qz = rows[pz_col]
         line_scores = np.zeros(len(neighbor_ids))
         line_w_obs = np.zeros(len(neighbor_ids))
         used_in_solution = np.full(len(neighbor_ids),False)
@@ -259,6 +272,11 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
 
         for i,id in enumerate(neighbor_ids):
             try:
+
+                if neighbor_qz[i] < 0.2 or neighbor_qz[i] - target_pz < 0.1:
+                    sel[i] = False
+                    continue
+
                 if str(id)[2] == '9': #continuum source
                     sel[i] = False
                     continue
