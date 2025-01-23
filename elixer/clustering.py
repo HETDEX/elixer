@@ -59,6 +59,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
 
         dtb = elixerh5.root.Detections
         ltb = elixerh5.root.SpectraLines
+        etb = elixerh5.root.ExtractedObjects
 
         #first get the detectid related info
         q_detectid = detectid
@@ -245,6 +246,10 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
         line_w_obs = np.zeros(len(neighbor_ids))
         used_in_solution = np.full(len(neighbor_ids),False)
         neighbor_flags = rows['flags']
+        neighbor_ra = rows['ra']
+        neighbor_dec = rows['dec']
+        neighbor_spurious = rows['spurious_reason']
+
 
         w1 = target_wave - target_wave_err - delta_lambda
         w2 = target_wave + target_wave_err + delta_lambda
@@ -253,16 +258,60 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
         sp = spectrum.Spectrum() #dummy spectrum for utilities
 
         for i,id in enumerate(neighbor_ids):
-            if str(id)[2] == '9': #continuum source
-                sel[i] = False
-                continue
+            try:
+                if str(id)[2] == '9': #continuum source
+                    sel[i] = False
+                    continue
 
-            lrows = ltb.read_where("(detectid==id) & (sn > 4.5) & (score > 5.0) & (wavelength > w1) & (wavelength < w2)")
-            if len(lrows) != 1:
-                sel[i] = False
-                continue
+                lrows = ltb.read_where("(detectid==id) & (sn > 4.5) & (score > 5.0) & (wavelength > w1) & (wavelength < w2)")
+                if len(lrows) != 1:
+                    sel[i] = False
+                    continue
 
-            if np.any([neighbor_flags[i] & x for x in parent_bad_flags]) != 0:  # has some flags
+                #cannot be a spurious detection
+                if len(neighbor_spurious[i]) != 0:
+                    sel[i] = False
+                    continue
+
+                #cannot have "bad" flags
+                if np.any([neighbor_flags[i] & x for x in parent_bad_flags]) != 0:  # has some flags
+                    sel[i] = False
+                    continue
+
+                #if it has imaging, check distances, else base on mag
+
+                erows = etb.read_where("(detectid==id) & (selected==True) & ((filter_name=='g') | (filter_name=='r') | (filter_name=='f606w'))")
+                if len(erows) == 0:
+                    #no imageing, just use fixed distance
+                    neighbor_dist = utilities.angular_distance(neighbor_ra[i], neighbor_dec[i], target_ra, target_dec)
+                    if neighbor_dist > 2.0: #no size information to use, so just pick a value on the small side; we'll miss some but fall back on diagnose
+                        sel[i] = False
+                        continue
+                else:
+
+                    #rough scale ... the average "radius" of the imaging counterpart as measured
+                    avg_eff_radius = np.sqrt( np.nanmean(erows['major']) * np.nanmean(erows['minor'])) / 2.0
+                    avg_ra = np.nanmean(erows['ra'])
+                    avg_dec = np.nanmean(erows['dec'])
+                    avg_eff_dist = utilities.angular_distance(avg_ra, avg_dec, target_ra, target_dec)
+
+                    # COULD alternately build an averaged ellipse and measure the distance from the HETDEX target detection
+                    # to the edge of that ellipse
+                    # just simple arithemtic average the major and minor axes from the various imaging
+                    #major = np.nanmean(erow['major'])
+                    #minor = np.nanmean(erow['minor'])
+                    #theta = np.nanmean(erow['theta'])
+                    #eff_dist_ellipse = utilities.dist_to_ellipse(xxxxx)
+
+                    #COULD alternately base this off of the HETDEX line detection position, not the object center?
+                    #or the distance from the target HETDEX detection to the approximate center of the imaging counterpart
+                    #for the neighbor ... assume a distnce from the neighbor center to its edge is roughly the effective radius
+                    #then allow the HETDEX targe to be another 50% farther out
+                    if avg_eff_dist >= (2.0 * avg_eff_radius):
+                        sel[i] = False
+                        continue
+            except:
+                log.info("Excpetion in clustering.",exc_info=True)
                 sel[i] = False
                 continue
 
@@ -292,7 +341,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
                                                                            #in which case, used can be False
 
         if np.sum(sel) == 0:
-            log.info(f"Clustering on {detectid}. No neighbors meet minimum emission line and flagging requirements.")
+            log.info(f"Clustering on {detectid}. No neighbors meet minimum emission line, separation, and flagging requirements.")
             return cluster_dict
 
         #is there a mix of z that would trigger a flag?
@@ -319,6 +368,8 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
         line_w_obs = line_w_obs[sel]
         used_in_solution =  used_in_solution[sel]
         neighbor_id = neighbor_ids[sel]
+
+
 
         #best could be brightest? or highest score on the matching line?
         brightest = np.argmin(rows['mag_g_wide'])
