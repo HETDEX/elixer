@@ -4823,13 +4823,34 @@ def peakdet(x,vals,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.
     if (G.LINE_FINDER_FULL_FIT_SCAN > -1) and (G.LINE_FINDER_FULL_FIT_SCAN > 0 or len(eli_list) == 0) and not absorber: #this can be slow ... only run if set OR if no lines found??
         log.info(f"Running line finder, full fit ({'absorption' if absorber else 'emission'})  ...")
         quick_eli_list = []
-        step = 4.0 #AA
+
+        if G.GAUSS_FIT_DELTA_WAVE > 0:
+            step = x[1]-x[0]#4.0 #AA
+            fit_range = step * 0.55
+            quick_fit = False
+            relax_fit = True
+            do_mcmc = False
+            targetted_fit = True
+        else:
+            step = G.FLUX_WAVEBIN_WIDTH * 2
+            fit_range = step * 0.55
+            quick_fit = True
+            relax_fit = False
+            do_mcmc = False
+            targetted_fit = False
+
+
         #min_sigma = G.LIMIT_GAUSS_FIT_SIGMA_MIN if G.LIMIT_GAUSS_FIT_SIGMA_MIN is not None else 10.0
         #actually for min_sigma, None is okay
         max_sigma = G.LIMIT_GAUSS_FIT_SIGMA_MAX if G.LIMIT_GAUSS_FIT_SIGMA_MAX is not None else 10.0
-        for central_wave in np.arange(G.CALFIB_WAVEGRID[0],G.CALFIB_WAVEGRID[-1]+step,step): #this is very slow, but maybe use broader steps?
+        # this is very slow, but maybe use broader steps?
+        #for central_wave in np.arange(G.CALFIB_WAVEGRID[0],G.CALFIB_WAVEGRID[-1]+step,step):
+        # should use the actual data we have (which might be less than the full width, and skip the leading and trailing bin since nothing to either side to fit)
+        for central_wave in np.arange(x[1], x[-2] + step, step):
+
             quick_eli = signal_score(x, v, err, central_wave, values_units=values_units, absorber=absorber,
-                                     fit_range_AA=step*0.55, quick_fit=True,allow_broad=False,spec_obj=spec_obj,
+                                     fit_range_AA=fit_range,targetted_fit=targetted_fit,do_mcmc=do_mcmc,
+                                     quick_fit=quick_fit,relax_fit=relax_fit,allow_broad=False,spec_obj=spec_obj,
                                      max_sigma=max_sigma,min_sigma=G.LIMIT_GAUSS_FIT_SIGMA_MIN) #max_sigma at 10. allows small and medium (and hetdex std) fits
             #fit_range_AA is to either side, so only want some overlap so step/2 * 1.5 or step * 0.75 (may be too much of an overlap, just need a little)
             #anything greater than 0.5
@@ -4841,7 +4862,11 @@ def peakdet(x,vals,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.
 
         for e in refined_eli_list:
             #now a full fit
-            eli = signal_score(x, v, err, e.fit_x0, values_units=values_units, min_sigma=min_sigma, absorber=absorber,spec_obj=spec_obj)
+            eli = signal_score(x, v, err, e.fit_x0,values_units=values_units,
+                               min_sigma=min_sigma, absorber=absorber,spec_obj=spec_obj,
+                               fit_range_AA=fit_range, targetted_fit=targetted_fit, do_mcmc=do_mcmc,
+                               quick_fit=quick_fit, relax_fit=relax_fit, allow_broad=False,
+                               max_sigma=max_sigma)
 
             if (eli is not None):
                 if ((not enforce_good) or eli.is_good()):

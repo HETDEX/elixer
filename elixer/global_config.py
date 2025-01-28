@@ -25,7 +25,7 @@ if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
 #version
-__version__ = '1.22.4'
+__version__ = '1.22.5a1'
 
 
 #initial working dir
@@ -136,6 +136,9 @@ FORCE_MCMC = False
 FORCE_MCMC_MIN_SNR = 4.0
 LIMIT_GAUSS_FIT_SIGMA_MIN = None #configurable on commandline with --fit_sigma
 LIMIT_GAUSS_FIT_SIGMA_MAX = None
+GAUSS_FIT_WAVEBIN_STEP = 25 #25 bins so 50AA to either side, by default
+GAUSS_FIT_DELTA_WAVE = -1
+GAUSS_FIT_DELTA_WAVEBIN_BUFFER = 6 #go X more wavebins to either side to allow some room to fit
 
 CANDELS_EGS_Stefanon_2016_BASE_PATH = None
 EGS_CFHTLS_PATH = None

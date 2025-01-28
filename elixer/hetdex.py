@@ -9646,7 +9646,7 @@ class DetObj:
             except:
                 pass
 
-            if not self.w:
+            if not self.w or (self.w and G.GAUSS_FIT_DELTA_WAVE > 0):
                 # find the "best" wavelength to use as the central peak
                 #spectrum = elixer_spectrum.Spectrum()
                 if self.spec_obj is None:
@@ -9657,16 +9657,30 @@ class DetObj:
                 self.spec_obj.gmag = self.best_gmag
                 self.spec_obj.gmag_unc = self.best_gmag_unc
 
+                if self.w and G.GAUSS_FIT_DELTA_WAVE > 0:
+                    idx_left, *_ = SU.getnearpos(self.sumspec_wavelength,self.w - G.GAUSS_FIT_DELTA_WAVE)
+                    idx_left = max(0,idx_left-G.GAUSS_FIT_DELTA_WAVEBIN_BUFFER)
+
+                    idx_right,*_ = SU.getnearpos(self.sumspec_wavelength,self.w + G.GAUSS_FIT_DELTA_WAVE)
+                    idx_right = min(len(self.sumspec_wavelength),idx_right+G.GAUSS_FIT_DELTA_WAVEBIN_BUFFER)
+                else:
+                    idx_left = 0
+                    idx_right = len(self.sumspec_wavelength)
+
                 log.info("Scanning for anchor line ...")
                 #self.all_found_lines = elixer_spectrum.peakdet(self.sumspec_wavelength,self.sumspec_flux,self.sumspec_fluxerr,values_units=-17)
-                w = self.spec_obj.find_central_wavelength(self.sumspec_wavelength,self.sumspec_flux,
-                                                                          self.sumspec_fluxerr,-17,return_list=False)
+                w = self.spec_obj.find_central_wavelength(self.sumspec_wavelength[idx_left:idx_right+1],
+                                                          self.sumspec_flux[idx_left:idx_right+1],
+                                                          self.sumspec_fluxerr[idx_left:idx_right+1],
+                                                          -17,return_list=False)
                 if w is not None and (3400.0 < w < 5600.0):
                     self.w = w
                     self.target_wavelength = w
                     log.info(f"Anchor line set: {self.w:0.2f}")
+                elif self.w and G.GAUSS_FIT_DELTA_WAVE > 0: #one was passed in
+                    log.info(f"Could not identify a suitable target wavelength in range. Keeping user provided value: ({self.w}).")
+                    self.target_wavelength = self.w
                 else:
-
                     try:
                         self.w = self.sumspec_wavelength[np.nanargmax(self.sumspec_flux)]
                         self.target_wavelength = self.w
@@ -9686,8 +9700,8 @@ class DetObj:
                     idx = np.argmax(self.sumspec_flux)
                 except:
                     idx = 0
-            left = idx - 25  # 2AA steps so +/- 50AA
-            right = idx + 25
+            left = idx - G.GAUSS_FIT_WAVEBIN_STEP  # 2AA steps so +/- 50AA
+            right = idx + G.GAUSS_FIT_WAVEBIN_STEP
 
             if left < 0:
                 left = 0
@@ -10840,8 +10854,8 @@ class DetObj:
                     idx = np.argmax(self.sumspec_flux)
                 except:
                     idx = 0
-            left = idx - 25  # 2AA steps so +/- 50AA
-            right = idx + 25
+            left = idx - G.GAUSS_FIT_WAVEBIN_STEP  # 2AA steps so +/- 50AA
+            right = idx + G.GAUSS_FIT_WAVEBIN_STEP
 
             if left < 0:
                 left = 0
@@ -11349,8 +11363,8 @@ class DetObj:
                     #todo: since we are moving the central location, need to also update the sumspec_wavelength_zoom, etc
                     log.info(f"[{self.entry_id}] updating original anchor wavelength. Was {self.w :0.2f}, now {self.spec_obj.central_eli.fit_x0:0.2f}.")
                     idx = elixer_spectrum.getnearpos(self.sumspec_wavelength, self.spec_obj.central_eli.fit_x0)
-                    left = idx - 25  # 2AA steps so +/- 50AA
-                    right = idx + 25
+                    left = idx - G.GAUSS_FIT_WAVEBIN_STEP  # 2AA steps so +/- 50AA
+                    right = idx + G.GAUSS_FIT_WAVEBIN_STEP
 
                     if left < 0:
                         left = 0

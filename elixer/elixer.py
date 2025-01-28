@@ -508,6 +508,11 @@ def parse_commandline(auto_force=False):
                                              'Specify (min,max)', required=False)
 
 
+    parser.add_argument('--fit_delta_wave',
+                        help="Delta wavelength in AA for line fitting Gaussian. Used with --wavelength",
+                        required=False, type=float)
+
+
     parser.add_argument('--version', help='Print the version to screen.',
                         required=False, action='store_true', default=False)
 
@@ -1227,9 +1232,15 @@ def parse_commandline(auto_force=False):
             log.error(f"Fatal. Invalid fit_sigma parameters: {args.fit_sigma}")
             exit(-1)
 
+    if args.fit_delta_wave:
+        if 0.0 <= args.fit_delta_wave <= (G.WAVEGRID_RED_LIMIT - G.WAVEGRID_BLUE_LIMIT):
+            G.GAUSS_FIT_DELTA_WAVE = args.fit_delta_wave
+        else:
+            print(f"Non-fatal. Will ignore invalid fig_delta_wave parameter: {args.fit_delta_wave}")
+            log.error(f"Non-fatal. Will ignore invalid fig_delta_wave parameter: {args.fit_delta_wave}")
+            G.GAUSS_FIT_DELTA_WAVE = -1
 
     if args.plya_thresh:
-
         #first get rid of parenthesis that are not supposed to be there, but are commonly typed in
         try:
             args.plya_thresh = args.plya_thresh.replace(')','')
