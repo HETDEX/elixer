@@ -205,13 +205,13 @@ BUILD_REPORT_BY_FILTER = True #if True, multiple catalogs are used to build the 
 LOCAL_DEVBOX = False
 if hostname in LOCAL_DEV_HOSTNAMES:  # primary author test box
 #if False:
-    HDR_Version = "4.0" #"2.1"
-    HDR_Version_float = 4.0 #2.1
+    HDR_Version = "5.0" #"2.1"
+    HDR_Version_float = 5.0 #2.1
     LAUNCH_PDF_VIEWER = 'qpdfview'
     LOCAL_DEVBOX = True
 else:
-    HDR_Version = "4.0" #"2.1"  # default HDR Version if not specified
-    HDR_Version_float = 4.0 #2.1
+    HDR_Version = "5.0" #"2.1"  # default HDR Version if not specified
+    HDR_Version_float = 5.0 #2.1
     LOCAL_DEVBOX = False
 
 #look specifically (and only) for HDR version on call
@@ -1652,3 +1652,9 @@ EFR_FLAG_TOO_MANY_DETECTION_FIBERS      = 0x00000010
                                #this is either something like M101 -OR- a bad shot? maybe lots of satellites or meteors
                                #but that seems unlikely
 EFR_FLAG_ALL_ZERO                       = 0x00000020 #residual is all zero valued, possible merge issue
+
+
+
+
+ODIN_HACK = False #apply special case hacked up code for comparing with ODIN; turn on/off with --special
+ODIN_HACK_FLUXFN = "../odin.fluxes" #file with updated odin ids and linefluxes

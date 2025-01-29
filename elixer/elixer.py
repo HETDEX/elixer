@@ -632,6 +632,14 @@ def parse_commandline(auto_force=False):
             log.critical(f"***** RUNNING SPECIALIZED CODE X{args.special} *****")
             G.__version__ += f"X{args.special}"
 
+            ##########################################
+            # ODIN hack (compare to ODIN NB data)
+            ##########################################
+            if args.special == 1138:
+                print(f"***** RUNNING SPECIALIZED CODE: ODIN HACK *****")
+                log.critical(f"***** RUNNING SPECIALIZED CODE: ODIN HACK *****")
+                G.ODIN_HACK = True
+
             ########################################
             #TOGGLE use of --tmp and tar
             #######################################

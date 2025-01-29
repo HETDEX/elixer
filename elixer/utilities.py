@@ -1613,3 +1613,76 @@ def get_healpix_region(ra,dec,radius,Nside=32768):
         log.warning("Exception! get_healpix_region",exc_info=True)
 
     return hp_region
+
+
+
+################################
+# special code for ODIN HACK
+# can comment out once done
+################################
+
+def odin_hack_xlat_inputfile_to_coordsfile(infn, coordsfn, extendfn):
+    """
+    take the input file, update ODIN detectids to be unique, re-arange and output as elixer coords file
+
+
+    NOTE: not wrapped in try/catch ... if there is an exception, we want an ab/end
+
+    :param infn:
+    :param coordsfn: elixer coords style file output
+    :param extendfn: file for id and flux and possibly other future info (sigma limits, etc)
+    :return:
+    """
+
+    odin_id, shot_id = np.loadtxt(infn,dtype=int,usecols=(0,5),unpack=True)
+    ra,dec,odin_lineflux,nb_wave = np.loadtxt(infn,dtype=float,usecols=(1,2,3,4),unpack=True)
+
+
+    #make odin_id unique (and yes, want a list here, not array)
+    odin_id =[int(str(x)+"01") for x in odin_id] #all now end in 0
+
+    #for duplicates, increment
+
+    #sloppy but quick to code and not very big
+    #count from the end of the list, add to any with duplicates the number of duplicates
+    #the count excludes itself since the range in [:1]
+    for i in range(len(odin_id))[::-1]:
+        ct = odin_id[:i].count(odin_id[i])
+        if ct > 0:
+            #print(odin_id[i], i, ct, odin_id[i] + ct)
+            odin_id[i] = odin_id[i] + ct
+
+    with open(coordsfn,"w") as f:
+        for i in range(len(odin_id)):
+            f.write(f"{ra[i]:0.8f} {dec[i]:0.8f} {shot_id[i]} {nb_wave[i]:0.1f} {odin_id[i]} \n") #{odin_lineflux[i]:0.4g}\n")
+
+    with open(extendfn,"w") as f:
+        for i in range(len(odin_id)):
+            f.write(f"{odin_id[i]}  {odin_lineflux[i]:0.4g} \n") #future shotid, fluxlimit, etc
+
+
+def odin_hack_get_odin_lineflux(infn, lookup_id):
+    """
+
+    :param infn: file that contains updated odin_id and the line flux
+    :param lookup_id: the id for which to find the flux
+    :return:
+    """
+
+    try:
+        if infn is None:
+            infn = G.ODIN_HACK_FLUXFN
+
+        odin_id  = np.loadtxt(infn, dtype=int, usecols=(0), unpack=True)
+        odin_lineflux = np.loadtxt(infn, dtype=float, usecols=(1), unpack=True)
+
+        sel = np.array(odin_id == lookup_id)
+        if np.count_nonzero(sel) == 1:
+            return odin_lineflux[sel][0]
+        else:
+            log.error(f"***** Could not locate matching ODIN lineflux for {lookup_id}.")
+            return None
+
+    except:
+        log.error(f"Exception! in odin_hack_get_odin_lineflux.",exc_info=True)
+        return None

@@ -4,6 +4,8 @@ changes to elixer by version
 * add new option --fit_delta_wave to be used with --wavelength. It sets a wavelength range (AA) around the specified (target)
   wavelength in which to search for an emission line. Normal use case would be for looking for a line within some
   narrowband filter range.
+* updated default HDR version to HDR5
+* includes temporary --odin_hack to bring in and overplot some ODIN data on elixer reports
 
 1.22.4 [2025-01-22]
 * promote to main -- note: no classification differences vs 1.22.2 (HDR5 version) -- but fixes bugs and clustering

@@ -613,6 +613,11 @@ class DetObj:
         self.elixer_version = G.__version__
         self.elixer_datetime = pytime.strftime("%Y-%m-%d %H:%M:%S")
 
+        if G.ODIN_HACK:
+            self.odin_lineflux = None
+            self.f1sigma = -1.
+            self.completeness = -1.
+
         self.nei_mini_buf = None #image holder for neighborhood
         self.line_mini_buf = None
 
@@ -13565,6 +13570,28 @@ class HETDEX:
                     title += "\n"
                 #title +=  "EstCont = %s  \nEW_r(LyA) = %s$\AA$\n" % (estcont_str, eqw_lya_str)
 
+                if G.ODIN_HACK:
+                    try:
+                        if e.odin_lineflux is None:
+                            e.odin_lineflux = utils.odin_hack_get_odin_lineflux(None,lookup_id=e.entry_id)
+                        f1sigma, apcor, completeness = SU.get_fluxlimits(ra,dec,e.w,e.survey_shotid, sncut=4.8,flim_model="v4",
+                                                                         ffsky=e.extraction_ffsky,rad=e.extraction_aperture,
+                                                                         lineflux=e.odin_lineflux,linewidth=e.sigma)
+
+                        #using the ELiXer/HETDEX line
+                        #f1sigma, apcor, completeness = SU.get_fluxlimits(ra,dec,e.w,e.survey_shotid, sncut=4.8,flim_model="v4",
+                        #                                                 ffsky=e.extraction_ffsky,rad=e.extraction_aperture,
+                        #                                                 lineflux=e.estflux,linewidth=e.fwhm/2.355)
+
+                        e.f1sigma = f1sigma[0]
+                        e.completeness = completeness[0]
+
+                        if e.odin_lineflux is not None:
+                            title += f"ODINFlux = {e.odin_lineflux:0.3g}  f1s={e.f1sigma:0.3g}  cmp={e.completeness:0.2f}\n"
+                    except:
+                        log.error(f"Exception! ODIN HACK",exc_info=True)
+                        title += f"ODINFlux = EXCEPTION\n"
+
                 title += "Cont(n) = %s" % (estcont_str)
                 if estcont_gmag_str:
                     title += "\nCont(w) = %s" %(estcont_gmag_str)
@@ -16186,6 +16213,7 @@ class HETDEX:
             log.warning("Warning. No zoom-in Gaussian fit parameters.")
             return None
 
+
         fig = plt.figure(figsize=(5, 3))
         plt.subplots_adjust(left=0.0, right=1.0, top=1.0, bottom=0.0)
         #plt.title("Fitted Emission")
@@ -16198,6 +16226,16 @@ class HETDEX:
         #these are in the x2AA binning
         #parm[4] is the binning used; normally then the y parameter is * 2.0/2.0
         fit_spec = gaussian(x=wave_grid,x0=parms[0],sigma=parms[1],a=parms[2],y=parms[3]*y_mul/parms[4])
+
+        if G.ODIN_HACK:
+            try:
+                e = datakeep['detobj']
+                if e.odin_lineflux is None:
+                    e.odin_lineflux = utils.odin_hack_get_odin_lineflux(None, lookup_id=e.entry_id)
+                #need 2x 1e17 for the flux to be consistent with the 2AA binning and how the HETDEX parms are represented
+                odin_fit_spec = gaussian(x=wave_grid, x0=parms[0], sigma=parms[1], a=e.odin_lineflux*2e17, y=parms[3] * y_mul / parms[4])
+            except:
+                log.error(f"Exception! ODIN HACK", exc_info=True)
 
 
         # mn = min(mn, min(summed_spec))
@@ -16242,6 +16280,9 @@ class HETDEX:
 
         specplot.plot(wave_grid, fit_spec, c='k', lw=2, linestyle="solid", alpha=0.7, zorder=0)
         specplot.errorbar(wave_data,flux,yerr=flux_err,fmt='.',zorder=9)
+        if G.ODIN_HACK:
+            specplot.plot(wave_grid, odin_fit_spec, c='r', lw=2, linestyle="solid", alpha=0.7, zorder=0)
+
         #add the zero line
         specplot.axhline(y=0,linestyle='solid',alpha=0.5,color='k',zorder=9)
 

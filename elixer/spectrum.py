@@ -2215,11 +2215,13 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     try:
         # find the highest point in the raw data inside the range we are allowing for the line center fit
         dpix = int(round(fit_range_AA / pix_size))
+        left = max(0,peak_pos-dpix)
+        right = min(len(values),peak_pos+dpix)
         if absorber:
-            raw_peak = min(values[peak_pos-dpix:peak_pos+dpix+1])
+            raw_peak = min(values[left:right+1])
             #can be negative (should not be, except if saturated and with error pushes negative)
         else:
-            raw_peak = max(values[peak_pos-dpix:peak_pos+dpix+1])
+            raw_peak = max(values[left:right+1])
             if raw_peak <= 0:
                 if not quick_fit:
                     log.warning("Spectrum::signal_score invalid raw peak %f" %raw_peak)

@@ -27,6 +27,7 @@ UNSET_INT = -99999
 UNSET_STR = ""
 UNSET_NAN = np.nan
 TEST_LINE_FIT = False #set to TRUE to temporarily test the line fitting in ELiXer vs original pipeline
+LOCAL_ODIN_HACK = True
 
 log = G.Global_Logger('hdf5_logger')
 log.setlevel(G.LOG_LEVEL)
@@ -204,6 +205,10 @@ class Detections(tables.IsDescription):
     color_ur = tables.Float32Col(shape=(3,),dflt=[np.nan,np.nan,np.nan] ) #as color, blue max, red_max
     color_gr = tables.Float32Col(shape=(3,),dflt=[np.nan,np.nan,np.nan] ) #as color, blue max, red_max
 
+    if LOCAL_ODIN_HACK:
+        odin_lineflux = tables.Float32Col(dflt=UNSET_FLOAT) #reported odin lineflux
+        odin_f1sigma = tables.Float32Col(dflt=UNSET_FLOAT) #f1sigma at the HETDEX fit wavelength for the odin NB filter
+        odin_completeness = tables.Float32Col(dflt=UNSET_FLOAT) #completeness for the ODIN flux
 
     #temporary testing
     if TEST_LINE_FIT:
@@ -1259,7 +1264,10 @@ def append_entry(fileh,det,overwrite=False):
         except:
             row['color_gr'] = [np.nan,np.nan,np.nan]
 
-
+        if G.ODIN_HACK:
+            row['odin_lineflux'] = det.odin_lineflux
+            row['odin_f1sigma'] = det.f1sigma
+            row['odin_completeness'] = det.completeness
 
 
         if TEST_LINE_FIT:

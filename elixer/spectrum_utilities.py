@@ -726,7 +726,7 @@ def is_edge_fiber(absolute_fiber_num, ifux=None, ifuy=None):
             return True
 
 
-def get_fluxlimits(ra,dec,wave,datevobs,sncut=4.8,flim_model=None,ffsky=False,rad=3.5):
+def get_fluxlimits(ra,dec,wave,datevobs,sncut=4.8,flim_model="v4",ffsky=False,rad=3.5,lineflux=None,linewidth=None):
     """
     wrapper to call into HETDEX API
 
@@ -739,7 +739,9 @@ def get_fluxlimits(ra,dec,wave,datevobs,sncut=4.8,flim_model=None,ffsky=False,ra
     :param ra:
     :param dec:
     :param wave:
-    :return: array of flux limits (integrated line fluxes, by default over 7 wavebins) and apcor
+    :param lineflux: lineflux at the specified wave
+    :param linewidth: linewidth (?sigma?) optional
+    :return: array of flux limits (integrated line fluxes, by default over 7 wavebins), apcor, completeness for the flux
     """
 
     try:
@@ -755,10 +757,10 @@ def get_fluxlimits(ra,dec,wave,datevobs,sncut=4.8,flim_model=None,ffsky=False,ra
                     dec = np.full(len(wave), dec)
                 else: #they have shapes but don't match
                     log.error("spectrum_utilitiess::get_fluxlimits() bad input. RA, Dec shape does not match wave shape.")
-                    return None, None
+                    return None, None, None
         except:
             log.error("spectrum_utilitiess::get_fluxlimits() bad input. RA, Dec shape does not match wave shape.")
-            return None, None
+            return None, None, None
 
         try:
             _ = datevobs / 1 #simple
@@ -787,13 +789,20 @@ def get_fluxlimits(ra,dec,wave,datevobs,sncut=4.8,flim_model=None,ffsky=False,ra
         #     dependent part of the completeness
         #     model (default = None).
         #f50, apcor = shot_sens.get_f50(ra, dec, wave, sncut, direct_sigmas =True, linewidth = 2.0)
-        f50, apcor = shot_sens.get_f50(ra, dec, wave, sncut)
+        f1sigma, apcor = shot_sens.get_f50(ra, dec, wave, sncut, direct_sigmas=True)
 
-        return f50, apcor
+        #get completness
+        if lineflux is not None:
+            completeness = shot_sens.return_completeness([lineflux], [ra], [dec], [wave], sncut, None,
+                                              linewidth=linewidth)
+        else:
+            completeness = -1
+
+        return f1sigma, apcor, completeness
     except Exception as e:
         log.error(f"Exception attempting to get flux limits and apcor.",exc_info=True)
         print(e)
-        return None, None
+        return None, None, None
 
 
 
