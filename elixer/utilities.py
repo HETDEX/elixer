@@ -1671,7 +1671,16 @@ def odin_hack_get_odin_lineflux(infn, lookup_id):
 
     try:
         if infn is None:
-            infn = G.ODIN_HACK_FLUXFN
+            try:
+                if len(G.ODIN_HACK_FLUXFN[0]) > 1:
+                    #this is a list
+                    for fn in G.ODIN_HACK_FLUXFN:
+                        if os.path.isfile(fn):
+                            infn = fn
+                            break
+
+            except:
+                infn = G.ODIN_HACK_FLUXFN
 
         odin_id  = np.loadtxt(infn, dtype=int, usecols=(0), unpack=True)
         odin_lineflux = np.loadtxt(infn, dtype=float, usecols=(1), unpack=True)

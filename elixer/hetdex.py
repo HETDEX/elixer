@@ -13587,7 +13587,7 @@ class HETDEX:
                         e.completeness = completeness[0]
 
                         if e.odin_lineflux is not None:
-                            title += f"ODINFlux = {e.odin_lineflux:0.3g}  f1s={e.f1sigma:0.3g}  cmp={e.completeness:0.2f}\n"
+                            title += f"ODINFlux = {e.odin_lineflux:0.3g}  f1s={e.f1sigma:0.3g}  cmp={e.completeness:0.3f}\n"
                     except:
                         log.error(f"Exception! ODIN HACK",exc_info=True)
                         title += f"ODINFlux = EXCEPTION\n"
