@@ -27,7 +27,7 @@ UNSET_INT = -99999
 UNSET_STR = ""
 UNSET_NAN = np.nan
 TEST_LINE_FIT = False #set to TRUE to temporarily test the line fitting in ELiXer vs original pipeline
-LOCAL_ODIN_HACK = True
+LOCAL_ODIN_HACK = False
 
 log = G.Global_Logger('hdf5_logger')
 log.setlevel(G.LOG_LEVEL)
@@ -2551,6 +2551,375 @@ def merge_unique(newfile,file1,file2):
     except:
         log.error("Exception! conducting merge in elixer_hdf5::merge_unique", exc_info=True)
         return False
+
+    return True
+
+
+
+
+def merge_unique_limited(newfile,file1,file2):
+    """
+
+    Just like merge_unique BUT only merge IF the detection is in file1
+    (That is do not ADD any new detections from file2, only update file1 if file2 has a match)
+
+    :param newfile: file name of new file to create as merge of file1 and file2
+    :param file1:  either of the two files to merge
+    :param file2:  other file to merge
+    :return:
+    """
+    import glob
+
+    chunk_size = 25000 #25k
+    try:
+        file1_handle = get_hdf5_filehandle(file1,append=False,allow_overwrite=False,must_exist=True)
+        file2_handle = get_hdf5_filehandle(file2, append=False, allow_overwrite=False, must_exist=True)
+
+
+        if (file1_handle is None) or (file2_handle is None):
+            print("Unable to open source file(s) for merge_unique_limited.")
+            log.info("Unable to open source file(s) for merge_unique_limited.")
+            return False
+
+        # max_dets = len(file1_handle.root.Detections) + len(file2_handle.root.Detections)
+        #
+        # newfile_handle = get_hdf5_filehandle(newfile,append=False,allow_overwrite=False,must_exist=False,
+        #                                      estimated_dets=max_dets)
+        #
+        # if newfile_handle is None:
+        #     print("Unable to create destination file for merge_unique_limited. File may already exist.")
+        #     log.info("Unable to create destination file for merge_unique_limited.")
+        #     return False
+
+    except:
+        log.error("Exception! in elixer_hdf5::merge_unique_limited",exc_info=True)
+
+    #todo: enforce version matching?? since creating new file, these should be backward compatible with defaults for
+    #todo: missing columns
+
+    try:
+
+        dtb1 = file1_handle.root.Detections
+        dtb2 = file2_handle.root.Detections
+
+        detectids = dtb1.read()['detectid']
+        #detectids = np.concatenate((detectids,dtb2.read()['detectid']))
+
+        #detectids = np.array(sorted(set(detectids))) #'set' so they are unique
+
+        #break into chunks of 100,000
+        num_chunks = int(len(detectids)/chunk_size)+1
+        detect_chunks = np.array_split(detectids,num_chunks)
+
+
+        #check if either old h5s have the extra tables:
+        if not G.DeblendSpectra:
+            try:
+                _ = file1_handle.root.DeblendedSpectra
+                G.DeblendSpectra = True
+            except:
+                try:
+                    _ = file2_handle.root.DeblendedSpectra
+                    G.DeblendSpectra = True
+                except:
+                    try:
+                        _ = file1_handle.root.NeighborSpectra
+                        G.DeblendSpectra = True
+                    except:
+                        try:
+                            _ = file2_handle.root.NeighborSpectra
+                            G.DeblendSpectra = True
+                        except:
+                            pass
+
+        log.info("Merging %d detections ..." %len(detectids))
+
+        for chunk in detect_chunks:
+            #make a new receiving h5 file
+            log.info(f"Merging for chunk starting at {chunk[0]}")
+            newfile_chunk = newfile + f".chunk{chunk[0]}"
+            newfile_handle = get_hdf5_filehandle(newfile_chunk, append=False, allow_overwrite=True, must_exist=False,
+                                                 estimated_dets=chunk_size)
+
+            if newfile_handle is None:
+                print(f"Unable to create destination file {newfile_chunk} for merge_unique_limited. File may already exist.")
+                log.info(f"Unable to create destination file {newfile_chunk} for merge_unique_limited.")
+                return False
+
+            dtb_new = newfile_handle.root.Detections
+            stb_new = newfile_handle.root.CalibratedSpectra
+            ltb_new = newfile_handle.root.SpectraLines
+            atb_new = newfile_handle.root.Aperture
+            ctb_new = newfile_handle.root.CatalogMatch
+            etb_new = newfile_handle.root.ExtractedObjects  # new MUST have this table
+            xtb_new = newfile_handle.root.ElixerApertures
+
+            try:
+                ntb_new = newfile_handle.root.NeighborSpectra
+                LyC = True
+                Deblend = True #redundant
+            except:
+                LyC = False
+                Deblend = False
+
+            try:
+                dstb_new = newfile_handle.root.DeblendedSpectra
+                LyC = True
+                Deblend = True #redundant
+            except:
+                LyC = False
+                Deblend = False
+
+            try:
+                vote_tb_new = newfile_handle.root.ClassificationExtraFeatures
+                Vote_Table = True
+            except:
+                Vote_Table = False
+
+            for d in chunk:
+                try:
+                    log.debug(f"Merging {d}")
+
+                    source_h = None
+
+                    date1 = dtb1.read_where('detectid==d')['elixer_datetime']
+                    date2 = dtb2.read_where('detectid==d')['elixer_datetime']
+                    date_new = dtb_new.read_where('detectid==d')['elixer_datetime']
+                    q_date = None
+
+
+                    #choose nearest date
+                    if date1.size == 0:
+                        log.info(f"{d} not in {file1}. Skipping ...")
+                        continue
+                    elif date2.size == 0:  #file1 to be used, file2 has no entry
+                        if date1.size > 1:
+                            source_h = file1_handle
+                            q_date = max(date1)
+                        else:
+                            source_h = file1_handle
+                            q_date = date1[0]
+                    else: #both have entries
+                        best_date1 = max(date1)
+                        best_date2 = max(date2)
+
+                        if best_date1 > best_date2:
+                            source_h = file1_handle
+                            q_date = best_date1
+                        else:
+                            source_h = file2_handle
+                            q_date = best_date2
+
+                    #now check the that NEW file does not already have this
+                    if date_new.size == 0: #it does not, so proceed
+                        pass
+                    elif date_new.size == 1:
+                        if date_new < q_date:
+                            #the "new" file is already out of date (from a previous trip through this loop)
+                            #really, this should not happen either and for now, just alarm and move on
+                            print(f"Elixer merge_unique_limited, new file already found for {d}")
+                            log.error(f"Elixer merge_unique_limited, new file already found for {d}")
+                            continue
+                        else: #already good
+                            print(f"Elixer merge_unique_limited, new file already found for {d}. Date is good. Keeping ...")
+                            log.info(f"Elixer merge_unique_limited, new file already found for {d}. Date is good. Keeping ...")
+                            continue
+                    else: #this should be impossible
+                        print(f"Elixer merge_unique_limited, multiple entries ({date_new.size}) in new file already found for {d}")
+                        log.error(f"Elixer merge_unique_limited, multiple entries ({date_new.size}) in new file already found for {d}")
+                        continue
+
+
+                    if source_h is None:
+                        continue
+
+                    dtb_src = source_h.root.Detections
+                    stb_src = source_h.root.CalibratedSpectra
+                    ltb_src = source_h.root.SpectraLines
+                    atb_src = source_h.root.Aperture
+                    ctb_src = source_h.root.CatalogMatch
+
+                    dtb_new.append(dtb_src.read_where("(detectid==d) & (elixer_datetime==q_date)"))
+                    #################################
+                    #manual merge of defunct version
+                    #################################
+                    #if False:
+                    #   old_row = dtb_src.read_where("(detectid==d) & (elixer_datetime==q_date)")[0]
+                    #   new_row = dtb_new.row
+                    #   temp_append_dtb_002_to_003(new_row,old_row)
+
+                    #unfortunately, have to assume following data is unique
+                    stb_new.append(stb_src.read_where("(detectid==d)"))
+                    ltb_new.append(ltb_src.read_where("(detectid==d)"))
+                    atb_new.append(atb_src.read_where("(detectid==d)"))
+                    ctb_new.append(ctb_src.read_where("(detectid==d)"))
+                    try:
+                        etb_src = source_h.root.ExtractedObjects
+                        etb_new.append(etb_src.read_where("(detectid==d)"))
+                    except Exception as e:
+                        print(f"ExtractedObjects merge failed {d}")
+                        print(e)
+
+                    try:
+                        xtb_src = source_h.root.ElixerApertures
+                        xtb_new.append(xtb_src.read_where("(detectid==d)"))
+                    except Exception as e:
+                        print(f"ElixerApertures merge failed {d}")
+                        print(e)
+
+                    if LyC or Deblend:
+                        try:
+                            ntb_src = source_h.root.NeighborSpectra
+                            ntb_new.append(ntb_src.read_where("(detectid==d)"))
+                        except Exception as e:
+                            print(f"NeighborSpectra merge failed {d}")
+                            print(e)
+
+                        try:
+                            dstb_src = source_h.root.DeblendedSpectra
+                            dstb_new.append(dstb_src.read_where("(detectid==d)"))
+                        except Exception as e:
+                            print(f"DeblendedSpectra merge failed {d}")
+                            print(e)
+
+                    if Vote_Table:
+                        try:
+                            vote_tb_src = source_h.root.ClassificationExtraFeatures
+                            vote_tb_new.append(vote_tb_src.read_where("(detectid==d)"))
+                        except Exception as e:
+                            print(f"ClassificationExtraFeatures merge failed {d}")
+                            print(e)
+
+                    #flush_all(newfile_handle) #don't think we need to flush every time
+                    #definitely DO NOT reindex each time ... super costly; flush each time is okay, but does increase
+                    #overall time a bit and is not necessary
+
+                except Exception as e:
+                    print(f"Exception! merging detectid {d} : {e}")
+                    log.error("Exception! merging detectid (%d): (%s)" %(d,e))
+             # end for loop
+            flush_all(newfile_handle,reindex=True) #re-index is important for the final merge
+            newfile_handle.close()
+
+        #end for loop (chunks)
+        file2_handle.close()
+        file1_handle.close()
+
+        #now glob all the chunks and regular merge (already know they are unique)
+        log.info("Chunking done. Calling merge_elixer_hdf5_files ...")
+        chunk_files = glob.glob(newfile + ".chunk*")
+        merge_elixer_hdf5_files(newfile,chunk_files)
+
+        #now, cleanup the chunks
+        for cf in chunk_files:
+            os.remove(cf)
+
+    except:
+        log.error("Exception! conducting merge in elixer_hdf5::merge_unique_limited", exc_info=True)
+        return False
+
+    return True
+
+def merge_cluster(target_file,source_file):
+    """
+    Update target_file entries with entries from source_file
+    (mostly redshift and classification updates following clutering)
+
+    target_file detectIDs should be a superset of soruce file
+    any source file detectIDs not in target_file are ignored
+
+    :param target_file:  original hdf5 file WILL BE OVERWRITTEN !!!
+    :param source_file:  hdf5 file with the clustering updates
+    :return:
+    """
+
+    try:
+        target_h5 = get_hdf5_filehandle(target_file, append=True, allow_overwrite=True, must_exist=True)
+        #source_h5 = get_hdf5_filehandle(source_file, append=False, allow_overwrite=False, must_exist=True)
+        #target_h5 = tables.open_file(target_file,mode="r+")
+        source_h5 = tables.open_file(source_file)
+
+        if (target_h5 is None) or (source_h5 is None):
+            print("Unable to open source file(s) for merge_unique.")
+            log.info("Unable to open source file(s) for merge_unique.")
+            return False
+
+    except:
+        log.error("Exception! in elixer_hdf5::merge_cluster",exc_info=True)
+
+    try:
+
+        dtb1 = target_h5.root.Detections
+        dtb2 = source_h5.root.Detections
+
+        target_detectids = dtb1.read(field="detectid")
+        source_detectids = dtb2.read(field="detectid")
+
+        update_dets = np.intersect1d(source_detectids,target_detectids)
+
+
+        log.info(f"Updating {len(update_dets)} shared detections ... ")
+        updated_ct = 0
+
+        #assuming the updated dets are sparse, iterate over those
+        for det in update_dets:
+            try:
+                row = dtb1.read_where("detectid==det")
+                if len(row) == 0: #this is a miss
+                    log.warning(f"{det} not found in {target_file}")
+                    continue
+
+                if len(row) > 1: #duplicates, should not exist
+                    log.warning(f"{det} found multiple ({len(row)}) times in {target_file}. Skipping.")
+                    continue
+
+                #otherwise this is good
+                src_row = dtb2.read_where("detectid==det")
+                if len(src_row) == 0:  # this is a miss ... makes NO SENSE
+                    log.error(f"{det} not found in {source_file} !?!")
+                    continue
+
+                if len(src_row) > 1:  # duplicates, should not exist
+                    log.warning(f"{det} found multiple ({len(src_row)}) times in {target_file} !?!. Skipping.")
+                    continue
+
+                #? can we just replace the whole row? or do we need to go column by column
+                #since there *could* be a weird case with extra temporary columns, maybe we should go column by column
+                # ... this also lets us only up date specfic columns
+
+
+
+
+
+
+                #assuming all good, update the row
+
+                #row.update()
+                updated_ct += 1
+
+            except:
+                log.error(f"Exception! conducting merge in elixer_hdf5::merge_cluster for {det}", exc_info=True)
+
+        log.info(f"{updated_ct} records updatd.")
+        log.info(f"flushing tables ...")
+        #dtb1.flush() #this might be costly given the size and perhaps should be moved to the end?
+
+
+
+    except:
+        log.error("Exception! conducting merge in elixer_hdf5::merge_cluster", exc_info=True)
+        try:
+            source_h5.close()
+            target_h5.close()
+        except:
+            pass
+        return False
+
+    try:
+        source_h5.close()
+        target_h5.close()
+    except:
+        pass
 
     return True
 

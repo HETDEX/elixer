@@ -410,6 +410,13 @@ def parse_commandline(auto_force=False):
                                                'detection. Format: new-file,file1,file2.\nNote: preferred TACC use'
                                                ' with IDEV. Do not use with selixer.', required=False)
 
+    parser.add_argument('--merge_unique_limited', help='Format: new-file,file1,file2. Update file1 if matched with file2'
+                                                       ' and write to new-file. Only updates. Does not append.', required=False)
+
+    parser.add_argument('--merge_cluster', help='Update an elixer h5 file with records from elixer clusterin. '
+                                               'Format: to be updated file, file with the updates',
+                                                required=False)
+
     parser.add_argument('--remove_dets', help='Remove list of detections from ELiXer HDF5 files. '
                                                'Format: new-file,file1,file2.\nNote: preferred TACC use'
                                                ' with IDEV. Do not use with selixer.', required=False)
@@ -861,7 +868,7 @@ def parse_commandline(auto_force=False):
         print("This can take a long time depending on total number of records.")
         return args
 
-    if args.merge or args.merge_unique or args.merge_local:
+    if args.merge or args.merge_unique or args.merge_local or args.merge_unique_limited or args.merge_cluster:
         print("Merging catalogs (ignoring all other parameters) ... ")
         return args
 
@@ -3320,7 +3327,54 @@ def merge_unique(args=None):
     except:
         log.error("Exception! merging HDF5 files in merge_unique",exc_info=True)
 
+def merge_unique_limited(args=None):
+    """
+    note: elixer_hdf5 will chunk the h5 files into small blocks and merge the blocks (much more efficient)
+    :param args:
+    :return:
+    """
 
+    try:
+        # tokenize
+        toks = args.merge_unique_limited.split(',')
+        if len(toks) != 3:
+            print("Invalid parameters for merge_unique_limited (%s)" % args.merge_unique_limited)
+            log.error("Invalid parameters for merge_unique_limited (%s)" % args.merge_unique_limited)
+            return
+
+        result = elixer_hdf5.merge_unique_limited(toks[0], toks[1], toks[2])
+
+        if result:
+            print("Success. File = %s" % toks[0])
+        else:
+            print("FAIL.")
+    except:
+        log.error("Exception! merging HDF5 files in merge_unique_limited", exc_info=True)
+
+
+def merge_cluster(args=None):
+    """
+    note: elixer_hdf5 will chunk the h5 files into small blocks and merge the blocks (much more efficient)
+    :param args:
+    :return:
+    """
+
+    try:
+        #tokenize
+        toks = args.merge_cluster.split(',')
+        if len(toks) != 2:
+            print("Invalid parameters for merge_cluster (%s)"%args.merge_cluster)
+            log.error("Invalid parameters for merge_cluster (%s)"%args.merge_cluster)
+            return
+
+        result = elixer_hdf5.merge_cluster(toks[0],toks[1])
+
+        if result:
+            print("Success. File = %s" %toks[0])
+        else:
+            print("FAIL.")
+    except:
+        log.error("Exception! merging HDF5 files in merge_cluster",exc_info=True)
 
 def remove_dets(args=None):
     """
@@ -5427,6 +5481,14 @@ def main():
         merge_unique(args)
         exit(0)
 
+    if args.merge_unique_limited:
+        merge_unique_limited(args)
+        exit(0)
+
+
+    if args.merge_cluster:
+        merge_cluster(args)
+        exit(0)
 
     if args.remove_dets:
         remove_dets(args)
