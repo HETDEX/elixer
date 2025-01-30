@@ -645,6 +645,11 @@ def parse_commandline(auto_force=False):
             if args.special == 1138:
                 print(f"***** RUNNING SPECIALIZED CODE: ODIN HACK *****")
                 log.critical(f"***** RUNNING SPECIALIZED CODE: ODIN HACK *****")
+                #the hack also has to be on in elixer_hdf5
+                if elixer_hdf5.LOCAL_ODIN_HACK is False:
+                    print(f"***** ERROR! elixer_hdf5.LOCAL_ODIN_HACK is not ON ***** ")
+                    log.critical(f"**** ERROR! elixer_hdf5.LOCAL_ODIN_HACK is not ON *****")
+                    return None #this will cause external processing of args to fail, which is fatal
                 G.ODIN_HACK = True
 
             ########################################
