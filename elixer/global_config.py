@@ -1658,3 +1658,5 @@ EFR_FLAG_ALL_ZERO                       = 0x00000020 #residual is all zero value
 
 ODIN_HACK = False #apply special case hacked up code for comparing with ODIN; turn on/off with --special
 ODIN_HACK_FLUXFN = ["../odin.fluxes","../../odin.fluxes"] #file with updated odin ids and linefluxes
+#note: NB filters N419;  4193AA center +/- 37AA  ; N501 5014AA +/- 36AA per https://arxiv.org/pdf/2309.10191
+#ignore 3rd NB filter which is outside HETDEX range

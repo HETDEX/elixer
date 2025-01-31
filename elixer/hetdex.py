@@ -13773,7 +13773,7 @@ class HETDEX:
 
 
 
-        if e.w > 0:
+        if e.w > 0 and not G.ODIN_HACK:
             #title = title + "\nLy$\\alpha$ Z = %g" % la_z
             title = title + "\nLyA z = %0.4f" % la_z
             if (oii_z > 0):
@@ -16233,7 +16233,13 @@ class HETDEX:
                 if e.odin_lineflux is None:
                     e.odin_lineflux = utils.odin_hack_get_odin_lineflux(None, lookup_id=e.entry_id)
                 #need 2x 1e17 for the flux to be consistent with the 2AA binning and how the HETDEX parms are represented
-                odin_fit_spec = gaussian(x=wave_grid, x0=parms[0], sigma=parms[1], a=e.odin_lineflux*2e17, y=parms[3] * y_mul / parms[4])
+                if e.sn < 2.0:
+                    odin_sigma = min(3.5,parms[1])
+                    odin_ls = (0,(5,1))
+                else:
+                    odin_sigma = parms[1]
+                    odin_ls = "solid"
+                odin_fit_spec = gaussian(x=wave_grid, x0=parms[0], sigma=odin_sigma, a=e.odin_lineflux*2e17, y=parms[3] * y_mul / parms[4])
             except:
                 log.error(f"Exception! ODIN HACK", exc_info=True)
 
@@ -16281,7 +16287,7 @@ class HETDEX:
         specplot.plot(wave_grid, fit_spec, c='k', lw=2, linestyle="solid", alpha=0.7, zorder=0)
         specplot.errorbar(wave_data,flux,yerr=flux_err,fmt='.',zorder=9)
         if G.ODIN_HACK:
-            specplot.plot(wave_grid, odin_fit_spec, c='r', lw=2, linestyle="solid", alpha=0.7, zorder=0)
+            specplot.plot(wave_grid, odin_fit_spec, c='r', lw=2, linestyle=odin_ls, alpha=0.7, zorder=0)
 
         #add the zero line
         specplot.axhline(y=0,linestyle='solid',alpha=0.5,color='k',zorder=9)
@@ -16298,6 +16304,27 @@ class HETDEX:
         # specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], ls='--', c=[0.3, 0.3, 0.3])
         # specplot.axis([cwave - ww, cwave + ww, min_y, mx + ran / 20])
 
+
+        if G.ODIN_HACK:  # show the ODIN filters wavelength footprint
+            try:
+                yl, yh = specplot.get_ylim()
+                alpha = 0.15
+
+                if 4150 < cwave < 4240:
+                    central_w = 4193.0
+                    half_width = 37.0
+                    rec = plt.Rectangle((central_w - half_width, yl), 2 * half_width, yh - yl, fill=True, lw=1,
+                                        color='red', alpha=alpha, zorder=0, hatch='/', ec=None)
+                    specplot.add_patch(rec)
+                elif 4970 < cwave < 5060:
+                    central_w = 5014.0
+                    half_width = 36.0
+                    rec = plt.Rectangle((central_w - half_width, yl), 2 * half_width, yh - yl, fill=True, lw=1,
+                                        color='red', alpha=alpha, zorder=0, hatch='/', ec=None)
+                    specplot.add_patch(rec)
+
+            except:
+                pass
 
         buf = io.BytesIO()
         plt.savefig(buf, format='png', dpi=300)
@@ -16456,6 +16483,7 @@ class HETDEX:
 
             if unlabeled:
                 specplot.axis('off')
+
 
         except:
             log.warning("Unable to build cutout spec plot. Datakeep info:\n"
@@ -17066,6 +17094,27 @@ class HETDEX:
                 rec = plt.Rectangle((central_w - half_width, yl), 2 * half_width, yh - yl, fill=False, lw=1,
                                     color='k', alpha=alpha, zorder=1, hatch='/',ec=None)
                 specplot.add_patch(rec)
+            except:
+                pass
+
+        if G.ODIN_HACK: #show the ODIN filters wavelength footprint
+            try:
+                yl, yh = specplot.get_ylim()
+                alpha = 0.25
+
+                central_w = 4193.0
+                half_width = 37.0
+                rec = plt.Rectangle((central_w - half_width, yl), 2 * half_width, yh - yl, fill=True, lw=1,
+                                    color='red', alpha=alpha, zorder=1, hatch='/', ec=None)
+                specplot.add_patch(rec)
+
+
+                central_w = 5014.0
+                half_width = 36.0
+                rec = plt.Rectangle((central_w - half_width, yl), 2 * half_width, yh - yl, fill=True, lw=1,
+                                    color='red', alpha=alpha, zorder=1, hatch='/', ec=None)
+                specplot.add_patch(rec)
+
             except:
                 pass
 

@@ -27,7 +27,7 @@ UNSET_INT = -99999
 UNSET_STR = ""
 UNSET_NAN = np.nan
 TEST_LINE_FIT = False #set to TRUE to temporarily test the line fitting in ELiXer vs original pipeline
-LOCAL_ODIN_HACK = False
+LOCAL_ODIN_HACK = True
 
 log = G.Global_Logger('hdf5_logger')
 log.setlevel(G.LOG_LEVEL)
