@@ -1,5 +1,11 @@
 changes to elixer by version
 
+1.22.5a2 [2025-02-01]
+* fix OLD 'bug' (the code was not a mistake, but should have been updated a long time ago) where for re-extractions,
+  the spectrum for the target coordinates (at the top of the neighborhood map) was in flux-density instead of flux
+  (and is thus inconsistent with all other representations)
+* adding in support for 2D stacking (spectrum_utilities::stack_2d_uniform)
+
 1.22.5a1 [2025-01-28]
 * add new option --fit_delta_wave to be used with --wavelength. It sets a wavelength range (AA) around the specified (target)
   wavelength in which to search for an emission line. Normal use case would be for looking for a line within some

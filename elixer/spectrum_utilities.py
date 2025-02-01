@@ -7436,6 +7436,129 @@ def interpolate_nn (source_values, source_waves, grid, source_err=None, edgefill
         return values, errors  # , mults
 #end interpolote_nn_shift
 
+def stack_2d_uniform(data,errors=None,weights=None,method='biweight',norm_err_stat=True,fill_nan=None,clipping=None):
+    """
+    Take an array of 2D arrays (nominally, photometric images from a single instrument + filter) of the same size and stack.
+
+    :param data: array of 2D data elements
+    :param errors:  [optional] errors on the data, must be the same shape
+    :param weights: [optional] weight for each 'pixel' of the data and errors (if provided), must be the same shape
+    :param method:  choose one of: 'sum', 'mean', 'median', 'biweight','weighted_biweight'
+                    if 'weighted_biweight', the errors paramter MUST be provided
+    :param norm_err_stat: if True divide statistical error by sqrt(N)
+    :param fill_nan: value fill for NaNs in the the data (does not apply to error or weights). Otherwise, NaNs are ignored.
+    :param clipping: tuple of (minimum, maximum) to clip the data. Notice: errors and weights are NOT clipped
+    :return: status (0 = good, otherwise a problem),
+             stack_2d (the requested stack),
+             stack_2d_err_prop (propogated error on the stack),
+             stack_2d_err_stat (statistical error on the stack ... e.g. std.dev or bieweight scale). Does not apply to 'sum'
+    """
+    try:
+        stack_2d = None
+        stack_2d_err_prop = None
+        stack_2d_err_stat = None
+        status = 0
+
+        #check inputs
+        if errors is not None and np.shape(errors) != np.shape(data):
+            log.error(f"spectum_utilities::stack_2d_uniform() data and errors not the same shape. {np.shape(data)} != {np.shape(errors)}.")
+            status = -1
+            return status, stack_2d, stack_2d_err_prop, stack_2d_err_stat
+
+        if weights is not None and np.shape(weights) != np.shape(data):
+            log.error(f"spectum_utilities::stack_2d_uniform() data and weights not the same shape. {np.shape(data)} != {np.shape(weights)}.")
+            status = -1
+            return status, stack_2d, stack_2d_err_prop, stack_2d_err_stat
+
+        if method.lower() not in ['sum','mean','median','biweight','weighted_biweight']:
+            log.error(f"spectum_utilities::stack_2d_uniform() invalid stack method {method}. Must be one of:  ['sum','mean','median','biweight','weighted_biweight']")
+            status = -1
+            return status, stack_2d, stack_2d_err_prop, stack_2d_err_stat
+
+        if method.lower() == 'weighted_biweight' and errors is None:
+            log.error(f"spectum_utilities::stack_2d_uniform() errors must be provided for method == weighted_biweight.")
+            status = -1
+            return status, stack_2d, stack_2d_err_prop, stack_2d_err_stat
+
+        if fill_nan is not None and not isinstance(fill_nan,(int,float)):
+            log.error(
+                f"spectum_utilities::stack_2d_uniform() invalid fill_nan ({fill_nan}). Must an int or float.")
+            status = -1
+            return status, stack_2d, stack_2d_err_prop, stack_2d_err_stat
+
+        if clipping is not None:
+            try:
+                if len(clipping) != 2 or not (isinstance(clipping[0],(int,float)) and isinstance(clipping[1],(int,float))):
+                    log.error(f"spectum_utilities::stack_2d_uniform() invalid clipping ({clipping}). Must be tuple of ints or floats.")
+                    status = -1
+                    return status, stack_2d, stack_2d_err_prop, stack_2d_err_stat
+            except:
+                log.error(
+                    f"spectum_utilities::stack_2d_uniform() invalid clipping ({clipping}). Must be tuple of ints or floats.")
+                status = -1
+                return status, stack_2d, stack_2d_err_prop, stack_2d_err_stat
+
+        #otherwise all good inputs
+
+        #update data NaN's or clip, as requested
+        if fill_nan is not None or clipping is not None: #we are going to modify data
+            data_ = copy.copy(data)
+            if fill_nan is not None:
+                data_ = np.nan_to_num(data_,nan=fill_nan)
+            if clipping is not None:
+                data_= np.clip(data_, clipping[0],clipping[1])
+        else: #not modifying data, so just point to it
+            data_ = data
+
+        if weights is not None:
+            data_ = data_ * weights
+            if errors is not None:
+                errors = errors * weights
+
+        N = len(data_) #number of data elements, e.g. number of 2D arrays to stack
+        if norm_err_stat:
+            stat_norm = 1./np.sqrt(N)
+        else:
+            stat_norm = 1.0
+
+        if method.lower() == 'sum':
+            stack_2d = np.nansum(data_,axis=0)
+            if errors is not None:
+                stack_2d_err_prop = np.sqrt(np.nansum(errors,axis=0) ** 2)
+
+        elif method.lower() == 'mean':
+            stack_2d = np.nanmean(data_,axis=0)
+            stack_2d_err_stat = np.nanstd(data_, axis=0) * stat_norm
+            if errors is not None:
+                #as error propogation
+                stack_2d_err_prop = data_ * np.sqrt(np.nansum(errors/data_,axis=0) ** 2)
+
+        elif method.lower() == 'median':
+            stack_2d = np.nanmedian(data_,axis=0)
+            stack_2d_err_stat = np.nanstd(data_, axis=0) * stat_norm
+            if errors is not None:
+                #as error propogation
+                stack_2d_err_prop = data_ * np.sqrt(np.nansum(errors/data_,axis=0) ** 2)
+
+        elif method.lower() == 'biweight':
+            stack_2d = biweight.biweight_location(data_,axis=0,ignore_nan=True)
+            stack_2d_err_stat = biweight.biweight_scale(data_, axis=0, ignore_nan=True) * stat_norm
+            if errors is not None:
+                #as error propogation
+                stack_2d_err_prop = data_ * np.sqrt(np.nansum(errors/data_,axis=0) ** 2)
+
+        elif method.lower() == 'weighted_biweight':
+            stack_2d = weighted_biweight.biweight_location_errors(data_, errors=errors, axis=0) #ignore_nan effectively always True
+            stack_2d_err_stat = biweight.biweight_scale(data_, axis=0, ignore_nan=True) * stat_norm
+            if errors is not None:
+                # as error propogation
+                stack_2d_err_prop = data_ * np.sqrt(np.nansum(errors / data_, axis=0) ** 2)
+
+    except:
+        log.error(f"Exception in stack_2d_uniform.",exc_info=True)
+
+    return status, stack_2d, stack_2d_err_prop, stack_2d_err_stat
+
 def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="biweight",straight_error=False,std=False,
                   allow_zero_valued_errs = False, interp_nn=False, edgefill=-1):
     """
@@ -7697,6 +7820,9 @@ def stack_spectra(fluxes,flux_errs,waves, grid=None, avg_type="biweight",straigh
         return stack_flux,stack_flux_err,grid,contrib_count,stack_flux_std
     else:
         return stack_flux,stack_flux_err,grid,contrib_count
+
+
+
 
 
 #
