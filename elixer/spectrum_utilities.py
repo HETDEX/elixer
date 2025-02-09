@@ -7450,8 +7450,11 @@ def stack_2d_uniform(data,errors=None,weights=None,method='biweight',norm_err_st
     :param clipping: tuple of (minimum, maximum) to clip the data. Notice: errors and weights are NOT clipped
     :return: status (0 = good, otherwise a problem),
              stack_2d (the requested stack),
-             stack_2d_err_prop (propogated error on the stack),
-             stack_2d_err_stat (statistical error on the stack ... e.g. std.dev or bieweight scale). Does not apply to 'sum'
+             stack_2d_err_prop (propogated error on the stack) only returned if errors is populated
+             stack_2d_err_stat (statistical error on the stack ... e.g. std.dev or bieweight scale). Does not apply to 'sum'.
+                               Essentially the standard error of the mean (where std or biweight scale is used, and
+                               mean is the mean or median or biweight location, etc depending on the method) when
+                               norm_err_stat is True.
     """
     try:
         stack_2d = None

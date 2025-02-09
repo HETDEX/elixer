@@ -865,15 +865,22 @@ if True:
 
         #try again, forcing the mask off? ,,. if this bombs then we are done anyway, so let if abend
         PER_FIBER_PER_WAVE_MASKING = False
-        if rescor: #adds just one more column for califb_ffsky_rescor
-            fibers_table = get_fibers_table(shot,survey=survey_name,add_rescor=True,add_mask=PER_FIBER_PER_WAVE_MASKING,
-                                            mask_in_place=PER_FIBER_PER_WAVE_MASKING,mask_options=None)
-            print(f"{shotid} [DONE] get_fibers_table() + rescor ....  {datetime.datetime.now()}, # rows = {len(fibers_table)}")
-        else: #local or ffsky must already be true
-            fibers_table = get_fibers_table(shot,survey=survey_name,add_rescor=False,add_mask=PER_FIBER_PER_WAVE_MASKING,
-                                            mask_in_place=PER_FIBER_PER_WAVE_MASKING,mask_options=None)
-            print(f"{shotid} [DONE] get_fibers_table()  ....  {datetime.datetime.now()}, # rows = {len(fibers_table)}")
+        try:
+            if rescor: #adds just one more column for califb_ffsky_rescor
+                fibers_table = get_fibers_table(shot,survey=survey_name,add_rescor=True,add_mask=PER_FIBER_PER_WAVE_MASKING,
+                                                mask_in_place=PER_FIBER_PER_WAVE_MASKING,mask_options=None)
+                print(f"{shotid} [DONE] get_fibers_table() + rescor ....  {datetime.datetime.now()}, # rows = {len(fibers_table)}")
+            else: #local or ffsky must already be true
+                fibers_table = get_fibers_table(shot,survey=survey_name,add_rescor=False,add_mask=PER_FIBER_PER_WAVE_MASKING,
+                                                mask_in_place=PER_FIBER_PER_WAVE_MASKING,mask_options=None)
+                print(f"{shotid} [DONE] get_fibers_table()  ....  {datetime.datetime.now()}, # rows = {len(fibers_table)}")
 
+        except Exception as E:
+            print(f"Error! [{shot}] failed to get_fibers_table() ... second attempt with masking off.")
+            print(E)
+            print(f"Fatal Error! [{shot}]. Cannot continue. Terminating...")
+            with open (f"{shot}.fail","w") as f:
+                f.write(f"Failed. {E}\n")
 
 
 
