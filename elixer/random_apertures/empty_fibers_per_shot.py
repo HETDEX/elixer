@@ -881,6 +881,7 @@ if True:
             print(f"Fatal Error! [{shot}]. Cannot continue. Terminating...")
             with open (f"{shot}.fail","w") as f:
                 f.write(f"Failed. {E}\n")
+            exit(-1)
 
 
 
@@ -1024,7 +1025,14 @@ if True:
     if rescor:
         cols_to_keep.append('calfib_ffsky_rescor')
 
-    fibers_table.keep_columns(cols_to_keep)
+    try:
+        fibers_table.keep_columns(cols_to_keep)
+    except Exception as E:
+        print(f"Exception! [{shot}] Cannot keep columns from fibers_table: {cols_to_keep}")
+        print(E)
+        print(f"Fatal Error! [{shot}]. Cannot continue. Terminating...")
+        with open(f"{shot}.fail", "w") as f:
+            f.write(f"Failed. {E}\n")
 
 
     start = f'{shot}_0'
