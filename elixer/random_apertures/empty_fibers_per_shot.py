@@ -1033,6 +1033,7 @@ if True:
         print(f"Fatal Error! [{shot}]. Cannot continue. Terminating...")
         with open(f"{shot}.fail", "w") as f:
             f.write(f"Failed. {E}\n")
+        exit(-1)
 
 
     start = f'{shot}_0'
