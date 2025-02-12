@@ -2898,7 +2898,13 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             log.debug(f"Fit rejected: fit_a_err/fit_a {eli.fit_a_err / abs(eli.fit_a)} > {max_allowed_peak_err_fraction}"
                       f" and rough_height/rough_continuum {rough_height/rough_fwhm} < f{min_height_to_fwhm}")
         else:
-            eli.build(values_units=values_units,allow_broad=allow_broad,broadfit=broadfit)
+            try:
+                if eli.absorber and (eli.cont >= G.CONTINUUM_THRESHOLD_FOR_ABSORPTION_CHECK or gmag <= G.DEX_GMAG_THRESHOLD_FOR_ABSORPTION_CHECK):
+                    eli.build(values_units=values_units,allow_broad=allow_broad,broadfit=broadfit,override_continuum_rules=True)
+                else:
+                    eli.build(values_units=values_units, allow_broad=allow_broad, broadfit=broadfit)
+            except:
+                eli.build(values_units=values_units, allow_broad=allow_broad, broadfit=broadfit)
             #eli.snr = max(eli.fit_vals) / (np.sqrt(num_sn_pix) * eli.fit_rmse)
             snr = eli.snr
     else:
@@ -3118,7 +3124,15 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             eli.mcmc_to_fit(mcmc,values_units,values_dx)
             #and rescore from MCMC
             old_score = eli.line_score
-            eli.build(values_units=values_units,allow_broad=allow_broad,broadfit=broadfit)
+            try:
+                if eli.absorber and (eli.cont >= G.CONTINUUM_THRESHOLD_FOR_ABSORPTION_CHECK
+                                     or gmag <= G.DEX_GMAG_THRESHOLD_FOR_ABSORPTION_CHECK):
+                    eli.build(values_units=values_units,allow_broad=allow_broad,broadfit=broadfit,
+                              override_continuum_rules=True)
+                else:
+                    eli.build(values_units=values_units,allow_broad=allow_broad,broadfit=broadfit)
+            except:
+                eli.build(values_units=values_units, allow_broad=allow_broad, broadfit=broadfit)
             log.info(f"Rescore from MCMC: old {old_score}, new {eli.line_score}")
 
         else:
@@ -7421,7 +7435,7 @@ class Spectrum:
 
                             h.mcmc_ew_obs = [ew, ew_err, ew_err]
 
-                            h.build(values_units=values_units,allow_broad=False,broadfit=False)
+                            h.build(values_units=values_units,allow_broad=False,broadfit=False,override_continuum_rules=True)
                             h.raw_score = h.line_score
                             h.score = signal_calc_scaled_score(h.line_score)
 

@@ -25,7 +25,7 @@ if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
 #version
-__version__ = '1.22.5a2'
+__version__ = '1.22.5a3'
 
 
 #initial working dir
@@ -994,6 +994,7 @@ USE_SDSS_SPEC_GMAG = True #allow calcuation of gmag via SDSS filter (spectrum::g
 CONTINUUM_FLOOR_COUNTS = 6.5 #5 sigma * 6 counts / sqrt(40 angstroms/1.9 angs per pixel)
 
 CONTINUUM_THRESHOLD_FOR_ABSORPTION_CHECK = 2.0e-17 # erg/s/cm2/AA (near gmag 21)
+DEX_GMAG_THRESHOLD_FOR_ABSORPTION_CHECK = 21.0 #anything brighter
 
 CONTINUUM_BRIGHT_REL_ERR_LIMIT = 0.25 #hack to prevent nonsense brightside uncertainties
 CONTINUUM_NONDETECT_REL_ERR = 0.2 #if the continum is a nondetect, set the uncertainty to be this fraction of the mag (or flux) limit

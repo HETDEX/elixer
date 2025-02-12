@@ -1,5 +1,10 @@
 changes to elixer by version
 
+1.22.5a3 [2025-02-12]
+* fix bug where H line (of H&K) was being zeroed out in score in re-extractions where continuum rules were not being
+  properly activated, resulting in the next best fit (K line) being used yeilding a wrong redshift. Rules should be
+  set in these cases when the continuum is greater than 2e-17 or about g < 21.
+
 1.22.5a2 [2025-02-01]
 * fix OLD 'bug' (the code was not a mistake, but should have been updated a long time ago) where for re-extractions,
   the spectrum for the target coordinates (at the top of the neighborhood map) was in flux-density instead of flux
