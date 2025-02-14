@@ -1694,7 +1694,8 @@ class DetObj:
                         expect_to_find_any = False
                         for d in self.aperture_details_list:
                             if d['filter_name'].lower() in ['g','r','f606w']:
-                                if d['mag_limit'] is not None and (24 < d['mag_limit']):
+                                #if d['mag_limit'] is not None and (24 < d['mag_limit']):
+                                if d['mag_limit'] is not None and (d['mag_limit'] - self.best_gmag > 0.5):
                                     if self.best_gmag is not None and self.best_gmag < d['mag_limit']:
                                         expect_to_find_any = True
                                     #imaging qualifies, there should be something
@@ -1709,7 +1710,7 @@ class DetObj:
                         if new_flag and expect_to_find_any: #non-match still possible ... check the catalogs
                             try:
                                 for d in self.bid_target_list[1:]: #skip #0 as that is the Elixer entry
-                                    if d.bid_filter.lower() in ['g','r','f606w']:
+                                    if d.bid_ra != 666 and d.bid_filter.lower() in ['g','r','f606w']:
                                         if d.distance < 1.5:
                                             new_flag = 0 #we did find something, so break
                                             break
