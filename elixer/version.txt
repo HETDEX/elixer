@@ -1,9 +1,13 @@
 changes to elixer by version
 
-1.22.5a3 [2025-02-12]
+1.22.5a3 [2025-02-21]
 * fix bug where H line (of H&K) was being zeroed out in score in re-extractions where continuum rules were not being
   properly activated, resulting in the next best fit (K line) being used yeilding a wrong redshift. Rules should be
   set in these cases when the continuum is greater than 2e-17 or about g < 21.
+* change call to HETDEX_API make_narrowband_image() to always set detctid to None since the coords are always passed.
+  If the detectID is populated, make_narrowband_image() ignores the coords and looks up the detectid and that may not
+  be the desired behvior.
+
 
 1.22.5a2 [2025-02-01]
 * fix OLD 'bug' (the code was not a mistake, but should have been updated a long time ago) where for re-extractions,

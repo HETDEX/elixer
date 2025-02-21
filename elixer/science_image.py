@@ -146,7 +146,7 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
             log.debug("Extra call to hetdex_tools.interpolate.make_narrowband_image for larger cutout and better statistics...")
 
             hdu_big = hetdex_tools.interpolate.make_narrowband_image(
-                detectid=detectid,
+                detectid=None, #detectid, # I always pass coords ... if detectid is present though, the coords are ignored
                 survey=f"hdr{G.HDR_Version}",
                 coords=coords,
                 shotid=shotid,
@@ -173,7 +173,7 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
             hdu_big = None
 
         hdu = hetdex_tools.interpolate.make_narrowband_image(
-            detectid=detectid,
+            detectid=None,#detectid, # I always pass coords ... if detectid is present though, the coords are ignored
             survey=f"hdr{G.HDR_Version}",
             coords=coords,
             shotid=shotid,

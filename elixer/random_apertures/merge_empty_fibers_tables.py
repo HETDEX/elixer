@@ -1,6 +1,7 @@
 # combine (stack) the tables
 import glob
 import os
+import traceback
 
 from astropy.table import Table,vstack
 import sys
@@ -114,7 +115,7 @@ else: #newer way, stack in a single call?
     #this is sloppy and dumb
     #should factor out and make a common function with table as input
 
-    if True:  # LL table
+    if False:  # LL table
         table_outname = "empty_fibers_ll_"  # prefix
         files = glob.glob("empty_fibers_*ll.fits")
         files = sorted(files)
@@ -158,7 +159,7 @@ else: #newer way, stack in a single call?
 
             del T
 
-    if True:  # ff table
+    if False:  # ff table
         table_outname = "empty_fibers_ff_"  # prefix
         files = glob.glob("empty_fibers_*ff.fits")
         files = sorted(files)
@@ -206,7 +207,21 @@ else: #newer way, stack in a single call?
         files = glob.glob("empty_fibers_*ffrc.fits")
         files = sorted(files)
 
-        T = vstack([Table.read(f, format="fits") for f in files])
+        #T = vstack([Table.read(f, format="fits") for f in files])
+        #debugging
+        import tqdm
+        T = None
+        for f in tqdm(files):
+            try:
+                if T is None:
+                    T = Table.read(f, format="fits")
+                else:
+                    T = vstack([T, Table.read(f, format="fits")])
+
+            except Exception as E:
+                print(f"Could not stackin {f}.\n {E}")
+                print(f"{traceback.format_exc()}")
+
 
         if T is not None:
             #if there is an existing merged table already, then append what we just read to it
