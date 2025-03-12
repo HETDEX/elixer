@@ -3769,18 +3769,25 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
                 #set to the normal "best" based on the sky type requested
                 if ffsky is False:
                     #this is local sky
-                    rtype = "t03"
+                    rtype = "t026" #note: prior to extra flagging and limited dataset, was t03
+                    #20250218 notes:
+                    #the two that flank the HSC-gmag stacking set ... 2.4% results in a stack that is slightly too faint
+                    #                                                 2.8% results in a stack that is slightly too bright
+                    #                                                 2.6% is overall best, swaps with 2.8 to 3.2 at about 24.8g
+
+                    #old notes (prior to 20250218)
                     #the two that flank the HSC-gmag stacking set ... 2.8% results in a stack that is slightly too faint
                     #                                                 3.2% results in a stack that is slightly too bright
                     #                                                 3.0% is overall best, swaps with 2.8 to 3.2 at about 25g
-                    #rtype_lo = "t028"
-                    #rtype_hi = "t032"
-                    #mean (over wavelengths) of average error = 0.0003816568128305999
+                    #rtype_lo =  "t024" #"t028"
+                    #rtype_hi =  "t028" #"t032"
+                    #mean (over wavelengths) of average error = 0.0003816568128305999 #old 202407??
+                    #mean (over wavelengths) of average error = 0.0003795121511321117  #20250218 (more data, larger date range)
                     enhanced_error = 0.00038 #this is an average of the "average" difference for t028 - t03, t03 - t032
                                              #mean vs median about the same; this is between 3500AA dn 5500AA
                 elif add_rescor is False:
                     #this is normal ffsky
-                    rtype = "t022"
+                    rtype = "t022" #even after extra flagging and more data, is still t022
                     #the two that flank the HSC-gmag stacking set ... 2.0% results in a stack that is slightly too faint
                     #                                                 2.4% results in a stack that is slightly too bright
                     #                                                 2.2% is overall best, 2.4 becomes best about 25.2g
@@ -3788,11 +3795,24 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
                     #rtype_hi = "t024"
                     #notice the enhanced error is almost the same as the local sky one
                     #mean (over wavelengths) of average error = 0.00038957015674489533
+                    #mean (over wavelengths) of average error = 0.00039153577170405996 #20250218, more data, larger date range
                     enhanced_error = 0.00039 #this is an average of the "average" difference for t02 - t022, t024 - t022
                                              #mean vs median about the same; this is between 3500AA dn 5500AA
                 else:
                     #this is rescor
-                    log.error("Nominal best not yet defined for ffsky+rescor")
+                    rtype ="t018"
+
+                    #***NOTE: rescor "empty" fibers are all slightly NEGATIVE so we actually end up ADDING
+                    #         flux back-in rather than subtracting away like the other two sky subtractions ***
+                    #the two that flank the HSC-gmag stacking set ... 1.6% results in a stack that is slightly too faint
+                    #                                                 2.0% results in a stack that is slightly too bright,
+                    #                                                          but about spot on for < 24.6
+                    #                                                 1.8% is overall best, 2.4 becomes best about g=24.6
+                    #                                                 1.8%  is barely faint < 24.6
+
+                    # mean (over wavelengths) of average error = 0.0003731786219240325 #20250218, more data, larger date range
+                    enhanced_error = 0.00037  # this is an average of the "average" difference for t02 - t022, t024 - t022
+
                     return residual, residual_err, contributors, G.EFR_FLAG_INVALID_PARAMETERS
 
             #todo: update this for generic columns

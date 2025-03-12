@@ -1,5 +1,12 @@
 changes to elixer by version
 
+1.22.5a4 [2025-03-12]
+* update average empty fiber "best" rtypes (spectrum_utilities::get_empty_fiber_residual_h5()) for updated local sky,
+ffsky, and newly added rescor
+    + ffsky did not change (rtype stayed 2.2%, t022) ... actual change very minimal
+    + local sky changed some (rtype from 3.0% to 2.6%, t03 to t026) and was computed over a larger date range than before
+    + rescor is newly added (rtype 1.8%, t018)
+
 1.22.5a3 [2025-02-21]
 * fix bug where H line (of H&K) was being zeroed out in score in re-extractions where continuum rules were not being
   properly activated, resulting in the next best fit (K line) being used yeilding a wrong redshift. Rules should be
