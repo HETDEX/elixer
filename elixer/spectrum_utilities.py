@@ -3813,7 +3813,7 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
                     # mean (over wavelengths) of average error = 0.0003731786219240325 #20250218, more data, larger date range
                     enhanced_error = 0.00037  # this is an average of the "average" difference for t02 - t022, t024 - t022
 
-                    return residual, residual_err, contributors, G.EFR_FLAG_INVALID_PARAMETERS
+                    #return residual, residual_err, contributors, G.EFR_FLAG_INVALID_PARAMETERS
 
             #todo: update this for generic columns
             col = rtype+"_fluxd"
