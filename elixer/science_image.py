@@ -165,11 +165,11 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
             #     hdu_big[i].data = np.nan_to_num(hdu_big[i].data)
 
             hdu_median = np.nanmedian(np.where(hdu_big[0].data == 0, np.nan,hdu_big[0].data))#np.median(hdu[0].data)
-            hud_std = np.nanstd(hdu_big[0].data)
+            hdu_std = np.nanstd(hdu_big[0].data)
 
         else:
             hdu_median = None
-            hud_std = None
+            hdu_std = None
             hdu_big = None
 
         hdu = hetdex_tools.interpolate.make_narrowband_image(
@@ -211,14 +211,14 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
 
         if hdu_median is None:
             hdu_median = np.nanmedian(np.where(hdu[0].data == 0, np.nan,hdu[0].data))#np.median(hdu[0].data)
-            hud_std = np.std(hdu[0].data)
+            hdu_std = np.std(hdu[0].data)
 
         #subtract off the avg
         hdu[0].data -= hdu_median
 
-        cutout.vmax = 4 * hud_std
-        cutout.vmin = max( np.min(hdu[0].data), -1 * hud_std) #None
-        #cutout.vmin = max( np.min(hdu.data), -1 * hud_std) #None
+        cutout.vmax = 4 * hdu_std
+        cutout.vmin = max( np.min(hdu[0].data), -1 * hdu_std) #None
+        #cutout.vmin = max( np.min(hdu.data), -1 * hdu_std) #None
         cutout.wave = w
         cutout.d_wave = dw
 
@@ -787,6 +787,8 @@ class science_image():
 
         if hasattr(wcs.wcs,'cd'):
             return np.sqrt(wcs.wcs.cd[0, 0] ** 2 + wcs.wcs.cd[0, 1] ** 2) * 3600.0
+        elif hasattr(wcs.wcs,'pc'):
+            return np.sqrt(wcs.wcs.pc[0, 0] ** 2 + wcs.wcs.pc[0, 1] ** 2) * 3600.0
         elif hasattr(wcs.wcs,'cdelt'): #like Pan-STARRS (assume both directions are the same)
             return abs(wcs.wcs.cdelt[0]) * 3600.0
         else: #we have a problem

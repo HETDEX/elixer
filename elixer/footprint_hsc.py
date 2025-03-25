@@ -15,7 +15,7 @@ basepath = "/data/03261/polonius/hdr2/imaging/hsc/"
 
 
 def build_wcs_automatically(fname):
-    wcs = wcs = WCS(fname,relax = astropy.wcs.WCSHDR_CD00i00j | astropy.wcs.WCSHDR_PC00i00j)
+    wcs = WCS(fname,relax = astropy.wcs.WCSHDR_CD00i00j | astropy.wcs.WCSHDR_PC00i00j)
     return wcs
 
 def build_wcs_manually(img):

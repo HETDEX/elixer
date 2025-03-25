@@ -3732,10 +3732,8 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
                      'raw': stack of ALL fibers (exclduing those marked bad). No continuum trimming
                      'trim': stack of ALL fibers after removing bad fibers and after continuum trimming.
                      [now all remaining are based on 'trim' but with per-wavelength based selection]
-                     't01' to 't05': exclude the top 1% (t01) to top 5% (t05) per wavelength bin
-                     'sc3','sc5': sigma clip at 3-sigma and 5-sigma per wavelength bin (high and low)
-                     'ir67','ir95','ir99': exclude the outer (high and low) 1/6, e.g. keep the interior 67%, 95%, and 99%
-                     <more to come>
+                     't01', 't012' .. to 't05': exclude the top 1% (t01), top 1.2% (t012) ... to top 5% (t05) per wavelength bin
+
         :param shotid: integer dateVshot
         :param seeing: float
         :param response: float i.e response_4540
@@ -3783,7 +3781,7 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
                     #rtype_hi =  "t028" #"t032"
                     #mean (over wavelengths) of average error = 0.0003816568128305999 #old 202407??
                     #mean (over wavelengths) of average error = 0.0003795121511321117  #20250218 (more data, larger date range)
-                    enhanced_error = 0.00038 #this is an average of the "average" difference for t028 - t03, t03 - t032
+                    enhanced_error = 0.00038 #this is an average of the "average" difference for t024 - t026, t028 - t026
                                              #mean vs median about the same; this is between 3500AA dn 5500AA
                 elif add_rescor is False:
                     #this is normal ffsky
@@ -3803,7 +3801,9 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
                     rtype ="t018"
 
                     #***NOTE: rescor "empty" fibers are all slightly NEGATIVE so we actually end up ADDING
-                    #         flux back-in rather than subtracting away like the other two sky subtractions ***
+                    #         flux back-in rather than subtracting away like the other two sky subtractions,
+                    #         which is consistent since rescor tends to slightly OVERSUBTRACT in the initial substaction
+                    #
                     #the two that flank the HSC-gmag stacking set ... 1.6% results in a stack that is slightly too faint
                     #                                                 2.0% results in a stack that is slightly too bright,
                     #                                                          but about spot on for < 24.6
@@ -3811,7 +3811,7 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
                     #                                                 1.8%  is barely faint < 24.6
 
                     # mean (over wavelengths) of average error = 0.0003731786219240325 #20250218, more data, larger date range
-                    enhanced_error = 0.00037  # this is an average of the "average" difference for t02 - t022, t024 - t022
+                    enhanced_error = 0.00037  # this is an average of the "average" difference for t016 - t018, t02 - t018
 
                     #return residual, residual_err, contributors, G.EFR_FLAG_INVALID_PARAMETERS
 
