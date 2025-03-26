@@ -795,7 +795,7 @@ class science_image():
             log.warning("Warning! Unable to determine pixel scale in science_image::calc_pixel_size. WCS does not have cd or cdelt keywords.")
             return None
 
-    def get_vrange(self,vals,contrast=0.25):
+    def get_vrange(self,vals,contrast=0.25,krej=2.5):
         self.vmin = None
         self.vmax = None
 
@@ -809,7 +809,7 @@ class science_image():
             pass #just use the whole width
 
         try:
-            zscale = ZScaleInterval(contrast=contrast,krej=2.5) #nsamples=len(vals)
+            zscale = ZScaleInterval(contrast=contrast,krej=krej) #nsamples=len(vals)
             self.vmin, self.vmax = zscale.get_limits(values=cpvals)
             log.info("Vrange = %f, %f" %(self.vmin,self.vmax))
         except IndexError:
