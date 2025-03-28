@@ -697,7 +697,7 @@ def find_objects_fixed_kernel(cutout, kernel_fwhm = 3.0, kernel_size = 9, thresh
 
 #todo: should we allow ra,dec to be arrays?
 #todo: or use an array of SkyCoords?
-def forced_aperture(cutout,ra,dec,radius,pixel_space=False, pixel_size=None):
+def forced_aperture(cutout,ra,dec,radius,pixel_space=False, pixel_size=None,center_pix=(None,None)):
     """
 
     Perform forced aperture photometry, using the same RMS Background as find_objects()
@@ -709,6 +709,7 @@ def forced_aperture(cutout,ra,dec,radius,pixel_space=False, pixel_size=None):
     :param radius: decinmal arcsecs, can be an array or a single value (if array, must be same length as ra, dec)
     :param pixel_space: if True, treat ra,dec as x,y
     :param pixel_size: need to set (arsecs/pixel) if opertating in pixel_space and there is no WCS
+    :param center_pix: need to set (in pixel coords) if cutout is just a 2d data array and not an elixer cutout object
     :return:
     """
 
@@ -775,15 +776,26 @@ def forced_aperture(cutout,ra,dec,radius,pixel_space=False, pixel_size=None):
                 # add a warning to the status output
                 # alternately, could use an RMS background? like SEP?
 
-                cx, cy = cutout.center_cutout
+                try:
+                    cx, cy = cutout.center_cutout
+                except:
+                    cx = center_pix[0]
+                    cy = center_pix[1]
 
                 # the endianness of THIS system ... may not
                 # necessarily be the endian encoding of the cutout data
                 if sys.byteorder == 'big':
-                    data = cutout.data
+                    try:
+                        data = cutout.data
+                    except:
+                        data = cutout
                     big_endian = True
                 else:
-                    data = cutout.data.byteswap().newbyteorder()
+
+                    try:
+                        data = cutout.data.byteswap().newbyteorder()
+                    except:
+                        data = cutout.byteswap().newbyteorder()
                     big_endian = False
 
                 try:
@@ -795,9 +807,15 @@ def forced_aperture(cutout,ra,dec,radius,pixel_space=False, pixel_size=None):
                             if not big_endian:
                                 # the inverse of the above assignment (for zipped data the decompression may already handle the
                                 # flip so doing it again would have put it in the wrong ENDIAN order
-                                data = cutout.data
+                                try:
+                                    data = cutout.data
+                                except:
+                                    data = cutout
                             else:
-                                data = cutout.data.byteswap().newbyteorder()
+                                try:
+                                    data = cutout.data.byteswap().newbyteorder()
+                                except:
+                                    data = cutout.byteswap().newbyteorder()
 
                             bkg = sep.Background(data)
 
