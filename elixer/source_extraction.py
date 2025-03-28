@@ -697,7 +697,7 @@ def find_objects_fixed_kernel(cutout, kernel_fwhm = 3.0, kernel_size = 9, thresh
 
 #todo: should we allow ra,dec to be arrays?
 #todo: or use an array of SkyCoords?
-def forced_aperture(_cutout,ra,dec,radius,pixel_space=False, pixel_size=None):
+def forced_aperture(_cutout,ra,dec,radius,pixel_space=False, pixel_size=None, origin='center'):
     """
 
     Perform forced aperture photometry, using the same RMS Background as find_objects()
@@ -709,6 +709,8 @@ def forced_aperture(_cutout,ra,dec,radius,pixel_space=False, pixel_size=None):
     :param radius: decinmal arcsecs, can be an array or a single value (if array, must be same length as ra, dec)
     :param pixel_space: if True, treat ra,dec as x,y
     :param pixel_size: need to set (arsecs/pixel) if opertating in pixel_space and there is no WCS
+    :param origin: used if pixel_space is True, must be 'lower','upper', or 'center' and specifies the 0,0 position
+                of your supplied ra,dec (as x,y) relative to the data array in pixels
     :return:
     """
 
@@ -819,6 +821,16 @@ def forced_aperture(_cutout,ra,dec,radius,pixel_space=False, pixel_size=None):
                 if pixel_space:
                     x = coord.x.value
                     y = coord.y.value
+                    if origin=='center':
+                        x = cx-x
+                        y = cy-y
+                    elif origin=='upper':
+                        y = 2.*cy-y
+                    elif origin=="lower":
+                        pass #lower is the default for python indexing
+                    else:
+                        status.append(f"Invalid origin specified: {origin}")
+                        return img_objects, status
                 else:
                     x,y = astropy.wcs.utils.skycoord_to_pixel(coord,cutout.wcs)
 
@@ -843,7 +855,7 @@ def forced_aperture(_cutout,ra,dec,radius,pixel_space=False, pixel_size=None):
 
             d = initialize_dict()
             d['idx'] = idx
-            d['x_pix'] = x   #in pixels relative to the original (python is lower left?)
+            d['x_pix'] = x   #in pixels relative to the original (python is lower left by default)
             d['y_pix'] = y
             d['x'] = (x - cx) * pixel_size  # want as distance in arcsec so pixels * arcsec/pixel
             d['y'] = (y - cy) * pixel_size
