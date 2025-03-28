@@ -25,7 +25,7 @@ if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
 #version
-__version__ = '1.22.5a4'
+__version__ = '1.22.5a5'
 
 
 #initial working dir

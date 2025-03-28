@@ -140,6 +140,7 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
         else:
             dw /= 3.0 #assumes wave_range is -3*sigma to +3*sigma and dw made half that range just above
 
+        img_idx = 0
         adjusted_imsize = max(imsize,30.0) #select a minimum size for better statistics, can trim down after the call
         if adjusted_imsize != imsize:
             #log.debug("Extra call to phot_tools.get_line_image for larger cutout and better statistics...")
@@ -164,8 +165,10 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
             # for i in range(len(hdu_big)):
             #     hdu_big[i].data = np.nan_to_num(hdu_big[i].data)
 
-            hdu_median = np.nanmedian(np.where(hdu_big[0].data == 0, np.nan,hdu_big[0].data))#np.median(hdu[0].data)
-            hdu_std = np.nanstd(hdu_big[0].data)
+            if hdu_big is not None and len(hdu_big) == 3 and hdu_big[0].data is None:
+                img_idx = 1
+            hdu_median = np.nanmedian(np.where(hdu_big[img_idx].data == 0, np.nan,hdu_big[img_idx].data))#np.median(hdu[0].data)
+            hdu_std = np.nanstd(hdu_big[img_idx].data)
 
         else:
             hdu_median = None
@@ -190,7 +193,10 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
         # for i in range(len(hdu)):
         #     hdu[i].data = np.nan_to_num(hdu[i].data)
 
-        cutout = cp.deepcopy(hdu[0])
+        if hdu is not None and len(hdu) == 3 and hdu[0].data is None:
+            img_idx = 1
+
+        cutout = cp.deepcopy(hdu[img_idx])
 
         #if north is down, flip everything
         #this is the rotation between up in the plot and North ...
@@ -210,14 +216,14 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
         cutout.flux, cutout.flux_err, cutout.bkg_stddev, cutout.apcor = None, None, None, None
 
         if hdu_median is None:
-            hdu_median = np.nanmedian(np.where(hdu[0].data == 0, np.nan,hdu[0].data))#np.median(hdu[0].data)
-            hdu_std = np.std(hdu[0].data)
+            hdu_median = np.nanmedian(np.where(hdu[img_idx].data == 0, np.nan,hdu[img_idx].data))#np.median(hdu[0].data)
+            hdu_std = np.std(hdu[img_idx].data)
 
         #subtract off the avg
-        hdu[0].data -= hdu_median
+        hdu[img_idx].data -= hdu_median
 
         cutout.vmax = 4 * hdu_std
-        cutout.vmin = max( np.min(hdu[0].data), -1 * hdu_std) #None
+        cutout.vmin = max( np.min(hdu[img_idx].data), -1 * hdu_std) #None
         #cutout.vmin = max( np.min(hdu.data), -1 * hdu_std) #None
         cutout.wave = w
         cutout.d_wave = dw
