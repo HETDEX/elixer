@@ -710,7 +710,8 @@ def forced_aperture(_cutout,ra,dec,radius,pixel_space=False, pixel_size=None, or
     :param pixel_space: if True, treat ra,dec as x,y
     :param pixel_size: need to set (arsecs/pixel) if opertating in pixel_space and there is no WCS
     :param origin: used if pixel_space is True, must be 'lower','upper', or 'center' and specifies the 0,0 position
-                of your supplied ra,dec (as x,y) relative to the data array in pixels
+                of your supplied ra,dec (as x,y) relative to the data array in pixels.
+                e.g. if you specify ra= 0, dec =0 and you want that to mean the center of the image, then origin="center"
     :return:
     """
 
@@ -825,7 +826,7 @@ def forced_aperture(_cutout,ra,dec,radius,pixel_space=False, pixel_size=None, or
                         x = cx-x
                         y = cy-y
                     elif origin=='upper':
-                        y = 2.*cy-y
+                        y = -1 * y
                     elif origin=="lower":
                         pass #lower is the default for python indexing
                     else:
