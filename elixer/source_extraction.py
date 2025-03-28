@@ -746,6 +746,12 @@ def forced_aperture(cutout,ra,dec,radius,pixel_space=False, pixel_size=None):
 
 
         if pixel_space:
+            try:
+                _ = len(ra)
+            except:
+                ra = [ra]
+                dec = [dec]
+
             coords = np.array([PixelCoord(x, y) for x, y in zip(ra, dec)])
         else:
             coords = SkyCoord(ra,dec,unit="deg")
