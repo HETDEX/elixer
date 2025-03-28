@@ -811,7 +811,7 @@ def forced_aperture(_cutout,ra,dec,radius,pixel_space=False, pixel_size=None, or
 
                         except Exception as e:
                             status.append(f"Exception {e}")
-                            return img_objects, status
+                            return [], status
 
                 data_sub = data - bkg
                 data_err = bkg.globalrms  # use the background RMS as the error (assume sky dominated)
@@ -830,7 +830,7 @@ def forced_aperture(_cutout,ra,dec,radius,pixel_space=False, pixel_size=None, or
                         pass #lower is the default for python indexing
                     else:
                         status.append(f"Invalid origin specified: {origin}")
-                        return img_objects, status
+                        return [], status
                 else:
                     x,y = astropy.wcs.utils.skycoord_to_pixel(coord,cutout.wcs)
 
