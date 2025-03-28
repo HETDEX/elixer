@@ -23,6 +23,7 @@ import sep #source extractor python module
 
 import astropy.io.fits as fits
 from astropy.coordinates import SkyCoord
+import astropy.units as u
 from astropy.nddata import Cutout2D
 import astropy.wcs
 
@@ -35,6 +36,24 @@ import traceback
 #######################################
 # Helper functions
 #######################################
+
+class PixelCoord:
+    """
+    mostly dummy class to look like astropy SkyCoord
+    """
+    def __init__(self,x,y):
+        self.x = x if isinstance(x,u.quantity.Quantity) else x * u.pixel
+        self.y = y if isinstance(y,u.quantity.Quantity) else y * u.pixel
+
+    @property
+    def ra(self):
+        return self.x
+
+    @property
+    def dec(self):
+        return self.y
+
+
 
 def dist_to_ellipse(xp,yp,xc,yc,a,b,angle):
     """
@@ -678,7 +697,7 @@ def find_objects_fixed_kernel(cutout, kernel_fwhm = 3.0, kernel_size = 9, thresh
 
 #todo: should we allow ra,dec to be arrays?
 #todo: or use an array of SkyCoords?
-def forced_aperture(cutout,ra,dec,radius):
+def forced_aperture(cutout,ra,dec,radius,pixel_space=False, pixel_size=None):
     """
 
     Perform forced aperture photometry, using the same RMS Background as find_objects()
@@ -688,6 +707,8 @@ def forced_aperture(cutout,ra,dec,radius):
     :param ra: decimal degrees, can be an array or a single value
     :param dec: decimal degrees, can be an array or a single value
     :param radius: decinmal arcsecs, can be an array or a single value (if array, must be same length as ra, dec)
+    :param pixel_space: if True, treat ra,dec as x,y
+    :param pixel_size: need to set (arsecs/pixel) if opertating in pixel_space and there is no WCS
     :return:
     """
 
@@ -714,7 +735,8 @@ def forced_aperture(cutout,ra,dec,radius):
 
     try:
 
-        pixel_size, *_ = calc_pixel_size(cutout.wcs)
+        if pixel_size is None:
+            pixel_size, *_ = calc_pixel_size(cutout.wcs)
 
         try:
             _ = len(radius) #this has a length so is an array or list
@@ -722,17 +744,20 @@ def forced_aperture(cutout,ra,dec,radius):
         except:
             radius_pix = np.array([radius / pixel_size])
 
-        coords = SkyCoord(ra,dec,unit="deg")
-        if coords.size == 1:
-            coords = [coords]
 
-        if len(coords) != len(radius_pix):
-            if len(radius_pix) == 1: #this is okay ... use the same radius for all
-                radius_pix = np.full(len(coords),radius_pix[0])
-            else: #this is a problem
-                status.append(f"Error. Must have either a single radius OR one radius for each RA, Dec.")
-                return phot_array, status
+        if pixel_space:
+            coords = np.array([PixelCoord(x, y) for x, y in zip(ra, dec)])
+        else:
+            coords = SkyCoord(ra,dec,unit="deg")
+            if coords.size == 1:
+                coords = [coords]
 
+            if len(coords) != len(radius_pix):
+                if len(radius_pix) == 1: #this is okay ... use the same radius for all
+                    radius_pix = np.full(len(coords),radius_pix[0])
+                else: #this is a problem
+                    status.append(f"Error. Must have either a single radius OR one radius for each RA, Dec.")
+                    return phot_array, status
 
         for idx,(coord,r_pix) in enumerate(zip(coords,radius_pix)):
             try:
@@ -779,7 +804,11 @@ def forced_aperture(cutout,ra,dec,radius):
 
 
                 #go from RA, Dec to pixels
-                x,y = astropy.wcs.utils.skycoord_to_pixel(coord,cutout.wcs)
+                if pixel_space:
+                    x = coord.x.value
+                    y = coord.y.value
+                else:
+                    x,y = astropy.wcs.utils.skycoord_to_pixel(coord,cutout.wcs)
 
                 flux, fluxerr, flag = sep.sum_circle(data_sub, [x], [y], [r_pix], subpix=1, err=data_err)
 
