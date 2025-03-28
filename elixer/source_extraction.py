@@ -14,7 +14,7 @@ Primarily two user interfaces (last functions defined):
                        various cat_*.py files in the ELiXer project.)
 
 """
-
+import copy
 import sys
 import numpy as np
 import math
@@ -697,13 +697,13 @@ def find_objects_fixed_kernel(cutout, kernel_fwhm = 3.0, kernel_size = 9, thresh
 
 #todo: should we allow ra,dec to be arrays?
 #todo: or use an array of SkyCoords?
-def forced_aperture(cutout,ra,dec,radius,pixel_space=False, pixel_size=None,center_pix=(None,None)):
+def forced_aperture(_cutout,ra,dec,radius,pixel_space=False, pixel_size=None,center_pix=(None,None)):
     """
 
     Perform forced aperture photometry, using the same RMS Background as find_objects()
     (That is, does NOT use annulus for background)
 
-    :param cutout:  this is an astropy Cutout2D object
+    :param _cutout:  this is an astropy Cutout2D object
     :param ra: decimal degrees, can be an array or a single value
     :param dec: decimal degrees, can be an array or a single value
     :param radius: decinmal arcsecs, can be an array or a single value (if array, must be same length as ra, dec)
@@ -735,6 +735,8 @@ def forced_aperture(cutout,ra,dec,radius,pixel_space=False, pixel_size=None,cent
     status = []
 
     try:
+
+        cutout = copy.deepcopy(_cutout)
 
         if pixel_size is None:
             pixel_size, *_ = calc_pixel_size(cutout.wcs)
