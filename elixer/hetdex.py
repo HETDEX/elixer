@@ -2793,7 +2793,7 @@ class DetObj:
 
                     if len(self.spec_obj.all_found_lines) > 0:
                         any_lines_found = True
-                        elixer_max_idx = np.argmax([x.line_score for x in self.spec_obj.all_found_lines])
+                        elixer_max_idx = np.nanargmax([x.line_score for x in self.spec_obj.all_found_lines])
                         max_line_score = self.spec_obj.all_found_lines[elixer_max_idx].line_score
                     else:
                         elixer_max_idx = None
@@ -3020,7 +3020,7 @@ class DetObj:
 
             #else we have exacly one hit
             #get as index
-            i = np.argmax(sel)
+            i = np.nanargmax(sel)
             z = self.cluster_list[i]['neighbor_z']
             self.cluster_z = z
             self.cluster_qz = self.cluster_list[i]['neighbor_qz']
@@ -3046,7 +3046,7 @@ class DetObj:
                 return
 
             #should only be one, but just to be safe, enforce as the highest ranking (lowest rank value) line
-            line = lines[np.argmin([l.rank for l in lines])]
+            line = lines[np.nanargmin([l.rank for l in lines])]
             boost = G.CLUSTER_SCORE_BOOST
             central_eli = self.spec_obj.central_eli
 
@@ -4040,7 +4040,7 @@ class DetObj:
                     if no_zone1:
                         zone1 = 0.0
                     else:  # really should be lowest and adjacent
-                        i = np.argmin(flux_slice[0:rat_width + 1])
+                        i = np.nanargmin(flux_slice[0:rat_width + 1])
                         if i > 0:
                             v2 = min(flux_slice[i - 1], flux_slice[i + 1])
                         else:
@@ -4049,7 +4049,7 @@ class DetObj:
                         zone1 = (flux_slice[i] + v2) / 2.0
 
                     # top 2
-                    i = np.argmax(flux_slice[rat_width + 1:-rat_width]) + rat_width + 1
+                    i = np.nanargmax(flux_slice[rat_width + 1:-rat_width]) + rat_width + 1
                     v2 = max(flux_slice[i - 1], flux_slice[i + 1])
                     # zone2 = np.nanmean(flux_slice[rat_width+1:-rat_width])
                     zone2 = (flux_slice[i] + v2) / 2.0
@@ -4057,7 +4057,7 @@ class DetObj:
                     if no_zone3:
                         zone3 = 0.0
                     else:
-                        i = np.argmin(flux_slice[-rat_width:]) + len(flux_slice) - rat_width
+                        i = np.nanargmin(flux_slice[-rat_width:]) + len(flux_slice) - rat_width
                         if i >= len(flux_slice) - 1:
                             v2 = flux_slice[i - 1]
                         else:
@@ -4107,7 +4107,7 @@ class DetObj:
                             if no_zone1:
                                 zone1 = 0.0
                             else: #really should be lowest and adjacent
-                                i = np.argmin(flux_slice[0:rat_width+1])
+                                i = np.nanargmin(flux_slice[0:rat_width+1])
                                 if i > 0:
                                     v2 = min(flux_slice[i-1],flux_slice[i+1])
                                 else:
@@ -4117,7 +4117,7 @@ class DetObj:
 
 
                             #top 2
-                            i = np.argmax(flux_slice[rat_width+1:-rat_width]) + rat_width+1
+                            i = np.nanargmax(flux_slice[rat_width+1:-rat_width]) + rat_width+1
                             v2 = max(flux_slice[i-1],flux_slice[i+1])
                             #zone2 = np.nanmean(flux_slice[rat_width+1:-rat_width])
                             zone2 = (flux_slice[i] + v2)/2.0
@@ -4125,7 +4125,7 @@ class DetObj:
                             if no_zone3:
                                 zone3 = 0.0
                             else:
-                                i = np.argmin(flux_slice[-rat_width:]) + len(flux_slice)-rat_width
+                                i = np.nanargmin(flux_slice[-rat_width:]) + len(flux_slice)-rat_width
                                 if i >= len(flux_slice)-1:
                                     v2 = flux_slice[i-1]
                                 else:
@@ -4370,17 +4370,17 @@ class DetObj:
                 common_sum -= min(common_sum)
 
             # which exposure has the maximum
-            cmx_expid = np.argmax(common_sum) + 1
+            cmx_expid = np.nanargmax(common_sum) + 1
             cmx_sum = common_sum[cmx_expid - 1]
 
             # which has the minimum
-            cmn_expid = np.argmin(common_sum) + 1
+            cmn_expid = np.nanargmin(common_sum) + 1
             cmn_sum = common_sum[cmn_expid - 1]
 
             # which is second highest (normally, the only one left, but there could be more than 3 exposures
             strip_sum = copy(common_sum)
             strip_sum[cmx_expid - 1] = -99999.
-            cn2_expid = np.argmax(strip_sum) + 1
+            cn2_expid = np.nanargmax(strip_sum) + 1
             cn2_sum = common_sum[cn2_expid - 1]
 
             near_bright_obj = False
@@ -4415,17 +4415,17 @@ class DetObj:
                 ssum -= min(ssum)
 
                 #which exposure has the maximum
-                mx_expid = np.argmax(ssum)+1
+                mx_expid = np.nanargmax(ssum)+1
                 mx_sum = ssum[mx_expid-1]
 
                 #which has the minimum
-                mn_expid = np.argmin(ssum)+1
+                mn_expid = np.nanargmin(ssum)+1
                 mn_sum = ssum[mn_expid-1]
 
                 #which is second highest (normally, the only one left, but there could be more than 3 exposures
                 strip_sum = copy(ssum)
                 strip_sum[mx_expid-1] = -99999.
-                n2_expid = np.argmax(strip_sum)+1
+                n2_expid = np.nanargmax(strip_sum)+1
                 n2_sum = ssum[n2_expid-1]
 
                 #median and std for later
@@ -5269,7 +5269,7 @@ class DetObj:
                     if (all_emis + all_absb) > 5:
                         try:
                             #max fwhm can be a bad fit and not much of a line, but can be quite large
-                            max_score_idx = np.argmax([x.line_score for x in self.spec_obj.all_found_lines])
+                            max_score_idx = np.nanargmax([x.line_score for x in self.spec_obj.all_found_lines])
 
                             if self.spec_obj.all_found_lines[max_score_idx].line_score < 5.0 or \
                               (self.spec_obj.all_found_lines[max_score_idx].eqw_obs / (self.w / G.LyA_rest) < 10 and \
@@ -8385,10 +8385,10 @@ class DetObj:
                         if np.std(best_guess_extent) > np.min(best_guess_extent):
                             # the extents are very different ... likely due to imaging differences (ground may blend objects
                             # so SEP may give a much larger aperture) so, just use the deepest in this case
-                            base_psf = base_psf[np.argmax(best_guess_maglimit)]
-                            best_guess_extent = best_guess_extent[np.argmax(best_guess_maglimit)]
+                            base_psf = base_psf[np.nanargmax(best_guess_maglimit)]
+                            best_guess_extent = best_guess_extent[np.nanargmax(best_guess_maglimit)]
                             # narrow is the matched minor axis to the selected major axis
-                            best_guess_extent_narrow = best_guess_extent_narrow[np.argmax(best_guess_maglimit)]
+                            best_guess_extent_narrow = best_guess_extent_narrow[np.nanargmax(best_guess_maglimit)]
                             size_in_psf = best_guess_extent / base_psf
                         else:
                             size_in_psf = np.mean(
@@ -8663,7 +8663,7 @@ class DetObj:
             try:
                 self.relflux_virus = row['relflux_virus']
                 self.dither_norm = np.max(self.relflux_virus) / np.min(self.relflux_virus)
-               # self.dither_norm_high_expid = np.argmax(relflux_virus)
+               # self.dither_norm_high_expid = np.nanargmax(relflux_virus)
             except:
                 self.dither_norm = -1.0
 
@@ -8968,7 +8968,7 @@ class DetObj:
                 central_fiber = self.fibers[0]
             else:
                 try:
-                    central_fiber = self.fibers[np.argmax([x.raw_weight for x in self.fibers])]
+                    central_fiber = self.fibers[np.nanargmax([x.raw_weight for x in self.fibers])]
                 except:
                     log.debug("Could not locate central fiber")
                     return gmag
@@ -9703,7 +9703,7 @@ class DetObj:
                 idx = elixer_spectrum.getnearpos(self.sumspec_wavelength, self.w)
             else:
                 try:
-                    idx = np.argmax(self.sumspec_flux)
+                    idx = np.nanargmax(self.sumspec_flux)
                 except:
                     idx = 0
             left = idx - G.GAUSS_FIT_WAVEBIN_STEP  # 2AA steps so +/- 50AA
@@ -10857,7 +10857,7 @@ class DetObj:
                 idx = elixer_spectrum.getnearpos(self.sumspec_wavelength, self.w)
             else:
                 try:
-                    idx = np.argmax(self.sumspec_flux)
+                    idx = np.nanargmax(self.sumspec_flux)
                 except:
                     idx = 0
             left = idx - G.GAUSS_FIT_WAVEBIN_STEP  # 2AA steps so +/- 50AA
@@ -15241,7 +15241,7 @@ class HETDEX:
         ind = list(range(len(datakeep['d'])))
 
         #not all the same shape, corrupt can be 0,0 or 1,1, so take largest
-        summed_image =np.zeros(datakeep['im'][np.argmax([np.sum(x.shape) for x in datakeep['im']])].shape)
+        summed_image =np.zeros(datakeep['im'][np.nanargmax([np.sum(x.shape) for x in datakeep['im']])].shape)
 
         #sanity check for the top few fiber cutouts as identical
         duplicate_weight = 0

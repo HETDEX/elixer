@@ -4379,7 +4379,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             if len(_cutouts) > 0:
                 #start with the first cutout that has the most pixels (there may be multiples with the same number of pixels)
                 pix2 = np.array([sqpix(c['cutout']) for c in _cutouts])
-                best = np.argmax(pix2)
+                best = np.nanargmax(pix2)
                 mc = copy.copy(_cutouts[best]['cutout'])
 
                 if mc is None:

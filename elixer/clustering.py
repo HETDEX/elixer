@@ -354,8 +354,8 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
                 continue #this one is inconsistent (probably it is not the strongest line as the HETDEX line)
 
             line_scores[i] = np.max(lrows['score'])
-            line_w_obs[i] = lrows[np.argmax(lrows['score'])]['wavelength']
-            used_in_solution[i] = lrows[np.argmax(lrows['score'])]['used'] #NOTE: this might not be a multiline solution
+            line_w_obs[i] = lrows[np.nanargmax(lrows['score'])]['wavelength']
+            used_in_solution[i] = lrows[np.nanargmax(lrows['score'])]['used'] #NOTE: this might not be a multiline solution
                                                                            #in which case, used can be False
 
         if np.sum(sel) == 0:
@@ -390,8 +390,8 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
 
 
         #best could be brightest? or highest score on the matching line?
-        brightest = np.argmin(rows['mag_g_wide'])
-        best_line = np.argmax(line_scores)
+        brightest = np.nanargmin(rows['mag_g_wide'])
+        best_line = np.nanargmax(line_scores)
         #best_pz = np.argmax(rows['best_pz'])
 
         #take brightest unless the best_line does not match and is more than 25% better?

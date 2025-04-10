@@ -1800,11 +1800,11 @@ def check_oiii(z,flux,flux_err,wave,delta=0,cont=0,cont_err=0):
         ratio = f5007/f4959
         err = ratio * np.sqrt((e4959/f4959)**2 + (e5007/f5007)**2)
 
-        imax4959 = i4959 - delta + np.argmax(flux[i4959-delta:i4959+delta+1])#getting an index of 0,1 or 2 need to add to the base index
+        imax4959 = i4959 - delta + np.nanargmax(flux[i4959-delta:i4959+delta+1])#getting an index of 0,1 or 2 need to add to the base index
         fmax4959 = flux[imax4959] - cont
         emax4959 = flux_err[imax4959] + cont_err
 
-        imax5007 = i5007 - delta + np.argmax(flux[i5007-delta:i5007+delta+1]) #getting an index of 0,1 or 2 need to add to the base index
+        imax5007 = i5007 - delta + np.nanargmax(flux[i5007-delta:i5007+delta+1]) #getting an index of 0,1 or 2 need to add to the base index
         fmax5007 = flux[imax5007] - cont
         emax5007 = flux_err[imax5007] + cont_err
 
@@ -2741,9 +2741,9 @@ def quick_fit(waves, flux, flux_err, w, delta_w=4.0, width=50, min_sigma=1.7, ma
                                #         (w + delta_w, max_sigma, max(narrow_wave_y) * len(narrow_wave_y),
                                #          max(flux) * 1.5)),
                                bounds=((w - delta_w, min_sigma, 0.0,
-                                            min(narrow_wave_y)-errors[np.argmin(narrow_wave_y)]),
+                                            min(narrow_wave_y)-errors[np.nanargmin(narrow_wave_y)]),
                                            (w + delta_w, max_sigma, max(narrow_wave_y) * len(narrow_wave_y),
-                                            max(narrow_wave_y) + errors[np.argmax(narrow_wave_y)])),
+                                            max(narrow_wave_y) + errors[np.nanargmax(narrow_wave_y)])),
 
                                # sigma=1./(narrow_wave_errors*narrow_wave_errors)
                                sigma=wave_err_sigma,  # , #handles the 1./(err*err)
@@ -2932,7 +2932,7 @@ def quick_line_finder(waves,flux,flux_err,delta_w=2.0,width=50,min_sigma=1.5,max
 
         if True: #debugging
             try:
-                max_idx = np.argmax(np.array(all_score)[best_sel])
+                max_idx = np.nanargmax(np.array(all_score)[best_sel])
                 print(f"Candidates = {np.count_nonzero(csel)}, {np.count_nonzero(best_sel)}")
                 #print(f"wavebin = {waves[best_sel][max_idx]}, wave = {all_cw[best_sel][max_idx]:0.2f}, \
     #             print(f"wave = {all_cw[best_sel][max_idx]:0.2f}, \
@@ -2959,7 +2959,7 @@ def quick_line_finder(waves,flux,flux_err,delta_w=2.0,width=50,min_sigma=1.5,max
             all_ew = all_ew[best_sel]
             all_score = all_score[best_sel]
             try:
-                max_idx = np.argmax(all_score)
+                max_idx = np.nanargmax(all_score)
                 #print("****",max_idx)
             except Exception as e:
                 print(e)

@@ -2,6 +2,7 @@ changes to elixer by version
 
 1.22.5a5 [2025-03-28]
 * updates to align with HETDEX_API make_narrowband_image() changes
+* replace most np.argmax, argmin with NaN safe versions
 
 1.22.5a4 [2025-03-12]
 * update average empty fiber "best" rtypes (spectrum_utilities::get_empty_fiber_residual_h5()) for updated local sky,

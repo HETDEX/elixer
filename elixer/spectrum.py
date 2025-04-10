@@ -2433,7 +2433,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             max_chi2 = 3.5 if absorber else 2.5
             sel_ls = [ (fd["chi2"] <= max_chi2) and (fd["fit_sigma"]) for fd in fit_dict_array]
             if np.count_nonzero(sel_ls) > 0:
-                fd_idx = np.argmax([fd["score"] for fd in fit_dict_array[sel_ls]])
+                fd_idx = np.nanargmax([fd["score"] for fd in fit_dict_array[sel_ls]])
                 fd_idx = np.argwhere([fd['type'] == fit_dict_array[sel_ls][fd_idx]['type'] for fd in fit_dict_array])[0][0]
         except:
             fd_idx = None
@@ -2445,13 +2445,16 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                 fit_dict_array = np.array(fit_dict_array)
                 sel_ls = [fd["score"] >= 10 for fd in fit_dict_array]
                 if np.count_nonzero(sel_ls) > 0:
-                    fd_idx = np.argmin([fd["chi2"] for fd in fit_dict_array[sel_ls]])
+                    fd_idx = np.nanargmin([fd["chi2"] for fd in fit_dict_array[sel_ls]])
                     fd_idx = np.argwhere([fd['type'] == fit_dict_array[sel_ls][fd_idx]['type'] for fd in fit_dict_array])[0][0]
             except:
                 fd_idx = None
 
         if fd_idx is None:
-            fd_idx = np.argmax([fd["score"] for fd in fit_dict_array])
+            try:
+                fd_idx = np.nanargmax([fd["score"] for fd in fit_dict_array])
+            except:
+                pass
 
         if fit_dict_array[fd_idx]['score'] <=0 and not (targetted_fit and forced_mcmc):
             #nothing at all here
@@ -4637,8 +4640,11 @@ def sn_peakdet_no_fit(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,absorber=Fals
                         rise = []
                 if rise_trigger and fall_trigger: #call this a peak, start a new run
                     if len(run) >= dx and np.any(sn[run] >= dvmx):
-                        mx = np.argmax(v[run])  # find largest value in the original arrays from these indicies
-                        pos.append(mx + run[0])  # append that position to pos
+                        try:
+                            mx = np.nanargmax(v[run])  # find largest value in the original arrays from these indicies
+                            pos.append(mx + run[0])  # append that position to pos
+                        except:
+                            pass
                     run = [h]  # start a new run
                     rise = [h]
                     fall = []
@@ -4649,8 +4655,11 @@ def sn_peakdet_no_fit(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,absorber=Fals
 
             else: #not adjacent, are there enough in run to append?
                 if len(run) >= dx and np.any(sn[run] >= dvmx):
-                    mx = np.argmax(v[run]) #find largest value in the original arrays from these indicies
-                    pos.append(mx+run[0]) #append that position to pos
+                    try:
+                        mx = np.nanargmax(v[run]) #find largest value in the original arrays from these indicies
+                        pos.append(mx+run[0]) #append that position to pos
+                    except:
+                        pass
                 run = [h] #start a new run
                 rise = [h]
                 fall = []
@@ -4732,8 +4741,11 @@ def sn_peakdet(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,values_units=0,
                         rise = []
                 if rise_trigger and fall_trigger: #call this a peak, start a new run
                     if len(run) >= dx and np.any(sn[run] >= dvmx):
-                        mx = np.argmax(v[run])  # find largest value in the original arrays from these indicies
-                        pos.append(mx + run[0])  # append that position to pos
+                        try:
+                            mx = np.nanargmax(v[run])  # find largest value in the original arrays from these indicies
+                            pos.append(mx + run[0])  # append that position to pos
+                        except:
+                            pass
                     run = [h]  # start a new run
                     rise = [h]
                     fall = []
@@ -4744,8 +4756,11 @@ def sn_peakdet(wave,spec,spec_err,dx=3,rx=2,dv=2.0,dvmx=3.0,values_units=0,
 
             else: #not adjacent, are there enough in run to append?
                 if len(run) >= dx and np.any(sn[run] >= dvmx):
-                    mx = np.argmax(v[run]) #find largest value in the original arrays from these indicies
-                    pos.append(mx+run[0]) #append that position to pos
+                    try:
+                        mx = np.nanargmax(v[run]) #find largest value in the original arrays from these indicies
+                        pos.append(mx+run[0]) #append that position to pos
+                    except:
+                        pass
                 run = [h] #start a new run
                 rise = [h]
                 fall = []
@@ -4900,8 +4915,11 @@ def peakdet(x,vals,err=None,dw=MIN_FWHM,h=MIN_HEIGHT,dh=MIN_DELTA_HEIGHT,zero=0.
             f"lines at: {[e.fit_x0 for e in eli_poor_list]}")
         combined_eli = combine_lines(eli_poor_list, sep=6.0)
         if len(combined_eli) > 1:
-            idx = np.argmax([e.raw_line_score for e in combined_eli])
-            combined_eli = [combined_eli[idx]]
+            try:
+                idx = np.nanargmax([e.raw_line_score for e in combined_eli])
+                combined_eli = [combined_eli[idx]]
+            except:
+                log.warning("Exception logging peakdet list", exc_info=True)
     else:
         combined_eli = combine_lines(eli_list,sep=6.0)
 
@@ -5565,7 +5583,7 @@ class Spectrum:
 
                 #lastly just choose the one that is nearest the obs_w, even though any remaining are in the acceptable range
                 #least sepearation between obs_w and rest at the given z
-                idx = np.argmin([e.w_rest * (1.0 + z) for e in all_match])
+                idx = np.nanargmin([e.w_rest * (1.0 + z) for e in all_match])
                 #idx = np.argmin([e.rank for e in all_match])
                 return all_match[idx]
         except:
@@ -7448,10 +7466,16 @@ class Spectrum:
             i = -1
             j = -1
             if found_lines:
-                i = np.argmax([x.raw_line_score for x in found_lines])
+                try:
+                    i = np.nanargmax([x.raw_line_score for x in found_lines])
+                except:
+                    pass
 
             if found_absorbers:
-                j = np.argmax([x.raw_line_score for x in found_absorbers])
+                try:
+                    j = np.nanargmax([x.raw_line_score for x in found_absorbers])
+                except:
+                    pass
 
 
             pending_central_eli = None
@@ -7623,7 +7647,10 @@ class Spectrum:
                         del self.solutions
                         self.solutions = []
 
-                    self.central = self.all_found_lines[np.argmax([x.raw_line_score for x in self.all_found_lines])].fit_x0
+                    try:
+                        self.central = self.all_found_lines[np.nanargmax([x.raw_line_score for x in self.all_found_lines])].fit_x0
+                    except:
+                        log.info("Cannot set self.central in spectrum::classify()", exc_info=True)
                     #self.central = self.find_central_wavelength(wavelengths, values, errors, values_units=values_units)
 
                     alt_solutions =  self.classify_with_additional_lines(wavelengths,values,errors,
@@ -8666,7 +8693,7 @@ class Spectrum:
                             all_i = np.argwhere(delta_dx0 == np.max(delta_dx0)).flatten()
                             if len(all_i) > 1:
                                 #find lowest score if there are multple lowest scores, it does not matter which
-                                i = np.argmin(np.array(all_score)[all_i])
+                                i = np.nanargmin(np.array(all_score)[all_i])
                             else:
                                 i = all_i[0]
 
