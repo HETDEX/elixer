@@ -25,7 +25,7 @@ if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
 #version
-__version__ = '1.22.5a5'
+__version__ = '1.22.5'
 
 
 #initial working dir
@@ -1349,67 +1349,57 @@ DETFLAG_FOLLOWUP_NEEDED             = 0x00000001  #unspecified reason, catch-all
 DETFLAG_IMAGING_MAG_INCONSISTENT    = 0x00000002  #large differences in bandpass mags of overlapping imaging (of adequate depth)
                                                   #i.e. between 2 different catalogs, not vs HETDEX spectrum
 DETFLAG_DEX_GMAG_INCONSISTENT       = 0x00000004  #the g-mag from the DEX spectrum is very different from g or r band aperture mag
-                                            #where the DEX g-mag is 24.5 or brighter and the imaging is at least as deep
+                                                   #where the DEX g-mag is 24.5 or brighter and the imaging is at least as deep
 
 DETFLAG_UNCERTAIN_CLASSIFICATION    = 0x00000008  #contradictory information in classification
                                                   #usually echoed in P(LyA) near 0.5 or Q(z) < 0.5, OR
                                                   #there is a weak to moderate line solution that needs visual inspetion
                                                   #typically this is an OIII-5007 or MgII solution that can be confused
                                                   #with LyA
-DETFLAG_BLENDED_SPECTRA             = 0x00000010
-                                        #due to extra emission lines, there maybe two or more different objects in the spectrum
-                                        #or two or more objects in the central 1.5"radius  region
-
-DETFLAG_COUNTERPART_NOT_FOUND       = 0x00000020
-                                        #there is continuum or bright emission in the HETDEX spectrum, but nothing shows
-                                        # in imaging; this is partly redundant with DETFLAG_DEX_GMAG_INCONSISTENT
-DETFLAG_DISTANT_COUNTERPART         = 0x00000040
-                                        #there are SEP ellipses in imaging BUT the nearest SEP ellipse is far away (+0.5")
-                                        #may need inspection to see if associated with large object OR is a faint
-                                        #detection or even lensed
-
+DETFLAG_BLENDED_SPECTRA             = 0x00000010  #due to extra emission lines, there maybe two or more different objects
+                                                  #in the spectrum or two or more objects in the central 1.5"radius  region
+DETFLAG_COUNTERPART_NOT_FOUND       = 0x00000020  #there is continuum or bright emission in the HETDEX spectrum, but nothing shows
+                                                  #in imaging; this is partly redundant with DETFLAG_DEX_GMAG_INCONSISTENT
+DETFLAG_DISTANT_COUNTERPART         = 0x00000040  #there are SEP ellipses in imaging BUT the nearest SEP ellipse is far away (+0.5")
+                                                  #may need inspection to see if associated with large object OR is a faint
+                                                  #detection or even lensed
 DETFLAG_COUNTERPART_MAG_MISMATCH    = 0x00000080 #r,g magnitude of catalog counterpart varies significantly from the
-                                        #aperture magnitude AND is fainter than 22
-
+                                                 #aperture magnitude AND is fainter than 22
 DETFLAG_NO_IMAGING                  = 0x00000100 #no overlapping imaging at all
 DETFLAG_POOR_IMAGING                = 0x00000200 #poor depth (in g,r) ... like just SDSS or PanSTARRS (worse than 24.5)
                                                  #AND the object is not bright (fainter than 23)
-
 DETFLAG_LARGE_SKY_SUB               = 0x00000400 #possibly excessive sky subtraction in g or r band
-                                        #can impact the magnitude calculation (so partly redundant with others)
-                                        #NOTE: this is a reserved flag, but there is no code to check it at this time
-
+                                                 #can impact the magnitude calculation (so partly redundant with others)
+                                                 #NOTE: this is a reserved flag, but there is no code to check it at this time
 DETFLAG_EXT_CAT_QUESTIONABLE_Z      = 0x00000800 #best redshift reported is from an external catalog and might be questionable
                                                  #the redshift my by uncertain or it is unclear that it belongs to our object
-
 DETFLAG_Z_FROM_NEIGHBOR             = 0x00001000 #the original redshift was replaced by that of a neighbor
                                                  #as a better redshift
-
 DETFLAG_DEXSPEC_GMAG_INCONSISTENT   = 0x00002000 #the straight gmag from the DEX spectrum and from SDSS filter do not agree
-
 DETFLAG_LARGE_NEIGHBOR              = 0x00004000 #imaging and SEP show/suggest a large, bright neighbor that could be
                                                  #messing up the classification and continuum measure
-DETFLAG_POSSIBLE_LOCAL_TRANSIENT    = 0x00008000 #meteor or satellite ... a single bright dither, etc
-
+DETFLAG_POSSIBLE_LOCAL_TRANSIENT    = 0x00008000 #!!! low trigger threshold. Check for the METEOR label for high confidence !!!
+                                                 #meteor or satellite ... a single bright dither, etc
 DETFLAG_BAD_PIXEL_FLAT              = 0x00010000
 DETFLAG_DUPLICATE_FIBERS            = 0x00020000
 DETFLAG_NEGATIVE_SPECTRUM           = 0x00040000
 DETFLAG_POOR_THROUGHPUT             = 0x00080000
 DETFLAG_BAD_DITHER_NORM             = 0x00100000
 DETFLAG_POOR_SHOT                   = 0x00200000
-DETFLAG_QUESTIONABLE_DETECTION      = 0x00400000   #unable to fit a continuum (wide) and cont(n) is fairly negative, or bad emission line fit
-DETFLAG_EXCESSIVE_ZERO_PIXELS       = 0x00800000   #too many zero valued pixels at the emission line center in 2D cutouts
-
-DETFLAG_POSSIBLE_PN                 = 0x01000000    #possible planetery nebula hit (usually 5007, without an obvious source)
-DETFLAG_NO_DUST_CORRECTION          = 0x02000000    #dust correction was requested but failed (see APPLY_GALACTIC_DUST_CORRECTION)
-DETFLAG_BAD_PIXELS                  = 0x04000000    #hot column, maybe bad sky subtraction, etc ... possible false detection
-DETFLAG_BAD_EMISSION_LINE           = 0x08000000    #emission line is questionable, could be continuum between absorbers
-
-DETFLAG_NO_ZEROPOINT                = 0x10000000    #may be temporary ... no zeropoint correction could be made
-DETFLAG_BAD_FIBERTRACE              = 0x20000000    #bad fiber traces, may be due to interference pattern
-
-
-DETFLAG_CORRUPT_DATA                = 0x80000000    #some nontrivial portion of the data may be corrupt, though it may not be significant
+DETFLAG_QUESTIONABLE_DETECTION      = 0x00400000  # !!! SHOULD IGNORE for high SNR emission or high continuum sources !!!
+                                                  # unable to fit a continuum (wide) and cont(n) is fairly negative,
+                                                  # or bad emission line fit.
+DETFLAG_EXCESSIVE_ZERO_PIXELS       = 0x00800000  #too many zero valued pixels at the emission line center in 2D cutouts
+DETFLAG_POSSIBLE_PN                 = 0x01000000  #possible planetery nebula hit (usually 5007, without an obvious source)
+DETFLAG_NO_DUST_CORRECTION          = 0x02000000  #dust correction was requested but failed (see APPLY_GALACTIC_DUST_CORRECTION)
+DETFLAG_BAD_PIXELS                  = 0x04000000  #hot column, maybe bad sky subtraction, etc ... possible false detection
+                                                  #can be extremely negative to one side of the line (a dip then bump
+                                                  #that is interpreted as a line when there is no line)
+DETFLAG_BAD_EMISSION_LINE           = 0x08000000  #emission line is questionable, often continuum between absorbers
+DETFLAG_NO_ZEROPOINT                = 0x10000000  #may be temporary ... no zeropoint correction could be made
+DETFLAG_BAD_FIBERTRACE              = 0x20000000  #!!! can trigger too easily !!!
+                                                  # bad fiber traces, may be due to interference pattern
+DETFLAG_CORRUPT_DATA                = 0x80000000  #some nontrivial portion of the data may be corrupt, though it may not be significant
 #todo: low SNR, weighted position is between fibers (i.e. distances from blue fiber center > 0.74 or 0.75 and SNR < 5.2 or so)
 
 
