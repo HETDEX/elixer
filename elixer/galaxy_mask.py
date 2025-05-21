@@ -88,7 +88,7 @@ class GalaxyMask():
     """
 
     galaxy_table = None
-    last_entry_idx = None
+    last_entry_idx = []
 
     def __init__(self):
         galmask_fn = None
@@ -129,7 +129,7 @@ class GalaxyMask():
         """
 
         try:
-            self.last_entry_idx = None
+            self.last_entry_idx = []
             target_coord = SkyCoord(ra,dec,unit='deg')
             target_wcs = create_dummy_wcs(target_coord)
 
@@ -148,11 +148,12 @@ class GalaxyMask():
 
                 #using the HETDEX_API scaling ... could re-write and use a distance, but this is simple and fast
                 #enough for now
-                self.last_entry_idx = i
+
                 ellipse = create_ellreg(self.galaxy_table, i, d25scale=d25scale)
                 if ellipse.contains(target_coord, target_wcs):
                     z.append(self.galaxy_table["NEDRedshift"][i])
                     min_scale = d25scale
+                    self.last_entry_idx.append(i)
                     #now, what is lowest integer of D25 scale that still hits
                     for scale in scales:
                         ellipse = create_ellreg(self.galaxy_table, i, d25scale=scale)
