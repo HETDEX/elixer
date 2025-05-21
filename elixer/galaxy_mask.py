@@ -148,6 +148,7 @@ class GalaxyMask():
 
                 #using the HETDEX_API scaling ... could re-write and use a distance, but this is simple and fast
                 #enough for now
+                self.last_entry_idx = i
                 ellipse = create_ellreg(self.galaxy_table, i, d25scale=d25scale)
                 if ellipse.contains(target_coord, target_wcs):
                     z.append(self.galaxy_table["NEDRedshift"][i])
@@ -173,7 +174,6 @@ class GalaxyMask():
                     except:
                         pass #might not be any
 
-                self.last_entry_idx = idx
                 return z[idx],scales
 
             else:
