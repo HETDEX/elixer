@@ -88,6 +88,7 @@ class GalaxyMask():
     """
 
     galaxy_table = None
+    last_entry_idx = None
 
     def __init__(self):
         galmask_fn = None
@@ -128,7 +129,7 @@ class GalaxyMask():
         """
 
         try:
-
+            self.last_entry_idx = None
             target_coord = SkyCoord(ra,dec,unit='deg')
             target_wcs = create_dummy_wcs(target_coord)
 
@@ -172,6 +173,7 @@ class GalaxyMask():
                     except:
                         pass #might not be any
 
+                self.last_entry_idx = idx
                 return z[idx],scales
 
             else:
