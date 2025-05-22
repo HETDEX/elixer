@@ -157,6 +157,9 @@ class MCMC_Gauss:
         #self.mcmc_line_flux = None #the actual line flux (erg s^-1 cm^-2);
                                    # deals with bin width and input as flux instead of flux/dx
 
+        self.convergence_check =  0 #do not check if 0, otherwise is a scale
+        self.convergence_check_step = 100 #if testing for convergence, re-evaluate each of this many iterations
+
     def approx_symmetric_error(self,parm): #parm is assumed to be a 3 vector as [0] = mean, [1] = +error, [2] = -error
 
         try:
@@ -388,13 +391,31 @@ class MCMC_Gauss:
 
             #args are the positional args AFTER theta for self.lnprob function
 
-            with warnings.catch_warnings(): #ignore the occassional warnings from the walkers (NaNs, etc that reject step)
-                warnings.simplefilter("ignore")
-                log.debug("MCMC burn in (%d) ...." %self.burn_in)
-                pos, prob, state = self.sampler.run_mcmc(pos, self.burn_in,skip_initial_state_check=True)  # burn in
-                log.debug("MCMC main run (%d) ..." %self.main_run)
-                log.debug("MCMC (w:%0.2f) main run (%d) ..." %(self.initial_mu,self.main_run))
-                pos, prob, state = self.sampler.run_mcmc(pos, self.main_run, rstate0=state,skip_initial_state_check=True)  # start from end position of burn-in
+            if self.convergence_check is None or self.convergence_check <= 0:
+                with warnings.catch_warnings(): #ignore the occassional warnings from the walkers (NaNs, etc that reject step)
+                    warnings.simplefilter("ignore")
+                    log.debug("MCMC burn in (%d) ...." %self.burn_in)
+                    pos, prob, state = self.sampler.run_mcmc(pos, self.burn_in,skip_initial_state_check=True)  # burn in
+                    log.debug("MCMC main run (%d) ..." %self.main_run)
+                    log.debug("MCMC (w:%0.2f) main run (%d) ..." %(self.initial_mu,self.main_run))
+                    pos, prob, state = self.sampler.run_mcmc(pos, self.main_run, rstate0=state,skip_initial_state_check=True)  # start from end position of burn-in
+            else:
+                with warnings.catch_warnings(): #ignore the occassional warnings from the walkers (NaNs, etc that reject step)
+                    warnings.simplefilter("ignore")
+                    log.debug(f"MCMC. Burn in ({self.burn_in}), Max iter ({self.main_run}), convergence ({self.convergence_check})")
+                    pos, prob, state = self.sampler.run_mcmc(pos, self.burn_in,
+                                                             skip_initial_state_check=True)  # burn in
+
+                    for i in range(0,self.main_run+self.convergence_check_step,self.convergence_check_step):
+                        pos, prob, state = self.sampler.run_mcmc(pos, self.convergence_check_step, rstate0=state,
+                                                                 skip_initial_state_check=True)
+
+                        ac_t = self.sampler.get_autocorr_time(tol=0)
+                        if np.all(self.sampler.iteration > self.convergence_check * ac_t):
+
+                            log.debug(f"MCMC. All chains converged in ~ {i} iterations.")
+                            break  # stop sampling
+
 
             self.samples = self.sampler.flatchain  # collapse the walkers and interations (aka steps or epochs)
 
