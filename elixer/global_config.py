@@ -25,7 +25,7 @@ if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
 #version
-__version__ = '1.22.5'
+__version__ = '1.22.6a1'
 
 
 #initial working dir
@@ -134,6 +134,7 @@ PANACEA_HDF5_BASEDIR = None
 PIXFLT_LOC = None
 FORCE_MCMC = False
 FORCE_MCMC_MIN_SNR = 4.0
+MCMC_CONVERGANCE_CHECK = True
 LIMIT_GAUSS_FIT_SIGMA_MIN = None #configurable on commandline with --fit_sigma
 LIMIT_GAUSS_FIT_SIGMA_MAX = None
 GAUSS_FIT_WAVEBIN_STEP = 25 #25 bins so 50AA to either side, by default

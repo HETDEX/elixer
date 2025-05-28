@@ -3109,11 +3109,24 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
         # if other input (like Karl's) ... the method is different and we are farther off ... takes longer to converge
         #   but still converges close to the scipy::curve_fit
         if recommend_mcmc: #this is a low-stakes follow on to LSQ, so a lesser run is okay
-            mcmc.burn_in = 250
-            mcmc.main_run = 750
-        else:
-            mcmc.burn_in = 250
-            mcmc.main_run = 1200
+            if G.MCMC_CONVERGANCE_CHECK:
+                mcmc.convergence_check = 15 #close enough
+                mcmc.convergence_check_step = 100
+                mcmc.burn_in = 200
+                mcmc.main_run = 1000 #give some extra room, should rarely hit it
+            else:
+                mcmc.burn_in = 250
+                mcmc.main_run = 750
+        else: #higher stakes, want to be more precise
+            if G.MCMC_CONVERGANCE_CHECK:
+                mcmc.convergence_check = 25
+                mcmc.convergence_check_step = 100
+                mcmc.burn_in = 200
+                mcmc.main_run = 1500 #give some extra room, should rarely hit it
+            else:
+                mcmc.burn_in = 250
+                mcmc.main_run = 1200
+
 
         #print(f"**** MCMC: run ({mcmc.main_run}), mu ({mcmc.initial_mu}), data_x ({len(mcmc.data_x)}), "
         #      f"sigma ({mcmc.initial_sigma}), A ({mcmc.initial_A}), y ({mcmc.initial_y }) ")
@@ -3530,8 +3543,17 @@ def run_mcmc(eli,wavelengths,values,errors,central,values_units,values_dx=G.FLUX
     # if using the scipy::curve_fit, 50-100 burn-in and ~1000 main run is plenty
     # if other input (like Karl's) ... the method is different and we are farther off ... takes longer to converge
     #   but still converges close to the scipy::curve_fit
-    mcmc.burn_in = 250
-    mcmc.main_run = 1000
+    #mcmc.burn_in = 250
+    #mcmc.main_run = 1000
+
+    if G.MCMC_CONVERGANCE_CHECK:
+        mcmc.convergence_check = 25
+        mcmc.convergence_check_step = 100
+        mcmc.burn_in = 200
+        mcmc.main_run = 1500 #give some extra room, should rarely hit it
+    else:
+        mcmc.burn_in = 250
+        mcmc.main_run = 1200
 
     try:
         mcmc.run_mcmc()
@@ -3675,8 +3697,17 @@ def check_for_doublet(eli,wavelengths,values,errors,central,values_units,values_
     # if using the scipy::curve_fit, 50-100 burn-in and ~1000 main run is plenty
     # if other input (like Karl's) ... the method is different and we are farther off ... takes longer to converge
     #   but still converges close to the scipy::curve_fit
-    mcmc.burn_in = 500
-    mcmc.main_run = 2000
+    #mcmc.burn_in = 500
+    #mcmc.main_run = 2000
+
+    if G.MCMC_CONVERGANCE_CHECK:
+        mcmc.convergence_check = 25
+        mcmc.convergence_check_step = 100
+        mcmc.burn_in = 200
+        mcmc.main_run = 2500 #give some extra room, should rarely hit it
+    else:
+        mcmc.burn_in = 500
+        mcmc.main_run = 2000
 
     try:
         mcmc.run_mcmc()
@@ -3895,8 +3926,16 @@ def check_for_lya_blue(eli,wavelengths,values,errors,central,values_units,values
     # if using the scipy::curve_fit, 50-100 burn-in and ~1000 main run is plenty
     # if other input (like Karl's) ... the method is different and we are farther off ... takes longer to converge
     #   but still converges close to the scipy::curve_fit
-    mcmc.burn_in = 500
-    mcmc.main_run = 2000
+    # mcmc.burn_in = 500
+    # mcmc.main_run = 2000
+    if G.MCMC_CONVERGANCE_CHECK:
+        mcmc.convergence_check = 25
+        mcmc.convergence_check_step = 100
+        mcmc.burn_in = 200
+        mcmc.main_run = 2500 #give some extra room, should rarely hit it
+    else:
+        mcmc.burn_in = 500
+        mcmc.main_run = 2000
 
     try:
         mcmc.run_mcmc()
@@ -4089,8 +4128,17 @@ def fit_for_h_and_k(k_eli,h_eli,wavelengths,values,errors,values_units,values_dx
         # if using the scipy::curve_fit, 50-100 burn-in and ~1000 main run is plenty
         # if other input (like Karl's) ... the method is different and we are farther off ... takes longer to converge
         #   but still converges close to the scipy::curve_fit
-        mcmc.burn_in = 250
-        mcmc.main_run = 1200
+        # mcmc.burn_in = 250
+        # mcmc.main_run = 1200
+
+        if G.MCMC_CONVERGANCE_CHECK:
+            mcmc.convergence_check = 25
+            mcmc.convergence_check_step = 100
+            mcmc.burn_in = 200
+            mcmc.main_run = 1500 #give some extra room, should rarely hit it
+        else:
+            mcmc.burn_in = 250
+            mcmc.main_run = 1200
 
         try:
             mcmc.run_mcmc()

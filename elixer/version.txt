@@ -1,5 +1,9 @@
 changes to elixer by version
 
+1.22.6a1 [2025-05-28]
+* add option for autocorrelation convergence check for all MCMC (Gauss, double Gauss, pCygni, voigt)
+  - turn on/off with G.MCMC_CONVERGANCE_CHECK
+
 1.22.5 [2025-05-20] Promote to main
 
 1.22.5a5 [2025-03-28]
