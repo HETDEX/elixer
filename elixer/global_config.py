@@ -510,7 +510,7 @@ def select_hdr_version(version):
 
                     if not op.exists(PIXFLT_LOC):
                         print("Warning! Cannot find pixel flats. Path(s) do not exist.")
-                        log.warning("Warning! Cannot find pixel flats. Path(s) do not exist.")
+                        #log.warning("Warning! Cannot find pixel flats. Path(s) do not exist.")
             except:
                 common = op.commonpath([HDF5_CONTINUUM_FN,HDF5_SURVEY_FN,HDF5_REDUCTION_DIR])
                 PIXFLT_LOC = op.join(common,"/lib_calib/lib_pflat")
@@ -1036,7 +1036,7 @@ MAX_COMBINE_BID_TARGETS = 3 #if SINGLE_PAGE_PER_DETECT is true, this is the max 
 #know what you are doing!!!
 SINGLE_PAGE_PER_DETECT = True #if true, a single pdf page per emission line detection is made
 FORCE_SINGLE_PAGE = True
-SHOW_SKYLINES = True
+SHOW_SKYLINES = True  #main lines are 3545 +/- 10   and  5462 +/- 5
 PENALIZE_FOR_EMISSION_IN_SKYLINE = False #since HDR 2.1.x the skyline removal has been quite good and this is no longer needed
 
 #1 fiber (the edge-most) fiber
@@ -1399,7 +1399,7 @@ DETFLAG_BAD_PIXELS                  = 0x04000000  #hot column, maybe bad sky sub
 DETFLAG_BAD_EMISSION_LINE           = 0x08000000  #emission line is questionable, often continuum between absorbers
 DETFLAG_NO_ZEROPOINT                = 0x10000000  #may be temporary ... no zeropoint correction could be made
 DETFLAG_BAD_FIBERTRACE              = 0x20000000  #!!! can trigger too easily !!!
-                                                  # bad fiber traces, may be due to interference pattern
+                                                  # bad fiber traces, may be due to interference pattern (chi2 stuff)
 DETFLAG_CORRUPT_DATA                = 0x80000000  #some nontrivial portion of the data may be corrupt, though it may not be significant
 #todo: low SNR, weighted position is between fibers (i.e. distances from blue fiber center > 0.74 or 0.75 and SNR < 5.2 or so)
 
@@ -1585,14 +1585,14 @@ BGR_RES_APER_TAB_FF_IDX_FN = "/scratch/03261/polonius/hetdex/sky_subtraction_res
 try:
     BGR_BASEPATH =  os.path.join(HDR_BASEPATH,"catalogs/avg_empty_fibers")
     if not os.path.exists(BGR_BASEPATH):
-        log.warning(f"{BGR_BASEPATH} does not exist. Trying latest path instead ...")
+        print(f"{BGR_BASEPATH} does not exist. Trying latest path instead ...")
         BGR_BASEPATH = f"/scratch/projects/hetdex/{HDR_Latest_Str}/catalogs/avg_empty_fibers"
 except:
-    log.warning("Unable to configure BGR_BASEPATH. Using default.")
+    print("Unable to configure BGR_BASEPATH. Using default.")
     BGR_BASEPATH = f"/scratch/projects/hetdex/{HDR_Latest_Str}/catalogs/avg_empty_fibers"
 
 if not os.path.exists(BGR_BASEPATH):
-    log.warning(f"{BGR_BASEPATH} does not exist. Average Empty Fiber corrections not available...")
+    print(f"{BGR_BASEPATH} does not exist. Average Empty Fiber corrections not available...")
 
 
 BGR_RES_FIBER_H5_LL_FN = op.join(BGR_BASEPATH,"BGR_RES_FIBER_H5_LL.h5")

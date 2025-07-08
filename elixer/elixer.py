@@ -322,8 +322,11 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--line', help="HETDEX detect line file", required=False)
     parser.add_argument('--fcsdir', help="Flux Calibrated Spectra DIRectory (commonly from rsp1). No wildcards. "
                                          "(see --dets)", required=False)
-    parser.add_argument('--dets', help="List of detections (of form '20170314v011_005') or subdirs under fscdir "
-                        "(wildcards okay) or file containing a list of detections (one per line)", required=False)
+    #parser.add_argument('--dets', help="List of detections (of form '20170314v011_005') or subdirs under fscdir "
+     #                   "(wildcards okay) or file containing a list of detections (one per line)", required=False)
+
+    parser.add_argument('--dets', help="List of detectIDs or file containing a list of detections (one per line). Must"
+                                       "include this switch or --coords",   required=False)
 
     ##ra dec wave shotid detectid
     parser.add_argument('--coords', help="File containing a list (in order) of RA and Decs (one pair per line)"
