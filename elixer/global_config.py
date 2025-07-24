@@ -25,7 +25,7 @@ if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
 #version
-__version__ = '1.22.6a1'
+__version__ = '1.22.7a1'
 
 
 #initial working dir
@@ -694,9 +694,9 @@ RELATIVE_PATH_UNIVERSE_CONFIG = "line_classifier/universe.cfg"
 RELATIVE_PATH_FLUX_LIM_FN = "line_classifier/Line_flux_limit_5_sigma_baseline.dat"
 
 if hostname in LOCAL_DEV_HOSTNAMES:  # primary author test box
-    LOG_LEVEL = logging.DEBUG
+    LOG_LEVEL = logging.DEBUG #10
 else:
-    LOG_LEVEL = logging.INFO
+    LOG_LEVEL = logging.INFO #20
 
 if "--log" in cl_args: #overide default if specified on command line
     try:
@@ -705,13 +705,13 @@ if "--log" in cl_args: #overide default if specified on command line
             log_level = str(sys.argv[i + 1]).lower()
 
         if log_level == "debug":
-            LOG_LEVEL = logging.DEBUG
+            LOG_LEVEL = logging.DEBUG #10
         elif log_level == "info":
-            LOG_LEVEL = logging.INFO
+            LOG_LEVEL = logging.INFO #20
         elif log_level == "error":
-            LOG_LEVEL = logging.ERROR
+            LOG_LEVEL = logging.ERROR #40
         elif log_level == "critical":
-            LOG_LEVEL = logging.CRITICAL
+            LOG_LEVEL = logging.CRITICAL #50 #also lgging.FATAL
         else:
             pass # leave as is
     except:

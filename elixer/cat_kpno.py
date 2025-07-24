@@ -55,12 +55,20 @@ pd.options.mode.chained_assignment = None  #turn off warning about setting the d
 
 def kpno_count_to_mag(count,cutout=None,headers=None):
     magzero = None
+
+    empirical_magzero_correction = 0.75 #based on comparision to HETDEX and several other catalogs
+                                        #DECaLS, SDSS, HSC-SSP, CFHTLS
+
     try:
         #this can come from a compressed .fz fits which may have added a new header at [0]
         for h in headers:
+
+            #dd 20250724 ... there seems to be a systematic offset of about 0.75 mag between KPNO and the
+            #   other g-band surveys
+
             if 'MAGZERO' in h:
-                magzero = float(h['MAGZERO'])
-                break
+                magzero = float(h['MAGZERO'])   #unique to each fits, not a singular common value
+                break                           #ranges 24.28498 to 26.59427
         #
         # if 'MAGZERO' in headers[0]:
         #     magzero = float(headers[0]['MAGZERO'])
@@ -68,6 +76,7 @@ def kpno_count_to_mag(count,cutout=None,headers=None):
         magzero = None
 
     if (count is not None) and (count > 0) and (magzero is not None):
+        magzero += empirical_magzero_correction
         return -2.5 * np.log10(count) + magzero
     else:
         return 99.9  # need a better floor
