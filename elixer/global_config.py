@@ -25,7 +25,7 @@ if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
 #version
-__version__ = '1.22.7a1'
+__version__ = '1.23.0a1'
 
 
 #initial working dir
@@ -118,6 +118,9 @@ HDR_SCRATCH_BASEPATH = "/scratch/03946/hetdex/"
 #HDR_DATA_BASEPATH = HDR_SCRATCH_BASEPATH
 HDR_BASEPATH = HDR_WORK_BASEPATH
 
+
+SINGLE_SHOT_H5 = None #shot hdf5 for a single shot. Same HETDEX format, but may not be a HETDEX shot
+#SINGLE_SHOT_CAT = None #lines or continuum catalog file with raw detections, usually a .fits format
 HDF5_DETECT_FN = None
 HDF5_CONTINUUM_FN = None
 CONTINUUM_RULES = False #use continuum rules instead of emission line rules

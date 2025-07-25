@@ -1,8 +1,12 @@
 changes to elixer by version
 
 
+1.23.0a1 [2025-07-25]
+* [in progresss] working on support for parallel and single shot science frames
+
 1.22.7a1 [2025-07-24]
-* added empiriical +0.75 magzero correction to KPNO-g based on comparison to SDSS, DECaLS, HSC-SSP, CFHTLS, and HETDEX
+* added empirical +0.75 magzero correction to KPNO-g based on comparison to SDSS, DECaLS, HSC-SSP, CFHTLS, and HETDEX
+
 
 1.22.6a1 [2025-05-28]
 * add option for autocorrelation convergence check for all MCMC (Gauss, double Gauss, pCygni, voigt)

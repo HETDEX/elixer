@@ -8601,79 +8601,95 @@ class DetObj:
             return
 
         log.debug("Loading shot info from HDF5 ...")
+        rows = None
 
-        with tables.open_file(hdf5_fn, mode="r") as h5_survey:
-            survey = h5_survey.root.Survey
-
+        if shot_specific_h5 is not None:
             try:
-                rows = survey.read_where("shotid==id")
+                shot_h5 = tables.open_file(shot_specific_h5)
+                rows = shot_h5.root.Shot.read()
+                shot_h5.close()
             except:
-                log.error("Exception in hetdex::DetObj::load_hdf5_shot_info reading rows from Survey table",
+                log.error("Exception in hetdex::DetObj::load_hdf5_shot_info reading rows from shot specific h5 file",
                           exc_info=True)
                 rows = None
 
-            #usually we get this from the survey file, but if that fails, it may be in the shot h5 file, if provided
-            if (rows is None) or (rows.size != 1) and shot_specific_h5 is not None:
+        elif hdf5_fn is not None:
+            with tables.open_file(hdf5_fn, mode="r") as h5_survey:
+                survey = h5_survey.root.Survey
+
                 try:
-                    shot_h5 = tables.open_file(shot_specific_h5)
-                    rows = shot_h5.root.Shot.read()
-                    shot_h5.close()
+                    rows = survey.read_where("shotid==id")
                 except:
-                    log.error("Exception in hetdex::DetObj::load_hdf5_shot_info reading rows from shot specific h5 file",
+                    log.error("Exception in hetdex::DetObj::load_hdf5_shot_info reading rows from Survey table",
                               exc_info=True)
                     rows = None
 
-            if (rows is None) or (rows.size != 1):
-                log.error(f"Problem loading info for shot {shotid} from {hdf5_fn}. Setting out of range values for shot.")
-                self.survey_fwhm = 999
-                self.survey_fwhm_moffat = 999
-                self.survey_response = 0
-                self.survey_fieldname = "---"
 
-                return
-
-            row = rows[0] #should only be the one row
-
-            #fill out shot info
-            self.survey_shotid = row['shotid'] #redundant, already have it
-
-            try: #new in HDR2
-                self.survey_fwhm = row['fwhm_virus']
-            except:
-                try: #older HDR1
-                    self.survey_fwhm_gaussian = row['fwhm_gaussian']
-                except:
-                    pass
-
+        #usually we get this from the survey file, but if that fails, it may be in the shot h5 file, if provided
+        if (rows is None) or (rows.size != 1) and shot_specific_h5 is not None:
             try:
-                self.survey_fwhm_moffat = row['fwhm_moffat']
+                shot_h5 = tables.open_file(shot_specific_h5)
+                rows = shot_h5.root.Shot.read()
+                shot_h5.close()
+            except:
+                log.error("Exception in hetdex::DetObj::load_hdf5_shot_info reading rows from shot specific h5 file",
+                          exc_info=True)
+                rows = None
+
+        if (rows is None) or (rows.size != 1):
+            log.error(f"Problem loading info for shot {shotid} from {hdf5_fn}. Setting out of range values for shot.")
+            self.survey_fwhm = 999
+            self.survey_fwhm_moffat = 999
+            self.survey_response = 0
+            self.survey_fieldname = "---"
+
+            return
+
+        row = rows[0] #should only be the one row
+
+        #fill out shot info
+        self.survey_shotid = row['shotid'] #redundant, already have it
+
+        try: #new in HDR2
+            self.survey_fwhm = row['fwhm_virus']
+        except:
+            try: #older HDR1
+                self.survey_fwhm_gaussian = row['fwhm_gaussian']
             except:
                 pass
 
-            G.SHOT_SEEING = self.survey_fwhm
+        try:
+            self.survey_fwhm_moffat = row['fwhm_moffat']
+        except:
+            pass
 
-            self.survey_response = row['response_4540']
-            try:
-                self.survey_fieldname = row['field'].decode()
-            except:
-                self.survey_fieldname = row['field']
+        G.SHOT_SEEING = self.survey_fwhm
 
-            self.dither_norm = -1.0
-            #self.dither_norm_high_expid = -1
-            try:
-                self.relflux_virus = row['relflux_virus']
+        self.survey_response = row['response_4540']
+        try:
+            self.survey_fieldname = row['field'].decode()
+        except:
+            self.survey_fieldname = row['field']
+
+        self.dither_norm = -1.0
+        #self.dither_norm_high_expid = -1
+        try:
+            self.relflux_virus = row['relflux_virus']
+            if np.count_nonzero(row['expnum'] <= 1):
+                self.dither_norm = -1.0 #e.g. not applicable
+            else:
                 self.dither_norm = np.max(self.relflux_virus) / np.min(self.relflux_virus)
-               # self.dither_norm_high_expid = np.nanargmax(relflux_virus)
-            except:
-                self.dither_norm = -1.0
+           # self.dither_norm_high_expid = np.nanargmax(relflux_virus)
+        except:
+            self.dither_norm = -1.0
 
-            try:
-                self.exptimes = row['exptime']
-            except:
-                self.exptimes = [None,None,None]
-            #relflux_virus
+        try:
+            self.exptimes = row['exptime']
+        except:
+            self.exptimes = [None,None,None]
+        #relflux_virus
 
-           # astro = h5_survey.root.Astrometry.NominalVals
+       # astro = h5_survey.root.Astrometry.NominalVals
 
 
         return
@@ -10195,7 +10211,7 @@ class DetObj:
             pass
 
 
-    def load_hdf5_fluxcalibrated_spectra(self,hdf5_fn,id,basic_only=False,hdf5_survey_fqfn=None):
+    def load_hdf5_fluxcalibrated_spectra(self,hdf5_fn,id,basic_only=False,hdf5_survey_fqfn=None,shot_specific_h5=None):
         """
 
         :return:
@@ -10376,8 +10392,11 @@ class DetObj:
             self.ifu_x = row['x_ifu']
             self.ifu_y = row['y_ifu']
 
-            if hdf5_survey_fqfn is not None:
-                self.load_hdf5_shot_info(hdf5_survey_fqfn, self.survey_shotid, shot_specific_h5=None)
+
+            if shot_specific_h5 is not None: #takes priority over survey
+                self.load_hdf5_shot_info(None, self.survey_shotid, shot_specific_h5=shot_specific_h5)
+            elif hdf5_survey_fqfn is not None:
+                self.load_hdf5_shot_info(hdf5_survey_fqfn, self.survey_shotid, shot_specific_h5=shot_specific_h5)
 
             if basic_only: #we're done, this is all we need
                 return
@@ -11743,12 +11762,18 @@ class HETDEX:
         #sanity check HDR version vs detectID if passed in
         try:
             if hdf5_detectid_list is not None and len(hdf5_detectid_list) == 1:
-                if str(hdf5_detectid_list[0])[0] != G.HDR_Version:
+                if G.SINGLE_SHOT_H5 is None and str(hdf5_detectid_list[0])[0] != G.HDR_Version:
                     warn = f"***** Warning ***** {hdf5_detectid_list[0]} prefix may be incompatible with current HDR Version {G.HDR_Version}"
                     print(warn)
                     log.warning(warn)
         except:
             pass
+
+
+        if args.shot_h5 is not None:
+            self.shot_specific_h5 = args.shot_h5
+        else:
+            self.shot_specific_h5 = None
 
         self.cli_args = args
 
@@ -12824,7 +12849,7 @@ class HETDEX:
 
                 #e.load_fluxcalibrated_spectra()
                 e.load_hdf5_fluxcalibrated_spectra(self.hdf5_detect_fqfn,d,basic_only=basic_only,
-                                                   hdf5_survey_fqfn=self.hdf5_survey_fqfn)
+                                                   hdf5_survey_fqfn=self.hdf5_survey_fqfn,shot_specific_h5=self.shot_specific_h5)
 
                 # #need the shotid from the detection
                 #use survey_fhwm to check to see if this already loaded

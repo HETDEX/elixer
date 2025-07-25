@@ -451,7 +451,7 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--include_all_amps', help='Override bad amp list and process all amps',
                         required=False, action='store_true', default=False)
 
-    parser.add_argument('--hdf5', help="HDF5 Detections File (see also --dets)", required=False,
+    parser.add_argument('--hdf5',"--dets_h5", help="HDF5 Detections File (see also --dets)", required=False,
                         default=None) #G.HDF5_DETECT_FN
 
 
@@ -619,6 +619,12 @@ def parse_commandline(auto_force=False):
     #only consumed in selixer, here so it does not break parser
     parser.add_argument('--fill_tasks', help="Only for selixer. Number of detections to run (approximate) per job line (task). Default is 10.",
                         required=False, type=int)
+
+    parser.add_argument('--shot_h5', help="Use the specified shot hdf5 file rather than the HETDEX catalog(s)",
+                        required=False, default=None)
+
+    # parser.add_argument('--shot_cat', help="Use the specified shot detections catalog file. Can be used with or instead of --dets",
+    #                     required=False, default=None)
 
     try:
         args = parser.parse_args()
@@ -977,6 +983,18 @@ def parse_commandline(auto_force=False):
         args.command_line_shotid = args.shotid
     except:
         pass
+
+
+    if args.shot_h5 is not None:
+        G.SINGLE_SHOT_H5 = args.shot_h5
+        G.LOAD_SPEC_FROM_HETDEX_API = False
+
+    if args.hdf5 is not None:
+        G.HDF5_DETECT_FN = args.hdf5
+        G.HDF5_CONTINUUM_FN = args.hdf5
+
+    # if args.shot_cat is not None:
+    #     G.SINGLE_SHOT_CAT = args.shot_cat
 
     if (args.dets is not None) and (args.coords is not None):
         print("Invalid combination of parameters. Cannot specify both --dets and --coords")
@@ -2866,7 +2884,20 @@ def get_hdf5_detectids_to_process(args,as_rows=False):
 
                     return get_hdf5_detectids_by_coord(args.hdf5, args.ra, args.dec, error / 3600.,args.shotid,args.wavelength)
             else:
-                return []
+                #load all the detections from the hdf5 file
+                try:
+                    local_h5 = tables.open_file(args.hdf5)
+                    if args.sn is not None and args.sn > 0:
+                        q_sn = args.sn
+                        detectids = list(local_h5.root.Detections.read_where("sn >=q_sn", field="detectid"))
+                    else:
+                        detectids = list(local_h5.root.Detections.read(field="detectid"))
+                    local_h5.close()
+                    return detectids
+                except:
+                    log.error("Unable to read in detectids in --hdf5 specified file.", exc_info=True)
+                    return []
+
 
         #dets might be a single value or a list
         if detlist is None:

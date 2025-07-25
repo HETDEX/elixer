@@ -159,7 +159,8 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
                 include_error=True,
                 ffsky=False,
                 dcont=50.,
-                fill_value=0.0)
+                fill_value=0.0,
+                shot_h5=G.SINGLE_SHOT_H5)
 
 
             # for i in range(len(hdu_big)):
@@ -188,7 +189,8 @@ def get_line_image(plt,friendid=None, detectid=None, coords=None, shotid=None, s
             include_error=True,
             ffsky=False,
             dcont=50.,
-            fill_value=0.0)
+            fill_value=0.0,
+            shot_h5=G.SINGLE_SHOT_H5)
 
         # for i in range(len(hdu)):
         #     hdu[i].data = np.nan_to_num(hdu[i].data)
