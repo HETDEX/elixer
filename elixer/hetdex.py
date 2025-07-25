@@ -12815,12 +12815,13 @@ class HETDEX:
                 continue
 
             try:
-                if str(d)[2] == '9' and not self.cli_args.continuum:
-                    print(f"**!!! [{d}] is a continuum source but --continuum NOT specified in command line. !!!**")
-                    log.error(f"**!!! [{d}] is a continuum source but --continuum NOT specified in command line. !!!**")
-                elif str(d)[2] != '9' and self.cli_args.continuum:
-                    print(f"**!!! [{d}] is NOT a continuum source but --continuum is specified in command line. !!!**")
-                    log.error(f"**!!! [{d}] is NOT a continuum source but --continuum is specified in command line. !!!**")
+                if G.SINGLE_SHOT_H5 is None:
+                    if str(d)[2] == '9' and not self.cli_args.continuum:
+                        print(f"**!!! [{d}] is a continuum source but --continuum NOT specified in command line. !!!**")
+                        log.error(f"**!!! [{d}] is a continuum source but --continuum NOT specified in command line. !!!**")
+                    elif str(d)[2] != '9' and self.cli_args.continuum:
+                        print(f"**!!! [{d}] is NOT a continuum source but --continuum is specified in command line. !!!**")
+                        log.error(f"**!!! [{d}] is NOT a continuum source but --continuum is specified in command line. !!!**")
             except:
                 pass
 
@@ -14038,10 +14039,11 @@ class HETDEX:
                 plt.gca().axis('off')
 
                 try:
-                    if str(e.entry_id)[2] == '9' and not self.cli_args.continuum:
-                        extrastr = f"\n**!!! [{e.entry_id}] is a continuum source but --continuum NOT specified in command line. !!!**"
-                    elif str(e.entry_id)[2]  != '9' and self.cli_args.continuum:
-                        extrastr = f"\n**!!! [{e.entry_id}] is NOT a continuum source but --continuum is specified in command line. !!!**"
+                    if G.SINGLE_SHOT_H5 is None:
+                        if str(e.entry_id)[2] == '9' and not self.cli_args.continuum:
+                            extrastr = f"\n**!!! [{e.entry_id}] is a continuum source but --continuum NOT specified in command line. !!!**"
+                        elif str(e.entry_id)[2]  != '9' and self.cli_args.continuum:
+                            extrastr = f"\n**!!! [{e.entry_id}] is NOT a continuum source but --continuum is specified in command line. !!!**"
                 except:
                     extrastr = ""
 
@@ -14056,10 +14058,11 @@ class HETDEX:
             plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
             plt.gca().axis('off')
             try:
-                if str(e.entry_id)[2] == '9' and not self.cli_args.continuum:
-                    extrastr = f"\n**!!! [{e.entry_id}] is a continuum source but --continuum NOT specified in command line. !!!**"
-                elif str(e.entry_id)[2] != '9' and self.cli_args.continuum:
-                    extrastr = f"\n**!!! [{e.entry_id}] is NOT a continuum source but --continuum is specified in command line. !!!**"
+                if G.SINGLE_SHOT_H5 is None:
+                    if str(e.entry_id)[2] == '9' and not self.cli_args.continuum:
+                        extrastr = f"\n**!!! [{e.entry_id}] is a continuum source but --continuum NOT specified in command line. !!!**"
+                    elif str(e.entry_id)[2] != '9' and self.cli_args.continuum:
+                        extrastr = f"\n**!!! [{e.entry_id}] is NOT a continuum source but --continuum is specified in command line. !!!**"
             except:
                 extrastr = ""
 
