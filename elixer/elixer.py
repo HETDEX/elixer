@@ -986,7 +986,18 @@ def parse_commandline(auto_force=False):
 
 
     if args.shot_h5 is not None:
-        G.SINGLE_SHOT_H5 = args.shot_h5
+
+
+        #path could have changed
+        if os.path.exists(os.path.basename(args.shot_h5)):
+            args.shot_h5 = os.path.abspath(args.shot_h5)
+            G.SINGLE_SHOT_H5 = args.shot_h5
+        elif os.path.exists(os.path.join("../",os.path.basename(args.shot_h5))):
+            args.shot_h5 = os.path.abspath(os.path.join("../",os.path.basename(args.shot_h5)))
+            G.SINGLE_SHOT_H5 = args.shot_h5
+        else: #try as is
+            G.SINGLE_SHOT_H5 = args.shot_h5
+
         try:
             #G.SINGLE_SHOT_SHOTID = np.int64(os.path.basename(G.SINGLE_SHOT_H5).split(".")[0].replace("v",""))
             #or quick read from the file ... porbably the more correct way (the file name *could* be different)
