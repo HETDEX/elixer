@@ -4139,6 +4139,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     line_buf = None
     line_buf_tight = None
     unique_surveys = []
+    use_shotid = None
 
     if G.ZOO_MINI:
         if ((detectid is None) and ((ra is None) or (dec is None))):
@@ -4163,26 +4164,38 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     param_cont_hdf5 = cont_hdf5
 
     #still get the h5 file paths as we still want them for possible limited use
-    if G.HETDEX_API_CONFIG:
-        try:
-            hdf5 = G.HETDEX_API_CONFIG.detecth5
-        except:
-            hdf5 = param_hdf5
-        try:
-            broad_hdf5 = G.HETDEX_API_CONFIG.detectbroadh5
-        except:
-            broad_hdf5 = param_broad_hdf5
+    if G.SINGLE_SHOT_H5 is None:
+        if G.HETDEX_API_CONFIG:
+            try:
+                hdf5 = G.HETDEX_API_CONFIG.detecth5
+            except:
+                hdf5 = param_hdf5
+            try:
+                broad_hdf5 = G.HETDEX_API_CONFIG.detectbroadh5
+            except:
+                broad_hdf5 = param_broad_hdf5
 
-        try:
-            cont_hdf5 = G.HETDEX_API_CONFIG.contsourceh5
-        except:
-            cont_hdf5 = param_cont_hdf5
+            try:
+                cont_hdf5 = G.HETDEX_API_CONFIG.contsourceh5
+            except:
+                cont_hdf5 = param_cont_hdf5
+    else:
+        use_hdf5 = True #use the older mechanism
+        #we want the continuum and lines separate, regardless of what was passed in
+        if G.HDF5_DETECT_FN[-8:] =="_cont.h5":
+            hdf5 = G.HDF5_DETECT_FN.replace("_cont.h5","_line.h5")
+            cont_hdf5 = G.HDF5_DETECT_FN
+            use_shotid = primary_shotid
+        elif G.HDF5_DETECT_FN[-8:] =="_line.h5":
+            hdf5 = G.HDF5_DETECT_FN
+            cont_hdf5 = G.HDF5_DETECT_FN.replace("_line.h5","_cont.h5")
+            use_shotid = primary_shotid
 
     if hdf5 is None:
         hdf5 = G.HDF5_DETECT_FN
 
-    if broad_hdf5 is None:
-        broad_hdf5 = G.HDF5_BROAD_DETECT_FN
+    broad_hdf5 = None  #this is defunct    #if broad_hdf5 is None:
+        #broad_hdf5 = G.HDF5_BROAD_DETECT_FN
 
     if cont_hdf5 is None:
         cont_hdf5 = G.HDF5_CONTINUUM_FN
@@ -4227,7 +4240,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
         neighbor_color = "red"
 
         if use_hdf5:
-            detectids, ras, decs, dists = get_hdf5_detectids_by_coord(hdf5, ra=ra, dec=dec, error=error, shotid=None,
+            detectids, ras, decs, dists = get_hdf5_detectids_by_coord(hdf5, ra=ra, dec=dec, error=error, shotid=use_shotid,
                                                                       wave=None,sort=True)
 
             all_ras = ras[:]
@@ -4249,7 +4262,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             broad_dists = []
             if broad_hdf5 is not None:
                 broad_detectids, broad_ras, broad_decs, broad_dists = get_hdf5_detectids_by_coord(broad_hdf5,ra=ra, dec=dec,
-                                                                                              error=error, shotid=None,
+                                                                                              error=error, shotid=use_shotid,
                                                                                               wave=None,sort=True)
 
                 if (broad_ras is not None) and (broad_decs is not None):
@@ -4270,7 +4283,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             cont_shotids = []
             if cont_hdf5 is not None:
                 cont_detectids, cont_ras, cont_decs, cont_dists = get_hdf5_detectids_by_coord(cont_hdf5, ra=ra, dec=dec,
-                                                                                              error=error,shotid=None,
+                                                                                              error=error,shotid=use_shotid,
                                                                                               wave=None,sort=True)
 
                 if (cont_ras is not None) and (cont_decs is not None):
