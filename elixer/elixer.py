@@ -2748,7 +2748,7 @@ def get_hdf5_detectids_to_process(args,as_rows=False):
     #check that the file exists
     try:
         if not os.path.isfile(args.hdf5):
-            msg = "Fatal. Supplied HDF5 file does not exist (%s)" % (args.hdf5)
+            msg = f"Fatal. Supplied HDF5 file does not exist {(args.hdf5)} ; cwd = {os.getcwd()}"
             print(msg)
             log.error(msg)
             exit(-1)
