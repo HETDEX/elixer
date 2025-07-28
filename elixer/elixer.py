@@ -987,6 +987,14 @@ def parse_commandline(auto_force=False):
 
     if args.shot_h5 is not None:
         G.SINGLE_SHOT_H5 = args.shot_h5
+        try:
+            #G.SINGLE_SHOT_SHOTID = np.int64(os.path.basename(G.SINGLE_SHOT_H5).split(".")[0].replace("v",""))
+            #or quick read from the file ... porbably the more correct way (the file name *could* be different)
+            ss_h5 = tables.open_file(args.shot_h5)
+            G.SINGLE_SHOT_SHOTID = ss_h5.root.Shot.read(field="shotid")[0]
+            ss_h5.close()
+        except:
+            pass
         G.LOAD_SPEC_FROM_HETDEX_API = False
 
     if args.hdf5 is not None:
@@ -1839,7 +1847,7 @@ def build_report(pages,report_name):
             pdf.savefig(pages[r])
 
         pdf.close()
-        print("File written: " + report_name)
+        print(f"File written: {os.getcwd()}/{report_name}")
     except:
         log.error("Exception in elixer::build_report: ", exc_info=True)
         try:
@@ -2060,7 +2068,8 @@ def join_report_parts(report_name, bid_count=0):
 
         writer.write(report_name)
 
-    print("File written: " + report_name)
+    #print("File written: " + report_name)
+    print(f"File written: {os.getcwd()}/{report_name}")
 
 
 def delete_report_parts(report_name):
@@ -2243,7 +2252,8 @@ def write_fibers_file(filename,hd_list):
 
             f.write("\n")
 
-    msg = "File written: " + filename
+    #msg = "File written: " + filename
+    msg = f"File written: {os.getcwd()}/{filename}"
     log.info(msg)
     print(msg)
 
@@ -2496,13 +2506,15 @@ def run_convert_pdf(filename, resolution=150, jpeg=False, png=True,systemcall="p
                         img.format = 'jpg'
                         image_name = filename.rstrip(".pdf") + ".jpg"
                         img.save(filename=image_name)
-                        print("File written: " + image_name)
+                        #print("File written: " + image_name)
+                        print(f"File written: {os.getcwd()}/{image_name}")
 
                     if png:
                         img.format = 'png'
                         image_name = filename.rstrip(".pdf") + ".png"
                         img.save(filename=image_name)
-                        print("File written: " + image_name)
+                        #print("File written: " + image_name)
+                        print(f"File written: {os.getcwd()}/{image_name}")
 
         elif OS_PNG_ONLY:
             try:
@@ -2541,7 +2553,8 @@ def run_convert_pdf(filename, resolution=150, jpeg=False, png=True,systemcall="p
                     else:
                         image_name = filename.rstrip(".pdf") + ".png"
                     pages[i].save(image_name,"PNG")
-                    print("File written: " + image_name)
+                    #print("File written: " + image_name)
+                    print(f"File written: {os.getcwd()}/{image_name}")
 
             if jpeg:
                 for i in range(len(pages)):
@@ -2550,7 +2563,8 @@ def run_convert_pdf(filename, resolution=150, jpeg=False, png=True,systemcall="p
                     else:
                         image_name = filename.rstrip(".pdf") + ".jpg"
                     pages[i].save(image_name,"JPEG")
-                    print("File written: " + image_name)
+                    #print("File written: " + image_name)
+                    print(f"File written: {os.getcwd()}/{image_name}")
 
     except Exception as e:
         if type(e) is OSError:
@@ -5976,24 +5990,30 @@ def main():
                     if hd.status == 0:
                         hd_list.append(hd)
                 else:
-                    if G.the_Survey is None:
-                        try:
-                            G.the_Survey = hda_survey.Survey(survey=f"hdr{G.HDR_Version}")
-                        except:
-                            G.the_Survey = None
-                    if not G.the_Survey:
-                        log.error(f"Fatal! Cannot build hetdex_api survey object for hdr{G.HDR_Version}")
-                        print(f"Fatal! Cannot build hetdex_api survey object for hdr{G.HDR_Version}")
-                        exit(-1)
 
-                    # this is only looking at the pointing, not checking individual fibers, so
-                    # need to give it a big radius to search that covers the focal plane
-                    # if centered (and it should be) no ifu edge is more than 12 acrmin away
-                    shotlist = G.the_Survey.get_shotlist(SkyCoord(args.ra, args.dec, unit='deg', frame='icrs'),
-                                                   radius=G.FOV_RADIUS_DEGREE * U.deg)
-                    for s in shotlist:
-                        args.shotid = s
-                        hd = hetdex.HETDEX(args, basic_only=basic_only,cluster_list=cluster_list)
+                    if G.SINGLE_SHOT_H5 is None:
+                        if G.the_Survey is None:
+                            try:
+                                G.the_Survey = hda_survey.Survey(survey=f"hdr{G.HDR_Version}")
+                            except:
+                                G.the_Survey = None
+                        if not G.the_Survey:
+                            log.error(f"Fatal! Cannot build hetdex_api survey object for hdr{G.HDR_Version}")
+                            print(f"Fatal! Cannot build hetdex_api survey object for hdr{G.HDR_Version}")
+                            exit(-1)
+
+                        # this is only looking at the pointing, not checking individual fibers, so
+                        # need to give it a big radius to search that covers the focal plane
+                        # if centered (and it should be) no ifu edge is more than 12 acrmin away
+                        shotlist = G.the_Survey.get_shotlist(SkyCoord(args.ra, args.dec, unit='deg', frame='icrs'),
+                                                       radius=G.FOV_RADIUS_DEGREE * U.deg)
+                        for s in shotlist:
+                            args.shotid = s
+                            hd = hetdex.HETDEX(args, basic_only=basic_only,cluster_list=cluster_list)
+                            if hd.status == 0:
+                                hd_list.append(hd)
+                    else: #a shot was spcified
+                        hd = hetdex.HETDEX(args, basic_only=basic_only, cluster_list=cluster_list)
                         if hd.status == 0:
                             hd_list.append(hd)
 
@@ -6520,6 +6540,7 @@ def main():
                     if e.status < 0 and not e.cluster_updated_z:
                         try:
                             log.info(f"[{e.entry_id}] Status changed. Report will not be generated.")
+                            print(f"[{e.entry_id}] Status changed. Report will not be generated.")
                             file_sel = [str(e.entry_id) in f.filename for f in file_list]
                             if np.count_nonzero(file_sel) == 1: #should be 1 or 0
                                 file_idx = np.argwhere(file_sel)[0][0]

@@ -205,7 +205,10 @@ class SyntheticObservation():
                         # we already know the path to it ... so do that here??
 
                         # full path to the HDF5 fits equivalent (or failing that the panacea fits file?)
-                        fiber.fits_fn = fiber.find_hdf5_multifits()
+                        if G.SINGLE_SHOT_H5 is None:
+                            fiber.fits_fn = dummy_fiber.find_hdf5_multifits()
+                        else:
+                            fiber.fits_fn = G.SINGLE_SHOT_H5
 
                         # now, get the corresponding FITS or FITS equivalent (HDF5)
                         fits = hetdex_fits.HetdexFits(empty=True)

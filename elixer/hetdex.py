@@ -9130,7 +9130,7 @@ class DetObj:
                                   ffsky=self.extraction_ffsky, multiprocess=G.GET_SPECTRA_MULTIPROCESS, rad=aper,
                                   tpmin=0.0,fiberweights=False,loglevel=get_spectra_loglevel,
                                   fiber_flux_offset = fiber_flux_offset,
-                                  ffsky_rescor=G.FFSKY_RESCOR, apply_mask=G.FIBER_SPEC_ELEM_MASKING)
+                                  ffsky_rescor=G.FFSKY_RESCOR, apply_mask=G.FIBER_SPEC_ELEM_MASKING,shot_h5=G.SINGLE_SHOT_H5)
                                   #don't need the fiber weights
         except:
             log.info("hetdex.py neighbor_forced_extraction(). Exception calling HETDEX_API get_spectra",exc_info=True)
@@ -9342,11 +9342,14 @@ class DetObj:
             else:
                 get_spectra_survey = f"hdr{G.HDR_Version}"
 
+           # if self.survey_shotid is None and G.SINGLE_SHOT_H5 is not None:
+
+
             apt = hda_get_spectra(coord, survey=get_spectra_survey, shotid=self.survey_shotid,
                                   ffsky=self.extraction_ffsky, multiprocess=G.GET_SPECTRA_MULTIPROCESS,
                                   rad=self.extraction_aperture, tpmin=0.0,fiberweights=True,return_fiber_info=True,
                                   loglevel=get_spectra_loglevel, fiber_flux_offset = fiber_flux_offset,
-                                  ffsky_rescor=G.FFSKY_RESCOR, apply_mask=G.FIBER_SPEC_ELEM_MASKING)
+                                  ffsky_rescor=G.FFSKY_RESCOR, apply_mask=G.FIBER_SPEC_ELEM_MASKING,shot_h5=G.SINGLE_SHOT_H5)
             log.debug("Calling get_spectra() ... Done.")
 
         except:
@@ -9755,7 +9758,8 @@ class DetObj:
             ftb = hda_get_fibers_table(self.survey_shotid,coord,
                                        radius=self.extraction_aperture * U.arcsec,
                                        #radius=60.0 * U.arcsec,
-                                       survey=f"hdr{G.HDR_Version}")
+                                       survey=f"hdr{G.HDR_Version}",
+                                       shot_h5=G.SINGLE_SHOT_H5)
 
             #build list of fibers and sort by distance (as proxy for weight)
             count = 0
@@ -9843,7 +9847,10 @@ class DetObj:
                     # we already know the path to it ... so do that here??
 
                     # full path to the HDF5 fits equivalent (or failing that the panacea fits file?)
-                    fiber.fits_fn = fiber.find_hdf5_multifits(loc=self.hdf5_shot_dir)
+                    if G.SINGLE_SHOT_H5 is None:
+                        fiber.fits_fn = fiber.find_hdf5_multifits(loc=self.hdf5_shot_dir)
+                    else:
+                        fiber.fits_fn = G.SINGLE_SHOT_H5
 
                     # fiber.fits_fn = get_hetdex_multifits_path(fiber.)
 
@@ -9935,7 +9942,11 @@ class DetObj:
                         # get 12 fits? 3 dither x 4 multiframe (amps)
                         dummy_fiber = self.fibers[0]  # just use one we already have?
                         base_multi = dummy_fiber.multi[:18]  # ends in _ need to add LL, LU, RU, RL
-                        fits_fn = dummy_fiber.find_hdf5_multifits(loc=op.dirname(hdf5_fn))
+                        if G.SINGLE_SHOT_H5 is None:
+                            fits_fn = dummy_fiber.find_hdf5_multifits(loc=op.dirname(hdf5_fn))
+                        else:
+                            fits_fn = G.SINGLE_SHOT_H5
+
 
                         fits = hetdex_fits.HetdexFits(empty=True)
                         fits.filename = fits_fn
@@ -10990,7 +11001,10 @@ class DetObj:
                     # we already know the path to it ... so do that here??
 
                     #full path to the HDF5 fits equivalent (or failing that the panacea fits file?)
-                    fiber.fits_fn = fiber.find_hdf5_multifits(loc=op.dirname(hdf5_fn))
+                    if G.SINGLE_SHOT_H5 is None:
+                        fiber.fits_fn = fiber.find_hdf5_multifits(loc=op.dirname(hdf5_fn))
+                    else:
+                        fiber.fits_fn = G.SINGLE_SHOT_H5
 
                     #fiber.fits_fn = get_hetdex_multifits_path(fiber.)
 
@@ -11104,8 +11118,11 @@ class DetObj:
                         #get 12 fits? 3 dither x 4 multiframe (amps)
                         dummy_fiber = self.fibers[0] #just use one we already have?
                         base_multi = dummy_fiber.multi[:18] #ends in _ need to add LL, LU, RU, RL
-                        fits_fn = dummy_fiber.find_hdf5_multifits(loc=op.dirname(hdf5_fn))
 
+                        if G.SINGLE_SHOT_H5 is None:
+                            fits_fn = dummy_fiber.find_hdf5_multifits(loc=op.dirname(hdf5_fn))
+                        else:
+                            fits_fn = G.SINGLE_SHOT_H5
 
                         fits = hetdex_fits.HetdexFits(empty=True)
                         fits.filename = fits_fn
@@ -12681,6 +12698,8 @@ class HETDEX:
                 if self.known_z is not None:
                     e.known_z = self.known_z
 
+                if shotid is None and G.SINGLE_SHOT_H5 is not None:
+                    shotid = G.SINGLE_SHOT_SHOTID #probably not really ncessary ... since we have thes shot file, the ID isn't needed
                 e.survey_shotid = shotid
                 e.extraction_aperture = aperture
                 e.extraction_ffsky = ffsky
@@ -12768,7 +12787,7 @@ class HETDEX:
                 # #need the shotid from the detection
                 #use survey_fhwm to check to see if this already loaded
                 if e.survey_shotid and (e.status >= 0) and (e.survey_fwhm is None):
-                    e.load_hdf5_shot_info(self.hdf5_survey_fqfn,  e.survey_shotid)
+                    e.load_hdf5_shot_info(self.hdf5_survey_fqfn,  e.survey_shotid, shot_specific_h5=G.SINGLE_SHOT_H5)
 
                 e.forced_extraction()
 
@@ -12855,7 +12874,7 @@ class HETDEX:
                 # #need the shotid from the detection
                 #use survey_fhwm to check to see if this already loaded
                 if e.survey_shotid and (e.status >= 0) and (e.survey_fwhm is None):
-                    e.load_hdf5_shot_info(self.hdf5_survey_fqfn, e.survey_shotid)
+                    e.load_hdf5_shot_info(self.hdf5_survey_fqfn, e.survey_shotid,shot_specific_h5=self.shot_specific_h5)
 
                 if e.status >= 0:
                     e.check_transients_and_flags()

@@ -121,6 +121,7 @@ HDR_BASEPATH = HDR_WORK_BASEPATH
 
 SINGLE_SHOT_H5 = None #shot hdf5 for a single shot. Same HETDEX format, but may not be a HETDEX shot
 #SINGLE_SHOT_CAT = None #lines or continuum catalog file with raw detections, usually a .fits format
+SINGLE_SHOT_SHOTID = None
 HDF5_DETECT_FN = None
 HDF5_CONTINUUM_FN = None
 CONTINUUM_RULES = False #use continuum rules instead of emission line rules
