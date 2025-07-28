@@ -986,14 +986,17 @@ def parse_commandline(auto_force=False):
 
 
     if args.shot_h5 is not None:
-
-
         #path could have changed
-        if os.path.exists(os.path.basename(args.shot_h5)):
+        if os.path.exists(args.shot_h5): #as is
+            G.SINGLE_SHOT_H5 = args.shot_h5
+        elif os.path.exists(os.path.basename(args.shot_h5)):
             args.shot_h5 = os.path.abspath(args.shot_h5)
             G.SINGLE_SHOT_H5 = args.shot_h5
         elif os.path.exists(os.path.join("../",os.path.basename(args.shot_h5))):
             args.shot_h5 = os.path.abspath(os.path.join("../",os.path.basename(args.shot_h5)))
+            G.SINGLE_SHOT_H5 = args.shot_h5
+        elif os.path.exists(os.path.join("../../",os.path.basename(args.shot_h5))):
+            args.shot_h5 = os.path.abspath(os.path.join("../../",os.path.basename(args.shot_h5)))
             G.SINGLE_SHOT_H5 = args.shot_h5
         else: #try as is
             G.SINGLE_SHOT_H5 = args.shot_h5
@@ -1010,12 +1013,19 @@ def parse_commandline(auto_force=False):
 
     if args.hdf5 is not None:
         #path could have changed
-        if os.path.exists(os.path.basename(args.hdf5)):
+        if os.path.exists(args.hdf5): #as is
+            G.HDF5_DETECT_FN = args.hdf5
+            G.HDF5_CONTINUUM_FN = args.hdf5
+        elif os.path.exists(os.path.basename(args.hdf5)):
             args.hdf5 = os.path.abspath(args.hdf5)
             G.HDF5_DETECT_FN = args.hdf5
             G.HDF5_CONTINUUM_FN = G.HDF5_DETECT_FN
         elif os.path.exists(os.path.join("../",os.path.basename(args.hdf5))):
             args.hdf5 = os.path.abspath(os.path.join("../",os.path.basename(args.hdf5)))
+            G.HDF5_DETECT_FN = args.hdf5
+            G.HDF5_CONTINUUM_FN = args.hdf5
+        elif os.path.exists(os.path.join("../../",os.path.basename(args.hdf5))):  #might be in a dispatch directory
+            args.hdf5 = os.path.abspath(os.path.join("../../",os.path.basename(args.hdf5)))
             G.HDF5_DETECT_FN = args.hdf5
             G.HDF5_CONTINUUM_FN = args.hdf5
         else: #try as is
