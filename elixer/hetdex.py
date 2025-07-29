@@ -13575,10 +13575,10 @@ class HETDEX:
         else:
             if not G.ZOO:
                 try:
-                    title += "\nPrimary Spec_Slot_IFU_AMP: %s_%s_%s_%s\n" % (e.fibers[0].specid, e.fibers[0].ifuslot,
-                                                                     e.fibers[0].ifuid,e.fibers[0].amp)
+                    title += f"\nSpec_Slot_IFU: {e.fibers[0].specid}_{e.fibers[0].ifuslot}_{e.fibers[0].ifuid}_{e.fibers[0].amp}" \
+                             f" Exp={len(e.exptimes)} Time={np.nansum(e.exptimes):0.0f}s\n"
                 except:
-                    title += "\nPrimary Spec_Slot_IFU_AMP: ???_???_???_???\n"
+                    title += f"\nSpec_Slot_IFU: ??? Exp=? Time=???\n"
 
                 if e.survey_fwhm > 3.0:
                     title += f"F=*{e.survey_fwhm:0.1f}\"*  "
@@ -13673,10 +13673,10 @@ class HETDEX:
 
                 #title += "\nPrimary IFU SpecID (%s) SlotID (%s)\n" % (e.fibers[0].specid, e.fibers[0].ifuslot)
                 try:
-                    title += "\nPrimary Spec_Slot_IFU_AMP: %s_%s_%s_%s\n" % (e.fibers[0].specid, e.fibers[0].ifuslot,
-                                                                         e.fibers[0].ifuid,e.fibers[0].amp)
+                    title += f"\nSpec_Slot_IFU: {e.fibers[0].specid}_{e.fibers[0].ifuslot}_{e.fibers[0].ifuid}_{e.fibers[0].amp}" \
+                             f" Exp={len(e.exptimes)} Time={np.nansum(e.exptimes):0.0f}s\n"
                 except:
-                    title += "\nPrimary Spec_Slot_IFU_AMP: ???_???_???_???\n"
+                    title += f"\nSpec_Slot_IFU: ??? Exp=? Time=???\n"
 
                 if e.survey_fwhm > 3.0:
                     title += f"F=*{e.survey_fwhm:0.1f}\"*  "

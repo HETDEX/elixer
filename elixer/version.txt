@@ -3,6 +3,7 @@ changes to elixer by version
 
 1.23.0a1 [2025-07-25]
 * [in progresss] working on support for parallel and single shot science frames
+* add number of exposures (Exp) and total expsure time (Time) to 3rd line of text block in upper left
 
 1.22.7a1 [2025-07-24]
 * added empirical +0.75 magzero correction to KPNO-g based on comparison to SDSS, DECaLS, HSC-SSP, CFHTLS, and HETDEX
