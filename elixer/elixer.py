@@ -626,6 +626,9 @@ def parse_commandline(auto_force=False):
     # parser.add_argument('--shot_cat', help="Use the specified shot detections catalog file. Can be used with or instead of --dets",
     #                     required=False, default=None)
 
+    parser.add_argument('--diagnose', help="Diagnose code output file. Used as additional redshift input.", required=False,
+                        default=None) #G.HDF5_DETECT_FN
+
     try:
         args = parser.parse_args()
     except:
@@ -1033,6 +1036,14 @@ def parse_commandline(auto_force=False):
             G.HDF5_CONTINUUM_FN = args.hdf5
     # if args.shot_cat is not None:
     #     G.SINGLE_SHOT_CAT = args.shot_cat
+
+    if args.diagnose is not None:
+        try:
+            from astropy.table import Table
+            G.DIAGNOSE_TABLE = Table.read(args.diagnose,format="ascii")
+        except:
+            G.DIAGNOSE_TABLE = None
+            log.warning(f"--diagnose specified, but unable to load: {args.diagnose}",exc_info=True)
 
     if (args.dets is not None) and (args.coords is not None):
         print("Invalid combination of parameters. Cannot specify both --dets and --coords")
@@ -1832,6 +1843,7 @@ def build_pages (pdfname,match,ra,dec,error,cats,pages,num_hits=0,idstring="",ba
 
     #done going through catalogs
     if detobj:
+        detobj.check_diagnose_solutions()
         detobj.check_spec_solutions_vs_catalog_counterparts()
         detobj.check_clustering_redshift()
 

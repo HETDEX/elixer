@@ -3098,6 +3098,47 @@ class DetObj:
             log.warning("Exception! in hetdex.py DetObj::check_clustering_redshift()",exc_info=True)
 
 
+    def check_diagnose_solutions(self):
+        """
+
+        :return:
+        """
+
+        try:
+            if G.DIAGNOSE_TABLE is None:
+                return
+
+            #first try detectid
+            sel = G.DIAGNOSE_TABLE['detectid'] == self.entry_id
+            if np.count_nonzero(sel) == 1: #match
+                pass
+            else: #either 0 or 2+ ... really should never be 2+
+                #see if within a fraction of RA and Dec, since we passed them in originally to Diagnose, they
+                #should be exact matches, save for any precision rounding
+                sel = (abs(G.DIAGNOSE_TABLE['RA'] - self.ra) < 0.0005) * (abs(G.DIAGNOSE_TABLE['Dec'] - self.dec) < 0.0005)
+                ct = np.count_nonzero(sel)
+                if ct == 1:
+                    pass #good
+                elif ct > 1: #need to get the closest
+                    dists = [utils.angular_distance(self.ra,self.dec,r,d) for r,d in zip(G.DIAGNOSE_TABLE['RA'][sel],G.DIAGNOSE_TABLE['Dec'][sel])]
+                    dsel = np.argmin(dists)
+                    diag_id = G.DIAGNOSE_TABLE['detectid'][sel][dsel]
+                    sel = G.DIAGNOSE_TABLE['detectid'] == diag_id
+
+                else:
+                    log.info(f"No match within Diagnose catalog for {self.entry_id} ({self.ra},{self.dec})")
+                    return #we are done, no matches
+
+
+            #now, at this point sel should be exactly one ...
+            #print(G.DIAGNOSE_TABLE[sel])
+
+
+        except:
+            log.warning("Exception! in hetdex.py DetObj::check_diagnose_solutions()",exc_info=True)
+
+
+
     def check_spec_solutions_vs_catalog_counterparts(self):
         """
         Needs to have already performed all the catalog matches
