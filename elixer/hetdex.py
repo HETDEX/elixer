@@ -846,6 +846,7 @@ class DetObj:
                                   #the list is neighbors_sep.sep_objects
         self.bid_target_list = []
 
+        self.diagnose_dict = None
         self.classification_dict = {'scaled_plae':None,
                                     'plae_hat':None,
                                     'plae_hat_hi':None, #+ confidence interval (usually .68)
@@ -2930,6 +2931,40 @@ class DetObj:
                 pass
 
 
+            #todo: Diagnose check here
+            if self.diagnose_dict is not None and ((self.best_gmag - self.best_gmag_unc) < 23.0):
+                # (basically, if the object is < g 23 and the elixer confidence is low and/or the line is questionable
+                # give it the diagnose redshift ... even if that is not consistent with the "line" ???
+                # maybe that case needs a new flag that says so ... inconsistent with line??
+                #       or the line is quite broad ... could compare to G.BROAD_FWHM_KMS or G.REALLY_BROAD_FWHM_KMS
+                if (p < 0.5) or (self.fwhm > (6.0 * 2.355)) or \
+                   (self.flags & G.DETFLAG_QUESTIONABLE_DETECTION) or (self.flags & G.DETFLAG_BAD_EMISSION_LINE) or \
+                   (self.flags & G.DETFLAG_UNCERTAIN_CLASSIFICATION) or (self.flags & G.DETFLAG_EXT_CAT_QUESTIONABLE_Z):
+                    #what is the diagnose z
+                    print("diagnoze")
+                    #check the chi2
+                    dg_label = ['star','gal','agn']
+                    dg_chi2 = [self.diagnose_dict['chi2_star'], self.diagnose_dict['chi2_galaxy'],self.diagnose_dict['chi2_qso']]
+                    dg_z = [self.diagnose_dict['z_star'], self.diagnose_dict['z_galaxy'], self.diagnose_dict['z_qso']]
+                    idx_chi2 = np.argmin(dg_chi2)
+                    diagnose_chi2 = dg_chi2[idx_chi2]
+                    diagnose_z = dg_z[idx_chi2] #self.diagnose_dict['z_best']
+
+                    #is the chi2 good enough?? what is good enough
+                    if diagnose_chi2 < 3.0 or (p < 0.1 and diagnose_chi2 < 5.0):
+                        #use the diagnose z, and flag it
+                        #self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
+                        #is the z consistent with a wavelenght?
+
+                        z = diagnose_z
+                        self.spec_obj.add_classification_label(dg_label[idx_chi2],replace=True)
+                        p = min(0.99, 1./diagnose_chi2)
+                        log.warning(f"Using Diagnose {dg_label[idx_chi2]} redshift: "
+                                    f"z={z} with chi2={diagnose_chi2} and assigned Q(z)={p:0.2f}")
+
+
+
+
             #last check ... allow non-identification if for OII (because it can't be anything else)
             #basically if pz is very low (< 0.05) and the line is broad, it just can't be OII, but we don't know what
             #it is. Could even be a broad return to continuum between two absorption lines.
@@ -3132,6 +3167,8 @@ class DetObj:
 
             #now, at this point sel should be exactly one ...
             #print(G.DIAGNOSE_TABLE[sel])
+            self.diagnose_dict = dict(G.DIAGNOSE_TABLE[0])
+            #load the results and save for the best_redshift check
 
 
         except:
