@@ -847,6 +847,8 @@ class DetObj:
         self.bid_target_list = []
 
         self.diagnose_dict = None
+        self.diagnose_matched_lines = None
+        self.diagnose_adjusted_z = None
         self.classification_dict = {'scaled_plae':None,
                                     'plae_hat':None,
                                     'plae_hat_hi':None, #+ confidence interval (usually .68)
@@ -2941,7 +2943,7 @@ class DetObj:
                    (self.flags & G.DETFLAG_QUESTIONABLE_DETECTION) or (self.flags & G.DETFLAG_BAD_EMISSION_LINE) or \
                    (self.flags & G.DETFLAG_UNCERTAIN_CLASSIFICATION) or (self.flags & G.DETFLAG_EXT_CAT_QUESTIONABLE_Z):
                     #what is the diagnose z
-                    print("diagnoze")
+                    #print("diagnose")
                     #check the chi2
                     dg_label = ['star','gal','agn']
                     dg_chi2 = [self.diagnose_dict['chi2_star'], self.diagnose_dict['chi2_galaxy'],self.diagnose_dict['chi2_qso']]
@@ -2956,10 +2958,38 @@ class DetObj:
                         #self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
                         #is the z consistent with a wavelenght?
 
-                        z = diagnose_z
+                        #if the diagnose_z is close to a line based z, use the line based z as more precise
+                        #if the diagnose_z is consistent within 6AA if a found line, use the z from the found line instead
+                        # the match assigns a consistent z
+                        if self.diagnose_matched_lines is None:
+                            self.diagnose_matched_lines = self.spec_obj.match_found_lines(diagnose_z,
+                                                                          z_error=None, z_frac_err=None,
+                                                                          aa_error = 6.0, allow_absorption=True,
+                                                                          max_rank=4,makecopy=True)
+
+                        #select highest rank and highest score
+                        if self.diagnose_adjusted_z is None:
+                            if self.diagnose_matched_lines is not None:
+                                if len(self.diagnose_matched_lines) == 0:
+                                    self.diagnose_adjusted_z = diagnose_z
+                                elif len(self.diagnose_matched_lines) == 1:
+                                    self.diagnose_adjusted_z = self.diagnose_matched_lines[0].z
+
+                                elif len(self.diagnose_matched_lines) > 1:
+                                    mxscore = np.max([x.score for x in self.diagnose_matched_lines])
+                                    sel_score = [x.line_score > mxscore*0.9 for x in self.diagnose_matched_lines]
+                                    mnrank = np.min([x.rank for x in np.array(self.diagnose_matched_lines)[sel_score]])
+
+                                    sel_rank = [x.rank <= mnrank +1 for x in np.array(self.diagnose_matched_lines)[sel_score]]
+                                    self.diagnose_adjusted_z = np.nanmean([x.z for x in np.array(self.diagnose_matched_lines)[sel_score][sel_rank]])
+                            else:
+                                self.diagnose_adjusted_z = diagnose_z
+
+                        z = self.diagnose_adjusted_z
+                        #set Q(z) based on the chi2 of the Diagnose match
+                        p = min(0.99, 1. / diagnose_chi2)
                         self.spec_obj.add_classification_label(dg_label[idx_chi2],replace=True)
-                        p = min(0.99, 1./diagnose_chi2)
-                        log.warning(f"Using Diagnose {dg_label[idx_chi2]} redshift: "
+                        log.warning(f"Using Diagnose based {dg_label[idx_chi2]} redshift: "
                                     f"z={z} with chi2={diagnose_chi2} and assigned Q(z)={p:0.2f}")
 
 
@@ -10399,8 +10429,13 @@ class DetObj:
                             log.error(f"Problem loading detectid {id}. None returned.")
 
                             try:
-                                if str(id)[0] != G.HDR_Version:
+                                if len(str(id))==10 and str(id)[0] != G.HDR_Version:
                                     warn = f"***** Warning ***** {id} prefix may be incompatible with current HDR Version {G.HDR_Version}"
+                                    print(warn)
+                                    log.warning(warn)
+                                elif G.SINGLE_SHOT_H5 is not None:
+                                    warn = f"***** Warning ***** {id} may be incompatible with passed --hdf5 {G.SINGLE_SHOT_H5}. " \
+                                           f"Possibly mismatched continuum vs emission line ID and hdf5 file?"
                                     print(warn)
                                     log.warning(warn)
                             except:
@@ -10411,8 +10446,13 @@ class DetObj:
                             self.status = -1
                             log.error(f"Problem loading detectid {id}. {rows.size} rows returned.")
                             try:
-                                if str(id)[0] != G.HDR_Version:
+                                if len(str(id))==10 and str(id)[0] != G.HDR_Version:
                                     warn = f"***** Warning ***** {id} prefix may be incompatible with current HDR Version {G.HDR_Version}"
+                                    print(warn)
+                                    log.warning(warn)
+                                elif G.SINGLE_SHOT_H5 is not None:
+                                    warn = f"***** Warning ***** {id} may be incompatible with passed --hdf5 {G.SINGLE_SHOT_H5}. " \
+                                           f"Possibly mismatched continuum vs emission line ID and hdf5 file?"
                                     print(warn)
                                     log.warning(warn)
                             except:

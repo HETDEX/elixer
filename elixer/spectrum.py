@@ -5721,7 +5721,7 @@ class Spectrum:
 
 
     def match_found_lines(self,z,z_error=None,z_frac_err=None,aa_error=None,allow_emission=True,allow_absorption=False,
-                    line_sigma=None,continuum=False,max_rank=5):
+                    line_sigma=None,continuum=False,max_rank=5, makecopy=False):
         """
 
         Like match_lines, but checks to see if any of the found lines are consistent with a line ID given the redshift
@@ -5737,6 +5737,7 @@ class Spectrum:
 
         :param aa_error: in angstroms
         :param max_rank: maximum allowed rank to match; if matched line is greater than rank, do not accept match
+        :param makecopy: update the matched line record with found line info and return as a copy
         :return:
         """
         try:
@@ -5749,14 +5750,39 @@ class Spectrum:
             if continuum: #then normal  emission (like hydrogen series) can also be in absorption
                 allow_absorption = True
 
-            # continuum over rides broad and not abosorption (if there is continuum then we can allow any to be "broad"
+            # continuumover rides broad and not abosorption (if there is continuum then we can allow any to be "broad"
             # and be in absorption
 
-            for e in self.all_found_lines:
+            if allow_emission and allow_absorption:
+                line_list = self.all_found_lines + self.all_found_absorbs
+            elif allow_emission:
+                line_list = self.all_found_lines
+            elif allow_absorption:
+                line_list = self.all_found_absorbs
+            else: #should not be called this way
+                line_list = []
+                log.warning(f"Unexpected call into spectrum::match_found_lines(). Neither emission nor absorption allowed.")
+                return []
+
+            for e in line_list:
                 match = self.match_line(e.fit_x0,z,z_error=z_error,z_frac_err=z_frac_err,aa_error=aa_error, allow_absorption=allow_absorption,
                                 max_rank=max_rank)
                 if match is not None:
-                    all_match.append(match)
+                    # copy over some basic info from the actual line fit (observed line) to this "laboratory" line record
+                    if makecopy:
+                        cpmatch = copy.deepcopy(match)
+                        cpmatch.line_score = e.line_score
+                        cpmatch.w_obs = e.w_obs
+                        cpmatch.snr = e.snr
+                        cpmatch.flux = e.line_flux
+                        cpmatch.flux_err = e.line_flux_err
+                        cpmatch.sigma = e.fit_sigma
+                        cpmatch.sigma_err = e.fit_sigma_err
+                        cpmatch.z = cpmatch.w_obs / cpmatch.w_rest - 1.0
+
+                        all_match.append(cpmatch)
+                    else:
+                        all_match.append(match)
 
 
             if all_match is not None and len(all_match) > 1:
