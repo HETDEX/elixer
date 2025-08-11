@@ -2740,11 +2740,14 @@ class DetObj:
             #check aperture correction at spectrum midpoint ... can be excessive
             #yes ... the clustering could undo this and that is okay
             try:
-                apcor = self.sumspec_apcor[515]
+                #onlty make this check IF there are the normal 3 exposures
+                #e.g. if this is parallel science and there is only 1 exposure, the apcor will be off by around 3x
+                if np.count_nonzero(self.exptimes) == 3:
+                    apcor = self.sumspec_apcor[515]
 
-                if (apcor < 0.6) or (apcor < 0.9 and multiline_sol_diag < 1 and self.best_gmag > 23.0):
-                    log.info(f"Modifying Q(z) by x{apcor*apcor:0.2f} due to high aperture correction {apcor:0.2f}")
-                    p *= apcor * apcor
+                    if (apcor < 0.6) or (apcor < 0.9 and multiline_sol_diag < 1 and self.best_gmag > 23.0):
+                        log.info(f"Modifying Q(z) by x{apcor*apcor:0.2f} due to high aperture correction {apcor:0.2f}")
+                        p *= apcor * apcor
 
             except:
                 pass
@@ -13694,7 +13697,7 @@ class HETDEX:
             if not G.ZOO:
                 try:
                     title += f"\nSpec_Slot_IFU: {e.fibers[0].specid}_{e.fibers[0].ifuslot}_{e.fibers[0].ifuid}_{e.fibers[0].amp}" \
-                             f" Exp={len(e.exptimes)} Time={np.nansum(e.exptimes):0.0f}s\n"
+                             f" Exp={np.count_nonzero(e.exptimes)} Time={np.nansum(e.exptimes):0.0f}s\n"
                 except:
                     title += f"\nSpec_Slot_IFU: ??? Exp=? Time=???\n"
 
@@ -13792,7 +13795,7 @@ class HETDEX:
                 #title += "\nPrimary IFU SpecID (%s) SlotID (%s)\n" % (e.fibers[0].specid, e.fibers[0].ifuslot)
                 try:
                     title += f"\nSpec_Slot_IFU: {e.fibers[0].specid}_{e.fibers[0].ifuslot}_{e.fibers[0].ifuid}_{e.fibers[0].amp}" \
-                             f" Exp={len(e.exptimes)} Time={np.nansum(e.exptimes):0.0f}s\n"
+                             f" Exp={np.count_nonzero(e.exptimes)} Time={np.nansum(e.exptimes):0.0f}s\n"
                 except:
                     title += f"\nSpec_Slot_IFU: ??? Exp=? Time=???\n"
 
