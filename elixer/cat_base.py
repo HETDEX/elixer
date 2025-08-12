@@ -971,7 +971,37 @@ class Catalog:
         line_buf_tight = None
 
         if stacked_cutout is None:
-            fig = self.build_empty_cat_summary_figure(ra,dec,error,None,None,target_w,fiber_locs)
+            #still want that line image, if we can get it, but there will be no WCS
+
+            if True:
+                try:
+                    plt.close('all')
+                    plt.figure()
+                    pixscale = 0.25  # make the line image on the same scale as the master_cutout for easier mapping
+                    max_rotation_resize = 1.0
+
+                    line_image = science_image.get_line_image(plt, friendid=None, detectid=None,
+                                                              coords=SkyCoord(ra=ra, dec=dec, frame='icrs', unit='deg'),
+                                                              shotid=detobj.survey_shotid, subcont=True,
+                                                              convolve_image=False,
+                                                              pixscale=pixscale, imsize=3 * error * max_rotation_resize,
+                                                              wave_range=[detobj.w - 3.0 / 2.355 * abs(detobj.fwhm),
+                                                                          detobj.w + 3.0 / 2.355 * abs(detobj.fwhm)],
+                                                              sigma=abs(detobj.fwhm) / 2.355,
+                                                              return_coords=False)
+
+                    plt.close("all")
+                except:
+                    log.info("Excception getting line image/buffer", exc_info=True)
+
+
+                fig = self.build_empty_cat_summary_figure(ra, dec, error, None, None, target_w, fiber_locs,
+                                                          lineflux_map=line_image)
+
+            else:
+                #just make the empty fiber image, no lineflux map
+                fig = self.build_empty_cat_summary_figure(ra, dec, error, None, None, target_w, fiber_locs)
+
         else:
             if G.PROJECT_LINE_IMAGE_TO_COMMON_WCS and detobj is not None:
                 #before we build up the new plt, we need to get the line image and save into a buffer for use later
@@ -1010,6 +1040,7 @@ class Catalog:
                         # or do this image first
 
                         im_ax = line_fig.add_subplot(111, projection=stacked_cutout.wcs)
+
                         # im_ax = plt.subplot(gs[1:, index],projection=stacked_cutout.wcs)
                         #pix_size = 0.25  # make sure to match vs pixscale in above call
                         #ext = line_image.shape[0] * pix_size / 2.
@@ -2529,6 +2560,7 @@ class Catalog:
             #needs to be at the end
             #self.add_zero_position(plt)
             plt.plot(0, 0, "r+")
+            #plt.tight_layout()
         except:
             log.error("Exception in cat_base::add_empty_catalog_fiber_positions.",exc_info=True)
 
@@ -2595,11 +2627,12 @@ class Catalog:
         return dx,dy
 
     def build_empty_cat_summary_figure(self, ra, dec, error, bid_ras, bid_decs, target_w=0,
-                                 fiber_locs=None):
+                                 fiber_locs=None,lineflux_map=None):
         '''Builds the figure (page) the exact target location. Contains just the filter images ...'''
+        #it is assumed that the lineflux_map is built to the same cutoutsize as the default "empty" fiber positions
 
         rows = 10  # 2 (use 0 for text and 1: for plots)
-        cols = 6  # just going to use the first, but this sets about the right size
+        cols = 7  # just going to use the first, but this sets about the right size
 
         fig_sz_x = 18  # cols * 3 # was 6 cols
         fig_sz_y = 3  # rows * 3 # was 1 or 2 rows
@@ -2620,13 +2653,52 @@ class Catalog:
 
             plt.subplot(gs[0, :])
             plt.text(0, 0.3, title, ha='left', va='bottom', fontproperties=font)
-            plt.gca().set_frame_on(False)
             plt.gca().axis('off')
+            plt.gca().set_frame_on(False)
 
             plt.subplot(gs[2:, 0])
             self.add_empty_catalog_fiber_positions(plt, fig, ra, dec, fiber_locs)
 
+            xticks = plt.gca().get_xticks()
+            yticks = plt.gca().get_yticks()
+            ext = np.max(plt.gca().get_xlim())  #these are square s|t x = y with 0,0 in the center
+
+            if lineflux_map is not None:
+                try:
+                    im_ax = plt.subplot(gs[2:, 1] )# ,projection=lineflux_map.wcs)
+                    #pix_size = science_image.science_image().calc_pixel_size(lineflux_map.wcs) / 3600.
+                    #ext = lineflux_map.data.shape[0] * pix_size / 2.
+
+                    im = im_ax.imshow(lineflux_map.data, origin='lower', interpolation='none',
+                               extent=[-ext, ext, -ext, ext],
+                               vmin=lineflux_map.vmin, vmax=lineflux_map.vmax)
+                            #   transform=im_ax.get_transform())  # ,cmap=plt.get_cmap('gray_r'))
+
+
+                    # self.add_fiber_positions(plt, ra, dec, fiber_locs, error, ext, line_image,use_gray_cmap=False)
+                    # add_fiber_positions also takes care of the north box and the center
+                    plt.title(f"Lineflux Map")
+                    # plt.xticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+                    # plt.yticks([int(ext), int(ext / 2.), 0, int(-ext / 2.), int(-ext)])
+                    plt.xticks(xticks)
+                    plt.yticks(yticks)
+                    self.add_zero_position(plt)
+
+                    try:
+                        plt.xlabel(
+                            f"s/b: {lineflux_map.flux / lineflux_map.bkg_stddev:0.2f} +/- {lineflux_map.flux_err / lineflux_map.bkg_stddev:0.3f}")
+                        # f"\n{line_image.bkg_stddev:0.2f}, {line_image.apcor:0.2f}")
+                    except:  # these might be None
+                        plt.xlabel(f"sn: undef")
+
+                    plt.gca().xaxis.labelpad = 0
+                    plt.subplots_adjust(bottom=0.1)
+
+                except:
+                    log.debug("Exception handling line image for empty photometry.", exc_info=True)
+
             # complete the entry
+            plt.tight_layout()
             plt.close()
             return fig
         except:
