@@ -970,10 +970,8 @@ CaII_K_3934 = 3933.6614
 CaII_H_3968 = 3968.4673
 
 APPLY_GALACTIC_DUST_CORRECTION = True #if true apply explicit MW dust de-reddening or de-extinction using hetdex_api
-#DUST_CORR_BLUE = 3750.0 #wavelength to report blueside dust correction
-DUST_CORR_BLUE_IDX = 25
-#DUST_CORR_RED = 5250.0 #ditto red
-DUST_CORR_RED_IDX = 1011
+DUST_CORR_BLUE_IDX = 25  #around 3500AA
+DUST_CORR_RED_IDX = 1011 #around 5500AA
 EXTREME_DUST_THRESHOLD = 2.0 #multipliers greater than this trigger the flag
 
 
