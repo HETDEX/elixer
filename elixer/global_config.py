@@ -974,6 +974,7 @@ APPLY_GALACTIC_DUST_CORRECTION = True #if true apply explicit MW dust de-reddeni
 DUST_CORR_BLUE_IDX = 140
 #DUST_CORR_RED = 5250.0 #ditto red
 DUST_CORR_RED_IDX = 890
+EXTREME_DUST_THRESHOLD = 2.0 #multipliers greater than this trigger the flag
 
 
 LOAD_SPEC_FROM_HETDEX_API = True #if true attempt to load through hetdex_api first and fall back on the h5 file if fail
@@ -1404,6 +1405,9 @@ DETFLAG_QUESTIONABLE_DETECTION      = 0x00400000  # !!! SHOULD IGNORE for high S
 DETFLAG_EXCESSIVE_ZERO_PIXELS       = 0x00800000  #too many zero valued pixels at the emission line center in 2D cutouts
 DETFLAG_POSSIBLE_PN                 = 0x01000000  #possible planetery nebula hit (usually 5007, without an obvious source)
 DETFLAG_NO_DUST_CORRECTION          = 0x02000000  #dust correction was requested but failed (see APPLY_GALACTIC_DUST_CORRECTION)
+DETFLAG_EXTREME_DUST_CORRECTION     = DETFLAG_NO_DUST_CORRECTION #just for backward compatibility
+                                                  #now can mean a requested dust correction failed (as before) OR
+                                                  #the the dust correction is extreme
 DETFLAG_BAD_PIXELS                  = 0x04000000  #hot column, maybe bad sky subtraction, etc ... possible false detection
                                                   #can be extremely negative to one side of the line (a dip then bump
                                                   #that is interpreted as a line when there is no line)

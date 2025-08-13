@@ -9396,6 +9396,8 @@ class DetObj:
                     self.dust_corr = deredden_spectra(G.CALFIB_WAVEGRID,coord)
                     self.dust_corr_blue = self.dust_corr[G.DUST_CORR_BLUE_IDX]
                     self.dust_corr_red = self.dust_corr[G.DUST_CORR_RED_IDX]
+                    if np.max(self.dust_corr[25:200]) > G.EXTREME_DUST_THRESHOLD: #roughly between 3500 and 3900 (ish)
+                        self.flags |= G.DETFLAG_EXTREME_DUST_CORRECTION
                 except:
                     self.dust_corr = 1.0
                     self.dust_corr_blue = 1.0
@@ -10668,6 +10670,8 @@ class DetObj:
                                                       SkyCoord(self.wra, self.wdec, unit='deg'))
                     self.dust_corr_blue = self.dust_corr[G.DUST_CORR_BLUE_IDX]
                     self.dust_corr_red = self.dust_corr[G.DUST_CORR_RED_IDX]
+                    if np.max(self.dust_corr[25:200]) > G.EXTREME_DUST_THRESHOLD: #roughly between 3500 and 3900 (ish)
+                        self.flags |= G.DETFLAG_EXTREME_DUST_CORRECTION
                 except:
                     self.dust_corr = 1.0
                     self.dust_corr_blue = 1.0

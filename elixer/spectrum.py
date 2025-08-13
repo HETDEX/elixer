@@ -1660,6 +1660,12 @@ class EmissionLineInfo:
         :return:
         """
         if self.snr > MIN_ELI_SNR and self.fit_sigma > MIN_ELI_SIGMA:
+            self.fwhm = -999
+            self.cont = -999
+            self.line_flux = -999
+            self.line_score = 0
+            self.raw_line_score = 0
+
             if self.fit_sigma is not None:
                 self.fwhm = 2.355 * self.fit_sigma  # e.g. 2*sqrt(2*ln(2))* sigma
 
@@ -2512,6 +2518,8 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             eli.fit_y = parm[3]
             eli.fit_y_err = perr[3]
             eli.line_score = fit_dict_array[fd_idx]["score"] #just for now, will get replaced with actual line_score
+            eli.raw_line_score = eli.line_score
+            eli.raw_score = eli.line_score
             return eli
 
         ######################
@@ -7705,7 +7713,16 @@ class Spectrum:
         try:
             if False and solutions is None or len(solutions) == 0 or solutions[0].score < G.MULTILINE_WEIGHT_SOLUTION_SCORE:
                 #todo: could be more selective and alsu use SNR and chi2
-                num_strong_lines = np.count_nonzero([x.raw_score > 10.0 for x in self.all_found_lines])
+                #num_strong_lines = np.count_nonzero([x.raw_score > 10.0 for x in self.all_found_lines])
+                num_strong_lines = 0
+                for x in self.all_found_lines:
+                    if x.raw_score is not None:
+                        if x.raw_score > 10.0:
+                            num_strong_lines += 1
+                    elif x.line_score is not None:
+                        if x.line_score > 10.0:
+                            num_strong_lines += 1
+
                 if num_strong_lines > 2: #3 or more
                     #save off the original central, central eli, etc
                     #todo: there is MORE to save off and restore
@@ -8076,14 +8093,27 @@ class Spectrum:
             else:
                 line_score_threshold = GOOD_MIN_LINE_SCORE
 
+
             #tweak down the score for lines < 3700 (near, but blue of OII and well into the noisiest part)
-            unmatched_score_list = np.array([x.line_score * rescale(x.fit_x0)
-                                             for x in self.all_found_lines if (3550.0 < x.fit_x0 < 5500.0) and (x.line_score > line_score_threshold) ])
-            unmatched_raw_score_list = np.array([x.raw_line_score * rescale(x.fit_x0)
-                                             for x in self.all_found_lines if
-                                             (3550.0 < x.fit_x0 < 5500.0) and (x.line_score > line_score_threshold)])
-            unmatched_wave_list = np.array([x.fit_x0 for x in self.all_found_lines if (3550.0 < x.fit_x0 < 5500.0) and (x.line_score > line_score_threshold)])
-            unmatched_wave_sigma = np.array([x.fit_sigma for x in self.all_found_lines if (3550.0 < x.fit_x0 < 5500.0) and (x.line_score > line_score_threshold)])
+            #expected to be the same size
+
+            sel = np.array([(3550.0 < x.fit_x0 < 5500.0) and (x.line_score > line_score_threshold) for x in self.all_found_lines])
+            unmatched_score_list = np.array([x.line_score * rescale(x.fit_x0) for x in np.array(self.all_found_lines)[sel] ])
+            unmatched_raw_score_list = np.array([ x.raw_line_score * rescale(x.fit_x0) if x.raw_line_score is not None else 0.0
+                                                  for x in np.array(self.all_found_lines)[sel]])
+            unmatched_wave_list = np.array([x.fit_x0 for x in np.array(self.all_found_lines)[sel] ])
+            unmatched_wave_sigma = np.array([x.fit_sigma for x in np.array(self.all_found_lines)[sel]])
+
+
+
+
+            # unmatched_score_list = np.array([x.line_score * rescale(x.fit_x0)
+            #                                  for x in self.all_found_lines if (3550.0 < x.fit_x0 < 5500.0) and (x.line_score > line_score_threshold) ])
+            # unmatched_raw_score_list = np.array([x.raw_line_score * rescale(x.fit_x0)
+            #                                  for x in self.all_found_lines if
+            #                                  (3550.0 < x.fit_x0 < 5500.0) and (x.line_score > line_score_threshold)])
+            # unmatched_wave_list = np.array([x.fit_x0 for x in self.all_found_lines if (3550.0 < x.fit_x0 < 5500.0) and (x.line_score > line_score_threshold)])
+            # unmatched_wave_sigma = np.array([x.fit_sigma for x in self.all_found_lines if (3550.0 < x.fit_x0 < 5500.0) and (x.line_score > line_score_threshold)])
 
             solution_wave_list = np.array([solution.central_rest * (1.+solution.z)] + [x.w_obs for x in solution.lines])
             solution_score_list = np.array([0.0] + [x.line_score for x in solution.lines ])

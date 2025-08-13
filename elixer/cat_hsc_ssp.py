@@ -4,6 +4,9 @@ import scipy.interpolate
 
 """
 This is for the HSC SSP data. Cloned originally from hsc_nep.py code, but modified extensively
+
+Note: since this gets asked periodically, this is supposed to be MW dust corrected (both catalog and photometry) using
+      Schlegel +1998
 """
 
 try:
