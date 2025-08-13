@@ -756,6 +756,8 @@ class DetObj:
         self.sumspec_flux_unit_scale = G.HETDEX_FLUX_BASE_CGS #cgs
         self.sumspec_fluxerr = []
         self.dust_corr = None
+        self.dust_corr_blue = None
+        self.dust_corr_red = None
 
         self.sumspec_apcor = []
 
@@ -9176,7 +9178,6 @@ class DetObj:
                 except:
                     dust_corr = 1.0
 
-
             if self.fiber_sky_subtraction_residual is None and G.APPLY_SKY_RESIDUAL_TYPE == 1:
 
                 ##DD 2024-03-07 updated
@@ -9393,8 +9394,12 @@ class DetObj:
             if G.APPLY_GALACTIC_DUST_CORRECTION:  #everything is still with NaNs and is per 1AA
                 try:
                     self.dust_corr = deredden_spectra(G.CALFIB_WAVEGRID,coord)
+                    self.dust_corr_blue = self.dust_corr[G.DUST_CORR_BLUE_IDX]
+                    self.dust_corr_red = self.dust_corr[G.DUST_CORR_RED_IDX]
                 except:
                     self.dust_corr = 1.0
+                    self.dust_corr_blue = 1.0
+                    self.dust_corr_red = 1.0
 
             if G.LOG_LEVEL <= 10: #10 = DEBUG
                 get_spectra_loglevel = "INFO"
@@ -10661,8 +10666,12 @@ class DetObj:
                 try:
                     self.dust_corr = deredden_spectra(self.sumspec_wavelength,
                                                       SkyCoord(self.wra, self.wdec, unit='deg'))
+                    self.dust_corr_blue = self.dust_corr[G.DUST_CORR_BLUE_IDX]
+                    self.dust_corr_red = self.dust_corr[G.DUST_CORR_RED_IDX]
                 except:
                     self.dust_corr = 1.0
+                    self.dust_corr_blue = 1.0
+                    self.dust_corr_red = 1.0
 
             #
             # !!! NOTICE: unlike the forced extraction code, here the spectra is per 2AA so we have to work in that binning !!!
@@ -10710,6 +10719,7 @@ class DetObj:
                     #collected above
                     self.sumspec_flux *= self.dust_corr
                     self.sumspec_fluxerr *= self.dust_corr
+
                 except:
                     self.flags |= G.DETFLAG_NO_DUST_CORRECTION
                     log.warning("Exception. Unable to apply galatic exintction correction.", exc_info=True)
@@ -13358,7 +13368,9 @@ class HETDEX:
             title += "\nRA,Dec (%f,%f)\n$\lambda$ = %g$\AA$ \n" % (e.syn_obs.ra, e.syn_obs.dec, e.syn_obs.w)
 
             if e.spec_obj.estflux is not None:
-                title += "LineFlux = %0.3g  \n" % e.spec_obj.estflux
+                #title += "LineFlux = %0.3g  \n" % e.spec_obj.estflux
+                title += f"LineFlxux = {e.spec_obj.estflux:0.3g} \n"
+
 
             if e.spec_obj.eqw_obs is not None:
                 title += "EW_obs = %g$\AA$ \n" % e.spec_obj.eqw_obs
@@ -13616,7 +13628,7 @@ class HETDEX:
                 else:
                     title += "\n"
 
-                title +=  "Cont(n) = %s" %(estcont_str)
+                title += f"Cont(n) = {estcont_str}  Dust={e.dust_corr_blue:0.1f}-{e.dust_corr_red:0.1f}x"
                 if estcont_gmag_str:
                     title += "\nCont(w) = %s" %(estcont_gmag_str)
 
@@ -13659,7 +13671,8 @@ class HETDEX:
                 else:
                     title += "\n"
 
-                title += "Cont(n) = %s" % (estcont_str)
+                #title += "Cont(n) = %s" % (estcont_str)
+                title += f"Cont(n) = {estcont_str}  Dust={e.dust_corr_blue:0.1f}-{e.dust_corr_red:0.1f}x"
                 if estcont_gmag_str:
                     title += "\nCont(w) = %s" %(estcont_gmag_str)
 
@@ -13759,7 +13772,8 @@ class HETDEX:
                         log.error(f"Exception! ODIN HACK",exc_info=True)
                         title += f"ODINFlux = EXCEPTION\n"
 
-                title += "Cont(n) = %s" % (estcont_str)
+                #title += "Cont(n) = %s" % (estcont_str)
+                title += f"Cont(n) = {estcont_str}  Dust={e.dust_corr_blue:0.1f}-{e.dust_corr_red:0.1f}x"
                 if estcont_gmag_str:
                     title += "\nCont(w) = %s" %(estcont_gmag_str)
 
@@ -13833,7 +13847,8 @@ class HETDEX:
                 else:
                     title += "\n"
                 #title +=  "EstCont = %s  \nEW_r(LyA) = %s$\AA$\n" % (estcont_str, eqw_lya_str)
-                title += "Cont(n) = %s" % (estcont_str)
+                #title += "Cont(n) = %s" % (estcont_str)
+                title += f"Cont(n) = {estcont_str}  Dust={e.dust_corr_blue:0.1f}-{e.dust_corr_red:0.1f}x"
                 if estcont_gmag_str:
                     title += "\nCont(w) = %s" %(estcont_gmag_str)
 
@@ -13945,6 +13960,8 @@ class HETDEX:
             title = title + "\nLyA z = %0.4f" % la_z
             if (oii_z > 0):
                 title = title + "  OII z = %0.4f" % oii_z
+            elif (oii_z > -0.0011):
+                title + "  OII z = 0.0000"
             else:
                 title = title + "  OII z = N/A"
 
@@ -16394,7 +16411,20 @@ class HETDEX:
         #wave_grid = np.arange(cwave - ww, cwave + ww + dwave + 2.0, 2.0)  # 0.1)
         #these are in the x2AA binning
         #parm[4] is the binning used; normally then the y parameter is * 2.0/2.0
-        fit_spec = gaussian(x=wave_grid,x0=parms[0],sigma=parms[1],a=parms[2],y=parms[3]*y_mul/parms[4])
+
+        if G.APPLY_GALACTIC_DUST_CORRECTION:
+            try:
+                e = datakeep['detobj']
+                idx,*_ = SU.getnearpos(G.CALFIB_WAVEGRID,parms[0])
+                dustx = e.dust_corr[idx]
+            except:
+                dustx = 1.0
+        else:
+            dustx = 1.0
+
+        fit_spec = gaussian(x=wave_grid, x0=parms[0], sigma=parms[1], a=parms[2] ,
+                            y=parms[3] * y_mul / parms[4] )
+        fit_spec_dust = gaussian(x=wave_grid,x0=parms[0],sigma=parms[1],a=parms[2] * dustx ,y=parms[3]*y_mul/parms[4]*dustx)
 
         if G.ODIN_HACK:
             try:
@@ -16454,6 +16484,16 @@ class HETDEX:
             log.debug("Could not set model spectra fit scale to data.", exc_info=True)
 
         specplot.plot(wave_grid, fit_spec, c='k', lw=2, linestyle="solid", alpha=0.7, zorder=0)
+
+        if G.APPLY_GALACTIC_DUST_CORRECTION and dustx > 1.2:
+            dmed = np.nanmedian(flux)
+            mmed = np.nanmedian(fit_spec)
+            if 0.33 < mmed/dmed < 3.0:
+                pass
+            else:
+                specplot.plot(wave_grid, fit_spec_dust, c='r', lw=2, linestyle="solid", alpha=0.7, zorder=0)
+
+
         specplot.errorbar(wave_data,flux,yerr=flux_err,fmt='.',zorder=9)
         if G.ODIN_HACK:
             specplot.plot(wave_grid, odin_fit_spec, c='r', lw=2, linestyle=odin_ls, alpha=0.7, zorder=0)

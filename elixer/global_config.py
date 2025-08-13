@@ -970,6 +970,11 @@ CaII_K_3934 = 3933.6614
 CaII_H_3968 = 3968.4673
 
 APPLY_GALACTIC_DUST_CORRECTION = True #if true apply explicit MW dust de-reddening or de-extinction using hetdex_api
+#DUST_CORR_BLUE = 3750.0 #wavelength to report blueside dust correction
+DUST_CORR_BLUE_IDX = 140
+#DUST_CORR_RED = 5250.0 #ditto red
+DUST_CORR_RED_IDX = 890
+
 
 LOAD_SPEC_FROM_HETDEX_API = True #if true attempt to load through hetdex_api first and fall back on the h5 file if fail
 #FLUX_CONVERSION = (1./60)*1e-17
