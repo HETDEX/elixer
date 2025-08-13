@@ -758,6 +758,7 @@ class DetObj:
         self.dust_corr = None
         self.dust_corr_blue = None
         self.dust_corr_red = None
+        self.dust_corr_line = None
 
         self.sumspec_apcor = []
 
@@ -9402,6 +9403,10 @@ class DetObj:
                     self.dust_corr = 1.0
                     self.dust_corr_blue = 1.0
                     self.dust_corr_red = 1.0
+            else:
+                self.dust_corr = 1.0
+                #self.dust_corr_blue = 1.0
+                #self.dust_corr_red = 1.0
 
             if G.LOG_LEVEL <= 10: #10 = DEBUG
                 get_spectra_loglevel = "INFO"
@@ -10676,6 +10681,10 @@ class DetObj:
                     self.dust_corr = 1.0
                     self.dust_corr_blue = 1.0
                     self.dust_corr_red = 1.0
+            else:
+                self.dust_corr = 1.0
+                #self.dust_corr_blue = 1.0
+                #self.dust_corr_red = 1.0
 
             #
             # !!! NOTICE: unlike the forced extraction code, here the spectra is per 2AA so we have to work in that binning !!!
@@ -13372,8 +13381,8 @@ class HETDEX:
             title += "\nRA,Dec (%f,%f)\n$\lambda$ = %g$\AA$ \n" % (e.syn_obs.ra, e.syn_obs.dec, e.syn_obs.w)
 
             if e.spec_obj.estflux is not None:
-                #title += "LineFlux = %0.3g  \n" % e.spec_obj.estflux
-                title += f"LineFlxux = {e.spec_obj.estflux:0.3g} \n"
+                #title += "LineFlx = %0.3g  \n" % e.spec_obj.estflux
+                title += f"LineFlx = {e.spec_obj.estflux:0.3g} \n"
 
 
             if e.spec_obj.eqw_obs is not None:
@@ -13623,16 +13632,31 @@ class HETDEX:
                     "Science file(s):\n%s" \
                     "RA,Dec (%f,%f) \n" \
                     "$\lambda$ = %g$\AA$  $\sigma$ = %0.2f($\pm$%0.2f)$\AA$\n" \
-                    "LineFlux = %s" \
+                    "LineFlx = %s" \
                     % (self.ymd, self.obsid, self.ifu_slot_id,self.specid,sci_files, ra, dec, e.w,e.fwhm/2.355,e.fwhm_unc/2.355,
                        estflux_str )
+
+                if e.dust_corr_blue is None or e.dust_corr_red is None:
+                    title += f"  Dust=N/A" #not using these just yet ,but they are a good test to see if we have dust correction
+                else:
+                    try:
+                        dust_idx, *_ = SU.getnearpos(G.CALFIB_WAVEGRID,e.w)
+                        e.dust_corr_line = e.dust_corr[dust_idx]
+                        title += f"  Dust={e.dust_corr_line:0.3g}x"
+                    except:
+                        title += f"  Dust=N/A"
+
 
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
                 else:
                     title += "\n"
 
-                title += f"Cont(n) = {estcont_str}  Dust={e.dust_corr_blue:0.1f}-{e.dust_corr_red:0.1f}x"
+                if e.dust_corr_blue is None or e.dust_corr_red is None:
+                    title += f"Cont(n) = {estcont_str}  Dust=N/A"
+                else:
+                    title += f"Cont(n) = {estcont_str}  Dust={e.dust_corr_blue:0.3g}-{e.dust_corr_red:0.3g}x"
+
                 if estcont_gmag_str:
                     title += "\nCont(w) = %s" %(estcont_gmag_str)
 
@@ -13667,16 +13691,31 @@ class HETDEX:
                      "ObsDate %s  ObsID %s IFU %s  CAM %s\n" \
                      "Science file(s):\n%s" \
                      "$\lambda$ = %g$\AA$  $\sigma$ = %0.2f($\pm$%0.2f)$\AA$\n" \
-                     "LineFlux = %s" \
+                     "LineFlx = %s" \
                              % (self.ymd, self.obsid, self.ifu_slot_id, self.specid, sci_files, e.w,e.fwhm/2.355,e.fwhm_unc/2.355,
                                 estflux_str)  # note: e.fluxfrac gauranteed to be nonzero
+
+                if e.dust_corr_blue is None or e.dust_corr_red is None:
+                    title += f"  Dust=N/A" #not using these just yet ,but they are a good test to see if we have dust correction
+                else:
+                    try:
+                        dust_idx, *_ = SU.getnearpos(G.CALFIB_WAVEGRID,e.w)
+                        e.dust_corr_line = e.dust_corr[dust_idx]
+                        title += f"  Dust={e.dust_corr_line:0.3g}x"
+                    except:
+                        title += f"  Dust=N/A"
+
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux, e.fluxfrac)
                 else:
                     title += "\n"
 
                 #title += "Cont(n) = %s" % (estcont_str)
-                title += f"Cont(n) = {estcont_str}  Dust={e.dust_corr_blue:0.1f}-{e.dust_corr_red:0.1f}x"
+                if e.dust_corr_blue is None or e.dust_corr_red is None:
+                    title += f"Cont(n) = {estcont_str}  Dust=N/A"
+                else:
+                    title += f"Cont(n) = {estcont_str}  Dust={e.dust_corr_blue:0.3g}-{e.dust_corr_red:0.3g}x"
+
                 if estcont_gmag_str:
                     title += "\nCont(w) = %s" %(estcont_gmag_str)
 
@@ -13745,8 +13784,18 @@ class HETDEX:
 
                 title += "RA,Dec (%f,%f) \n" \
                      "$\lambda$ = %g$\AA$  $\sigma$ = %0.2f($\pm$%0.2f)$\AA$\n" \
-                     "LineFlux = %s" \
+                     "LineFlx = %s" \
                      %(ra, dec, e.w,e.fwhm/2.355,e.fwhm_unc/2.355, estflux_str)
+
+                if e.dust_corr_blue is None or e.dust_corr_red is None:
+                    title += f"  Dust=N/A" #not using these just yet ,but they are a good test to see if we have dust correction
+                else:
+                    try:
+                        dust_idx, *_ = SU.getnearpos(G.CALFIB_WAVEGRID,e.w)
+                        e.dust_corr_line = e.dust_corr[dust_idx]
+                        title += f"  Dust={e.dust_corr_line:0.3g}x"
+                    except:
+                        title += f"  Dust=N/A"
 
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
@@ -13777,7 +13826,11 @@ class HETDEX:
                         title += f"ODINFlux = EXCEPTION\n"
 
                 #title += "Cont(n) = %s" % (estcont_str)
-                title += f"Cont(n) = {estcont_str}  Dust={e.dust_corr_blue:0.1f}-{e.dust_corr_red:0.1f}x"
+                if e.dust_corr_blue is None or e.dust_corr_red is None:
+                    title += f"Cont(n) = {estcont_str}  Dust=N/A"
+                else:
+                    title += f"Cont(n) = {estcont_str}  Dust={e.dust_corr_blue:0.3g}-{e.dust_corr_red:0.3g}x"
+
                 if estcont_gmag_str:
                     title += "\nCont(w) = %s" %(estcont_gmag_str)
 
@@ -13843,8 +13896,18 @@ class HETDEX:
                 title += "\n"
 
                 title += "$\lambda$ = %g$\AA$  $\sigma$ = %0.2f($\pm$%0.2f)$\AA$\n" \
-                         "LineFlux = %s" \
+                         "LineFlx = %s" \
                          % (e.w, e.fwhm/2.355, e.fwhm_unc/2.355, estflux_str)
+
+                if e.dust_corr_blue is None or e.dust_corr_red is None:
+                    title += f"  Dust=N/A" #not using these just yet ,but they are a good test to see if we have dust correction
+                else:
+                    try:
+                        dust_idx, *_ = SU.getnearpos(G.CALFIB_WAVEGRID,e.w)
+                        e.dust_corr_line = e.dust_corr[dust_idx]
+                        title += f"  Dust={e.dust_corr_line:0.3g}x"
+                    except:
+                        title += f"  Dust=N/A"
 
                 if e.dataflux > 0: # note: e.fluxfrac gauranteed to be nonzero
                     title += "DataFlux = %g/%0.3g\n" % (e.dataflux,e.fluxfrac)
@@ -13852,7 +13915,11 @@ class HETDEX:
                     title += "\n"
                 #title +=  "EstCont = %s  \nEW_r(LyA) = %s$\AA$\n" % (estcont_str, eqw_lya_str)
                 #title += "Cont(n) = %s" % (estcont_str)
-                title += f"Cont(n) = {estcont_str}  Dust={e.dust_corr_blue:0.1f}-{e.dust_corr_red:0.1f}x"
+                if e.dust_corr_blue is None or e.dust_corr_red is None:
+                    title += f"Cont(n) = {estcont_str}  Dust=N/A"
+                else:
+                    title += f"Cont(n) = {estcont_str}  Dust={e.dust_corr_blue:0.3g}-{e.dust_corr_red:0.3g}x"
+
                 if estcont_gmag_str:
                     title += "\nCont(w) = %s" %(estcont_gmag_str)
 
@@ -16426,8 +16493,7 @@ class HETDEX:
         else:
             dustx = 1.0
 
-        fit_spec = gaussian(x=wave_grid, x0=parms[0], sigma=parms[1], a=parms[2] ,
-                            y=parms[3] * y_mul / parms[4] )
+        fit_spec = gaussian(x=wave_grid, x0=parms[0], sigma=parms[1], a=parms[2],y=parms[3] * y_mul / parms[4] )
         fit_spec_dust = gaussian(x=wave_grid,x0=parms[0],sigma=parms[1],a=parms[2] * dustx ,y=parms[3]*y_mul/parms[4]*dustx)
 
         if G.ODIN_HACK:
@@ -16489,7 +16555,7 @@ class HETDEX:
 
         specplot.plot(wave_grid, fit_spec, c='k', lw=2, linestyle="solid", alpha=0.7, zorder=0)
 
-        if G.APPLY_GALACTIC_DUST_CORRECTION and dustx > 1.2:
+        if G.APPLY_GALACTIC_DUST_CORRECTION and dustx > 1.5:
             dmed = np.nanmedian(flux)
             mmed = np.nanmedian(fit_spec)
             if 0.33 < mmed/dmed < 3.0:
