@@ -677,6 +677,8 @@ class DetObj:
         self.fluxfrac = 1.0
         self.estflux = -1.0#-1
         self.estflux_unc = 0.0
+        self.estflux_obs = -1.0#-1 #not DUST corrected (either never was or has been un-de-reddened)
+        self.estflux_unc_obs = 0.0 #not DUST corrected
         self.estflux_h5 = -1.0 #from the h5 file (Karl's estimates)
         self.estflux_h5_unc = 0.0
 
@@ -702,6 +704,9 @@ class DetObj:
         self.cont = -9999
         self.cont_cgs = -9999 #from HETDEX file this is per x2AA bins, but we divide to make it a flux denisty /1AA
         self.cont_cgs_unc = 0.0
+        self.cont_obs = -9999
+        self.cont_cgs_obs = -9999 #from HETDEX file this is per x2AA bins, but we divide to make it a flux denisty /1AA
+        self.cont_cgs_unc_obs = 0.0
 
         self.cont_cgs_narrow = -9999 #kept for reporting, not used elsewhere
         self.cont_cgs_narrow_unc = 0.0 #kept for reporting, not used elsewhere
@@ -9550,6 +9555,8 @@ class DetObj:
                     #alaredy collected above
                     self.sumspec_flux *= self.dust_corr
                     self.sumspec_fluxerr *= self.dust_corr
+
+                    #need to un-de-red for "observed" version, but we have not fit yet, so don't have that
                 except:
                     self.flags |= G.DETFLAG_NO_DUST_CORRECTION
                     log.warning("Exception. Unable to apply galatic exintction correction.",exc_info=True)
@@ -10187,6 +10194,16 @@ class DetObj:
                         self.cont_cgs_narrow = self.cont_cgs
                         self.cont_cgs_narrow_unc = self.cont_cgs_unc
 
+                        if G.APPLY_GALACTIC_DUST_CORRECTION:
+                            #here, we undo the correction so we can have the as "observed" values
+                            line_idx, *_ = SU.getnearpos(G.CALFIB_WAVEGRID,self.w)
+                            self.dust_corr_line = self.dust_corr[line_idx]
+                            if self.dust_corr_line > 0:
+                                self.estflux_obs = self.estflux / self.dust_corr_line
+                                self.estflux_unc_obs = self.estflux_unc / self.dust_corr_line
+                                self.cont_cgs_obs = self.cont_cgs / self.dust_corr_line
+                                self.cont_cgs_unc_obs = self.cont_cgs_unc / self.dust_corr_line
+
                         self.eqw_obs = self.spec_obj.central_eli.eqw_obs
                         self.eqw_obs_unc = 0 #self.eqw_obs * np.sqrt( (self.estflux_unc/self.estflux)**2 + (self.cont_cgs_unc/self.cont_cgs)**2)
 
@@ -10216,6 +10233,16 @@ class DetObj:
                         # self.snr = self.spec_obj.central_eli.mcmc_snr
                         self.snr = self.spec_obj.central_eli.mcmc_snr
                         self.snr_unc = self.spec_obj.central_eli.mcmc_snr_err
+
+                        if G.APPLY_GALACTIC_DUST_CORRECTION:
+                            #here, we undo the correction so we can have the as "observed" values
+                            line_idx, *_ = SU.getnearpos(G.CALFIB_WAVEGRID,self.w)
+                            self.dust_corr_line = self.dust_corr[line_idx]
+                            if self.dust_corr_line > 0:
+                                self.estflux_obs = self.estflux / self.dust_corr_line
+                                self.estflux_unc_obs = self.estflux_unc / self.dust_corr_line
+                                self.cont_cgs_obs = self.cont_cgs / self.dust_corr_line
+                                self.cont_cgs_unc_obs = self.cont_cgs_unc / self.dust_corr_line
 
                         try:
                             if self.spec_obj.central_eli.mcmc_chi2 is not None and \
@@ -10281,6 +10308,7 @@ class DetObj:
                 log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra")
 
             #*G.FLUX_WAVEBIB_WIDTH is to get to the x2AA binning for the plots
+            #here dust correction is already applied and these are elixer fits
             self.line_gaussfit_parms = (self.w,self.sigma,self.estflux*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,
                                         self.cont_cgs*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,
                                         G.FLUX_WAVEBIN_WIDTH) #*2.0 for Karl's bin width
@@ -10562,15 +10590,20 @@ class DetObj:
             self.fwhm = 2.35 * self.sigma
             self.fwhm_unc = 2.35 * self.sigma_unc
 
+            #these are not (yet) dust corrected
             self.estflux = row['flux']
             self.estflux_unc = row['flux_err']
+            self.estflux_obs = row['flux']
+            self.estflux_unc_obs = row['flux_err']
 
             self.estflux_h5 = self.estflux
             self.estflux_h5_unc = self.estflux_unc
 
-
             self.cont_cgs = row['continuum'] / G.FLUX_WAVEBIN_WIDTH #units of e-17 set below !!!this is in 2AA bins so /2AA
             self.cont_cgs_unc = row['continuum_err'] /G.FLUX_WAVEBIN_WIDTH
+            self.cont_cgs_obs = row['continuum'] / G.FLUX_WAVEBIN_WIDTH #units of e-17 set below !!!this is in 2AA bins so /2AA
+            self.cont_cgs_unc_obs = row['continuum_err'] /G.FLUX_WAVEBIN_WIDTH
+
 
             #bad idea (leaving here just as a reminder)... setting as a small value leads to artifically
             #huge EW (even with correspodingly huge error)
@@ -10579,13 +10612,11 @@ class DetObj:
             #     self.cont_cgs = 0.01
 
 
-
-
-
             # mu, sigma, Amplitude, y, dx   (dx is the bin width if flux instead of flux/dx)
             #continuum does NOT get the bin scaling
             #the * G.FLUX_WAVEBIN_WIDTH on the lineflux (Area) and continuum are to put into the x2AA binning for
             #the plotting purposes
+            #ALSO NOT Dust corrected (yet)
             self.line_gaussfit_parms = (self.w,self.sigma,self.estflux*G.FLUX_WAVEBIN_WIDTH,self.cont_cgs*G.FLUX_WAVEBIN_WIDTH,
                                        G.FLUX_WAVEBIN_WIDTH) #*2.0 for Karl's bin width
             self.line_gaussfit_unc = (self.w_unc,self.sigma_unc,self.estflux_unc*G.FLUX_WAVEBIN_WIDTH,self.cont_cgs_unc*G.FLUX_WAVEBIN_WIDTH,
@@ -10675,6 +10706,10 @@ class DetObj:
                                                       SkyCoord(self.wra, self.wdec, unit='deg'))
                     self.dust_corr_blue = self.dust_corr[G.DUST_CORR_BLUE_IDX]
                     self.dust_corr_red = self.dust_corr[G.DUST_CORR_RED_IDX]
+                    if self.w is not None and self.w > 0:
+                        line_idx , *_ = SU.getnearpos(G.CALFIB_WAVEGRID,self.w)
+                        self.dust_corr_line = self.dust_corr[line_idx] #this could change later if the central wave changes
+
                     if np.max(self.dust_corr[25:200]) > G.EXTREME_DUST_THRESHOLD: #roughly between 3500 and 3900 (ish)
                         self.flags |= G.DETFLAG_EXTREME_DUST_CORRECTION
                 except:
@@ -10732,6 +10767,26 @@ class DetObj:
                     #collected above
                     self.sumspec_flux *= self.dust_corr
                     self.sumspec_fluxerr *= self.dust_corr
+
+                    if self.dust_corr_line is not None and self.dust_corr_line > 0:
+                        log.info(f"Adjusting read-in observed lineflux and continuum near the line for dust at "
+                                 f"line center: {self.dust_corr_line}x")
+                        self.estflux *= self.dust_corr_line
+                        self.estflux_unc *= self.dust_corr_line
+                        self.cont_cgs *= self.dust_corr_line
+                        self.cont_cgs_unc *= self.dust_corr_line
+
+                        #update the line fit parms too
+                        self.line_gaussfit_parms =(self.line_gaussfit_parms[0],self.line_gaussfit_parms[1],
+                                                   self.line_gaussfit_parms[2] * self.dust_corr_line,
+                                                   self.line_gaussfit_parms[3] * self.dust_corr_line,
+                                                   self.line_gaussfit_parms[4]
+                                                   )
+                        self.line_gaussfit_unc =  (self.line_gaussfit_unc[0],self.line_gaussfit_unc[1],
+                                                   self.line_gaussfit_unc[2] * self.dust_corr_line,
+                                                   self.line_gaussfit_unc[3] * self.dust_corr_line,
+                                                   self.line_gaussfit_unc[4]
+                                                   )
 
                 except:
                     self.flags |= G.DETFLAG_NO_DUST_CORRECTION
@@ -11440,6 +11495,7 @@ class DetObj:
                     self.estflux = self.spec_obj.central_eli.line_flux
                     self.cont_cgs = self.spec_obj.central_eli.cont
                     self.cont_cgs_unc = self.spec_obj.central_eli.cont_err
+
                     self.fwhm = self.spec_obj.central_eli.fit_sigma * 2.355
                     self.fwhm_unc = self.spec_obj.central_eli.fit_sigma_err * 2.355
 
@@ -11453,6 +11509,16 @@ class DetObj:
                                                 self.cont_cgs*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,G.FLUX_WAVEBIN_WIDTH) #*2.0 for Karl's bin width
                     self.line_gaussfit_unc = (self.w_unc,self.sigma_unc,self.estflux_unc*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,
                                               self.cont_cgs_unc*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS, 0.0)
+
+                    if G.APPLY_GALACTIC_DUST_CORRECTION:
+                        # here, we undo the correction so we can have the as "observed" values
+                        line_idx, *_ = SU.getnearpos(G.CALFIB_WAVEGRID, self.w)
+                        self.dust_corr_line = self.dust_corr[line_idx]
+                        if self.dust_corr_line > 0:
+                            self.estflux_obs = self.estflux / self.dust_corr_line
+                            self.estflux_unc_obs = self.estflux_unc / self.dust_corr_line
+                            self.cont_cgs_obs = self.cont_cgs / self.dust_corr_line
+                            self.cont_cgs_unc_obs = self.cont_cgs_unc / self.dust_corr_line
 
                 self.best_masked_cgs_cont, self.best_masked_cgs_cont_unc, _ = self.spec_obj.gband_masked_continuum()
                 #self.best_gmag_cgs_cont_unc *= self.spec_obj.gband_masked_correction()
@@ -11528,6 +11594,17 @@ class DetObj:
                                                 self.cont_cgs*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,G.FLUX_WAVEBIN_WIDTH)
                     self.line_gaussfit_unc = (self.w_unc,self.sigma_unc,self.estflux_unc*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,
                                               self.cont_cgs_unc*G.FLUX_WAVEBIN_WIDTH/G.HETDEX_FLUX_BASE_CGS,0.0)
+
+
+                    if G.APPLY_GALACTIC_DUST_CORRECTION:
+                        # here, we undo the correction so we can have the as "observed" values
+                        line_idx, *_ = SU.getnearpos(G.CALFIB_WAVEGRID, self.w)
+                        self.dust_corr_line = self.dust_corr[line_idx]
+                        if self.dust_corr_line > 0:
+                            self.estflux_obs = self.estflux / self.dust_corr_line
+                            self.estflux_unc_obs = self.estflux_unc / self.dust_corr_line
+                            self.cont_cgs_obs = self.cont_cgs / self.dust_corr_line
+                            self.cont_cgs_unc_obs = self.cont_cgs_unc / self.dust_corr_line
 
 
                 except:
@@ -11618,6 +11695,16 @@ class DetObj:
                     # if self.spec_obj.solutions is None:
                     #     self.spec_obj.solutions = []
                     # if self.spec_obj.solutions == 0
+
+                    if G.APPLY_GALACTIC_DUST_CORRECTION:
+                        # here, we undo the correction so we can have the as "observed" values
+                        line_idx, *_ = SU.getnearpos(G.CALFIB_WAVEGRID, self.w)
+                        self.dust_corr_line = self.dust_corr[line_idx]
+                        if self.dust_corr_line > 0:
+                            self.estflux_obs = self.estflux / self.dust_corr_line
+                            self.estflux_unc_obs = self.estflux_unc / self.dust_corr_line
+                            self.cont_cgs_obs = self.cont_cgs / self.dust_corr_line
+                            self.cont_cgs_unc_obs = self.cont_cgs_unc / self.dust_corr_line
 
                 except:
                     log.warning("Exception! Unable to update central line following classification.",exc_info=True)
@@ -16483,18 +16570,21 @@ class HETDEX:
         #these are in the x2AA binning
         #parm[4] is the binning used; normally then the y parameter is * 2.0/2.0
 
-        if G.APPLY_GALACTIC_DUST_CORRECTION:
-            try:
-                e = datakeep['detobj']
-                idx,*_ = SU.getnearpos(G.CALFIB_WAVEGRID,parms[0])
-                dustx = e.dust_corr[idx]
-            except:
-                dustx = 1.0
-        else:
-            dustx = 1.0
-
         fit_spec = gaussian(x=wave_grid, x0=parms[0], sigma=parms[1], a=parms[2],y=parms[3] * y_mul / parms[4] )
-        fit_spec_dust = gaussian(x=wave_grid,x0=parms[0],sigma=parms[1],a=parms[2] * dustx ,y=parms[3]*y_mul/parms[4]*dustx)
+
+        #now we are just always (if turned on) adjusting even Karl's read-in values for dust, so this should
+        #not be needed
+        # if G.APPLY_GALACTIC_DUST_CORRECTION:
+        #     try:
+        #         e = datakeep['detobj']
+        #         idx,*_ = SU.getnearpos(G.CALFIB_WAVEGRID,parms[0])
+        #         dustx = e.dust_corr[idx]
+        #     except:
+        #         dustx = 1.0
+        # else:
+        #     dustx = 1.0
+        #
+        #fit_spec_dust = gaussian(x=wave_grid,x0=parms[0],sigma=parms[1],a=parms[2] * dustx ,y=parms[3]*y_mul/parms[4]*dustx)
 
         if G.ODIN_HACK:
             try:
@@ -16555,13 +16645,15 @@ class HETDEX:
 
         specplot.plot(wave_grid, fit_spec, c='k', lw=2, linestyle="solid", alpha=0.7, zorder=0)
 
-        if G.APPLY_GALACTIC_DUST_CORRECTION and dustx > 1.5:
-            dmed = np.nanmedian(flux)
-            mmed = np.nanmedian(fit_spec)
-            if 0.33 < mmed/dmed < 3.0:
-                pass
-            else:
-                specplot.plot(wave_grid, fit_spec_dust, c='r', lw=2, linestyle="solid", alpha=0.7, zorder=0)
+        #now we are just always (if turned on) adjusting even Karl's read-in values for dust, so this should
+        #not be needed
+        # if G.APPLY_GALACTIC_DUST_CORRECTION and dustx > 1.5:
+        #     dmed = np.nanmedian(flux)
+        #     mmed = np.nanmedian(fit_spec)
+        #     if 0.33 < mmed/dmed < 3.0:
+        #         pass
+        #     else:
+        #         specplot.plot(wave_grid, fit_spec_dust, c='r', lw=2, linestyle="solid", alpha=0.7, zorder=0)
 
 
         specplot.errorbar(wave_data,flux,yerr=flux_err,fmt='.',zorder=9)

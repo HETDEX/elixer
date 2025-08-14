@@ -1,9 +1,16 @@
 changes to elixer by version
 
 
-1.23.0a1 [2025-07-25]
-* [in progresss] working on support for parallel and single shot science frames
+1.23.0a1 [2025-08-15]
+* support for parallel and single shot science frames (uses existing --hdf5 and --shot_5 switches)
+* add --diagnose switch to include Diagnose table of redshifts as additional, special catalog for ELiXer
 * add number of exposures (Exp) and total expsure time (Time) to 3rd line of text block in upper left
+* clarify/standardize reporting of Galactic  (MW) dust correction (dereddening):
+    + add applied Dust correction multiplier (at line center and at rougly 3500AA and 5500AA) to upper left
+    + add new columns to Detections table for the OBSERVED lineflux and continuum at line (e.g. as read from Karl's fit,
+    or after un-de-reddening with ELiXer fit, if applying dust corrections and re-extracting)
+    + if applying dust corrections, update Karl's fit for dust as the reported value, keeping also the "observed" values
+    as noted above
 
 1.22.7a1 [2025-07-24]
 * added empirical +0.75 magzero correction to KPNO-g based on comparison to SDSS, DECaLS, HSC-SSP, CFHTLS, and HETDEX
