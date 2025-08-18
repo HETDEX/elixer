@@ -2964,7 +2964,9 @@ class DetObj:
                     diagnose_z = dg_z[idx_chi2] #self.diagnose_dict['z_best']
 
                     #is the chi2 good enough?? what is good enough
-                    if diagnose_chi2 < 3.0 or (p < 0.1 and diagnose_chi2 < 5.0):
+                    if diagnose_chi2 < 2.0 or \
+                      (p < 0.1 and diagnose_chi2 < 3.0 and self.flags & (G.DETFLAG_BAD_EMISSION_LINE | G.DETFLAG_QUESTIONABLE_DETECTION))  or\
+                      (p < 0.01 and diagnose_chi2 < 5.0):
                         #use the diagnose z, and flag it
                         #self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
                         #is the z consistent with a wavelenght?

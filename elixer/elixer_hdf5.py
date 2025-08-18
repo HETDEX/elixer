@@ -5,7 +5,7 @@ merge existing ELiXer catalogs
 """
 
 
-__version__ = '0.8.1' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
+__version__ = '0.9.0' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -94,6 +94,12 @@ class Detections(tables.IsDescription):
 
     flux_line = tables.Float32Col(dflt=UNSET_FLOAT) #actual flux not flux density
     flux_line_err = tables.Float32Col(dflt=UNSET_FLOAT)
+
+    #new 0.9.0
+    flux_line_obs = tables.Float32Col(dflt=UNSET_FLOAT)  # not dustcorrected
+    flux_line_obs_err = tables.Float32Col(dflt=UNSET_FLOAT)
+    flux_line_dust_corr = tables.Float32Col(dflt=UNSET_FLOAT)
+
     fwhm_line_aa = tables.Float32Col(dflt=UNSET_FLOAT)
     fwhm_line_aa_err = tables.Float32Col(dflt=UNSET_FLOAT)
     fwhm_line_kms = tables.Float32Col(dflt=UNSET_FLOAT)
@@ -105,6 +111,11 @@ class Detections(tables.IsDescription):
 
     continuum_line = tables.Float32Col(dflt=UNSET_FLOAT) #continuum (y-offset) from Gaussian fit to the line
     continuum_line_err = tables.Float32Col(dflt=UNSET_FLOAT)
+
+    #new 0.9.0
+    continuum_line_obs = tables.Float32Col(dflt=UNSET_FLOAT)  # not dustcorrected
+    continuum_line_obs_err = tables.Float32Col(dflt=UNSET_FLOAT)
+
     eqw_rest_lya_line = tables.Float32Col(dflt=UNSET_FLOAT)
     eqw_rest_lya_line_err = tables.Float32Col(dflt=UNSET_FLOAT)
     plae_line = tables.Float32Col(dflt=UNSET_FLOAT)
@@ -367,9 +378,11 @@ class CalibratedSpectra(tables.IsDescription):
     wavelength = tables.Float32Col(shape=(1036,),pos=1)
     flux = tables.Float32Col(shape=(1036,),pos=2 )
     flux_err = tables.Float32Col(shape=(1036,),pos=3)
-    aperture_radius = tables.Float32Col(dflt=UNSET_FLOAT,pos=4)
-    sky_background = tables.Int32Col(dflt=UNSET_INT,pos=5)
-    num_fibers = tables.Int32Col(dflt=UNSET_INT,pos=6)
+    #new 0.9.0
+    dust_corr = tables.Float32Col(shape=(1036,),pos=4) #dust multiplier (normally already applied) to flux and flux_err
+    aperture_radius = tables.Float32Col(dflt=UNSET_FLOAT,pos=5)
+    sky_background = tables.Int32Col(dflt=UNSET_INT,pos=6)
+    num_fibers = tables.Int32Col(dflt=UNSET_INT,pos=7)
 
 class Aperture(tables.IsDescription):
     #one entry per aperture photometry collected
@@ -990,6 +1003,19 @@ def append_entry(fileh,det,overwrite=False):
 
         _lya_1pz = det.w / G.LyA_rest #no sense is doing -1.0 then +1.0
 
+
+        #new 0.9.0
+        try:
+            row["flux_line_obs"] = det.estflux_obs
+            row["flux_line_obs_err"] = det.estflux_unc_obs
+            if det.dust_corr_line is not None:
+                row["flux_line_dust_corr"] = det.dust_corr_line
+            else:
+                row["flux_line_dust_corr"] = -1
+            row["continuum_line_obs"] = det.cont_cgs_obs
+            row["continuum_line_obs_err"] = det.cont_cgs_unc_obs
+        except:
+            log.warning("Could not add _obs for flux_line and continuum_line in Detections.")
         try:
             if det.eqw_line_obs is not None:
                 row['eqw_rest_lya_line'] = det.eqw_line_obs / _lya_1pz
@@ -1324,6 +1350,15 @@ def append_entry(fileh,det,overwrite=False):
         row['wavelength'] = det.sumspec_wavelength[:]
         row['flux'] = det.sumspec_flux[:]
         row['flux_err'] = det.sumspec_fluxerr[:]
+
+        #new 0.9.0
+        try:
+            if det.dust_corr is not None:
+                row['dust_corr'] = det.dust_corr[:]
+            else:
+                row['dust_corr'] = np.full(len(det.sumspec_flux),-1)
+        except:
+            log.warning("Could not add dust_corr to CalibratedSpectra")
 
         try:
             if det.extraction_aperture is not None:

@@ -1,5 +1,10 @@
 changes to elixer by version
 
+1.24.0a2 [2025-08-18]
+* continue clarify/standardize reporting of Galatic dust correction
+    + add flux_line_obs, flux_line_err_obs, flux_line_dust_corr, cont_line_obs, cont_line_err_obs to Detections h5 table
+    + add dust_corr to CalibratedSpectra h5 table
+
 1.24.0a1 [2025-08-15]
 * clarify/standardize reporting of Galactic  (MW) dust correction (dereddening):
     + add applied Dust correction multiplier (at line center and at rougly 3500AA and 5500AA) to upper left
@@ -7,6 +12,9 @@ changes to elixer by version
     or after un-de-reddening with ELiXer fit, if applying dust corrections and re-extracting)
     + if applying dust corrections, update Karl's fit for dust as the reported value, keeping also the "observed" values
     as noted above
+
+
+
 
 1.23.0a1 [2025-08-14]
 * support for parallel and single shot science frames (uses existing --hdf5 and --shot_5 switches)
