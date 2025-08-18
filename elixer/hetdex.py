@@ -2945,7 +2945,7 @@ class DetObj:
 
 
             #Diagnose check here
-            if self.diagnose_dict is not None and ((self.best_gmag - self.best_gmag_unc) < 23.0):
+            if self.diagnose_dict is not None and ((self.best_gmag - self.best_gmag_unc) <= 22.0):
                 # (basically, if the object is < g 23 and the elixer confidence is low and/or the line is questionable
                 # give it the diagnose redshift ... even if that is not consistent with the "line" ???
                 # maybe that case needs a new flag that says so ... inconsistent with line??
