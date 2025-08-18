@@ -2950,9 +2950,10 @@ class DetObj:
                 # give it the diagnose redshift ... even if that is not consistent with the "line" ???
                 # maybe that case needs a new flag that says so ... inconsistent with line??
                 #       or the line is quite broad ... could compare to G.BROAD_FWHM_KMS or G.REALLY_BROAD_FWHM_KMS
-                if (p < 0.5) or (self.fwhm > (6.0 * 2.355)) or \
-                   (self.flags & G.DETFLAG_QUESTIONABLE_DETECTION) or (self.flags & G.DETFLAG_BAD_EMISSION_LINE) or \
-                   (self.flags & G.DETFLAG_UNCERTAIN_CLASSIFICATION) or (self.flags & G.DETFLAG_EXT_CAT_QUESTIONABLE_Z):
+
+                #a few conditions to trip
+                if ((self.flags & G.DETFLAG_QUESTIONABLE_DETECTION) or (self.flags & G.DETFLAG_BAD_EMISSION_LINE)) or \
+                   (p < 0.1 and self.fwhm > 14.0) or (p < 0.05):
                     #what is the diagnose z
                     #print("diagnose")
                     #check the chi2
@@ -2965,8 +2966,8 @@ class DetObj:
 
                     #is the chi2 good enough?? what is good enough
                     if diagnose_chi2 < 2.0 or \
-                      (p < 0.1 and diagnose_chi2 < 3.0 and self.flags & (G.DETFLAG_BAD_EMISSION_LINE | G.DETFLAG_QUESTIONABLE_DETECTION))  or\
-                      (p < 0.01 and diagnose_chi2 < 5.0):
+                        (p < 0.1 and diagnose_chi2 < 3.0 and self.flags & (G.DETFLAG_BAD_EMISSION_LINE | G.DETFLAG_QUESTIONABLE_DETECTION))  or\
+                        (p <= 0.01 and diagnose_chi2 < 5.0):
                         #use the diagnose z, and flag it
                         #self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
                         #is the z consistent with a wavelenght?
