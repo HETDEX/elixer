@@ -638,6 +638,7 @@ def parse_commandline(auto_force=False):
             pass
         else:
             log.critical("Exception! Excpetion parsing command line.",exc_info=True)
+            print(f'elixer version {G.__version__}')
             print('Check this common problem. If using --dec with a negative value as d:m:s, the value must be quoted and '
                   'there must be a space between the leading quote and the negative sign. e.g. --dec \" -8:20:55.6\"')
 
