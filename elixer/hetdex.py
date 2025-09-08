@@ -6891,9 +6891,11 @@ class DetObj:
             self.classification_dict['spurious_reason'] = reason
             log.info(f"{self.entry_id} Aggregate Classification: grossly negative spectrum. Setting purious reason.")
         #shot conditions
-        elif (self.survey_response < 0.08) or (self.survey_fwhm > 3.0) or \
+        elif (  (np.count_nonzero(self.exptimes) == 3 and self.survey_response < 0.08)) or (self.survey_fwhm > 3.0) or \
                 (np.isnan(self.dither_norm) or (self.dither_norm > 3.0)):
-            if self.survey_response < 0.05: #this alone means we're done
+            #notice: reponse conditon only appies for the 3x exposure case (normal HETDEX)
+            #other conditions (such as FWHM) still apply
+            if self.survey_response < 0.05 and np.count_nonzero(self.exptimes) == 3: #this alone means we're done
                 reason = "(poor throughput)"
                 #scaled_prob_lae = -1
                 self.red_header = True
