@@ -117,6 +117,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
                 G.DETFLAG_EXT_CAT_QUESTIONABLE_Z,
                 G.DETFLAG_NO_IMAGING,
                 G.DETFLAG_BAD_PIXELS,
+                G.DETFLAG_BAD_AMP,
                 #G.DETFLAG_EXCESSIVE_ZERO_PIXELS,
                 # G.DETFLAG_POOR_SHOT,
                 # G.DETFLAG_BAD_DITHER_NORM,
@@ -163,6 +164,7 @@ def find_cluster(detectid,elixerh5,outfile=True,delta_arcsec=G.CLUSTER_POS_SEARC
                 G.DETFLAG_BAD_EMISSION_LINE,
                 # G.DETFLAG_NO_ZEROPOINT,
                 G.DETFLAG_BAD_FIBERTRACE,
+                G.DETFLAG_BAD_AMP,
                 G.DETFLAG_CORRUPT_DATA
             ]
 

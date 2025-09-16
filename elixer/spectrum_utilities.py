@@ -3871,7 +3871,7 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
                 else:
                     fn = G.BGR_RES_FIBER_H5_LL_FN
 
-                h5 = tables.open_file(fn)
+                h5 = tables.open_file(fn,mode='r')
             except:
                 log.error(f"Exception! Could not open empty fiber residual file: {fn}",exc_info=True)
                 return residual, residual_err, contributors, G.EFR_FLAG_FUNCTION_EXCEPTION + G.EFR_FLAG_NO_RESIDUAL
@@ -4019,7 +4019,7 @@ def list_empty_fiber_residual_rtype(hdr=G.HDR_Version, ffsky=False, add_rescor=F
             else:
                 fn = G.BGR_RES_FIBER_H5_LL_FN
 
-            h5 = tables.open_file(fn)
+            h5 = tables.open_file(fn,mode='r')
 
             names = np.array(h5.root.Table.colnames)
             exclude = ["shotid","seeing","response","flags"]

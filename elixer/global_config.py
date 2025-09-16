@@ -25,7 +25,7 @@ if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
 #version
-__version__ = '1.24.0a3'
+__version__ = '1.24.0a4'
 
 
 #initial working dir
@@ -1413,7 +1413,9 @@ DETFLAG_BAD_EMISSION_LINE           = 0x08000000  #emission line is questionable
 DETFLAG_NO_ZEROPOINT                = 0x10000000  #may be temporary ... no zeropoint correction could be made
 DETFLAG_BAD_FIBERTRACE              = 0x20000000  #!!! can trigger too easily !!!
                                                   # bad fiber traces, may be due to interference pattern (chi2 stuff)
+DETFLAG_BAD_AMP                     = 0x40000000  # the detection is entirely or significantly on an amp marked as BAD
 DETFLAG_CORRUPT_DATA                = 0x80000000  #some nontrivial portion of the data may be corrupt, though it may not be significant
+
 #todo: low SNR, weighted position is between fibers (i.e. distances from blue fiber center > 0.74 or 0.75 and SNR < 5.2 or so)
 
 

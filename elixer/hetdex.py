@@ -789,7 +789,8 @@ class DetObj:
         self.p_lae_oii_ratio = None
         self.p_lae_oii_ratio_range = None
 
-        self.bad_amp_dict = None
+        self.bad_amp_dict = None #this is no longer in active use, but is survey wide
+        self.bad_amps_list = None #this is from a shot specific h5, if passed in and present; a list of multiframes
 
         #computed directly from HETDEX spectrum (3600AA-5400AA)
         self.hetdex_gmag_limit = G.HETDEX_CONTINUUM_MAG_LIMIT #this will be specifically computed later for this IFU+shot
@@ -6854,6 +6855,7 @@ class DetObj:
         #     log.info(
         #         f"{self.entry_id} Aggregate Classification: bad duplicate central pixels: {self.num_duplicate_central_pixels}. lk({likelihood[-1]}) weight({weight[-1]})")
 
+
         #don't just drive down the PLAE, make it negative as a flag
         if bad_pixflt_weight > 0.5:
             # likelihood.append(-1)
@@ -6934,6 +6936,21 @@ class DetObj:
                     log.info(
                         f"{self.entry_id} Aggregate Classification: poor shot F: {self.survey_fwhm} T: {self.survey_response}  N:{self.dither_norm}, but did not trigger spurious.")
 
+        #additional, independent check for bad amp
+        #can keep any classification that survived and do not alter the plae
+        if self.check_is_detection_on_bad_amp():
+            #this is on a bad amp
+            self.red_header = True
+            self.flags |= G.DETFLAG_BAD_AMP
+            self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
+            self.needs_review = 1
+            reason = "(bad amp)"
+            if self.classification_dict['spurious_reason'] is None or len(self.classification_dict['spurious_reason'])==0:
+                self.classification_dict['spurious_reason'] = reason
+            else:
+                self.classification_dict['spurious_reason'] += reason
+
+            log.info(f"{self.entry_id} Aggregate Classification: bad amp.")
 
         # check for duplicate pixel positions
         # elif self.num_duplicate_central_pixels > G.MAX_NUM_DUPLICATE_CENTRAL_PIXELS:  # out of the top (usually 4) fibers
@@ -8564,7 +8581,6 @@ class DetObj:
 
             return continuum_hat, continuum_sd_hat, size_in_psf, best_guess_extent
         except:
-
             log.debug("Exception handling estimation in DetObj:combine_all_continuum", exc_info=True)
 
 
@@ -8616,8 +8632,73 @@ class DetObj:
         return False, 0.0, 0.0
 
 
+    def get_bad_amps_from_shot_h5(self,shot_fn=None,h5_handle=None):
+        """
+        Open the shot_h5 and read in the root.AmpStats  table (if it exists)
+        get the list of multiframes and expnum where flag == 0
+        (1 = good (not bad), 0 = bad, -1 = not checked)
+
+        set these as a list for the DetObj so can bang against it later
+        :param shot_fn:
+        :return:
+        """
+
+        try:
+
+            h5 = None
+            should_close = False
+            if h5_handle is None:
+                if shot_fn is None:
+                    log.warning("DetObj::get_bad_amps_from_shot_h5: Invalid call.")
+                    return
+                else:
+                    h5 = tables.open_file(shot_fn,mode='r')
+                    should_close = True
+            else:
+                h5 = h5_handle
+
+            if h5 is None:
+                log.warning("DetObj::get_bad_amps_from_shot_h5. Invalid h5.")
+                return
+
+            try:
+                self.bad_amps_list = list(h5.root.AmpStats.read_where("flag==0",field="multiframe").astype(str)) #for some shots, this might not exist
+            except:
+                log.warning("DetObj::get_bad_amps_from_shot_h5: Unable to read root.Ampstats in shot specific h5.")#if could not be read, just move on
+
+            if should_close:
+                h5.close()
+
+        except:
+            log.warning("Could not load bad amp list from shot file")
+
+
+    def check_is_detection_on_bad_amp(self):
+        """
+        compare the mutliframes for the detection to the bad amps (either for the shot or for the survey+shot)
+
+        :return: True if on a bad amp, False otherwise (including if unknown)
+        """
+
+        rc = False
+        try:
+            if self.bad_amps_list is not None: #this is for a shot specific
+                #get the multiframes for the detection for the top 4 fibers (if they exist)
+                #fibers are already in relative weight sort order
+                mfs = np.unique([x.multi[:-4] for x in self.fibers[0:4]]) #strip off the fiber number
+                rc = np.any([x in self.bad_amps_list for x in mfs])
+            else:
+                log.debug("**** todo ****  handle check for detection on a bad amp in the standard HETDEX case using the survey")
+
+        except:
+            log.warning("DetObj::check_is_detection_on_bad_amp failure.",exc_info=True)
+
+        return rc
 
     def bad_amp(self,fatal=True, fiber=None):
+        #
+        #   This is not currently used
+        #
 
         #fatal default True ... stop and return; if false, delete the offending fiber but keep going
         #fiber ... apply to a single fiber, not the list of self.fibers
@@ -8729,8 +8810,9 @@ class DetObj:
 
         if shot_specific_h5 is not None:
             try:
-                shot_h5 = tables.open_file(shot_specific_h5)
+                shot_h5 = tables.open_file(shot_specific_h5,mode='r')
                 rows = shot_h5.root.Shot.read()
+                self.get_bad_amps_from_shot_h5(h5_handle=shot_h5)
                 shot_h5.close()
             except:
                 log.error("Exception in hetdex::DetObj::load_hdf5_shot_info reading rows from shot specific h5 file",
@@ -8749,16 +8831,17 @@ class DetObj:
                     rows = None
 
 
+        #this is now redundant with the read above
         #usually we get this from the survey file, but if that fails, it may be in the shot h5 file, if provided
-        if (rows is None) or (rows.size != 1) and shot_specific_h5 is not None:
-            try:
-                shot_h5 = tables.open_file(shot_specific_h5)
-                rows = shot_h5.root.Shot.read()
-                shot_h5.close()
-            except:
-                log.error("Exception in hetdex::DetObj::load_hdf5_shot_info reading rows from shot specific h5 file",
-                          exc_info=True)
-                rows = None
+        # if (rows is None) or (rows.size != 1) and shot_specific_h5 is not None:
+        #     try:
+        #         shot_h5 = tables.open_file(shot_specific_h5)
+        #         rows = shot_h5.root.Shot.read()
+        #         shot_h5.close()
+        #     except:
+        #         log.error("Exception in hetdex::DetObj::load_hdf5_shot_info reading rows from shot specific h5 file",
+        #                   exc_info=True)
+        #         rows = None
 
         if (rows is None) or (rows.size != 1):
             log.error(f"Problem loading info for shot {shotid} from {hdf5_fn}. Setting out of range values for shot.")
