@@ -1241,7 +1241,7 @@ if not time_set: #update time
             minutes = int(minutes * 1.05) #small boost since continuum objects have extra processing
 
         if POST_MERGE:
-            minutes += 10.0 #really just a few minutes should do, assuming this is only a (hundreds to a few thousand) detections
+            minutes += 5.0 #really just a few minutes should do, assuming this is only a (hundreds to a few thousand) detections
 
         time = str(timedelta(minutes=max(minutes,10.0)))
         print(f"auto-set time: TIME_OVERHEAD {TIME_OVERHEAD} + MAX_TIME_PER_TASK {MAX_TIME_PER_TASK} x mx {mx} "
