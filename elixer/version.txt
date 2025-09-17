@@ -2,6 +2,7 @@ changes to elixer by version
 
 1.24.0a4 [2025-09-16]
 * adding in check for detection on bad amp from listing in shot specific h5 (root.AmpStats where flag == 0)
+* adding --post_merge option to (1) run standard, blind, in-line merge and if (2) mkdir all_pngs and move pngs there
 
 1.24.0a3 [2025-09-08]
 * bad throughput only applies for 3-exposure set (assumes normal HETDEX)

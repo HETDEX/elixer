@@ -629,6 +629,10 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--diagnose', help="Diagnose code output file. Used as additional redshift input.", required=False,
                         default=None) #G.HDF5_DETECT_FN
 
+    parser.add_argument('--post_merge', help="1=run blind --merge after main slurm, 2=also move pngs to all_pngs"
+                                             "!!! Warning !!! Do NOT use if more than a few thousand detections",
+                        required=False, type=int)
+
     try:
         args = parser.parse_args()
     except:
