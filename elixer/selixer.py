@@ -15,6 +15,7 @@ from math import ceil
 from datetime import timedelta
 import socket
 from os import getenv
+import importlib.util
 
 #python version
 PYTHON_MAJOR_VERSION = sys.version_info[0]
@@ -377,6 +378,17 @@ if "--fill_tasks" in args:
             FILL_CPU_TASKS = int(sys.argv[i + 1])
         except:
             FILL_CPU_TASKS = 10
+
+
+
+
+if "--post_merge" in args:
+    i = args.index("--post_merge")
+    if i != -1:
+        try:
+            POST_MERGE = int(sys.argv[i + 1])
+        except:
+            POST_MERGE = 0
 
 MAX_DETECTS_PER_CPU = 9999999 #do not execute this job of the dispatch_xxxx list count exceeds this value
 MAX_TASKS_PER_NODE =1 #default (local machine)
@@ -1227,6 +1239,10 @@ if not time_set: #update time
 
         if continuum_mode:
             minutes = int(minutes * 1.05) #small boost since continuum objects have extra processing
+
+        if POST_MERGE:
+            minutes += 10.0 #really just a few minutes should do, assuming this is only a (hundreds to a few thousand) detections
+
         time = str(timedelta(minutes=max(minutes,10.0)))
         print(f"auto-set time: TIME_OVERHEAD {TIME_OVERHEAD} + MAX_TIME_PER_TASK {MAX_TIME_PER_TASK} x mx {mx} "
               f"x mult {mult} x base_time_multiplier {base_time_multiplier} x timex {timex}")
@@ -1527,6 +1543,18 @@ echo \" WORKING DIR:   $WORKDIR/\"\n\
 \n"
 
 slurm += launch_str +"\n"
+
+try:
+    if POST_MERGE > 0:
+        elixer_path = os.path.dirname(importlib.util.find_spec("elixer").origin)
+        slurm += "echo \"Running blind merge ... \"\n"
+        slurm += f"python {elixer_path}/elixer.py --merge \n"
+
+        if POST_MERGE > 1:
+            slurm += "echo \"moving report images to all_pngs ... \"\n"
+            slurm += f"mkdir all_pngs; mv dispatch_*/*/*.png all_pngs \n"
+except:
+    print(f"Error! Cannot run post slurm steps: switch == {POST_MERGE}")
 
 slurm += "echo \" \"\n"
 slurm += "echo \" Parameteric Job Complete\"\n"

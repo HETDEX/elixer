@@ -7,7 +7,7 @@ changes to elixer by version
 * bad throughput only applies for 3-exposure set (assumes normal HETDEX)
 
 1.24.0a2 [2025-08-18]
-* continue clarify/standardize reporting of Galatic dust correction
+* continue clarify/standardize reporting of Galactic dust correction
     + add flux_line_obs, flux_line_err_obs, flux_line_dust_corr, cont_line_obs, cont_line_err_obs to Detections h5 table
     + add dust_corr to CalibratedSpectra h5 table
 
