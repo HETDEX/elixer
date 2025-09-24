@@ -381,7 +381,7 @@ if "--fill_tasks" in args:
 
 
 
-
+POST_MERGE = 0
 if "--post_merge" in args:
     i = args.index("--post_merge")
     if i != -1:
