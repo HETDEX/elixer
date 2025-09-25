@@ -1,5 +1,10 @@
 changes to elixer by version
 
+
+1.24.0a5 [2025-09-25]
+* some additional Diagnose weighting tuning. If elixer has a high Q(z) and it is a multiline solution, even if there
+  is some flagging, keep the elixer solution.
+
 1.24.0a4 [2025-09-16]
 * adding in check for detection on bad amp from listing in shot specific h5 (root.AmpStats where flag == 0)
 * adding --post_merge option to (1) run standard, blind, in-line merge and if (2) mkdir all_pngs and move pngs there

@@ -2040,6 +2040,7 @@ class DetObj:
             multiline_sol_diag = 0 #some diagnostic info on a potential multiline soluition
             #is the multiline solution (which has been updated with catalog phot-z and spec-z)
             #consistent with lowz or high-z?
+            selected_solution_idx = -1
 
             troublesome_lines = [G.CIV_1549,G.CIII_1909,G.MgII_2799] #CIV, CIII, MgII
             score = -1
@@ -2250,6 +2251,7 @@ class DetObj:
                         except:
                             pass
                         multiline_sol_diag = 1 #good and agree
+                        selected_solution_idx = idx
                         log.info(f"P(z): Multiline solution[{idx}] {self.spec_obj.solutions[idx].name} score {scale_score} "
                                  f"and P(LyA) {scaled_plae_classification} agree. Set to z: {z} with Q(z): {p}")
                 else: #use the 1st (highes score) that disagrees
@@ -2945,8 +2947,12 @@ class DetObj:
                 pass
 
 
-            #Diagnose check here
-            if self.diagnose_dict is not None and ((self.best_gmag - self.best_gmag_unc) <= 22.0):
+            #Diagnose check here, with an escape
+            # ... even with the flags, IF there are multiple lines at high SNR
+            # keep the elixer classification ... this is an issue for especially long exposures with bright
+            # galaxies ... we can get a "bad fiber trace" in one fiber, but that happens to be inconsquential
+            if self.diagnose_dict is not None and ((self.best_gmag - self.best_gmag_unc) <= 22.0) and \
+                not (p >= 0.7 and selected_solution_idx >= 0 and multiline_sol_diag >= 1):
                 # (basically, if the object is < g 23 and the elixer confidence is low and/or the line is questionable
                 # give it the diagnose redshift ... even if that is not consistent with the "line" ???
                 # maybe that case needs a new flag that says so ... inconsistent with line??
@@ -2955,6 +2961,7 @@ class DetObj:
                 #a few conditions to trip
                 if ((self.flags & G.DETFLAG_QUESTIONABLE_DETECTION) or (self.flags & G.DETFLAG_BAD_EMISSION_LINE)) or \
                    (p < 0.1 and self.fwhm > 14.0) or (p < 0.05):
+
                     #what is the diagnose z
                     #print("diagnose")
                     #check the chi2
@@ -3001,8 +3008,8 @@ class DetObj:
                                 self.diagnose_adjusted_z = diagnose_z
 
                         z = self.diagnose_adjusted_z
-                        #set Q(z) based on the chi2 of the Diagnose match
-                        p = min(0.99, 1. / diagnose_chi2)
+                        #set Q(z) based on the chi2 of the Diagnose match, but cap to 0.25
+                        p = min(0.25, 1. / diagnose_chi2)
                         self.spec_obj.add_classification_label(dg_label[idx_chi2],replace=True)
                         log.warning(f"Using Diagnose based {dg_label[idx_chi2]} redshift: "
                                     f"z={z} with chi2={diagnose_chi2} and assigned Q(z)={p:0.2f}")
