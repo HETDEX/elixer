@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.24.0a6 [2025-10-01]
+* fix issues with lineflux map and neighbor location boxes in neighborhood map figure
+
 
 1.24.0a5 [2025-09-25]
 * some additional Diagnose weighting tuning. If elixer has a high Q(z) and it is a multiline solution, even if there

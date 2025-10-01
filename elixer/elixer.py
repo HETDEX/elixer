@@ -1042,6 +1042,16 @@ def parse_commandline(auto_force=False):
     # if args.shot_cat is not None:
     #     G.SINGLE_SHOT_CAT = args.shot_cat
 
+
+        #naming for parallels
+        if "_line.h5" in G.HDF5_DETECT_FN: #this is the parallel line source
+            G.HDF5_CONTINUUM_FN = G.HDF5_DETECT_FN.replace("_line.h5","_cont.h5")
+            G.HDF5_LINE_FN = G.HDF5_DETECT_FN
+        elif "_cont.h5" in G.HDF5_DETECT_FN: #this is the parallel continuum h5
+            G.HDF5_LINE_FN = G.HDF5_DETECT_FN.replace("_cont.h5", "_line.h5")
+            G.HDF5_CONTINUUM_FN = G.HDF5_DETECT_FN
+
+
     if args.diagnose is not None:
         try:
             from astropy.table import Table
@@ -5195,6 +5205,10 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
     except:
         pass
 
+    if this_detectid_idx < 0:   #now using this to indicate that we are in the first plot row, so if it was not set,
+        this_detectid_idx = 0   #then make it the 0 index
+
+
     for i in indices_to_plot:
 
         #first the cutout
@@ -5219,7 +5233,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
 
                     # add all locations
-                    if i == 0: #only for the first box
+                    if i == this_detectid_idx: #if i == 0: #only for the first box
                        for _ra, _dec in zip(all_ras,all_decs):
                             fx, fy = sci.get_position(_ra, _dec, master_cutout)
                             plt.gca().add_patch(plt.Rectangle(((fx - x) - target_box_side / 2.0, (fy - y) - target_box_side / 2.0),
@@ -5276,8 +5290,13 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
             #the 1D spectrum
             plt.subplot(gs[gs_idx*row_step+1:(gs_idx+1)*row_step-1,3:])
-            plt.title(r'Dist: %0.1f"  RA,Dec: (%0.5f,%0.5f)   $\lambda$: %0.2f   DetectID: %s  Shot: %s'
-                      %(dists[i],ras[i],decs[i],emis[i],str(int(detectids[i])), str(shot[i])))
+            if i==this_detectid_idx and emis[i]==-1 and cwave is not None:
+                # e.g. this was a continuum detect, but elixer assigned the wavelength
+                plt.title(r'Dist: %0.1f"  RA,Dec: (%0.5f,%0.5f)   $\lambda$: (%0.2f)   DetectID: %s  Shot: %s'
+                          %(dists[i],ras[i],decs[i],cwave,str(int(detectids[i])), str(shot[i])))
+            else:
+                plt.title(r'Dist: %0.1f"  RA,Dec: (%0.5f,%0.5f)   $\lambda$: %0.2f   DetectID: %s  Shot: %s'
+                          %(dists[i],ras[i],decs[i],emis[i],str(int(detectids[i])), str(shot[i])))
             plt.plot(wave[i],spec[i],zorder=9,color='b')
             plt.axhline(0,color='k',lw=1,zorder=0)
             if cwave is not None:
@@ -5299,7 +5318,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
             #todo: ends in the y-limit calculation (to avoid run-away range values)
 
             #special case for line image (new way ... use image projected onto master cutout WCS
-            if G.PROJECT_LINE_IMAGE_TO_COMMON_WCS and i == 0 and line_buf_tight is not None and line_image is not None: #second position
+            if G.PROJECT_LINE_IMAGE_TO_COMMON_WCS and i == this_detectid_idx and line_buf_tight is not None and line_image is not None: #second position
                 gs_idx += 1
 
                 #lets try displaying the figure buffer
@@ -5347,7 +5366,10 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
                 #the 1D spectrum for the line image
                 plt.subplot(gs[gs_idx*row_step+1:(gs_idx+1)*row_step-1,3:])
-                plt.title(r'Line Image: $\lambda$: %0.2f +/- %0.2f'  %(emis[i],line_image.d_wave))
+                if emis[i] == -1 and cwave is not None: #e.g. this was a continuum detect, but elixer assigned the wavelength
+                    plt.title(r'Line Image: $\lambda$: (%0.2f) +/- %0.2f' % (cwave, line_image.d_wave))
+                else:
+                    plt.title(r'Line Image: $\lambda$: %0.2f +/- %0.2f'  %(emis[i],line_image.d_wave))
                 plt.plot(wave[i],spec[i],zorder=9,color='b')
                 plt.axhline(0,color='k',lw=1,zorder=0)
 
@@ -5372,7 +5394,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                 #     plt.ylim(ymx-rn*1.1, ymn+rn*1.1)
 
             #special case for line image (original) ... line image is in its own orientation
-            elif i == 0 and line_image is not None: #second position
+            elif i == this_detectid_idx and line_image is not None: #second position
                 gs_idx += 1
                 plt.subplot(gs[gs_idx*row_step+1:(gs_idx+1)*row_step-1,0:3]) #,projection=master_cutout.wcs)
 
