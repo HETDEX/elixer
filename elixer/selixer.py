@@ -1260,7 +1260,7 @@ if not time_set: #update time
 
         time = str(timedelta(minutes=max(minutes,10.0)))
         print(f"auto-set time: TIME_OVERHEAD {TIME_OVERHEAD} + MAX_TIME_PER_TASK {MAX_TIME_PER_TASK} x mx {mx} "
-              f"x mult {mult} x base_time_multiplier {base_time_multiplier} x timex {timex}")
+              f"x mult {mult} x base_time_multiplier {base_time_multiplier} x timex {timex} + extra time {time_add}")
         print("--time %s" %time)
 
     except Exception as e:
