@@ -361,6 +361,9 @@ def parse_commandline(auto_force=False):
     parser.add_argument('-t', '--time', help="Max runtime as hh:mm:ss for in SLURM queue",required=False)
     parser.add_argument('--timex', help="Multiplier on the time for SLURM. i.e. 1.1 would increase the time by 10%%",
                         required=False,type=float,default=1.0)
+    parser.add_argument('--time_add', help="Additional time (integer minutes) to add to the computed time for SLURM. Note: --timex"
+                                           " is not applied to this value.",
+                        required=False,type=int,default=0)
     parser.add_argument('--email', help="If populated, sends SLURM status to this email address", required=False)
 
     parser.add_argument('--queue', help="If populated, specifies which TACC queue (vis, gpu) to use.", required=False)

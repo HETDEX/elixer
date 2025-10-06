@@ -810,6 +810,7 @@ elif not MERGE:
 
 
 #check for time argument (optional)
+#this is a fixed time value
 i = -1
 if "-t" in args:
     i = args.index("-t")
@@ -825,6 +826,7 @@ if i != -1:
 else:
     pass
 
+#this is a multiplier against what ever time is estimated
 timex = 1.0
 if "--timex" in args:
     i = args.index("--timex")
@@ -834,6 +836,19 @@ if "--timex" in args:
         timex = 1.0
 else:
     timex = 1.0
+
+
+#this is an additional time to add AFTER other time calculations are made
+#units are MINUTES
+time_add = 0
+if "--time_add" in args:
+    i = args.index("--time_add")
+    try:
+        time_add = int(sys.argv[i + 1])
+    except:
+        time_add = 0
+else:
+    time_add = 0
 
 #if nophot is specified (do not use photometric imaging, so will not retrieve it)
 #we want to cut the nominal time in half, so, it is the equivalent of cuting timex down
@@ -1235,7 +1250,7 @@ if not time_set: #update time
         #     mx += gridsearch_task_boost
 
         # set a minimum time ... always AT LEAST 5 or 10 minutes requested?
-        minutes = int(TIME_OVERHEAD + MAX_TIME_PER_TASK * mx * mult * base_time_multiplier * timex)
+        minutes = int(TIME_OVERHEAD + MAX_TIME_PER_TASK * mx * mult * base_time_multiplier * timex) + time_add
 
         if continuum_mode:
             minutes = int(minutes * 1.05) #small boost since continuum objects have extra processing

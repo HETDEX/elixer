@@ -1,5 +1,10 @@
 changes to elixer by version
 
+
+1.24.0a7 [2025-10-06]
+* extend options with --time_add to allow combining line and continuum SLURMs into a single file for the
+  single shot "reduce_shot" operation
+
 1.24.0a6 [2025-10-01]
 * fix issues with lineflux map and neighbor location boxes in neighborhood map figure
 
