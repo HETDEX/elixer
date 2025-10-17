@@ -13080,7 +13080,14 @@ class HETDEX:
                             e.id = G.UNIQUE_DET_ID_NUM
 
                     e.entry_id = e.id  # don't have an official one
-                    log.info(f"({e.id}) assigned to RA,Dec: ({e.ra},{e.dec})")
+
+                    if e.ra is None or e.dec is None:
+                        log.error(f"({e.id}) Invalid RA,Dec: ({e.ra},{e.dec})")
+                        e.status = -1
+                        return
+                    else:
+                        log.info(f"({e.id}) assigned to RA,Dec: ({e.ra},{e.dec})")
+
 
                 if e.outdir is None:
                     e.outdir = self.output_filename
