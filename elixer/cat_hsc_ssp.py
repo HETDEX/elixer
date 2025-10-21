@@ -96,8 +96,6 @@ def hsc_count_to_mag(count,cutout=None,headers=None):
                 return -2.5 * np.log10(count/fluxmag0) #+ 48.6
             else:
                 return -2.5 * np.log10(count) + 27.0
-
-            return
         else:
             return 99.9  # need a better floor
 

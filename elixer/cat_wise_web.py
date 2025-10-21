@@ -47,6 +47,10 @@ from astropy import units as u
 import requests
 from requests.exceptions import Timeout, ConnectionError
 
+#note: need v 0.4.6 and up
+from astroquery.ipac.irsa import Irsa  #includes WISE/NEOWISE but also: Euclid, Spitzer,SOFIA, IRTF, 2MASS, Herschel, IRAS, and ZTF
+import pyvo as vo
+from astropy.utils.data import download_file
 
 #log = G.logging.getLogger('Cat_logger')
 #log.setLevel(G.logging.DEBUG)
@@ -55,16 +59,19 @@ log.setlevel(G.LOG_LEVEL)
 
 pd.options.mode.chained_assignment = None  #turn off warning about setting the distance field
 
-
-
 def wise_count_to_mag(count,cutout=None,headers=None):
     """
     """
 
     try:
+        if 'MAGZP' in headers[0]:
+            magzp = float(headers[0]['MAGZP'])
+        else:
+            magzp = 18.0 #typical for WISE
+
         if (count > 0):
-            print("wise_count_to_mag!!!! need to fix zero point")
-            mag = -2.5*np.log10(count) + 22.5
+           # print("wise_count_to_mag!!!! need to fix zero point")
+            mag = -2.5*np.log10(count) + magzp
         else:
             mag = 99.9
     except:
@@ -86,10 +93,15 @@ class WISE(cat_base.Catalog):#WISE
     mean_FWHM = 6.0 #
     MainCatalog = None #there is no Main Catalog ... must load individual catalog tracts
     Name = "WISE"
-    Filters = ['l','m'] #band 1 = L = 3.6 micron , band 2 = M = 4.8 micron
+    #Filters = ['l','m'] #band 1 = L = 3.6 micron , band 2 = M = 4.8 micron
+    Filters = ['W1', 'W2', 'W3', 'W4']
+    #3.4, 4.6, 12, and 22 µm (W1, W2, W3, W4)
+    #angular resolution of 6.1", 6.4", 6.5", & 12.0"
+    #5s point source sensitivities better than 0.08, 0.11, 1 and 6 mJy
 
     WCS_Manual = False
     MAG_LIMIT = 24.0 #Don't know yet
+
 
     def __init__(self):
         super(WISE, self).__init__()
@@ -99,6 +111,7 @@ class WISE(cat_base.Catalog):#WISE
         self.dataframe_of_bid_targets_photoz = None
         self.num_targets = 0
         self.master_cutout = None
+        self.allwise_service = vo.dal.SIAService("https://irsa.ipac.caltech.edu/ibe/sia/wise/allwise/p3am_cdd?")
 
     def get_coadd_factor(self,filter):
         """
@@ -274,7 +287,7 @@ class WISE(cat_base.Catalog):#WISE
             try:
                 wcs_manual = self.WCS_Manual
                 aperture = self.mean_FWHM*0.5 + 0.5 # since a radius, half the FWHM + 0.5" for astrometric error
-                mag_func = decals_count_to_mag
+                mag_func = wise_count_to_mag
             except:
                 wcs_manual = self.WCS_Manual
                 aperture = 0.0
@@ -975,7 +988,7 @@ class WISE(cat_base.Catalog):#WISE
     #
     #     return stacked_cutout
 
-    def get_single_cutout(self, ra, dec, window, catalog_image,aperture=None,filter=None,error=None,do_sky_subtract=True,
+    def get_single_cutout(self, ra, dec, window,aperture=None,filter=None,error=None,do_sky_subtract=True,
                           detobj=None):
 
         d = {'cutout':None,
@@ -993,7 +1006,7 @@ class WISE(cat_base.Catalog):#WISE
             wcs_manual = self.WCS_Manual
             if aperture is None:
                 aperture = self.mean_FWHM * 0.5 + 0.5 # since a radius, half the FWHM + 0.5" for astrometric error
-            mag_func = decals_count_to_mag
+            mag_func = wise_count_to_mag
         except:
             wcs_manual = self.WCS_Manual
             aperture = 0.0
@@ -1005,51 +1018,59 @@ class WISE(cat_base.Catalog):#WISE
 
         try:
 
-            log.info("DECaLS query (%f,%f) at %f arcsec for band %s ..." % (ra, dec, query_radius, filter))
+            log.info("WISE query (%f,%f) at %f arcsec for band %s ..." % (ra, dec, query_radius, filter))
             #build up the request URL
-            url = "http://legacysurvey.org/viewer/fits-cutout?ra=%f&dec=%f&layer=%s&bands=%s" %(ra,dec,"ls-dr9",filter)
+            im_table = self.allwise_service.search(pos=pos, size=1.0*u.arcsec)
+            try:
+                #note: if there is more than one filter match, we just end up with the first one
+                idx = list(im_table['sia_bp_id']).index(filter.upper()) #W1, W2, W3 or W4
+            except:
+                idx = None
+
+            url = None
+            if idx is None:
+                #this is a fail ... no matching filter
+                log.info(
+                    "WISE query (%f,%f) at %f arcsec for band %s returned None" % (ra, dec, query_radius, filter))
+                return d
+            # elif np.count_nonzero(sel) > 1:
+            #     # this is a fail ... multiple matching filters
+            #     # But maybe there is just more than one image?
+            #     log.info(f"WISE query ({ra:0.6f},{dec:0.6f}) at {query_radius}\" for {filter} returned multiple hits. For now, taking the first...")
+            #     url = im_table[sel][0].getdataurl()
+            else: #all good
+                url = im_table[idx].getdataurl()
 
             try:
-                response = requests.get(url, allow_redirects=True,timeout=(10.0,120.0))
-
-                if response.status_code != 200:  # "OK" response
-                    log.info("DECaLS http response code = %d (%s)" % (response.status_code, response.reason))
-                    hdulist_array = None
-
-                if len(response.content) < 5000:  # should normally be 200k+
-                    log.info(f"Bad (short) response (no image?) from DECaLS. Content = {response.content}")
-                    hdulist_array = None
-
-                hdulist = fits.open(io.BytesIO(response.content))
+                fname = download_file(url, cache=True)
+                hdulist = fits.open(fname)
 
                 if hdulist[0].header['NAXIS'] != 2:
-                    log.info("Bad response (no image?) from DECaLS")
+                    log.info("Bad response (no image?) from WISE")
                     hdulist_array = None
-
-                hdulist_array = [hdulist]
+                else:
+                    hdulist_array = [hdulist]
 
             except Timeout:
-                log.info("Exception (Timeout) in DECaLS",exc_info=False)
+                log.info("Exception (Timeout) in WISE",exc_info=False)
                 hdulist_array = None
             except ConnectionError:
-                log.info("Exception (ConnectionError) in DECaLS",exc_info=False)
+                log.info("Exception (ConnectionError) in WISE",exc_info=False)
                 hdulist_array = None
             except Exception as e:
-                log.info("Exception in DECaLS",exc_info=True)
-            # else:
-            #     log.debug("Exception in DECaLS",exc_info=True)
-            #     hdulist_array = None
+                log.info("Exception in WISE",exc_info=True)
+
 
             if hdulist_array is None:
-                log.info("DECaLS query (%f,%f) at %f arcsec for band %s returned None" % (ra, dec, query_radius, filter))
+                log.info("WISE query (%f,%f) at %f arcsec for band %s returned None" % (ra, dec, query_radius, filter))
             else:
                 # todo: choose the best image?
                 sci = science_image.science_image(wcs_manual=wcs_manual, wcs_idx=0,
                                                   image_location=None, hdulist=hdulist_array[0])
-                sci.catalog_name = "DECaLS"
+                sci.catalog_name = "WISE"
                 sci.filter_name = filter
 
-                d['path'] = "DECaLS Online"
+                d['path'] = f"WISE: {url}"
                 d['hdu'] = sci.headers
 
                 # to here, window is in degrees so ...
@@ -1066,8 +1087,8 @@ class WISE(cat_base.Catalog):#WISE
                 if cutout is not None:  # construct master cutout
                     d['cutout'] = cutout
                     details['catalog_name']=self.name
-                    details['filter_name']=catalog_image['filter']
-                    d['mag_limit']=self.get_mag_limit(None,mag_radius*2.)
+                    details['filter_name']=filter
+                    d['mag_limit']=  None #self.get_mag_limit(None,mag_radius*2.)
                     try:
                         if d['mag_limit']:
                             details['mag_limit']=d['mag_limit']
@@ -1138,7 +1159,7 @@ class WISE(cat_base.Catalog):#WISE
                         # if filter list provided but the image is NOT in the filter list go to next one
                         continue
 
-                    cutout = self.get_single_cutout(ra, dec, window, None, aperture,filter=f,error=error,detobj=detobj)
+                    cutout = self.get_single_cutout(ra, dec, window, aperture,filter=f,error=error,detobj=detobj)
                     if first:
                         if cutout['cutout'] is not None:
                                 l.append(cutout)
@@ -1151,7 +1172,7 @@ class WISE(cat_base.Catalog):#WISE
         else:
             for f in self.Filters:
                 try:
-                    l.append(self.get_single_cutout(ra,dec,window,None,aperture,filter=f,detobj=detobj))
+                    l.append(self.get_single_cutout(ra,dec,window,aperture,filter=f,detobj=detobj))
                 except:
                     log.error("Exception! collecting image cutouts.", exc_info=True)
 
