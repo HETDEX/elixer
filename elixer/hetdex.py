@@ -8889,7 +8889,7 @@ class DetObj:
         #self.dither_norm_high_expid = -1
         try:
             self.relflux_virus = row['relflux_virus']
-            if np.count_nonzero(row['expnum'] <= 1):
+            if np.count_nonzero(row['expnum']) <= 1:
                 self.dither_norm = -1.0 #e.g. not applicable
             else:
                 self.dither_norm = np.max(self.relflux_virus) / np.min(self.relflux_virus)
