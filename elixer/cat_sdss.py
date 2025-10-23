@@ -418,7 +418,7 @@ class SDSS(cat_base.Catalog):#SDSS
                 aperture = 0.0
                 mag_func = None
 
-            log.info("SDSS query (%f,%f) at %f arcsec for band %s ..." % (ra, dec, query_radius, f))
+            log.info("SDSS query (%f,%f) at %f arcsec for band %s (note: SDSS always set minimum to 30 arcsec) ..." % (ra, dec, query_radius, f))
             hdulist_array = SDSS_API.get_images(coordinates=pos, radius=query_radius*u.arcsec,band=f)
 
             if hdulist_array is None:
@@ -1091,7 +1091,7 @@ class SDSS(cat_base.Catalog):#SDSS
 
         try:
 
-            log.info("SDSS query (%f,%f) at %f arcsec for band %s ..." % (ra, dec, query_radius, filter))
+            log.info("SDSS query (%f,%f) at %f arcsec for band %s (note: SDSS always set minimum to 30 arcsec) ..." % (ra, dec, query_radius, filter))
             hdulist_array = SDSS_API.get_images(coordinates=pos, radius=query_radius * u.arcsec, band=filter)
 
             if hdulist_array is None:

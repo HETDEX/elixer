@@ -373,22 +373,34 @@ class CatalogLibrary:
                     cutouts = self.get_decals_web().get_cutouts(ra, dec, window=radius * 2., aperture=aperture,
                                                                 filter=filter, first=first)
                     if (cutouts is not None) and (len(cutouts) > 0):
-                        l.extend(cutouts)
-                        break
+                        if (np.count_nonzero([c['cutout'] is not None for c in cutouts]) > 0):
+                            l.extend(cutouts)
+                            break
+                        else: #need to clear out the cutouts as the actual imaging is all None
+                            del cutouts
+
 
                     #PanSTARRS
                     cutouts = self.get_panstarrs().get_cutouts(ra, dec, window=radius * 2., aperture=aperture,
                                                                     filter=filter, first=first)
+
                     if (cutouts is not None) and (len(cutouts) > 0):
-                        l.extend(cutouts)
-                        break
+                        if (np.count_nonzero([c['cutout'] is not None for c in cutouts]) > 0):
+                            l.extend(cutouts)
+                            break
+                        else: #need to clear out the cutouts as the actual imaging is all None
+                            del cutouts
 
                     #SDSS
                     cutouts = self.get_sdss().get_cutouts(ra, dec, window=radius * 2., aperture=aperture,
                                                                filter=filter, first=first)
+
                     if (cutouts is not None) and (len(cutouts) > 0):
-                        l.extend(cutouts)
-                        break
+                        if (np.count_nonzero([c['cutout'] is not None for c in cutouts]) > 0):
+                            l.extend(cutouts)
+                            break
+                        else:  # need to clear out the cutouts as the actual imaging is all None
+                            del cutouts
 
                     break #regardless, exit the "loop"
             except:

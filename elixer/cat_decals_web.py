@@ -282,7 +282,7 @@ class DECaLS(cat_base.Catalog):#DECaLS
                 aperture = 0.0
                 mag_func = None
 
-            log.info("DECaLS query (%f,%f) at %f arcsec for band %s ..." % (ra, dec, query_radius, f))
+            log.info("DECaLS query (%f,%f) at %f arcsec for band %s (note: DECaLS always set minimum 30 arcsec) ..." % (ra, dec, query_radius, f))
 
             #build up the request URL
             url = "http://legacysurvey.org/viewer/fits-cutout?ra=%f&dec=%f&layer=%s&bands=%s" %(ra,dec,"ls-dr10",f)
@@ -1016,7 +1016,7 @@ class DECaLS(cat_base.Catalog):#DECaLS
 
         try:
 
-            log.info("DECaLS query (%f,%f) at %f arcsec for band %s ..." % (ra, dec, query_radius, filter))
+            log.info("DECaLS query (%f,%f) at %f arcsec for band %s (note: DECaLS always set minimum to 30 arcsec)..." % (ra, dec, query_radius, filter))
             #build up the request URL
             url = "http://legacysurvey.org/viewer/fits-cutout?ra=%f&dec=%f&layer=%s&bands=%s" %(ra,dec,"ls-dr10",filter)
 

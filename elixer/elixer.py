@@ -4494,7 +4494,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
     sci = science_image.science_image()  # empty ... just want for functions
 
-    def make_master(_cutouts):
+    def make_master(_cutouts, enforce_non_empty = False):
         mc = None
         try:
             if len(_cutouts) > 0:
@@ -4516,17 +4516,18 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                     time = np.full(len(pix2),np.nan) #np.zeros(len(pix2))
                     for i in sel:
                         try:
-                            try:
-                                if _cutouts[i]['filter'].lower() in ['g','r','f606w']: #WHY am I not checking the unique_fration?
+                            if enforce_non_empty:
+                                try:
+                                    if _cutouts[i]['filter'].lower() in ['g','r','f606w']: #WHY am I not checking the unique_fration?
+                                        check_unique_fraction = False
+                                    else:
+                                        check_unique_fraction = True
+                                except:
                                     check_unique_fraction = False
-                                else:
-                                    check_unique_fraction = True
-                            except:
-                                check_unique_fraction = False
 
-                            if science_image.is_cutout_empty(_cutouts[i]['cutout'],check_unique_fraction=check_unique_fraction):
-                                time[i] = np.nan
-                                continue #skip it and move on to the next
+                                if science_image.is_cutout_empty(_cutouts[i]['cutout'],check_unique_fraction=check_unique_fraction):
+                                    time[i] = np.nan
+                                    continue #skip it and move on to the next
                             time[i] = _cutouts[i]['hdu'][0]['EXPTIME']
                         except:
                             time[i] = 0.0
@@ -4538,9 +4539,12 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
                         for i in sel:
                             if not np.isnan(time[i]):
                                 mc.data += _cutouts[i]['cutout'].data
+                    elif total_time == 0 and not enforce_non_empty:
+                        for i in sel:
+                            mc.data += _cutouts[i]['cutout'].data
                     else:
                         for i in sel:
-                            if not np.isnan(time[i]) and time[i] > 0:
+                            if not np.isnan(time[i]) and not np.isinf(time[i]) and time[i] > 0:
                                 mc.data += _cutouts[i]['cutout'].data*time[i]/total_time
                         #time is not the best metric, but not too bad ... assumes all filters have roughly equivalent
                         #throughputs ... should not use for any measurements, but just for making a picture it is okay
@@ -4550,37 +4554,43 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
         return mc
 
-    master_cutout = make_master(cutouts)
+    master_cutout = make_master(cutouts, enforce_non_empty = True)
 
-    if science_image.is_cutout_empty(master_cutout):
-        log.info("build_neighborhood_map master_cutout is empty. Will try web calls for DECaLS, PanSTARRS, and/or SDSS.")
+    #this is almost redundant since the earlier call allows for all the web access
+    # BUT, need to try WEB once more but remove the empty cutout restriction
+    if science_image.is_cutout_empty(master_cutout): #at this point just take what we can get ... stack whatever
+        log.info("build_neighborhood_map master_cutout is empty. Will try web calls (again) for DECaLS, PanSTARRS, "
+                 "and/or SDSS with limited quality enforcement.")
 
-        #todo: maybe limit to G or R band request?
+        #since we turned OFF empty/simple enforcement, get everything you can (blank images won't add anything)
         #next code bit is sloppy but I am in a hurry and copy-paste is easy
+        #direct call uses a window, which is the full width of the side of a cutout in degress
+        #the distance is in arcsec, and is 1/3 of the side so
+        direct_call_window = distance * 3.0 / 3600.0
         if G.DECALS_WEB_ALLOW:
             log.info("Calling DECaLS (web) ...")
-            ps_cutouts = catalogs.cat_decals_web.DECaLS().get_cutouts(ra,dec,distance,aperture=None,filter=['g','r'],first=True)
+            ps_cutouts = catalogs.cat_decals_web.DECaLS().get_cutouts(ra,dec,direct_call_window,aperture=None)
             #note, different than cutouts above?
             mc = make_master(ps_cutouts)
             if mc is not None:
                 master_cutout = mc
             elif G.PANSTARRS_ALLOW:
                 log.info("Calling PanSTARRs ...")
-                ps_cutouts = catalogs.cat_panstarrs.PANSTARRS().get_cutouts(ra,dec,distance,aperture=None)
+                ps_cutouts = catalogs.cat_panstarrs.PANSTARRS().get_cutouts(ra,dec,direct_call_window,aperture=None)
                 #note, different than cutouts above?
                 mc = make_master(ps_cutouts)
                 if mc is not None:
                     master_cutout = mc
                 elif G.SDSS_ALLOW:
                     log.info("Calling SDSS ...")
-                    sdss_cutouts = catalogs.cat_sdss.SDSS().get_cutouts(ra,dec,distance,aperture=None)
+                    sdss_cutouts = catalogs.cat_sdss.SDSS().get_cutouts(ra,dec,direct_call_window,aperture=None)
                     #note, different than cutouts above?
                     mc = make_master(sdss_cutouts)
                     if mc is not None:
                         master_cutout = mc
             elif G.SDSS_ALLOW:
                 log.info("Calling SDSS ...")
-                sdss_cutouts = catalogs.cat_sdss.SDSS().get_cutouts(ra,dec,distance,aperture=None)
+                sdss_cutouts = catalogs.cat_sdss.SDSS().get_cutouts(ra,dec,direct_call_window,aperture=None)
                 #note, different than cutouts above?
                 mc = make_master(sdss_cutouts)
                 if mc is not None:
@@ -4588,14 +4598,14 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
         elif G.PANSTARRS_ALLOW:
             log.info("Calling PanSTARRs ...")
-            ps_cutouts = catalogs.cat_panstarrs.PANSTARRS().get_cutouts(ra,dec,distance,aperture=None)
+            ps_cutouts = catalogs.cat_panstarrs.PANSTARRS().get_cutouts(ra,dec,direct_call_window,aperture=None)
             #note, different than cutouts above?
             mc = make_master(ps_cutouts)
             if mc is not None:
                 master_cutout = mc
             elif G.SDSS_ALLOW:
                 log.info("Calling SDSS ...")
-                sdss_cutouts = catalogs.cat_sdss.SDSS().get_cutouts(ra,dec,distance,aperture=None)
+                sdss_cutouts = catalogs.cat_sdss.SDSS().get_cutouts(ra,dec,direct_call_window,aperture=None)
                 #note, different than cutouts above?
                 mc = make_master(sdss_cutouts)
                 if mc is not None:
@@ -4603,7 +4613,7 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
         elif G.SDSS_ALLOW:
             log.info("Calling SDSS ...")
-            sdss_cutouts = catalogs.cat_sdss.SDSS().get_cutouts(ra,dec,distance,aperture=None)
+            sdss_cutouts = catalogs.cat_sdss.SDSS().get_cutouts(ra,dec,direct_call_window,aperture=None)
             #note, different than cutouts above?
             mc = make_master(sdss_cutouts)
             if mc is not None:
