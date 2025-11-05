@@ -728,6 +728,7 @@ def is_edge_fiber(absolute_fiber_num, ifux=None, ifuy=None):
 
 def get_fluxlimits(ra,dec,wave,datevobs,sncut=4.8,flim_model="v4",ffsky=False,rad=3.5,lineflux=None,linewidth=None):
     """
+    * note: new flim_model available v5_simple, v5_complex
     wrapper to call into HETDEX API
 
     This would be the 50% flux limit (i.e. we detect 50% of emission lines as this location (ra,dec,wave,shot) at that
@@ -743,7 +744,6 @@ def get_fluxlimits(ra,dec,wave,datevobs,sncut=4.8,flim_model="v4",ffsky=False,ra
     :param linewidth: linewidth (?sigma?) optional
     :return: array of flux limits (integrated line fluxes, by default over 7 wavebins), apcor, completeness for the flux
     """
-
     try:
         log.info(f"Retreiving flux limits and apcor using flim_mode {flim_model} ...")
 

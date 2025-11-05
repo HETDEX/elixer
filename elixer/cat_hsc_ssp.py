@@ -266,9 +266,11 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
                     #flags is an array of 246 booleans, numbering starts with 1
                     #as is we cannot keep the flags and translate to a pandas dataframe as it does not support multi-dimensional columns
-                    #want to check 'src_detect_isPrimary' (216 or index 215),'src_base_PixellFags_flag' ()
+                    #want to check 'src_detect_isPrimary' (216 or index 215),'src_base_PixelFlags_flag' ()
 
-                    #from HSC documentatin
+                    #flag definitions (names) are in the headrs of the varoius srcMatchFull-HSC-<X>-xxxxx-x,x.fits files
+
+                    #from HSC documentation
                     #You should first select primary objects (i.e., objects in the inner patch and inner tract with no
                     # children) by applying isprimary=True.   It will be a good practice to then apply pixel flags to
                     # make sure that objects do not suffer from problematic pixels; {filter}_pixelflags_saturated_{any, center},

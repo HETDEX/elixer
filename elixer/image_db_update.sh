@@ -58,16 +58,16 @@ rpt="elixer_reports_"
 for i in {40138..40254}
 do
 
-  echo set -o noglob \; python3 make_report_db.py --db_name "${db_dir}${rpt}${i}.db" --img_dir $imgdir --img_name "${i}*[0-9].png"
+  echo set -o noglob \; python3 make_report_db.py --db_name "${db_dir}${rpt}${i}.db" --img_dir $imgdir --img_name "${i}*[0-9].png" \; set +o noglob
 
   #note: no underscore in image names -- of form 2000123456nei.png
   #      with elixer v 1.8.x and up, yes, underscore with nei (2100123456_nei.png)
   #note: YES underscore in db names
-  echo set -o noglob \; python3 make_report_db.py --db_name "${db_dir}${rpt}${i}_nei.db" --img_dir  $imgdir  --img_name "${i}*_nei.png"
+  echo set -o noglob \; python3 make_report_db.py --db_name "${db_dir}${rpt}${i}_nei.db" --img_dir  $imgdir  --img_name "${i}*_nei.png" \; set +o noglob
 
   #note: YES underscore in image names -- of form 2000123456_mini.png
   #note: YES underscore in db names
-  echo set -o noglob \; python3 make_report_db.py --db_name "${db_dir}${rpt}${i}_mini.db" --img_dir  $imgdir  --img_name "$i*_mini.png"
+  echo set -o noglob \; python3 make_report_db.py --db_name "${db_dir}${rpt}${i}_mini.db" --img_dir  $imgdir  --img_name "$i*_mini.png" \; set +o noglob
 
 done
 
@@ -76,16 +76,17 @@ done
 for i in {40902..40904}
 do
 
-  echo set -o noglob \; python3 make_report_db.py --db_name "${db_dir}${rpt}${i}.db" --img_dir $imgdir --img_name "${i}*[0-9].png"
+  echo set -o noglob \; python3 make_report_db.py --db_name "${db_dir}${rpt}${i}.db" --img_dir $imgdir --img_name "${i}*[0-9].png" \; set +o noglob
 
   #note: no underscore in image names -- of form 2000123456nei.png
   #      with elixer v 1.8.x and up, yes, underscore with nei (2100123456_nei.png)
   #note: YES underscore in db names
-  echo set -o noglob \; python3 make_report_db.py --db_name "${db_dir}${rpt}${i}_nei.db" --img_dir  $imgdir  --img_name "${i}*_nei.png"
+  echo set -o noglob \; python3 make_report_db.py --db_name "${db_dir}${rpt}${i}_nei.db" --img_dir  $imgdir  --img_name "${i}*_nei.png" \; set +o noglob
 
   #note: YES underscore in image names -- of form 2000123456_mini.png
   #note: YES underscore in db names
-  echo set -o noglob \; python3 make_report_db.py --db_name "${db_dir}${rpt}${i}_mini.db" --img_dir  $imgdir  --img_name "$i*_mini.png"
+  echo set -o noglob \; python3 make_report_db.py --db_name "${db_dir}${rpt}${i}_mini.db" --img_dir  $imgdir  --img_name "$i*_mini.png" \; set +o noglob
 
 done
 
+set +o noglob
