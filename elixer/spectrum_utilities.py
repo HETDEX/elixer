@@ -121,7 +121,7 @@ log.setlevel(G.LOG_LEVEL)
 
 filter_iso_dict = {'u': 3650.0,
                    'b': 4450.0,
-                   'g': 4640.0,
+                   'g': 4640.0,  #SDSS g might by 4717 or 4750, but that might be the midpoint not the iso?
                    'v': 5510.0,
                    'r': 6580.0,
                    'i': 8060.0,
