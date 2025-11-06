@@ -53,7 +53,7 @@ log.setlevel(G.LOG_LEVEL)
 
 pd.options.mode.chained_assignment = None  #turn off warning about setting the distance field
 
-def kpno_count_to_mag(count,cutout=None,headers=None):
+def kpno_count_to_mag(count,cutout=None,headers=None, dust_mag_correction = 0.0):
     magzero = None
 
     empirical_magzero_correction = 0.75 #based on comparision to HETDEX and several other catalogs
@@ -77,7 +77,7 @@ def kpno_count_to_mag(count,cutout=None,headers=None):
 
     if (count is not None) and (count > 0) and (magzero is not None):
         magzero += empirical_magzero_correction
-        return -2.5 * np.log10(count) + magzero
+        return -2.5 * np.log10(count) + magzero + dust_mag_correction
     else:
         return 99.9  # need a better floor
 

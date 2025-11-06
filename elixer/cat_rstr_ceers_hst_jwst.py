@@ -50,7 +50,7 @@ CEERS_HST_BASEPATH = "/work/03564/stevenf/lonestar/JWST_images/CEERS"
 #todo: update with aperture on photometry
 #todo: currently astropy does not like the drz fits files and throws exception with the aperture
 
-def count_to_mag(count,cutout=None,headers=None):
+def count_to_mag(count,cutout=None,headers=None,dust_mag_correction=0.0):
     if count is not None:
         #if cutout is not None:
         #get the conversion factor, each tile is different
@@ -70,7 +70,7 @@ def count_to_mag(count,cutout=None,headers=None):
 
             if count > 0:
                 flux = photoflam*count
-                return  -2.5 * np.log10(flux) + photozero
+                return  -2.5 * np.log10(flux) + photozero + dust_mag_correction
             else:
                 return 99.9  # need a better floor
         except:
@@ -78,7 +78,7 @@ def count_to_mag(count,cutout=None,headers=None):
             return 99.9
 
 
-def jwst_count_to_mag(count,cutout=None,headers=None):
+def jwst_count_to_mag(count,cutout=None,headers=None,dust_mag_correction=0.0):
     if count is not None:
         #if cutout is not None:
         #get the conversion factor, each tile is different
@@ -102,7 +102,7 @@ def jwst_count_to_mag(count,cutout=None,headers=None):
                 count = count.value
 
             if count > 0:
-                return -6.10 - 2.5 * np.log10(count*photmjsr*pixar_sr)
+                return -6.10 - 2.5 * np.log10(count*photmjsr*pixar_sr) + dust_mag_correction
                 #flux = photuja2*count #in uJy
                 #return SU.ujy2mag(photuja2*count*pixar_a2)
                 #return  -2.5 * np.log10(flux) + photozero

@@ -67,15 +67,15 @@ pd.options.mode.chained_assignment = None  #turn off warning about setting the d
 # F606W	ibcd40031	900	25.902	588.7	218.2
 # F814W	ibcd40061	1300	24.586	805.4	153.6
 
-def cfhtls_count_to_mag(count,cutout=None,sci_image=None):
+def cfhtls_count_to_mag(count,cutout=None,sci_image=None,dust_mag_correction=0.0):
     if count is not None:
         if count > 0:
-            return -2.5 * np.log10(count) + 30.0 #PHOTZP in FITS header
+            return -2.5 * np.log10(count) + 30.0 + dust_mag_correction #PHOTZP in FITS header
         else:
             return 99.9  # need a better floor
 
 
-def acs_wfc_f606w_count_to_mag(count,cutout=None,headers=None):
+def acs_wfc_f606w_count_to_mag(count,cutout=None,headers=None,dust_mag_correction=0.0):
     if count is not None:
         #if cutout is not None:
         #get the conversion factor, each tile is different
@@ -92,7 +92,7 @@ def acs_wfc_f606w_count_to_mag(count,cutout=None,headers=None):
 
             if count > 0:
                 flux = photoflam * count
-                return -2.5 * np.log10(flux) + photozero
+                return -2.5 * np.log10(flux) + photozero + dust_mag_correction
             else:
                 return 99.9  # need a better floor
 

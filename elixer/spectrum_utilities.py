@@ -32,6 +32,11 @@ except Exception as e:
     print("WARNING!!!! CANNOT IMPORT hetdex_api extract: ", e)
 
 try:
+    from hetdex_api.extinction import *  #includes deredden_spectra
+except Exception as e:
+    print("WARNING!!!! CANNOT IMPORT hetdex_api extinction: ", e)
+
+try:
     from elixer import global_config as G
     from elixer import weighted_biweight as weighted_biweight
     from elixer import utilities as utils
@@ -3283,6 +3288,31 @@ def estimated_depth(seeing):
 
     poly3_model = [-0.33105551, 2.2871651, -5.56681813, 29.34075907]
     return np.polyval(poly3_model, seeing) #gband magnitude
+
+
+def get_dust_correction(ra,dec,wave):
+    """
+
+    :param ra: degrees
+    :param dec: degrees
+    :param wave: float or array type in angstroms; if for magnitude, use the iso wavelength
+    :return:
+    """
+
+    try:
+        _ = wave[0]
+    except:
+        wave = [wave]
+
+    try:
+        dust_corr = deredden_spectra(wave, SkyCoord(ra, dec, unit='deg'))
+        mag_corr = -2.5 * np.log10(dust_corr) #ADD this to magnitude
+    except:
+        dust_corr = None
+        mag_corr = None
+
+    return dust_corr, mag_corr
+
 
 #
 # Defunct? 2023-06-01

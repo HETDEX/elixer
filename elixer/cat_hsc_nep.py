@@ -52,7 +52,7 @@ pd.options.mode.chained_assignment = None  #turn off warning about setting the d
 
 
 
-def hsc_count_to_mag(count,cutout=None,headers=None):
+def hsc_count_to_mag(count,cutout=None,headers=None,dust_mag_correction=0.0):
     """
     NEP is using the same zero point as the HETDEX HSC, so this is still valid
 
@@ -94,9 +94,9 @@ def hsc_count_to_mag(count,cutout=None,headers=None):
     if count is not None:
         if count > 0:
             if fluxmag0 is not None:
-                return -2.5 * np.log10(count/fluxmag0) #+ 48.6
+                return -2.5 * np.log10(count/fluxmag0) + dust_mag_correction #+ 48.6
             else:
-                return -2.5 * np.log10(count) + 27.0
+                return -2.5 * np.log10(count) + 27.0 + dust_mag_correction
 
             return
         else:

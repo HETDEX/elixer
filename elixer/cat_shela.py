@@ -47,7 +47,7 @@ log.setlevel(G.LOG_LEVEL)
 pd.options.mode.chained_assignment = None  #turn off warning about setting the distance field
 
 
-def shela_count_to_mag(count,cutout=None,headers=None):
+def shela_count_to_mag(count,cutout=None,headers=None, dust_mag_correction = 0.0):
     if count is not None:
         #if cutout is not None:
         #get the conversion factor, each tile is different
@@ -70,9 +70,9 @@ def shela_count_to_mag(count,cutout=None,headers=None):
             #return -2.5 * np.log10(count*nanofact) + magzero
             # counts for SHELA  ALREADY in nanojansky
             if isinstance(count,float):
-                return -2.5 * np.log10(count) + magzero
+                return -2.5 * np.log10(count) + magzero + dust_mag_correction
             else:
-                return -2.5 * np.log10(count.value) + magzero
+                return -2.5 * np.log10(count.value) + magzero + dust_mag_correction
         else:
             return 99.9  # need a better floor
 

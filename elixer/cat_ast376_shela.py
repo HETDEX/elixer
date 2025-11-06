@@ -32,7 +32,7 @@ RA_NUDGE =  -2.5/3600.#-25./3600.
 DEC_NUDGE = -2.0/3600. #-7./3600.
 
 
-def shela_count_to_mag(count,cutout=None,sci_image=None):
+def shela_count_to_mag(count,cutout=None,sci_image=None,dust_mag_correction=0.0):
     if count is not None:
         if sci_image is not None:
             #get the conversion factor, each tile is different
@@ -49,9 +49,9 @@ def shela_count_to_mag(count,cutout=None,sci_image=None):
             #note: either should give the exact same result as fluxcon is calculated from magadd
 
             if magadd != 0:
-                return -2.5 * np.log10(count) + magadd
+                return -2.5 * np.log10(count) + magadd + dust_mag_correction
             else:
-                return -2.5 * np.log10(count * fluxcon)
+                return -2.5 * np.log10(count * fluxcon) + dust_mag_correction
         else:
             return 99.9  # need a better floor
 

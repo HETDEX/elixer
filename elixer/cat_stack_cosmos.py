@@ -57,14 +57,14 @@ pd.options.mode.chained_assignment = None  #turn off warning about setting the d
 EXPANDED_IMAGES_PATH = G.COSMOS_EXTRA_PATH
 
 #todo:
-def subaru_hsc_g_count_to_mag(count,cutout=None,headers=None):
+def subaru_hsc_g_count_to_mag(count,cutout=None,headers=None,dust_mag_correction=0.0):
    pass
     #image has no converion defined; header very limited
 
 
 
 #NOTE: Depth around 26 mag or so
-def cosmos_count_to_mag(count,cutout=None,headers=None):
+def cosmos_count_to_mag(count,cutout=None,headers=None,dust_mag_correction=0.0):
     #nanofact = 334.116462522 #counts to nano-janksy from g fits header [NANOFACT]
     magzero = 31.4
     if count is not None:
@@ -90,15 +90,15 @@ def cosmos_count_to_mag(count,cutout=None,headers=None):
             #return -2.5 * np.log10(count*nanofact) + magzero
             #counts for cosmos ALREADY in nanojansky
             if isinstance(count, float):
-                return -2.5 * np.log10(count) + magzero
+                return -2.5 * np.log10(count) + magzero + dust_mag_correction
             else:
-                return -2.5 * np.log10(count.value) + magzero
+                return -2.5 * np.log10(count.value) + magzero + dust_mag_correction
         else:
             return 99.9  # need a better floor
 
 
 #NOTE: Depth around 26 mag or so
-def cosmos_g_count_to_mag(count,cutout=None,headers=None):
+def cosmos_g_count_to_mag(count,cutout=None,headers=None,dust_mag_correction=0.0):
     #nanofact = 334.116462522 #counts to nano-janksy from g fits header [NANOFACT]
     magzero = 31.4
     if count is not None:
@@ -118,16 +118,16 @@ def cosmos_g_count_to_mag(count,cutout=None,headers=None):
             #return -2.5 * np.log10(count*nanofact) + magzero
             #counts for cosmos ALREADY in nanojansky
             if isinstance(count, float):
-                return -2.5 * np.log10(count) + magzero
+                return -2.5 * np.log10(count) + magzero + dust_mag_correction
             else:
-                return -2.5 * np.log10(count.value) + magzero
+                return -2.5 * np.log10(count.value) + magzero + dust_mag_correction
         else:
             return 99.9  # need a better floor
 
 
 
 #NOTE: Depth around 26 mag or so
-def cosmos_r_count_to_mag(count,cutout=None,headers=None):
+def cosmos_r_count_to_mag(count,cutout=None,headers=None,dust_mag_correction=0.0):
     #nanofact = 334.116462522 #counts to nano-janksy from g fits header [NANOFACT]
     magzero = 31.4
     if count is not None:
@@ -147,9 +147,9 @@ def cosmos_r_count_to_mag(count,cutout=None,headers=None):
             #return -2.5 * np.log10(count*nanofact) + magzero
             #counts for cosmos ALREADY in nanojansky
             if isinstance(count, float):
-                return -2.5 * np.log10(count) + magzero
+                return -2.5 * np.log10(count) + magzero + dust_mag_correction
             else:
-                return -2.5 * np.log10(count.value) + magzero
+                return -2.5 * np.log10(count.value) + magzero + dust_mag_correction
         else:
             return 99.9  # need a better floor
 

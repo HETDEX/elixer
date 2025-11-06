@@ -56,7 +56,7 @@ pd.options.mode.chained_assignment = None  #turn off warning about setting the d
 #todo: update with aperture on photometry
 #todo: currently astropy does not like the drz fits files and throws exception with the aperture
 
-def goodsn_f606w_count_to_mag(count,cutout=None,headers=None):
+def goodsn_f606w_count_to_mag(count,cutout=None,headers=None,dust_mag_correction=0.0):
     if count is not None:
         #if cutout is not None:
         #get the conversion factor, each tile is different
@@ -79,7 +79,7 @@ def goodsn_f606w_count_to_mag(count,cutout=None,headers=None):
                 # c = scipy.constants.c * 1e10 #in AA
                 # flux = flux * (5778.3**2.)/c * 1e-23 #to Jansky
                 #then
-                return  -2.5 * np.log10(flux) + photozero
+                return  -2.5 * np.log10(flux) + photozero + dust_mag_correction
                # return -2.5 * np.log10(flux/3631.0)
             else:
                 return 99.9  # need a better floor

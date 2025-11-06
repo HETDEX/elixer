@@ -49,7 +49,7 @@ pd.options.mode.chained_assignment = None  #turn off warning about setting the d
 
 
 
-def panstarrs_count_to_mag(count,cutout=None,headers=None):
+def panstarrs_count_to_mag(count,cutout=None,headers=None,dust_mag_correction=0.0):
     #see https://outerspace.stsci.edu/display/PANSTARRS/PS1+Stack+images
     """
     Photometric calibration
@@ -76,7 +76,7 @@ def panstarrs_count_to_mag(count,cutout=None,headers=None):
     try:
         exptime = headers[0]['EXPTIME']
         if (count > 0) and (exptime > 0):
-            mag = -2.5*np.log10(count) + 25.0 + 2.5*np.log10(exptime)
+            mag = -2.5*np.log10(count) + 25.0 + 2.5*np.log10(exptime) + dust_mag_correction
         else:
             mag = 99.9
     except:

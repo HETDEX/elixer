@@ -6,7 +6,9 @@ import scipy.interpolate
 This is for the HSC SSP data. Cloned originally from hsc_nep.py code, but modified extensively
 
 Note: since this gets asked periodically, this is supposed to be MW dust corrected (both catalog and photometry) using
-      Schlegel +1998
+      Schlegel +1998  : 
+      20251105 --- what is the citation for this?? I don't think the imaging has dust correction, 
+      only specific analyses add it ???
 """
 
 try:
@@ -51,13 +53,14 @@ log.setlevel(G.LOG_LEVEL)
 
 pd.options.mode.chained_assignment = None  #turn off warning about setting the distance field
 
-def hsc_count_to_mag(count,cutout=None,headers=None):
+def hsc_count_to_mag(count,cutout=None,headers=None,dust_mag_correction=0.0):
     """
     SSP is using the same zero point as the HETDEX HSC, so this is still valid
 
     :param count:
     :param cutout:
     :param headers:
+    :param dust_mag_correction: optional pass in an ADDITION to the magnitude (e.g. a negative float)
     :return:
     """
 
@@ -93,9 +96,9 @@ def hsc_count_to_mag(count,cutout=None,headers=None):
     if count is not None:
         if count > 0:
             if fluxmag0 is not None:
-                return -2.5 * np.log10(count/fluxmag0) #+ 48.6
+                return -2.5 * np.log10(count/fluxmag0) + dust_mag_correction#+ 48.6
             else:
-                return -2.5 * np.log10(count) + 27.0
+                return -2.5 * np.log10(count) + 27.0 + dust_mag_correction
         else:
             return 99.9  # need a better floor
 

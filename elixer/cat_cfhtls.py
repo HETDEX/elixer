@@ -78,7 +78,7 @@ log.setlevel(G.LOG_LEVEL)
 pd.options.mode.chained_assignment = None  #turn off warning about setting the distance field
 
 
-def cfhtls_count_to_mag(count,cutout=None,sci_image=None):
+def cfhtls_count_to_mag(count,cutout=None,sci_image=None,dust_mag_correction=0.0):
     if count is not None:
         zero_point = 30.0
 
@@ -102,7 +102,7 @@ def cfhtls_count_to_mag(count,cutout=None,sci_image=None):
                 pass
 
         if count > 0:
-            return -2.5 * np.log10(count) + zero_point #PHOTZP in FITS header or MZP_AB
+            return -2.5 * np.log10(count) + zero_point + dust_mag_correction#PHOTZP in FITS header or MZP_AB
         else:
             return 99.9  # need a better floor
 

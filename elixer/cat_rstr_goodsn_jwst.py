@@ -49,7 +49,7 @@ GOODSN_JWST_BASEPATH = "/work/03564/stevenf/lonestar/JWST_images/GOODSN"
 
 
 
-def jwst_count_to_mag(count,cutout=None,headers=None):
+def jwst_count_to_mag(count,cutout=None,headers=None,dust_mag_correction=0.0):
     if count is not None:
         #if cutout is not None:
         #get the conversion factor, each tile is different
@@ -73,7 +73,7 @@ def jwst_count_to_mag(count,cutout=None,headers=None):
                 count = count.value
 
             if count > 0:
-                return -6.10 - 2.5 * np.log10(count*photmjsr*pixar_sr)
+                return -6.10 - 2.5 * np.log10(count*photmjsr*pixar_sr) + dust_mag_correction
                 #flux = photuja2*count #in uJy
                 #return SU.ujy2mag(photuja2*count*pixar_a2)
                 #return  -2.5 * np.log10(flux) + photozero

@@ -49,7 +49,7 @@ pd.options.mode.chained_assignment = None  #turn off warning about setting the d
 
 
 
-def decals_count_to_mag(count,cutout=None,headers=None):
+def decals_count_to_mag(count,cutout=None,headers=None,dust_mag_correction=0.0):
 #from http://legacysurvey.org/dr8/description/
 #
 #The brightnesses of objects are all stored as linear fluxes in units of nanomaggies.
@@ -60,7 +60,7 @@ def decals_count_to_mag(count,cutout=None,headers=None):
 
     try:
         if (count > 0):
-            mag = -2.5*np.log10(count) + 22.5
+            mag = -2.5*np.log10(count) + 22.5 + dust_mag_correction
         else:
             mag = 99.9
     except:

@@ -46,7 +46,7 @@ pd.options.mode.chained_assignment = None  #turn off warning about setting the d
 
 
 
-def sdss_count_to_mag(count,cutout=None,headers=None):
+def sdss_count_to_mag(count,cutout=None,headers=None,dust_mag_correction = 0.0):
 
     try:
         bunit = str(headers[0]['BUNIT'])
@@ -79,7 +79,7 @@ def sdss_count_to_mag(count,cutout=None,headers=None):
         else:
             ct_nmgy = count.value
 
-        return 22.5 - 2.5 * np.log10(ct_nmgy)
+        return 22.5 - 2.5 * np.log10(ct_nmgy) + dust_mag_correction
     else:
         return 99.9  # need a better floor
 

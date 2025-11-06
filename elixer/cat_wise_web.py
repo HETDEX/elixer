@@ -59,7 +59,7 @@ log.setlevel(G.LOG_LEVEL)
 
 pd.options.mode.chained_assignment = None  #turn off warning about setting the distance field
 
-def wise_count_to_mag(count,cutout=None,headers=None):
+def wise_count_to_mag(count,cutout=None,headers=None,dust_mag_correction=0.0):
     """
     """
 
@@ -71,7 +71,7 @@ def wise_count_to_mag(count,cutout=None,headers=None):
 
         if (count > 0):
            # print("wise_count_to_mag!!!! need to fix zero point")
-            mag = -2.5*np.log10(count) + magzp
+            mag = -2.5*np.log10(count) + magzp + dust_mag_correction
         else:
             mag = 99.9
     except:

@@ -43,7 +43,7 @@ pd.options.mode.chained_assignment = None  #turn off warning about setting the d
 
 
 
-def decals_count_to_mag(count,cutout=None,headers=None):
+def decals_count_to_mag(count,cutout=None,headers=None,dust_mag_correction=0.0):
    return 999.9
 
 
