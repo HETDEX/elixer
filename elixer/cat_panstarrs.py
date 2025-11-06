@@ -1132,14 +1132,20 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
                     # get the dust correction
                     details['dust_corr_mult'] = 1.0
                     details['dust_corr_mag'] = 0.0
-                    details['dust_corr_avail'] = False
-                    isowave = SU.filter_iso(details['filter_name'], None)
-                    if isowave is not None:
-                        dust_corr, mag_corr = SU.get_dust_correction(ra, dec, isowave)
-                        if dust_corr is not None:
-                            details['dust_corr_mult'] = dust_corr[0]
-                            details['dust_corr_mag'] = mag_corr[0]
-                            details['dust_corr_avail'] = True
+                    details['dust_corr_applied'] = False
+                    if G.APPLY_GALACTIC_DUST_CORRECTION and not self.imaging_already_dust_corrected:
+                        isowave = SU.filter_iso(details['filter_name'], None)
+                        if isowave is not None:
+                            dust_corr, mag_corr = SU.get_dust_correction(ra, dec, isowave)
+                            if dust_corr is not None and mag_corr is not None:
+                                details['dust_corr_mult'] = dust_corr[0]
+                                details['dust_corr_mag'] = mag_corr[0]
+                                mag += details['dust_corr_mag']
+                                d['mag'] = mag
+                                details['mag'] = mag
+                                details['mag_faint'] += details['dust_corr_mag']
+                                details['mag_bright'] += details['dust_corr_mag']
+                                details['dust_corr_applied'] = True
 
                     try:
                         if d['mag_limit']:
