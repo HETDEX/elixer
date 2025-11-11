@@ -1663,6 +1663,7 @@ EFR_FLAG_ALL_ZERO                       = 0x00000020 #residual is all zero value
 
 
 
+HSC_SSP_ONLY = False # only allow this imaging catalog (used for empty fiber calibration)
 
 ODIN_HACK = False #apply special case hacked up code for comparing with ODIN; turn on/off with --special
 ODIN_HACK_FLUXFN = ["../odin.fluxes","../../odin.fluxes"] #file with updated odin ids and linefluxes

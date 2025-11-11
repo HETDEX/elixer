@@ -102,31 +102,35 @@ class CatalogLibrary:
 
         self.cats = list()
         if G.USE_PHOTO_CATS:
-            self.cats.append(cat_candles_egs_stefanon_2016.CANDELS_EGS_Stefanon_2016())
-            self.cats.append(cat_goods_n.GOODS_N())
-            #self.cats.append(EGS_GROTH()) #this is of no value right now
-            #self.cats.append(cat_stack_cosmos.STACK_COSMOS()) #little value and memory expensive to load
-            #self.cats.append(cat_shela.SHELA())  #little value and memory/time expensive to load
+            if G.HSC_SSP_ONLY:
+                log.warning("HSC_SSP_ONLY restriction turned ON. Only loading HSC_SSP imaging catalog.")
+                self.cats.append(cat_hsc_ssp.HSC_SSP())
+            else:
+                self.cats.append(cat_candles_egs_stefanon_2016.CANDELS_EGS_Stefanon_2016())
+                self.cats.append(cat_goods_n.GOODS_N())
+                #self.cats.append(EGS_GROTH()) #this is of no value right now
+                #self.cats.append(cat_stack_cosmos.STACK_COSMOS()) #little value and memory expensive to load
+                #self.cats.append(cat_shela.SHELA())  #little value and memory/time expensive to load
 
-            self.cats.append(cat_hsc.HSC())
-            self.cats.append(cat_hsc_ssp.HSC_SSP())
-            self.cats.append(cat_cfhtls.CFHTLS())
-            # notice: if comment out KPNO turn off KPNO inclusion in HSC, also need to un-comment the next line to remove from HSC
-            # self.cats[-1].INCLUDE_KPNO_G = False
-            self.cats.append(cat_kpno.KPNO())
+                self.cats.append(cat_hsc.HSC())
+                self.cats.append(cat_hsc_ssp.HSC_SSP())
+                self.cats.append(cat_cfhtls.CFHTLS())
+                # notice: if comment out KPNO turn off KPNO inclusion in HSC, also need to un-comment the next line to remove from HSC
+                # self.cats[-1].INCLUDE_KPNO_G = False
+                self.cats.append(cat_kpno.KPNO())
 
-            #note: the web only catalogs are controlled via command line options and/or global_config.py
-            # e.g. cat_decals_web, cat_sdss, cat_panstarrs
-            # they are NOT added here !!!
+                #note: the web only catalogs are controlled via command line options and/or global_config.py
+                # e.g. cat_decals_web, cat_sdss, cat_panstarrs
+                # they are NOT added here !!!
 
 
-            #restricted use catalogs/imaging
-            #need to uncomment the includes at the top import the necessary class
-            # self.cats.append(cat_hsc_nep.HSC_NEP())
-            # self.cats.append(cat_rstr_ceers_hst_jwst.CEERS_HST())
-            # self.cats.append(cat_rstr_cosmos_hst_jwst.COSMOS_HST())
-            # self.cats.append(cat_rstr_goodsn_jwst.GOODSN_JWST())
-            # self.cats.append(cat_rstr_uds_hst_jwst.UDS_HST())
+                #restricted use catalogs/imaging
+                #need to uncomment the includes at the top import the necessary class
+                # self.cats.append(cat_hsc_nep.HSC_NEP())
+                # self.cats.append(cat_rstr_ceers_hst_jwst.CEERS_HST())
+                # self.cats.append(cat_rstr_cosmos_hst_jwst.COSMOS_HST())
+                # self.cats.append(cat_rstr_goodsn_jwst.GOODSN_JWST())
+                # self.cats.append(cat_rstr_uds_hst_jwst.UDS_HST())
 
     def get_full_catalog_list(self):
         if self.cats is None:

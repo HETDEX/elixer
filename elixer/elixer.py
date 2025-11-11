@@ -659,6 +659,15 @@ def parse_commandline(auto_force=False):
             log.critical(f"***** RUNNING SPECIALIZED CODE X{args.special} *****")
             G.__version__ += f"X{args.special}"
 
+
+            ##########################################
+            # HSC_SSP only allowed
+            ##########################################
+            if args.special == 1701:
+                print(f"***** RUNNING SPECIALIZED CODE: HSC_SSP ONLY *****")
+                log.critical(f"***** RUNNING SPECIALIZED CODE: HSC_SSP *****")
+                G.HSC_SSP_ONLY = True
+
             ##########################################
             # ODIN hack (compare to ODIN NB data)
             ##########################################
