@@ -632,6 +632,9 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--diagnose', help="Diagnose code output file. Used as additional redshift input.", required=False,
                         default=None) #G.HDF5_DETECT_FN
 
+    parser.add_argument('--no_fiber_elem_mask', help="Turn off fiber+wavelength (per element) level masking", required=False,
+                        default=None,action='store_true') #G.HDF5_DETECT_FN
+
     parser.add_argument('--post_merge', help="1=run blind --merge after main slurm, 2=also move pngs to all_pngs"
                                              "!!! Warning !!! Do NOT use if more than a few thousand detections",
                         required=False, type=int)
@@ -1071,6 +1074,9 @@ def parse_commandline(auto_force=False):
         except:
             G.DIAGNOSE_TABLE = None
             log.warning(f"--diagnose specified, but unable to load: {args.diagnose}",exc_info=True)
+
+    if args.no_fiber_elem_mask is not None:
+        G.FIBER_SPEC_ELEM_MASKING = False  #IF the switch is present then we want masking OFF
 
     if (args.dets is not None) and (args.coords is not None):
         print("Invalid combination of parameters. Cannot specify both --dets and --coords")
