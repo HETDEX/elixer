@@ -196,6 +196,16 @@ if "--dispatch_base" in args:
             dispatch_base = 0
 
 
+#rename the elixer_merged_cat.h5 to this
+merged_cat_name = None
+if "--merge_name" in args:
+    i = args.index("--merge_name")
+    if i != -1:
+        try:
+            merged_cat_name = sys.argv[i + 1]
+        except:
+            merged_cat_name = None
+
 hdr_int = None
 if "--hdr" in args:
     i = args.index("--hdr")
@@ -1568,6 +1578,15 @@ try:
         if POST_MERGE > 1:
             slurm += "echo \"moving report images to all_pngs ... \"\n"
             slurm += f"mkdir all_pngs; mv dispatch_*/*/*.png all_pngs \n"
+
+        #rename elixer_merged_cat.h5 to something useful? should the user provide the name?
+        try:
+            if merged_cat_name is not None:
+                if merged_cat_name[-3:] != ".h5":
+                    merged_cat_name += ".h5"
+            slurm += f"mv elixer_merged_cat.h5 {merged_cat_name} \n"
+        except:
+            print(f"Error! Cannot rename elixer_merged_cat")
 except:
     print(f"Error! Cannot run post slurm steps: switch == {POST_MERGE}")
 

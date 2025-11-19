@@ -639,6 +639,10 @@ def parse_commandline(auto_force=False):
                                              "!!! Warning !!! Do NOT use if more than a few thousand detections",
                         required=False, type=int)
 
+    parser.add_argument('--merge_name', help="Use the specified filename instead of \'elixer_merged_cat.h5\' for the "
+                                             "merged file name. Only applies if --post_merge also used.",
+                        required=False, default=None, type=str)
+
     try:
         args = parser.parse_args()
     except:
