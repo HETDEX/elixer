@@ -1155,19 +1155,26 @@ class DECALS(cat_base.Catalog):
                 details['dust_corr_mult'] = 1.0
                 details['dust_corr_mag'] = 0.0
                 details['dust_corr_applied'] = False
-                if G.APPLY_GALACTIC_DUST_CORRECTION and not self.imaging_already_dust_corrected:
+                if G.APPLY_GALACTIC_DUST_CORRECTION and not self.imaging_already_dust_corrected and mag < 99:
                     isowave = SU.filter_iso(details['filter_name'], None)
                     if isowave is not None:
                         dust_corr, mag_corr = SU.get_dust_correction(ra, dec, isowave)
                         if dust_corr is not None and mag_corr is not None:
                             details['dust_corr_mult'] = dust_corr[0]
                             details['dust_corr_mag'] = mag_corr[0]
-                            mag += details['dust_corr_mag']
+                            try:
+                                mag += details['dust_corr_mag']
+                                details['dust_corr_applied'] = True
+                            except:
+                                details['dust_corr_applied'] = False
+
                             d['mag'] = mag
                             details['mag'] = mag
-                            details['mag_faint'] += details['dust_corr_mag']
-                            details['mag_bright'] += details['dust_corr_mag']
-                            details['dust_corr_applied'] = True
+                            try:
+                                details['mag_faint'] += details['dust_corr_mag']
+                                details['mag_bright'] += details['dust_corr_mag']
+                            except:
+                                pass
 
                 try:
                     if d['mag_limit']:
