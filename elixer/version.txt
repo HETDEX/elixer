@@ -1,6 +1,6 @@
 changes to elixer by version
 
-1.24.1a1 [2025-11-18]
+1.24.1a1 [2025-11-19]
 * change to automatically apply Galactic dust correction to imaging (source extractor) magnitudes IF global_config
   has APPLY_GALACTIC_DUST_CORRECTION turned ON and the imaging has not already had it applied
   + adds new keys to the details dictionary array:
@@ -8,7 +8,11 @@ changes to elixer by version
     'dust_corr_mag' - the addition for the magnitude (e.g. should be a negative float)
     'dust_corr_applied' - True if the addition has been made to the mag, mag_bright, mag_faint; False if not applied
 * add --no_fiber_elem_mask to turn off enforcement of the per fiber, per wavelength masking.
-   + note: this is particularly useful when re-extracting on shots with problems, e.g. if throughput is < 0.08 everything is masked
+   + note: this is particularly useful when re-extracting on shots with problems, e.g.
+   if throughput is < 0.08 everything is masked
+* add --merge_name option to change "elixer_merged_cat.h5" to support --post_merge
+* fix issues with --gridsearch when using specific shot h5 file
+
 
 1.24.0a7 [2025-10-06]
 * extend options with --time_add to allow combining line and continuum SLURMs into a single file for the

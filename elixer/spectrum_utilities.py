@@ -2419,10 +2419,30 @@ def extract_at_multiple_positions(ra,dec,aperture,shotid,ffsky=False,multiproc=G
         else:
             get_spectra_loglevel = "ERROR"
 
+        if G.ALWAYS_USE_LATEST_FOR_REEXTRACTION:
+            get_spectra_survey = G.HDR_Latest_Str
+            if G.HDR_Latest_Str != f"hdr{G.HDR_Version}":
+                log.warning(f"Warning! get_spectra using latest data release ({G.HDR_Latest_Str}) instead of "
+                            f"command line specified release (hdr{G.HDR_Version})")
+        else:
+            get_spectra_survey = f"hdr{G.HDR_Version}"
+
+
+
         coords = SkyCoord(ra=ra * U.deg, dec=dec * U.deg) #list of coords, ra, dec are lists
-        apts = hda_get_spectra(coords, ID=np.arange(len(coords)),survey=f"hdr{G.HDR_Version}", shotid=shotid,ffsky=ffsky,
-                          multiprocess=multiproc, rad=aperture,tpmin=0.0,fiberweights=False,
-                          loglevel = get_spectra_loglevel)
+        #old
+        # apts = hda_get_spectra(coords, ID=np.arange(len(coords)),survey=f"hdr{G.HDR_Version}", shotid=shotid,ffsky=ffsky,
+        #                   multiprocess=multiproc, rad=aperture,tpmin=0.0,fiberweights=False,
+        #                   loglevel = get_spectra_loglevel)
+
+        #new (allow for specific shots)
+        apts = hda_get_spectra(coords, ID=np.arange(len(coords)), survey=get_spectra_survey,
+                              shotid=shotid,
+                              ffsky=ffsky, multiprocess=multiproc, rad=aperture,
+                              tpmin=0.0, fiberweights=False, loglevel=get_spectra_loglevel,
+                              fiber_flux_offset=None, #always off; this is expensive enough and not needed here
+                              ffsky_rescor=G.FFSKY_RESCOR, apply_mask=G.FIBER_SPEC_ELEM_MASKING,
+                              shot_h5=G.SINGLE_SHOT_H5)
 
         if len(apts) == 0:
             #print(f"No spectra for ra ({self.ra}) dec ({self.dec})")
