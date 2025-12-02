@@ -46,6 +46,7 @@ log.setlevel(G.LOG_LEVEL)
 pd.options.mode.chained_assignment = None  #turn off warning about setting the distance field
 
 COSMOS_HST_BASEPATH = "/work/03564/stevenf/lonestar/JWST_images/COSMOS"
+OSCAR_COSMOS_HST_BASEPATH = "/scratch/07446/astroboi/cosmos_hst"
 
 #todo: update with aperture on photometry
 #todo: currently astropy does not like the drz fits files and throws exception with the aperture
@@ -123,7 +124,10 @@ class COSMOS_HST(cat_base.Catalog):
 
     # if multiple images, the composite broadest range (filled in by hand)
     #Cat_Coord_Range = None
-    Image_Coord_Range = {'RA_min': 150.017820, 'RA_max': 150.234686, 'Dec_min': 2.147223, 'Dec_max': 2.514713}
+    #Image_Coord_Range = {'RA_min': 150.017820, 'RA_max': 150.234686, 'Dec_min': 2.147223, 'Dec_max': 2.514713}
+
+    #update for new imaging
+    Image_Coord_Range = {'RA_min': 149.65409755274575, 'RA_max': 150.6153723568971, 'Dec_min': 1.7077106650773646, 'Dec_max': 2.6969192958678105}
 
     WCS_Manual = True
 
@@ -336,6 +340,331 @@ class COSMOS_HST(cat_base.Catalog):
          }
     ]
 
+    #CatalogImages = []
+
+    #
+    # Tile_Dict = {
+    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A4_v0.3_drz.fits':
+    #         {'RA_min': 150.12656167292266,
+    #          'RA_max': 150.34805247673683,
+    #          'Dec_min': 1.9377564610672233,
+    #          'Dec_max': 2.1875370916742938,
+    #          'instrument': 'HST',
+    #          'filter': 'f606w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A4_v0.3_drz.fits'},
+    #     'mosaic_cosmos_web_30mas_tile_B4_hst_acs_wfc_f814w_drz.fits':
+    #         {'RA_min': 150.25824396380185,
+    #          'RA_max': 150.47979756122,
+    #          'Dec_min': 2.2992163112219384,
+    #          'Dec_max': 2.549001508072617,
+    #          'instrument': 'HST',
+    #          'filter': 'f814w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B4_hst_acs_wfc_f814w_drz.fits'},
+    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A9_v0.3_drz.fits':
+    #         {'RA_min': 150.060744341293,
+    #          'RA_max': 150.28220288392387,
+    #          'Dec_min': 1.7570266566736685,
+    #          'Dec_max': 2.0067979164950267,
+    #          'instrument': 'HST',
+    #          'filter': 'f606w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A9_v0.3_drz.fits'},
+    #     'mosaic_cosmos_web_30mas_tile_A3_hst_acs_wfc_f814w_drz.fits':
+    #         {'RA_min': 149.99100431662018,
+    #          'RA_max': 150.2124906588673,
+    #          'Dec_min': 1.9870709292881175,
+    #          'Dec_max': 2.2368461872506997,
+    #          'instrument': 'HST',
+    #          'filter': 'f814w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A3_hst_acs_wfc_f814w_drz.fits'},
+    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A2_v0.3_drz.fits':
+    #         {'RA_min': 149.85543939696583,
+    #          'RA_max': 150.07691879661863,
+    #          'Dec_min': 2.036374703540957,
+    #          'Dec_max': 2.2861424971185635,
+    #          'instrument': 'HST',
+    #          'filter': 'f606w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A2_v0.3_drz.fits'},
+    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B7_v0.3_drz.fits':
+    #         {'RA_min': 149.92124313872156,
+    #          'RA_max': 150.14275663077282,
+    #          'Dec_min': 2.2171194032273127,
+    #          'Dec_max': 2.4668894600843254,
+    #          'instrument': 'HST',
+    #          'filter': 'f606w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B7_v0.3_drz.fits'},
+    #     'mosaic_cosmos_web_30mas_tile_A10_hst_acs_wfc_f814w_drz.fits':
+    #         {'RA_min': 150.19627860994615,
+    #          'RA_max': 150.4177403374616,
+    #          'Dec_min': 1.7077106650773646,
+    #          'Dec_max': 1.95748401478021,
+    #          'instrument': 'HST',
+    #          'filter': 'f814w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A10_hst_acs_wfc_f814w_drz.fits'},
+    #     'mosaic_cosmos_web_30mas_tile_B1_hst_acs_wfc_f814w_drz.fits':
+    #         {'RA_min': 149.851461004901,
+    #          'RA_max': 150.07300099610117,
+    #          'Dec_min': 2.44716363899613,
+    #          'Dec_max': 2.6969192958678105,
+    #          'instrument': 'HST',
+    #          'filter': 'f814w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B1_hst_acs_wfc_f814w_drz.fits'},
+    #     'mosaic_cosmos_web_30mas_tile_A6_hst_acs_wfc_f814w_drz.fits':
+    #         {'RA_min': 149.65409755274575,
+    #          'RA_max': 149.87553166071146,
+    #          'Dec_min': 1.9049183391366178,
+    #          'Dec_max': 2.1546707802954272,
+    #          'instrument': 'HST',
+    #          'filter': 'f814w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A6_hst_acs_wfc_f814w_drz.fits'},
+    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A5_v0.3_drz.fits':
+    #         {'RA_min': 150.2621099490618,
+    #          'RA_max': 150.4836027337908,
+    #          'Dec_min': 1.8884322004081768,
+    #          'Dec_max': 2.13821611167579,
+    #          'instrument': 'HST',
+    #          'filter': 'f606w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A5_v0.3_drz.fits'},
+    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B1_v0.3_drz.fits':
+    #         {'RA_min': 149.851461004901,
+    #          'RA_max': 150.07300099610117,
+    #          'Dec_min': 2.44716363899613,
+    #          'Dec_max': 2.6969192958678105,
+    #          'instrument': 'HST',
+    #          'filter': 'f606w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B1_v0.3_drz.fits'},
+    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A3_v0.3_drz.fits':
+    #         {'RA_min': 149.99100431662018,
+    #          'RA_max': 150.2124906588673,
+    #          'Dec_min': 1.9870709292881175,
+    #          'Dec_max': 2.2368461872506997,
+    #          'instrument': 'HST',
+    #          'filter': 'f606w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A3_v0.3_drz.fits'},
+    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B5_v0.3_drz.fits':
+    #         {'RA_min': 150.39381918907853,
+    #          'RA_max': 150.6153723568971,
+    #          'Dec_min': 2.2498757037992547,
+    #          'Dec_max': 2.4996665630963677,
+    #          'instrument': 'HST',
+    #          'filter': 'f606w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B5_v0.3_drz.fits'},
+    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A1_v0.3_drz.fits':
+    #         {'RA_min': 149.7198684312791,
+    #          'RA_max': 149.94133840710182,
+    #          'Dec_min': 2.0856668828091376,
+    #          'Dec_max': 2.335425120651174,
+    #          'instrument': 'HST',
+    #          'filter': 'f606w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A1_v0.3_drz.fits'},
+    #     'mosaic_cosmos_web_30mas_tile_B6_hst_acs_wfc_f814w_drz.fits':
+    #         {'RA_min': 149.78565630431362,
+    #          'RA_max': 150.00716157478698,
+    #          'Dec_min': 2.266416753739556,
+    #          'Dec_max': 2.5161760634349686,
+    #          'instrument': 'HST',
+    #          'filter': 'f814w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B6_hst_acs_wfc_f814w_drz.fits'},
+    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A8_v0.3_drz.fits':
+    #         {'RA_min': 149.92520173116802,
+    #          'RA_max': 150.14665460908068,
+    #          'Dec_min': 1.806333866912358,
+    #          'Dec_max': 2.0561009452042205,
+    #          'instrument': 'HST',
+    #          'filter': 'f606w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A8_v0.3_drz.fits'},
+    #     'mosaic_cosmos_web_30mas_tile_B7_hst_acs_wfc_f814w_drz.fits':
+    #         {'RA_min': 149.92124313872156,
+    #          'RA_max': 150.14275663077282,
+    #          'Dec_min': 2.2171194032273127,
+    #          'Dec_max': 2.4668894600843254,
+    #          'instrument': 'HST',
+    #          'filter': 'f814w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B7_hst_acs_wfc_f814w_drz.fits'},
+    #     'mosaic_cosmos_web_30mas_tile_B9_hst_acs_wfc_f814w_drz.fits':
+    #         {'RA_min': 150.19239493646083,
+    #          'RA_max': 150.41391742542487,
+    #          'Dec_min': 2.118487783475957,
+    #          'Dec_max': 2.368273059798537,
+    #          'instrument': 'HST',
+    #          'filter': 'f814w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B9_hst_acs_wfc_f814w_drz.fits'},
+    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A10_v0.3_drz.fits':
+    #         {'RA_min': 150.19627860994615,
+    #          'RA_max': 150.4177403374616,
+    #          'Dec_min': 1.7077106650773646,
+    #          'Dec_max': 1.95748401478021,
+    #          'instrument': 'HST',
+    #          'filter': 'f606w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A10_v0.3_drz.fits'},
+    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A6_v0.3_drz.fits':
+    #         {'RA_min': 149.65409755274575,
+    #          'RA_max': 149.87553166071146,
+    #          'Dec_min': 1.9049183391366178,
+    #          'Dec_max': 2.1546707802954272,
+    #          'instrument': 'HST',
+    #          'filter': 'f606w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A6_v0.3_drz.fits'},
+    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B3_v0.3_drz.fits':
+    #         {'RA_min': 150.12265817959866,
+    #          'RA_max': 150.34420972444414,
+    #          'Dec_min': 2.348545104294105,
+    #          'Dec_max': 2.5983225463216413,
+    #          'instrument': 'HST',
+    #          'filter': 'f606w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B3_v0.3_drz.fits'},
+    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B9_v0.3_drz.fits':
+    #         {'RA_min': 150.19239493646083,
+    #          'RA_max': 150.41391742542487,
+    #          'Dec_min': 2.118487783475957,
+    #          'Dec_max': 2.368273059798537,
+    #          'instrument': 'HST',
+    #          'filter': 'f606w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B9_v0.3_drz.fits'},
+    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B2_v0.3_drz.fits':
+    #         {'RA_min': 149.98706335393913,
+    #          'RA_max': 150.2086103635022,
+    #          'Dec_min': 2.3978611807643104,
+    #          'Dec_max': 2.6476287759604964,
+    #          'instrument': 'HST',
+    #          'filter': 'f606w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B2_v0.3_drz.fits'},
+    #     'mosaic_cosmos_web_30mas_tile_B2_hst_acs_wfc_f814w_drz.fits':
+    #         {'RA_min': 149.98706335393913,
+    #          'RA_max': 150.2086103635022,
+    #          'Dec_min': 2.3978611807643104,
+    #          'Dec_max': 2.6476287759604964,
+    #          'instrument': 'HST',
+    #          'filter': 'f814w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B2_hst_acs_wfc_f814w_drz.fits'},
+    #     'mosaic_cosmos_web_30mas_tile_B5_hst_acs_wfc_f814w_drz.fits':
+    #         {'RA_min': 150.39381918907853,
+    #          'RA_max': 150.6153723568971,
+    #          'Dec_min': 2.2498757037992547,
+    #          'Dec_max': 2.4996665630963677,
+    #          'instrument': 'HST',
+    #          'filter': 'f814w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B5_hst_acs_wfc_f814w_drz.fits'},
+    #     'mosaic_cosmos_web_30mas_tile_B8_hst_acs_wfc_f814w_drz.fits':
+    #         {'RA_min': 150.05682318867414,
+    #          'RA_max': 150.2783424201258,
+    #          'Dec_min': 2.167809446029673,
+    #          'Dec_max': 2.4175881585798864,
+    #          'instrument': 'HST',
+    #          'filter': 'f814w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B8_hst_acs_wfc_f814w_drz.fits'},
+    #     'mosaic_cosmos_web_30mas_tile_A7_hst_acs_wfc_f814w_drz.fits':
+    #         {'RA_min': 149.78965229601744,
+    #          'RA_max': 150.01109702908423,
+    #          'Dec_min': 1.8556313946327687,
+    #          'Dec_max': 2.1053921999280165,
+    #          'instrument': 'HST',
+    #          'filter': 'f814w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A7_hst_acs_wfc_f814w_drz.fits'},
+    #     'mosaic_cosmos_web_30mas_tile_A9_hst_acs_wfc_f814w_drz.fits':
+    #         {'RA_min': 150.060744341293,
+    #          'RA_max': 150.28220288392387,
+    #          'Dec_min': 1.7570266566736685,
+    #          'Dec_max': 2.0067979164950267,
+    #          'instrument': 'HST',
+    #          'filter': 'f814w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A9_hst_acs_wfc_f814w_drz.fits'},
+    #     'mosaic_cosmos_web_30mas_tile_A8_hst_acs_wfc_f814w_drz.fits':
+    #         {'RA_min': 149.92520173116802,
+    #          'RA_max': 150.14665460908068,
+    #          'Dec_min': 1.806333866912358,
+    #          'Dec_max': 2.0561009452042205,
+    #          'instrument': 'HST',
+    #          'filter': 'f814w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A8_hst_acs_wfc_f814w_drz.fits'},
+    #     'mosaic_cosmos_web_30mas_tile_A2_hst_acs_wfc_f814w_drz.fits':
+    #         {'RA_min': 149.85543939696583,
+    #          'RA_max': 150.07691879661863,
+    #          'Dec_min': 2.036374703540957,
+    #          'Dec_max': 2.2861424971185635,
+    #          'instrument': 'HST',
+    #          'filter': 'f814w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A2_hst_acs_wfc_f814w_drz.fits'},
+    #     'mosaic_cosmos_web_30mas_tile_A1_hst_acs_wfc_f814w_drz.fits':
+    #         {'RA_min': 149.7198684312791,
+    #          'RA_max': 149.94133840710182,
+    #          'Dec_min': 2.0856668828091376,
+    #          'Dec_max': 2.335425120651174,
+    #          'instrument': 'HST',
+    #         'filter': 'f814w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A1_hst_acs_wfc_f814w_drz.fits'},
+    #     'mosaic_cosmos_web_30mas_tile_A4_hst_acs_wfc_f814w_drz.fits':
+    #         {'RA_min': 150.12656167292266,
+    #          'RA_max': 150.34805247673683,
+    #          'Dec_min': 1.9377564610672233,
+    #          'Dec_max': 2.1875370916742938,
+    #          'instrument': 'HST',
+    #          'filter': 'f814w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A4_hst_acs_wfc_f814w_drz.fits'},
+    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A7_v0.3_drz.fits':
+    #         {'RA_min': 149.78965229601744,
+    #          'RA_max': 150.01109702908423,
+    #          'Dec_min': 1.8556313946327687,
+    #          'Dec_max': 2.1053921999280165,
+    #          'instrument': 'HST', 'filter': 'f606w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A7_v0.3_drz.fits'},
+    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B8_v0.3_drz.fits':
+    #         {'RA_min': 150.05682318867414,
+    #          'RA_max': 150.2783424201258,
+    #          'Dec_min': 2.167809446029673,
+    #          'Dec_max': 2.4175881585798864,
+    #          'instrument': 'HST',
+    #          'filter': 'f606w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B8_v0.3_drz.fits'},
+    #     'mosaic_cosmos_web_30mas_tile_A5_hst_acs_wfc_f814w_drz.fits':
+    #         {'RA_min': 150.2621099490618,
+    #          'RA_max': 150.4836027337908,
+    #          'Dec_min': 1.8884322004081768,
+    #          'Dec_max': 2.13821611167579,
+    #          'instrument': 'HST',
+    #          'filter': 'f814w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A5_hst_acs_wfc_f814w_drz.fits'},
+    #     'mosaic_cosmos_web_30mas_tile_B3_hst_acs_wfc_f814w_drz.fits':
+    #         {'RA_min': 150.12265817959866,
+    #          'RA_max': 150.34420972444414,
+    #          'Dec_min': 2.348545104294105,
+    #          'Dec_max': 2.5983225463216413,
+    #          'instrument': 'HST',
+    #          'filter': 'f814w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B3_hst_acs_wfc_f814w_drz.fits'},
+    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B6_v0.3_drz.fits':
+    #         {'RA_min': 149.78565630431362,
+    #          'RA_max': 150.00716157478698,
+    #          'Dec_min': 2.266416753739556,
+    #          'Dec_max': 2.5161760634349686,
+    #          'instrument': 'HST',
+    #          'filter': 'f606w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B6_v0.3_drz.fits'},
+    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B10_v0.3_drz.fits':
+    #         {'RA_min': 150.3279568649288,
+    #          'RA_max': 150.5494801299735,
+    #          'Dec_min': 2.069155317459642,
+    #          'Dec_max': 2.3189450653277475,
+    #          'instrument': 'HST',
+    #          'filter': 'f606w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B10_v0.3_drz.fits'},
+    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B4_v0.3_drz.fits':
+    #         {'RA_min': 150.25824396380185,
+    #          'RA_max': 150.47979756122,
+    #          'Dec_min': 2.2992163112219384,
+    #          'Dec_max': 2.549001508072617,
+    #          'instrument': 'HST',
+    #          'filter': 'f606w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B4_v0.3_drz.fits'},
+    #     'mosaic_cosmos_web_30mas_tile_B10_hst_acs_wfc_f814w_drz.fits':
+    #         {'RA_min': 150.3279568649288,
+    #          'RA_max': 150.5494801299735,
+    #          'Dec_min': 2.069155317459642,
+    #          'Dec_max': 2.3189450653277475,
+    #          'instrument': 'HST',
+    #          'filter': 'f814w',
+    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B10_hst_acs_wfc_f814w_drz.fits'},
+    # }
+
     PhotoZCatalog = None
     SupportFilesLocation = None
 
@@ -353,6 +682,7 @@ class COSMOS_HST(cat_base.Catalog):
         # self.build_catalog_images() #will just build on demand
 
         self.master_cutout = None
+        #self.build_catalog_of_images()
 
     # todo: is this more efficient? garbage collection does not seem to be running
     # so building as needed does not seem to help memory
@@ -437,6 +767,33 @@ class COSMOS_HST(cat_base.Catalog):
         return df
 
 
+    def build_catalog_of_images(self):
+
+        for t in self.Tile_Dict.keys(): #tile is the key (the filename)
+            #for f in self.Filters: # each image now only has one filter
+            path = OSCAR_COSMOS_HST_BASEPATH #op.join(self.HSC_IMAGE_PATH,self.Tile_Dict[t]['tract'])
+            name = t
+            wcs_manual = False
+            f = self.Tile_Dict[t]['filter']
+
+            #note: self.CatalogImages already has some in it, so we are appending the new ones
+            self.CatalogImages.append(
+                {'path': path,
+                 'name': name, #filename is the tilename
+                 'tile': t,
+                 'filter': f,
+                 'instrument': "HST COSMOS",
+                 'cols': [],
+                 'labels': [],
+                 'image': None,
+                 'expanded': False,
+                 'wcs_manual': wcs_manual,
+                 'aperture': self.mean_FWHM * 0.5 + 0.5, #since a radius, half the FWHM + 0.5" for astrometric error
+                 'mag_func': count_to_mag,
+                 'sky_subtract': False
+                 })
+
+
     def get_filter_flux(self,df):
 
         filter_fl = None
@@ -487,6 +844,57 @@ class COSMOS_HST(cat_base.Catalog):
                 pass
 
         return filter_fl, filter_fl_err, mag, mag_plus, mag_minus, filter_name
+
+    def find_target_tile(self,ra,dec):
+        #assumed to have already confirmed this target is at least in coordinate range of this catalog
+        #return at most one tile, but maybe more than one tract (for the catalog ... HSC does not completely
+        #   overlap the tracts so if multiple tiles are valid, depending on which one is selected, you may
+        #   not find matching objects for the associated tract)
+        tile = None
+        keys = []
+        for k in self.Tile_Dict.keys():
+
+            try:
+                if not ((ra >= self.Tile_Dict[k]['RA_min']) and (ra <= self.Tile_Dict[k]['RA_max']) and
+                        (dec >= self.Tile_Dict[k]['Dec_min']) and (dec <= self.Tile_Dict[k]['Dec_max'])) :
+                    continue
+                else:
+                    keys.append(k)
+
+            except:
+                pass
+
+        if len(keys) == 0: #we're done ... did not find any
+            return None
+        elif len(keys) == 1: #found exactly one
+            tile = keys[0] #remember tile is a string ... there can be only one
+        elif len(keys) > 1: #find the best one
+            log.info("Multiple overlapping tiles %s. Sub-selecting tile with maximum angular coverage around target." %keys)
+
+            max_dist = 0
+            #we don't have the actual corners anymore, so just assume a rectangle
+            #so there are 2 of each min, max coords. Only need the smallest distance so just sum one
+            for k in keys:
+
+                #should not be negative, but could be?
+                #in any case, the min is the smallest distance to an edge in RA and Dec
+                inside_ra = min((ra-self.Tile_Dict[k]['RA_min']),(self.Tile_Dict[k]['RA_max']-ra))
+                inside_dec = min((dec-self.Tile_Dict[k]['Dec_min']),(self.Tile_Dict[k]['Dec_max']-dec))
+
+                edge_dist = min(inside_dec,inside_ra)
+                #we want the tile with the largest minium edge distance
+
+                if edge_dist > max_dist and op.exists(self.Tile_Dict[k]['path']):
+                    max_dist = edge_dist
+                    tile = k
+
+        else: #really?? len(keys) < 0 : this is just a sanity catch
+            log.error("ERROR! len(keys) < 0 in cat_hsc::find_target_tile.")
+            return None
+
+        log.info("Selected tile: %s" % tile)
+
+        return tile
 
 
     def build_list_of_bid_targets(self, ra, dec, error):

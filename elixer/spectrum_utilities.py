@@ -794,7 +794,7 @@ def get_fluxlimits(ra,dec,wave,datevobs,sncut=4.8,flim_model="v4",ffsky=False,ra
         #     dependent part of the completeness
         #     model (default = None).
         #f50, apcor = shot_sens.get_f50(ra, dec, wave, sncut, direct_sigmas =True, linewidth = 2.0)
-        f1sigma, apcor = shot_sens.get_f50(ra, dec, wave, sncut, direct_sigmas=True)
+        f50, apcor = shot_sens.get_f50(ra, dec, wave, sncut, direct_sigmas=True)
 
         #get completness
         if lineflux is not None:
@@ -803,7 +803,7 @@ def get_fluxlimits(ra,dec,wave,datevobs,sncut=4.8,flim_model="v4",ffsky=False,ra
         else:
             completeness = -1
 
-        return f1sigma, apcor, completeness
+        return f50, apcor, completeness
     except Exception as e:
         log.error(f"Exception attempting to get flux limits and apcor.",exc_info=True)
         print(e)

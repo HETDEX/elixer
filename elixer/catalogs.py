@@ -23,7 +23,7 @@ try:
     #restricted catalogs/imaging
     #from elixer import cat_hsc_nep
     # from elixer import cat_rstr_ceers_hst_jwst
-    # from elixer import cat_rstr_cosmos_hst_jwst
+    from elixer import cat_rstr_cosmos_hst_jwst
     # from elixer import cat_rstr_goodsn_jwst
     # from elixer import cat_rstr_uds_hst_jwst
 
@@ -47,7 +47,7 @@ except:
     #restricted catalogs/imaging
     # import cat_hsc_nep
     # import cat_rstr_ceers_hst_jwst
-    # import cat_rstr_cosmos_hst_jwst
+    import cat_rstr_cosmos_hst_jwst
     # import cat_rstr_goodsn_jwst
     # import cat_rstr_uds_hst_jwst
 
@@ -106,6 +106,10 @@ class CatalogLibrary:
                 log.warning("HSC_SSP_ONLY restriction turned ON. Only loading HSC_SSP imaging catalog.")
                 self.cats.append(cat_hsc_ssp.HSC_SSP())
             else:
+
+                #print("**** TEMPORARY TURN OFF ALL CATS except TEST **** ")
+                #if False:
+
                 self.cats.append(cat_candles_egs_stefanon_2016.CANDELS_EGS_Stefanon_2016())
                 self.cats.append(cat_goods_n.GOODS_N())
                 #self.cats.append(EGS_GROTH()) #this is of no value right now
@@ -128,7 +132,8 @@ class CatalogLibrary:
                 #need to uncomment the includes at the top import the necessary class
                 # self.cats.append(cat_hsc_nep.HSC_NEP())
                 # self.cats.append(cat_rstr_ceers_hst_jwst.CEERS_HST())
-                # self.cats.append(cat_rstr_cosmos_hst_jwst.COSMOS_HST())
+
+                #self.cats.append(cat_rstr_cosmos_hst_jwst.COSMOS_HST())
                 # self.cats.append(cat_rstr_goodsn_jwst.GOODSN_JWST())
                 # self.cats.append(cat_rstr_uds_hst_jwst.UDS_HST())
 

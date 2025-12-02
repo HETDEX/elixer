@@ -674,6 +674,7 @@ def parse_commandline(auto_force=False):
                 print(f"***** RUNNING SPECIALIZED CODE: HSC_SSP ONLY *****")
                 log.critical(f"***** RUNNING SPECIALIZED CODE: HSC_SSP *****")
                 G.HSC_SSP_ONLY = True
+                G.APPLY_GALACTIC_DUST_CORRECTION = False
 
             ##########################################
             # ODIN hack (compare to ODIN NB data)

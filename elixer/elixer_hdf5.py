@@ -5,7 +5,7 @@ merge existing ELiXer catalogs
 """
 
 
-__version__ = '0.9.0' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
+__version__ = '0.9.1' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -215,6 +215,9 @@ class Detections(tables.IsDescription):
     color_ug = tables.Float32Col(shape=(3,),dflt=[np.nan,np.nan,np.nan] ) #as color, blue max, red_max
     color_ur = tables.Float32Col(shape=(3,),dflt=[np.nan,np.nan,np.nan] ) #as color, blue max, red_max
     color_gr = tables.Float32Col(shape=(3,),dflt=[np.nan,np.nan,np.nan] ) #as color, blue max, red_max
+
+    obs_total_exptime = tables.Float32Col(dflt=UNSET_FLOAT)
+    obs_num_dithers = tables.Int8Col(dflt=0)
 
     if LOCAL_ODIN_HACK:
         odin_lineflux = tables.Float32Col(dflt=UNSET_FLOAT) #reported odin lineflux
@@ -1288,7 +1291,14 @@ def append_entry(fileh,det,overwrite=False):
             if det.color_gr is not None and det.color_gr[0] is not None:
                 row['color_gr'] = det.color_gr[:]
         except:
-            row['color_gr'] = [np.nan,np.nan,np.nan]
+            row['color_gr'] = [np.nan, np.nan, np.nan]
+
+        try:
+            if det.exptimes is not None and len(det.exptimes) > 0 and det.exptimes[0] is not None:
+                row['obs_total_exptime'] = np.nansum(det.exptimes)
+                row['obs_num_dithers'] = np.count_nonzero(det.exptimes)
+        except:
+            pass
 
         if G.ODIN_HACK:
             row['odin_lineflux'] = det.odin_lineflux
