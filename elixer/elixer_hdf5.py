@@ -349,6 +349,10 @@ class NeighborSpectra(tables.IsDescription):
     filter = tables.StringCol(pos=16,itemsize=16)
     mag = tables.Float32Col(pos=17,dflt=UNSET_FLOAT)
     mag_err = tables.Float32Col(pos=18,dflt=UNSET_FLOAT)
+
+    mag_dered = tables.Float32Col(pos=17,dflt=UNSET_FLOAT)
+    mag_dered_err = tables.Float32Col(pos=18,dflt=UNSET_FLOAT)
+
     mag_limit = tables.Float32Col(pos=19,dflt=UNSET_FLOAT)
 
     dex_g_mag = tables.Float32Col(pos=20,dflt=UNSET_FLOAT)
@@ -399,6 +403,10 @@ class Aperture(tables.IsDescription):
     radius = tables.Float32Col(dflt=UNSET_FLOAT) #in arcsec , #was aperture_radius
     mag = tables.Float32Col(dflt=UNSET_FLOAT) #was aperture_mag
     mag_err = tables.Float32Col(dflt=UNSET_FLOAT) #was  aperture_mag_err
+
+    mag_dered = tables.Float32Col(dflt=UNSET_FLOAT) #was aperture_mag
+    mag_dered_err = tables.Float32Col(dflt=UNSET_FLOAT) #was  aperture_mag_err
+
     aperture_area_pix = tables.Float32Col(dflt=UNSET_FLOAT) #pixels
     sky_area_pix = tables.Float32Col(dflt=UNSET_FLOAT) #pixels
     eqw_rest_lya = tables.Float32Col(dflt=UNSET_FLOAT) #was  aperture_eqw_rest_lya
@@ -423,6 +431,9 @@ class ElixerApertures(tables.IsDescription):
     radius = tables.Float32Col(dflt=UNSET_FLOAT) #major axis (diameter) 'a' in arcsec
     mag = tables.Float32Col(dflt=UNSET_FLOAT)
     mag_err = tables.Float32Col(dflt=UNSET_FLOAT)
+
+    mag_dered = tables.Float32Col(dflt=UNSET_FLOAT)
+    mag_dered_err = tables.Float32Col(dflt=UNSET_FLOAT)
 
     # sky_total_cts = tables.Float32Col(dflt=UNSET_FLOAT) #sky_counts
     # sky_total_pix = tables.Float32Col(dflt=UNSET_FLOAT) #sky_average
@@ -455,6 +466,10 @@ class ExtractedObjects(tables.IsDescription):
     theta = tables.Float32Col(dflt=0.0) #radians counter-clockwise from x-axis
     mag = tables.Float32Col(dflt=UNSET_FLOAT)
     mag_err = tables.Float32Col(dflt=UNSET_FLOAT)
+
+    mag_dered = tables.Float32Col(dflt=UNSET_FLOAT)
+    mag_dered_err = tables.Float32Col(dflt=UNSET_FLOAT)
+
     background_cts = tables.Float32Col(dflt=UNSET_FLOAT)
     background_err = tables.Float32Col(dflt=UNSET_FLOAT)
     flux_cts = tables.Float32Col(dflt=UNSET_FLOAT)
@@ -467,6 +482,10 @@ class ExtractedObjects(tables.IsDescription):
     fixed_aper_radius = tables.Float32Col(dflt=UNSET_FLOAT)
     fixed_aper_mag = tables.Float32Col(dflt=UNSET_FLOAT)
     fixed_aper_mag_err = tables.Float32Col(dflt=UNSET_FLOAT)
+
+    fixed_aper_mag_dered = tables.Float32Col(dflt=UNSET_FLOAT)
+    fixed_aper_mag_dered_err = tables.Float32Col(dflt=UNSET_FLOAT)
+
     fixed_aper_flux_cts = tables.Float32Col(dflt=UNSET_FLOAT)
     fixed_aper_flux_err = tables.Float32Col(dflt=UNSET_FLOAT)
     fixed_aper_flags = tables.Int32Col(dflt=0)
@@ -1502,11 +1521,19 @@ def append_entry(fileh,det,overwrite=False):
                         row['mag'] = d['raw_mag']
                         row['mag_err'] = d['raw_mag_err']
                     else:
-                        row['mag'] = s['mag']
-                        row['mag_err'] = s['mag_err']
+                        row['mag'] = d['mag_raw'] #not dered
+                        row['mag_err'] = d['mag_raw_err'] #not dered
                 except:
-                    row['mag']=d['mag']
-                    row['mag_err'] = d['mag_err']
+                    row['mag'] = d['mag_raw']  # not dered
+                    row['mag_err'] = d['mag_raw_err']  # not dered
+
+                try:
+                    row['mag_dered'] = d['mag']
+                    row['mag_dered_err'] = d['mag_err']
+                except:
+                    pass
+
+
                 row['aperture_area_pix'] = d['area_pix']
                 row['sky_area_pix'] = d['sky_area_pix']
                 row['aperture_cts'] = d['aperture_counts']
@@ -1566,6 +1593,10 @@ def append_entry(fileh,det,overwrite=False):
                 except:
                     row['mag']=s['mag']
                     row['mag_err'] = s['mag_err']
+
+                #todo: de-red fix for elixer apertures
+
+
                 row['background_cts'] = s['sky_average']
                 row['background_err'] = s['sky_err']
                 row['flux_cts'] = s['aperture_counts']#/s['area_pix']
@@ -1609,11 +1640,17 @@ def append_entry(fileh,det,overwrite=False):
                         row['mag'] = s['raw_mag']
                         row['mag_err'] = s['raw_mag_err']
                     else:
-                        row['mag'] = s['mag']
-                        row['mag_err'] = s['mag_err']
+                        row['mag'] = s['mag_raw']
+                        row['mag_err'] = s['mag_raw_err']
                 except:
-                    row['mag']=s['mag']
-                    row['mag_err'] = s['mag_err']
+                    row['mag']=s['mag_raw']
+                    row['mag_err'] = s['mag_raw_err']
+
+                try:
+                    row['mag_dered'] = s['mag']
+                    row['mag_dered_err'] = s['mag_err']
+                except:
+                    pass
 
                 row['background_cts'] = s['background']
                 row['background_err'] = s['background_rms']
@@ -1642,9 +1679,20 @@ def append_entry(fileh,det,overwrite=False):
                         row['fixed_aper_radius'] = s['fixed_aper_radius']
                         row['fixed_aper_flux_cts'] = s['fixed_aper_flux_cts']
                         row['fixed_aper_flux_err'] = s['fixed_aper_flux_cts_err']
-                        row['fixed_aper_mag']=s['fixed_aper_mag']
-                        row['fixed_aper_mag_err'] = s['fixed_aper_mag_err']
-                        row['fixed_aper_flags'] = s['fixed_aper_flags']
+
+                        if 'fixed_aper_mag_raw' in s.keys():
+                            row['fixed_aper_mag']=s['fixed_aper_mag_raw']
+                            row['fixed_aper_mag_err'] = s['fixed_aper_mag_raw_err']
+
+                            row['fixed_aper_mag_dered']=s['fixed_aper_mag']
+                            row['fixed_aper_mag_dered_err'] = s['fixed_aper_mag_err']
+
+                            row['fixed_aper_flags'] = s['fixed_aper_flags']
+
+                        else:
+                            row['fixed_aper_mag']=s['fixed_aper_mag']
+                            row['fixed_aper_mag_err'] = s['fixed_aper_mag_err']
+                            row['fixed_aper_flags'] = s['fixed_aper_flags']
                 except:
                     pass
 
@@ -1762,8 +1810,16 @@ def append_entry(fileh,det,overwrite=False):
 
                         row['filter'] = det.neighbors_sep['filter_name'].lower()
 
-                        row['mag']=n['mag']
-                        row['mag_err'] = n['mag_err']
+
+                        if 'mag_raw' in n.keys():
+                            row['mag']=n['mag_raw']
+                            row['mag_err'] = n['mag__raw_err']
+                            row['mag_dered'] = n['mag']
+                            row['mag_dered_err'] = n['mag_err']
+                        else:
+                            row['mag']=n['mag']
+                            row['mag_err'] = n['mag_err']
+
                         row['mag_limit'] = det.neighbors_sep['mag_limit']
 
                         row['dex_g_mag'] = n['dex_g_mag']

@@ -1638,6 +1638,10 @@ class science_image():
                                 mag_faint = mag_func(counts-count_err, cutout, self.headers)
                                 mag_bright = mag_func(counts+count_err, cutout, self.headers)
 
+                                sobj['fixed_aper_mag_raw'] = mag
+                                sobj['fixed_aper_mag_raw_faint'] = mag_faint
+                                sobj['fixed_aper_mag_raw_bright'] = mag_bright
+
                                 if dust_corr is not None and mag_corr is not None:
                                     try:
                                         mag += mag_corr
@@ -1679,6 +1683,10 @@ class science_image():
                             mag = mag_func(counts, cutout, self.headers)
                             mag_faint = mag_func(counts-count_err, cutout, self.headers)
                             mag_bright = mag_func(counts+count_err, cutout, self.headers)
+
+                            sobj['mag_raw'] = mag
+                            sobj['mag_raw_faint'] = mag_faint
+                            sobj['mag_raw_bright'] = mag_bright
 
                             if dust_corr is not None and mag_corr is not None:
                                 try:
@@ -1840,10 +1848,13 @@ class science_image():
                         details['sky_area_pix'] = ap['sky_area_pix']
                         details['sky_average'] = ap['sky_average']
                         details['sky_counts'] = ap['sky_counts']
+
                         details['mag'] = ap['mag']
                         details['mag_err'] = ap['mag_err']
                         details['mag_bright'] = ap['mag_bright']
                         details['mag_faint'] = ap['mag_faint']
+
+
                         details['ra'] = ap['ra']
                         details['dec'] = ap['dec']
                 except:
@@ -1870,7 +1881,8 @@ class science_image():
 
     def get_circular_aperture_photometry(self,cutout,ra,dec,error,mag_func,position,image,do_sky_subtract,
                                          sky_image,sky_inner_radius,sky_outer_radius,aperture,
-                                         details,return_details,check_cutout_empty=True,detobj=None):
+                                         details,return_details,check_cutout_empty=True,detobj=None,
+                                         dust_corr=1.0,mag_corr=0.0):
         """
 
         :param position:
@@ -2024,6 +2036,9 @@ class science_image():
                         "Imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Counts = %g mag = %g dmag = %g"
                         % (radius, ra, dec, counts, mag, mag - mag_list[-1]))
 
+                    mag_raw = mag
+                    if mag_corr is not None:
+                        mag += mag_corr
                     mag_list.append(mag)
                     rad_list.append(radius)
 
@@ -2038,7 +2053,10 @@ class science_image():
                     elixer_aperture['ra'] = sky_coord_center.ra.value
                     elixer_aperture['dec'] = sky_coord_center.dec.value
                     elixer_aperture['radius'] = radius
+
+                    elixer_aperture['mag_raw'] = mag_raw
                     elixer_aperture['mag'] = mag
+
                     elixer_aperture['aperture_counts'] = counts
                     elixer_aperture['area_pix'] = source_aperture_area
                     elixer_aperture['dist_to_center'] = distance_to_center
