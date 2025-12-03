@@ -3316,7 +3316,7 @@ def get_dust_correction(ra,dec,wave):
     :param ra: degrees
     :param dec: degrees
     :param wave: float or array type in angstroms; if for magnitude, use the iso wavelength
-    :return:
+    :return: multiplier for the flux @ the ra,dec,wave ; additive for the magnitude BOTH as arrays or None
     """
 
     try:
@@ -3325,13 +3325,20 @@ def get_dust_correction(ra,dec,wave):
         wave = [wave]
 
     try:
-        dust_corr = deredden_spectra(wave, SkyCoord(ra, dec, unit='deg'))
-        mag_corr = -2.5 * np.log10(dust_corr) #ADD this to magnitude
+        #deredden_spectra returns as array of values
+        dust_corr = deredden_spectra(wave, SkyCoord(ra, dec, unit='deg')) #for UV and optical this is always > 1
+        mag_corr = -2.5 * np.log10(dust_corr) #ADD this to magnitude (will decrease the magnitude, make brighter)
+
+        if dust_corr < 1:
+            log.warning(f"WARNING! Unexpected dust correction! "
+                        f"flux (x) = {dust_corr} ; mag (+) = {mag_corr}")
+        else:
+            log.info(f"Dust correction: flux (x) = {dust_corr} ; mag  = {mag_corr}")
     except:
         dust_corr = None
         mag_corr = None
 
-    return dust_corr, mag_corr
+    return dust_corr, mag_corr  #reminder, these are arrays, even if they have only one value
 
 
 #
