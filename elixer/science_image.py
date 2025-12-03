@@ -1238,7 +1238,7 @@ class science_image():
         return cutout
 
     def get_cutout(self,ra,dec,error,window=None,image=None,copy=False,aperture=0,mag_func=None,
-                   do_sky_subtract=True,return_details=False,reset_center=True,detobj=None):
+                   do_sky_subtract=True,return_details=False,reset_center=True,detobj=None,dust_corr=1.0,mag_corr=0.0):
         '''ra,dec in decimal degrees. error and window in arcsecs'''
         #error is central box (+/- from ra,dec)
         #window is the size of the entire coutout
@@ -1637,6 +1637,25 @@ class science_image():
                                 mag = mag_func(counts, cutout, self.headers)
                                 mag_faint = mag_func(counts-count_err, cutout, self.headers)
                                 mag_bright = mag_func(counts+count_err, cutout, self.headers)
+
+                                if dust_corr is not None and mag_corr is not None:
+                                    try:
+                                        mag += mag_corr
+                                        sobj['fixed_aper_dust_corr_applied'] = True
+                                        #log.debug(f"fixed aperture dust correction applied to mag (+): {mag_corr}")
+                                    except:
+                                        sobj['fixed_aper_dust_corr_applied'] = False
+                                    try:
+                                        mag_faint += mag_corr
+                                    except:
+                                        pass
+                                    try:
+                                        mag_bright += mag_corr
+                                    except:
+                                        pass
+                                else:
+                                    sobj['fixed_aper_dust_corr_applied'] = False
+
                                 if mag_faint < 99:
                                     mag_err = max(mag_faint - mag, mag - mag_bright)
                                 else:
@@ -1660,6 +1679,25 @@ class science_image():
                             mag = mag_func(counts, cutout, self.headers)
                             mag_faint = mag_func(counts-count_err, cutout, self.headers)
                             mag_bright = mag_func(counts+count_err, cutout, self.headers)
+
+                            if dust_corr is not None and mag_corr is not None:
+                                try:
+                                    mag += mag_corr
+                                    sobj['dust_corr_applied'] = True
+                                   # log.debug(f"SEP object dust correction applied to mag (+): {mag_corr}")
+                                except:
+                                    sobj['dust_corr_applied'] = False
+                                try:
+                                    mag_faint += mag_corr
+                                except:
+                                    pass
+                                try:
+                                    mag_bright += mag_corr
+                                except:
+                                    pass
+                            else:
+                                sobj['dust_corr_applied'] = False
+
                             if mag_faint < 99:
                                 mag_err = max(mag_faint - mag, mag - mag_bright)
                             else:

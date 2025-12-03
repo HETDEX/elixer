@@ -1,10 +1,16 @@
 changes to elixer by version
 
+1.24.1a3 [2025-12-03]
+* fix bug where dust correction in aperture and source extractor was not persisting to the h5 catalog
+  (was only being applied to the "selected" object and even then was being overwritten at the end)
+
 1.24.1a2 [2025-11-26]
 * add obs_total_exptime and obs_num_dithers to elixer catalog h5 file Detections table
 
 1.24.1a1 [2025-11-19]
-* change to automatically apply Galactic dust correction to imaging (source extractor) magnitudes IF global_config
+
+* !!! BUG FOUND !!!! 2025-12-03, see 1.24.1a3
+  change to automatically apply Galactic dust correction to imaging (source extractor) magnitudes IF global_config
   has APPLY_GALACTIC_DUST_CORRECTION turned ON and the imaging has not already had it applied
   + adds new keys to the details dictionary array:
     'dust_corr_mult' - the multiplier for the flux

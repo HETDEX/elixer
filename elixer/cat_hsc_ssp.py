@@ -2162,8 +2162,28 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
             if not error:
                 error = window
 
+            if G.APPLY_GALACTIC_DUST_CORRECTION and not self.imaging_already_dust_corrected:
+                isowave = SU.filter_iso(catalog_image['filter'], None)
+                if isowave is not None:
+                    dust_corr_mux, mag_corr_add = SU.get_dust_correction(ra, dec, isowave)
+                    #make floats
+                    if dust_corr_mux is not None and mag_corr_add is not None:
+                        dust_corr_mux = dust_corr_mux[0]
+                        mag_corr_add = mag_corr_add[0]
+                    else:
+                        dust_corr_mux = 1.0
+                        mag_corr_add = 0.0
+                else:
+                    dust_corr_mux = 1.0
+                    mag_corr_add = 0.0
+            else:
+                dust_corr_mux = None
+                mag_corr_add = None
+
+
             cutout,pix_counts, mag, mag_radius,details = sci.get_cutout(ra, dec, error=error, window=window, aperture=aperture,
-                                             mag_func=mag_func,copy=True,return_details=True,detobj=detobj)
+                                             mag_func=mag_func,copy=True,return_details=True,detobj=detobj,
+                                             dust_corr=dust_corr_mux,mag_corr=mag_corr_add)
             # don't need pix_counts or mag, etc here, so don't pass aperture or mag_func
             if cutout is not None:  # construct master cutout
                 d['cutout'] = cutout
@@ -2174,9 +2194,14 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                 # get the dust correction
                 details['dust_corr_mult'] = 1.0
                 details['dust_corr_mag'] = 0.0
-                details['dust_corr_applied'] = False
-                if G.APPLY_GALACTIC_DUST_CORRECTION and not self.imaging_already_dust_corrected and mag < 99:
-                    log.debug("***** attempting to apply dust correction *****")
+                if dust_corr_mux is not None: #then this was applied in the get_cutout() call
+                    details['dust_corr_applied'] = True
+                else:
+                    details['dust_corr_applied'] = False
+
+                if not details['dust_corr_applied'] and G.APPLY_GALACTIC_DUST_CORRECTION and \
+                        not self.imaging_already_dust_corrected and mag < 99:
+                    #log.debug("***** attempting to apply dust correction *****")
                     isowave = SU.filter_iso(details['filter_name'], None)
                     if isowave is not None:
                         dust_corr, mag_corr = SU.get_dust_correction(ra, dec, isowave)
@@ -2187,7 +2212,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                                 mag += details['dust_corr_mag']
                                 details['dust_corr_applied'] = True
                             except:
-                                log.debug("***** failed to apply dust correction (exception 1) *****")
+                                #log.debug("***** failed to apply dust correction (exception 1) *****")
                                 details['dust_corr_applied'] = False
 
                             d['mag'] = mag
@@ -2196,12 +2221,14 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                                 details['mag_faint'] += details['dust_corr_mag']
                                 details['mag_bright'] += details['dust_corr_mag']
                             except:
-                                log.debug("***** failed to apply dust correction (exception 2) *****")
+                                #log.debug("***** failed to apply dust correction (exception 2) *****")
                                 pass
                     else:
-                        log.debug("***** failed to apply dust correction (no isowave) *****")
+                        #log.debug("***** failed to apply dust correction (no isowave) *****")
+                        pass
                 else:
-                    log.debug("***** DO NOT apply dust correction *****")
+                    #log.debug("***** DO NOT apply dust correction *****")
+                    pass
 
                 try:
                     if d['mag_limit']:
