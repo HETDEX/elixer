@@ -2176,6 +2176,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                 details['dust_corr_mag'] = 0.0
                 details['dust_corr_applied'] = False
                 if G.APPLY_GALACTIC_DUST_CORRECTION and not self.imaging_already_dust_corrected and mag < 99:
+                    log.debug("***** attempting to apply dust correction *****")
                     isowave = SU.filter_iso(details['filter_name'], None)
                     if isowave is not None:
                         dust_corr, mag_corr = SU.get_dust_correction(ra, dec, isowave)
@@ -2186,6 +2187,7 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                                 mag += details['dust_corr_mag']
                                 details['dust_corr_applied'] = True
                             except:
+                                log.debug("***** failed to apply dust correction (exception 1) *****")
                                 details['dust_corr_applied'] = False
 
                             d['mag'] = mag
@@ -2194,7 +2196,12 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
                                 details['mag_faint'] += details['dust_corr_mag']
                                 details['mag_bright'] += details['dust_corr_mag']
                             except:
+                                log.debug("***** failed to apply dust correction (exception 2) *****")
                                 pass
+                    else:
+                        log.debug("***** failed to apply dust correction (no isowave) *****")
+                else:
+                    log.debug("***** DO NOT apply dust correction *****")
 
                 try:
                     if d['mag_limit']:
