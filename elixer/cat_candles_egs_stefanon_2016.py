@@ -1013,6 +1013,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                 mag = self.MAG_LIMIT
                 if details:
                     details['mag'] = mag
+                    details['mag_raw'] = mag  #mag limit
                     try:
                         details['mag_bright'] = min(mag,details['mag_bright'])
                     except:

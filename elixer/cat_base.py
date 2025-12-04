@@ -853,6 +853,10 @@ class Catalog:
                             d['dec'] = d['sep_objects'][best_idx]['dec']
                             d['radius'] = 0.5*np.sqrt(d['sep_objects'][best_idx]['a']*d['sep_objects'][best_idx]['b'])
                             d['mag'] = d['sep_objects'][best_idx]['mag']
+                            try:
+                                d['mag_raw'] = d['sep_objects'][best_idx]['mag_raw']
+                            except:
+                                print("***** cat_base aperture_details_list did not get mag_raw *****")
                             d['mag_faint'] = d['sep_objects'][best_idx]['mag_faint']
                             d['mag_bright'] = d['sep_objects'][best_idx]['mag_bright']
                             d['aperture_counts'] = d['sep_objects'][best_idx]['flux_cts']
@@ -1922,7 +1926,8 @@ class Catalog:
 
                         mag = c['mag_limit']
                         c['mag'] = mag
-                        details['mag'] = mag
+                        details['mag'] = mag  # mag_limit
+                        details['mag_raw'] = mag  # mag_limit
                         details['mag_bright'] = mag
                         details['mag_faint'] = 99.9
 
@@ -2791,6 +2796,8 @@ class Catalog:
                details['dust_corr_mag'] = 0.0
                if dust_corr_mux is not None:  # then this was applied in the get_cutout() call
                    details['dust_corr_applied'] = True
+                   details['dust_corr_mult'] = dust_corr_mux
+                   details['dust_corr_mag'] = mag_corr_add
                else:
                     details['dust_corr_applied'] = False
 
@@ -2835,7 +2842,9 @@ class Catalog:
                    details['raw_mag_faint'] = details['mag_faint']
                    details['raw_mag_err'] = details['mag_err']
                    mag = d['mag_limit']
-                   details['mag'] = mag
+                   details['mag'] = mag      #if dered is applied, this is the dereddened one
+                   details['mag_raw'] = mag - details['dust_corr_mag'] # undo the addition of the correction
+                                             #and, yes, stupidly named given the other 'raw_mag' vs 'mag_raw'
 
                    try:
                        details['mag_bright'] = min(mag,details['mag_bright'])

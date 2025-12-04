@@ -1644,32 +1644,35 @@ class science_image():
 
                                 if dust_corr is not None and mag_corr is not None:
                                     try:
-                                        mag += mag_corr
-                                        sobj['fixed_aper_dust_corr_applied'] = True
+                                        if mag < 99:
+                                            mag += mag_corr
+                                        sobj['fixed_aper_dust_corr_applied'] = True #even if not applied due to non-detect
                                         #log.debug(f"fixed aperture dust correction applied to mag (+): {mag_corr}")
                                     except:
                                         sobj['fixed_aper_dust_corr_applied'] = False
                                     try:
-                                        mag_faint += mag_corr
+                                        if mag_faint is not None and mag_faint < 99:
+                                            mag_faint += mag_corr
                                     except:
                                         pass
                                     try:
-                                        mag_bright += mag_corr
+                                        if mag_bright is not None and mag_bright < 99:
+                                            mag_bright += mag_corr
                                     except:
                                         pass
                                 else:
                                     sobj['fixed_aper_dust_corr_applied'] = False
 
-                                if mag_faint < 99:
+                                if mag_faint < 90: #change from 99 since could have had a dered applied
                                     mag_err = max(mag_faint - mag, mag - mag_bright)
                                 else:
                                     mag_err = mag - mag_bright
                             except:
                                 log.error("Exception calling mag_func.",exc_info=True)
 
-                            sobj['fixed_aper_mag'] = mag
-                            sobj['fixed_aper_mag_faint'] = mag_faint
-                            sobj['fixed_aper_mag_bright'] = mag_bright
+                            sobj['fixed_aper_mag'] = mag if mag < 90 else 99.9
+                            sobj['fixed_aper_mag_faint'] = mag_faint if mag_faint < 90 else 99.9
+                            sobj['fixed_aper_mag_bright'] = mag_bright if mag_bright < 90 else 99.9
                             sobj['fixed_aper_mag_err'] = mag_err
 
 
@@ -1684,38 +1687,42 @@ class science_image():
                             mag_faint = mag_func(counts-count_err, cutout, self.headers)
                             mag_bright = mag_func(counts+count_err, cutout, self.headers)
 
+                            #this direct assignment is okay, no dered yet
                             sobj['mag_raw'] = mag
                             sobj['mag_raw_faint'] = mag_faint
                             sobj['mag_raw_bright'] = mag_bright
 
                             if dust_corr is not None and mag_corr is not None:
                                 try:
-                                    mag += mag_corr
-                                    sobj['dust_corr_applied'] = True
+                                    if mag < 99:
+                                        mag += mag_corr
+                                    sobj['dust_corr_applied'] = True #even if skipped just due to nondetect
                                    # log.debug(f"SEP object dust correction applied to mag (+): {mag_corr}")
                                 except:
                                     sobj['dust_corr_applied'] = False
                                 try:
-                                    mag_faint += mag_corr
+                                    if mag_faint is not None and mag_faint < 99:
+                                        mag_faint += mag_corr
                                 except:
                                     pass
                                 try:
-                                    mag_bright += mag_corr
+                                    if mag_bright is not None and mag_bright < 99:
+                                        mag_bright += mag_corr
                                 except:
                                     pass
                             else:
                                 sobj['dust_corr_applied'] = False
 
-                            if mag_faint < 99:
+                            if mag_faint < 90: #change from 99 since could have had a dered applied
                                 mag_err = max(mag_faint - mag, mag - mag_bright)
                             else:
                                 mag_err = mag - mag_bright
                         except:
                             log.error("Exception calling mag_func.",exc_info=True)
 
-                        sobj['mag'] = mag
-                        sobj['mag_faint'] = mag_faint
-                        sobj['mag_bright'] = mag_bright
+                        sobj['mag'] = mag if mag < 90 else 99.9
+                        sobj['mag_faint'] = mag_faint if mag_faint < 90 else 99.9
+                        sobj['mag_bright'] = mag_bright if mag_bright < 90 else 99.9
                         sobj['mag_err'] = mag_err
 
                         try:
@@ -1732,12 +1739,12 @@ class science_image():
 
                             #matplotlib plotting later needs these in sky units (arcsec) not pixels
 
-                    if detobj is not None and selected_obj_idx is not None:
+                    if detobj is not None and detobj.best_gmag is not None and selected_obj_idx is not None:
                         try:
-                            if (abs(detobj.best_gmag - source_objects[selected_obj_idx]['mag']) < 0.5) or \
+                            if  (abs(detobj.best_gmag - source_objects[selected_obj_idx]['mag']) < 0.5) or \
                                     ((detobj.best_gmag < 22) and (source_objects[selected_obj_idx]['mag'] < 22)) or \
-                                    ((source_objects[selected_obj_idx]['mag'] > detobj.best_gmag) and (
-                                            detobj.best_gmag > detobj.hetdex_gmag_limit)):
+                                    ((source_objects[selected_obj_idx]['mag'] > detobj.best_gmag) and
+                                     (detobj.best_gmag > detobj.hetdex_gmag_limit)):
                                 # yep, compatible, so keep this one
                                 pass
                             else:
@@ -1798,7 +1805,7 @@ class science_image():
                         details['sky_area_pix'] = None
                         details['sky_average'] = None
                         details['sky_counts'] = None
-                        details['mag'] = sobj['mag']
+                        details['mag'] = sobj['mag'] #already fixed so direct assignment okay
                         details['mag_err'] = sobj['mag_err']
                         details['mag_bright'] = sobj['mag_bright']
                         details['mag_faint'] = sobj['mag_faint']
@@ -1823,7 +1830,8 @@ class science_image():
             cutout, counts, mag, radius, details = self.get_circular_aperture_photometry(cutout,ra,dec,error,mag_func,
                                                     position,image,do_sky_subtract,sky_image,
                                                     sky_inner_radius,sky_outer_radius,aperture,
-                                                    details,return_details,check_cutout_empty=False)
+                                                    details,return_details,check_cutout_empty=False,
+                                                    dust_corr=dust_corr,mag_corr=mag_corr)
                                                      #cutout empty already checked above
 
             #now which one (counts, mag, radius) to use???
@@ -1831,7 +1839,7 @@ class science_image():
 
             if return_mag is None: #it was not set by SEP objects
                 log.info("Using ELiXer circular aperture as reported aperture.")
-                return_mag = mag
+                return_mag = mag if mag < 90 else 99.9
                 return_radius = radius
                 return_counts = counts
 
@@ -1849,7 +1857,8 @@ class science_image():
                         details['sky_average'] = ap['sky_average']
                         details['sky_counts'] = ap['sky_counts']
 
-                        details['mag'] = ap['mag']
+                        details['mag'] = ap['mag'] #direct assignment okay
+                        details['mag_raw'] = ap['mag_raw']
                         details['mag_err'] = ap['mag_err']
                         details['mag_bright'] = ap['mag_bright']
                         details['mag_faint'] = ap['mag_faint']
@@ -2031,16 +2040,18 @@ class science_image():
                             break
 
                     mag = mag_func(counts, cutout, self.headers)
+                    mag_raw = mag
+                    if mag_corr is not None and mag < 99: #need this first since will compare to each next aperture step (but don't append yet)
+                        mag += mag_corr
 
                     log.info(
                         "Imaging circular aperture radius = %g\" at RA, Dec = (%g,%g). Counts = %g mag = %g dmag = %g"
                         % (radius, ra, dec, counts, mag, mag - mag_list[-1]))
 
-                    mag_raw = mag
-                    if mag_corr is not None:
-                        mag += mag_corr
-                    mag_list.append(mag)
+                    #now append, after the log statement (otherwisee the mag_list[-1] won't be the previous one
+                    mag_list.append(mag) #this is the dered mag
                     rad_list.append(radius)
+
 
                     # todo: if mag == 99.9 at radius == 0.5" maybe just stop or limit to 1" total?
                     # todo: don't want to catch somthing on the edge and then expand
@@ -2063,7 +2074,7 @@ class science_image():
                     elixer_aperture_list.append(elixer_aperture)
                     #don't set the elixer_aper_idx yet, this one might not be accepted
 
-                    if mag < 99:
+                    if mag < 90: #change from 99 since could have had a dered applied
                         # if now growing fainter OR the brightness increase is small, we are done
                         if expected_count_growth is not None:
                             if (mag > max_bright) or (counts - max_counts) < expected_count_growth:
@@ -2094,7 +2105,7 @@ class science_image():
                 radius += step
                 # end while loop
 
-            if max_bright > 99 and len(mag_list) == 2:
+            if max_bright > 90 and len(mag_list) == 2: #change from 99 since could have had a dered applied
                 #this only had one aperture, but the max did not get updated as was an immediate exit
                 try:
                     mag = elixer_aperture_list[-1]['mag']
@@ -2177,9 +2188,14 @@ class science_image():
                         log.info("Failed to strip units. Cannot cast to float. "
                                  "Will not attempt aperture magnitude calculation", exc_info=True)
 
+
                 mag = mag_func(counts, cutout, self.headers)
+                mag_raw = mag
+                if mag_corr is not None and mag < 99:
+                    mag += mag_corr
 
                 elixer_aperture['mag'] = mag
+                elixer_aperture['mag_raw'] = mag_raw
                 elixer_aperture['aperture_counts'] = counts
                 elixer_aperture['area_pix'] = source_aperture_area
                 details['elixer_aper_idx'] = elixer_aperture['idx']
@@ -2266,7 +2282,7 @@ class science_image():
                     base_counts = counts
                     counts -= sky_cts
                     #re-compute the magnitude
-                    base_mag = mag
+                    base_mag = elixer_aperture['mag_raw'] #not dereddend
                     sky_mag = mag_func(counts,cutout,self.headers)
 
                     sky_mag_bright = mag_func(base_counts - (sky_avg - sky_err) * source_aperture_area,
@@ -2275,21 +2291,31 @@ class science_image():
                     sky_mag_faint = mag_func(base_counts - (sky_avg + sky_err) * source_aperture_area,
                              cutout, self.headers)
 
-                    if sky_mag_faint < 99:
+                    if sky_mag_faint < 90: #change from 99 since could have had a dered applied
                         mag_err = max((sky_mag_faint-sky_mag),(sky_mag-sky_mag_bright))
-                    elif sky_mag < 99:
+                    elif sky_mag < 90: #change from 99 since could have had a dered applied
                         mag_err = sky_mag-sky_mag_bright
-                    elif sky_mag_bright < 99:
+                    elif sky_mag_bright < 90: #change from 99 since could have had a dered applied
                         mag_err = abs(base_mag-sky_mag_bright)
                     else: #can't get mag on the sky only ... below limit
                         #todo: this should be related to the mag limit of the imaging
                         mag_err = 0.0 #something kind of reasonable, 100x in flux?
 
-                    if not (sky_mag < 99):
-                        if sky_mag_bright < 99:
+                    if not (sky_mag < 90): #change from 99 since could have had a dered applied
+                        if sky_mag_bright < 90:
                             sky_mag = sky_mag_bright
-                        elif sky_mag_faint < 99: #odd case if sky_avg is negative (and sky_err is positive)
+                        elif sky_mag_faint < 90: #odd case if sky_avg is negative (and sky_err is positive)
                             sky_mag = sky_mag_faint
+
+
+                    #dered
+                    sky_mag_raw = sky_mag
+                    if mag_corr is not None and sky_mag is not None and sky_mag < 99:
+                        sky_mag += mag_corr
+                        if sky_mag_bright is not None and sky_mag_bright < 99:
+                            sky_mag_bright += mag_corr
+                        if sky_mag_faint is not None and sky_mag_faint < 99:
+                            sky_mag_faint += mag_corr
 
                     #mag should now be fainter (usually ... could have slightly negative sky?)
                     #the photometry should have pretty good sky subtration ... but what if we are on a faint object
@@ -2298,7 +2324,9 @@ class science_image():
 
                     mag = sky_mag #1.11.0a9 2021-04-13 ... do it anyway, even if we go negative or below limit
                                   # it can mean there is something wrong
-                    if (base_mag < 99.9) and (abs(sky_mag - base_mag) > G.MAX_SKY_SUBTRACT_MAG):
+                    mag_raw = sky_mag_raw
+
+                    if (base_mag < 90) and (abs(sky_mag - base_mag) > G.MAX_SKY_SUBTRACT_MAG): #change from 99 since could have had a dered applied
                        # print("Warning! Unexepectedly large sky subtraction impact to magnitude: %0.2f to %0.2f at (%f,%f)"
                        #             %(base_mag,sky_mag,ra,dec))
                         log.warning("Warning! Unexepectedly large sky subtraction impact to magnitude: %0.2f to %0.2f at (%f,%f)"
@@ -2318,6 +2346,7 @@ class science_image():
                     elixer_aperture['sky_counts'] = sky_cts #sky_average * aperture area (in pixels)
                     elixer_aperture['sky_err'] = sky_err
                     elixer_aperture['mag'] = mag
+                    elixer_aperture['mag_raw'] = mag_raw
                     elixer_aperture['mag_err'] = mag_err
                     elixer_aperture['mag_bright'] = min(sky_mag_bright,mag)
                     elixer_aperture['mag_faint'] = max(sky_mag_faint,mag)

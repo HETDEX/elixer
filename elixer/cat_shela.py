@@ -1146,6 +1146,7 @@ class SHELA(cat_base.Catalog):
                 mag = self.MAG_LIMIT
                 if details:
                     details['mag'] = mag
+                    details['mag_raw'] = mag  # mag_limit
                     try:
                         details['mag_bright'] = min(mag,details['mag_bright'])
                     except:
@@ -1825,6 +1826,8 @@ class SHELA(cat_base.Catalog):
                 details['dust_corr_mag'] = 0.0
                 if dust_corr_mux is not None:  # then this was applied in the get_cutout() call
                     details['dust_corr_applied'] = True
+                    details['dust_corr_mult'] = dust_corr_mux
+                    details['dust_corr_mag'] = mag_corr_add
                 else:
                     details['dust_corr_applied'] = False
 
@@ -1867,6 +1870,7 @@ class SHELA(cat_base.Catalog):
                         details['raw_mag_err'] = details['mag_err']
                         mag = d['mag_limit']
                         details['mag'] = mag
+                        details['mag_raw'] = mag  # mag limit
 
                         try:
                             details['mag_bright'] = min(mag,details['mag_bright'])

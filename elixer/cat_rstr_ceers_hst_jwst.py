@@ -985,6 +985,7 @@ class CEERS_HST(cat_base.Catalog):
                 mag = self.MAG_LIMIT
                 if details:
                     details['mag'] = mag
+                    details['mag_raw'] = mag  # mag_limit
                     try:
                         details['mag_bright'] = min(mag,details['mag_bright'])
                     except:

@@ -355,6 +355,8 @@ class DECaLS(cat_base.Catalog):#DECaLS
                 mag = self.MAG_LIMIT
                 if details:
                     details['mag'] = mag
+                    details['mag_raw'] = mag  # if dered is applied, this is the NOT dered one
+                    # and, yes, stupidly named given the other 'raw_mag' vs 'mag_raw'
                     try:
                         details['mag_bright'] = min(mag,details['mag_bright'])
                     except:
@@ -1120,6 +1122,8 @@ class DECaLS(cat_base.Catalog):#DECaLS
                     details['dust_corr_mag'] = 0.0
                     if dust_corr_mux is not None:  # then this was applied in the get_cutout() call
                         details['dust_corr_applied'] = True
+                        details['dust_corr_mult'] = dust_corr_mux
+                        details['dust_corr_mag'] = mag_corr_add
                     else:
                         details['dust_corr_applied'] = False
 
@@ -1163,6 +1167,7 @@ class DECaLS(cat_base.Catalog):#DECaLS
                             details['raw_mag_err'] = details['mag_err']
                             mag = d['mag_limit']
                             details['mag'] = mag
+                            details['mag_raw'] = mag  #mag_limit
 
                             try:
                                 details['mag_bright'] = min(mag,details['mag_bright'])
