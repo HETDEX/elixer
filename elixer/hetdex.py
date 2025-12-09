@@ -1882,7 +1882,7 @@ class DetObj:
                         new_flag = 0
                         break
 
-                if new_flag and (self.best_gmag > 23.0) and (max_band_mag > 23.0): #no need to set if the object is already very bright
+                if new_flag and self.best_gmag is not None and (self.best_gmag > 23.0) and (max_band_mag > 23.0): #no need to set if the object is already very bright
                     self.flags |= new_flag
                     log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_POOR_IMAGING")
 

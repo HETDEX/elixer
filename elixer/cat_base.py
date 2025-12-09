@@ -2975,13 +2975,13 @@ class Catalog:
 
                     cutout = self.get_single_cutout(ra, dec, window, i, aperture,error,do_sky_subtract,detobj)
 
-                    if first:
-                        if cutout['cutout'] is not None:
-                            l.append(cutout)
-                            break
-                    else:
-                        # if we are not escaping on the first hit, append ALL cutouts (even if no image was collected)
+                    if cutout is not None and cutout['cutout'] is not None:
                         l.append(cutout)
+                        if first:
+                            break
+                        #else:
+                        # if we are not escaping on the first hit, append ALL cutouts (even if no image was collected)
+                        #    l.append(cutout)
 
                 except Exception as e:
                     if type(e) is StopIteration:

@@ -45,8 +45,8 @@ log.setlevel(G.LOG_LEVEL)
 
 pd.options.mode.chained_assignment = None  #turn off warning about setting the distance field
 
-COSMOS_HST_BASEPATH = "/work/03564/stevenf/lonestar/JWST_images/COSMOS"
-OSCAR_COSMOS_HST_BASEPATH = "/scratch/07446/astroboi/cosmos_hst"
+COSMOS_HST_BASEPATH = "/work/03564/stevenf/lonestar/JWST_images/COSMOS/"
+OSCAR_COSMOS_HST_BASEPATH = "/scratch/07446/astroboi/cosmos_hst/"
 
 #todo: update with aperture on photometry
 #todo: currently astropy does not like the drz fits files and throws exception with the aperture
@@ -141,529 +141,649 @@ class COSMOS_HST(cat_base.Catalog):
                "WC3_F160W_FLUX", "WFC3_F160W_FLUXERR",
                "DEEP_SPEC_Z"]  # NOTE: there are no F105W values
 
-    CatalogImages = [
-        {'path': COSMOS_HST_BASEPATH,
-         'name': 'primercosmos_acs_f435w_sci.fits',
-         'filter': 'f435w',
-         'instrument': 'ACS WFC',
-         'cols': ["ACS_F435W_FLUX", "ACS_F435W_FLUXERR"],
-         'labels': ["Flux", "Err"],
-         'image': None,
-         'expanded': False,
-         'wcs_manual': False,
-         'aperture': mean_FWHM* 0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
-         'mag_func': count_to_mag,
-         'sky_subtract': False
-         },
-
-        {'path': COSMOS_HST_BASEPATH,
-         'name': 'primercosmos_acs_f606w_sci.fits',
-         'filter': 'f606w',
-         'instrument': 'ACS WFC',
-         'cols': ["ACS_F606W_FLUX", "ACS_F606W_FLUXERR"],
-         'labels': ["Flux", "Err"],
-         'image': None,
-         'expanded': False,
-         'wcs_manual': False,
-         'aperture': mean_FWHM* 0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
-         'mag_func': count_to_mag,
-         'sky_subtract': False
-         },
-        {'path': COSMOS_HST_BASEPATH,
-         'name': 'primercosmos_acs_f814w_sci.fits',
-         'filter': 'f814w',
-         'instrument': 'ACS WFC',
-         'cols': ["ACS_F814W_FLUX", "ACS_F814W_FLUXERR"],
-         'labels': ["Flux", "Err"],
-         'image': None,
-         'expanded': False,
-         'wcs_manual': False,
-         'aperture':mean_FWHM* 0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
-         'mag_func': count_to_mag,
-         'sky_subtract': False
-         },
-        {'path': COSMOS_HST_BASEPATH,
-         'name': 'primercosmos_wfc3_f105w_sci.fits',
-         'filter': 'f105w',
-         'instrument': 'WFC3',
-         'cols': [],
-         'labels': [],
-         'image': None,
-         'expanded': False,
-         'wcs_manual': False,
-         'aperture': mean_FWHM* 0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
-         'mag_func': count_to_mag,
-         'sky_subtract': False
-         },
-        {'path': COSMOS_HST_BASEPATH,
-         'name': 'primercosmos_wfc3_f125w_sci.fits',
-         'filter': 'f125w',
-         'instrument': 'WFC3',
-         'cols': ["WFC3_F125W_FLUX", "WFC3_F125W_FLUXERR"],
-         'labels': ["Flux", "Err"],
-         'image': None,
-         'expanded': False,
-         'wcs_manual': False,
-         'aperture': mean_FWHM* 0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
-         'mag_func': count_to_mag,
-         'sky_subtract': False
-         },
-        {'path': COSMOS_HST_BASEPATH,
-        'name': 'primercosmos_wfc3_f140w_sci.fits',
-        'filter': 'f140w',
-        'instrument': 'WFC3',
-        'cols': ["WFC3_F140W_FLUX", "WFC3_F140W_FLUXERR"],
-        'labels': ["Flux", "Err"],
-        'image': None,
-        'expanded': False,
-        'wcs_manual': False,
-        'aperture': mean_FWHM* 0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
-        'mag_func': count_to_mag,
-        'sky_subtract': False
-        },
-        {'path': COSMOS_HST_BASEPATH,
-         'name': 'primercosmos_wfc3_f160w_sci.fits',
-         'filter': 'f160w',
-         'instrument': 'WFC3',
-         'cols': ["WFC3_F160W_FLUX", "WFC3_F160W_FLUXERR"],
-         'labels': ["Flux", "Err"],
-         'image': None,
-         'expanded': False,
-         'wcs_manual': False,
-         'aperture': mean_FWHM* 0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
-         'mag_func': count_to_mag,
-         'sky_subtract': False
-         },
-        {'path': COSMOS_HST_BASEPATH,
-         'name': 'primercosmos_nrc_f090w_sci.fits',
-         'filter': 'f090w',
-         'instrument': 'nrc',
-         'cols': [],
-         'labels': [],
-         'image': None,
-         'expanded': False,
-         'wcs_manual': False,
-         'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
-         'mag_func': jwst_count_to_mag,
-         'sky_subtract': False
-         },
-        {'path': COSMOS_HST_BASEPATH,
-         'name': 'primercosmos_nrc_f115w_sci.fits',
-         'filter': 'f115w',
-         'instrument': 'nrc',
-         'cols': [],
-         'labels': [],
-         'image': None,
-         'expanded': False,
-         'wcs_manual': False,
-         'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
-         'mag_func': jwst_count_to_mag,
-         'sky_subtract': False
-         },
-        {'path': COSMOS_HST_BASEPATH,
-         'name': 'primercosmos_nrc_f150w_sci.fits',
-         'filter': 'f150w',
-         'instrument': 'nrc',
-         'cols': [],
-         'labels': [],
-         'image': None,
-         'expanded': False,
-         'wcs_manual': False,
-         'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
-         'mag_func': jwst_count_to_mag,
-         'sky_subtract': False
-         },
-        {'path': COSMOS_HST_BASEPATH,
-         'name': 'primercosmos_nrc_f200w_sci.fits',
-         'filter': 'f200w',
-         'instrument': 'nrc',
-         'cols': [],
-         'labels': [],
-         'image': None,
-         'expanded': False,
-         'wcs_manual': False,
-         'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
-         'mag_func': jwst_count_to_mag,
-         'sky_subtract': False
-         },
-        {'path': COSMOS_HST_BASEPATH,
-         'name': 'primercosmos_nrc_f277w_sci.fits',
-         'filter': 'f277w',
-         'instrument': 'nrc',
-         'cols': [],
-         'labels': [],
-         'image': None,
-         'expanded': False,
-         'wcs_manual': False,
-         'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
-         'mag_func': jwst_count_to_mag,
-         'sky_subtract': False
-         },
-        {'path': COSMOS_HST_BASEPATH,
-         'name': 'primercosmos_nrc_f356w_sci.fits',
-         'filter': 'f356w',
-         'instrument': 'nrc',
-         'cols': [],
-         'labels': [],
-         'image': None,
-         'expanded': False,
-         'wcs_manual': False,
-         'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
-         'mag_func': jwst_count_to_mag,
-         'sky_subtract': False
-         },
-        {'path': COSMOS_HST_BASEPATH,
-         'name': 'primercosmos_nrc_f410m_sci.fits',
-         'filter': 'f410m',
-         'instrument': 'nrc',
-         'cols': [],
-         'labels': [],
-         'image': None,
-         'expanded': False,
-         'wcs_manual': False,
-         'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
-         'mag_func': jwst_count_to_mag,
-         'sky_subtract': False
-         },
-        {'path': COSMOS_HST_BASEPATH,
-         'name': 'primercosmos_nrc_f444w_sci.fits',
-         'filter': 'f444w',
-         'instrument': 'nrc',
-         'cols': [],
-         'labels': [],
-         'image': None,
-         'expanded': False,
-         'wcs_manual': False,
-         'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
-         'mag_func': jwst_count_to_mag,
-         'sky_subtract': False
-         }
-    ]
-
-    #CatalogImages = []
-
+    #replaces by tiles below
+    # CatalogImages = [
+    #     {'path': COSMOS_HST_BASEPATH,
+    #      'name': 'primercosmos_acs_f435w_sci.fits',
+    #      'filter': 'f435w',
+    #      'instrument': 'ACS WFC',
+    #      'cols': ["ACS_F435W_FLUX", "ACS_F435W_FLUXERR"],
+    #      'labels': ["Flux", "Err"],
+    #      'image': None,
+    #      'expanded': False,
+    #      'wcs_manual': False,
+    #      'aperture': mean_FWHM* 0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
+    #      'mag_func': count_to_mag,
+    #      'sky_subtract': False
+    #      },
     #
-    # Tile_Dict = {
-    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A4_v0.3_drz.fits':
-    #         {'RA_min': 150.12656167292266,
-    #          'RA_max': 150.34805247673683,
-    #          'Dec_min': 1.9377564610672233,
-    #          'Dec_max': 2.1875370916742938,
-    #          'instrument': 'HST',
-    #          'filter': 'f606w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A4_v0.3_drz.fits'},
-    #     'mosaic_cosmos_web_30mas_tile_B4_hst_acs_wfc_f814w_drz.fits':
-    #         {'RA_min': 150.25824396380185,
-    #          'RA_max': 150.47979756122,
-    #          'Dec_min': 2.2992163112219384,
-    #          'Dec_max': 2.549001508072617,
-    #          'instrument': 'HST',
-    #          'filter': 'f814w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B4_hst_acs_wfc_f814w_drz.fits'},
-    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A9_v0.3_drz.fits':
-    #         {'RA_min': 150.060744341293,
-    #          'RA_max': 150.28220288392387,
-    #          'Dec_min': 1.7570266566736685,
-    #          'Dec_max': 2.0067979164950267,
-    #          'instrument': 'HST',
-    #          'filter': 'f606w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A9_v0.3_drz.fits'},
-    #     'mosaic_cosmos_web_30mas_tile_A3_hst_acs_wfc_f814w_drz.fits':
-    #         {'RA_min': 149.99100431662018,
-    #          'RA_max': 150.2124906588673,
-    #          'Dec_min': 1.9870709292881175,
-    #          'Dec_max': 2.2368461872506997,
-    #          'instrument': 'HST',
-    #          'filter': 'f814w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A3_hst_acs_wfc_f814w_drz.fits'},
-    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A2_v0.3_drz.fits':
-    #         {'RA_min': 149.85543939696583,
-    #          'RA_max': 150.07691879661863,
-    #          'Dec_min': 2.036374703540957,
-    #          'Dec_max': 2.2861424971185635,
-    #          'instrument': 'HST',
-    #          'filter': 'f606w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A2_v0.3_drz.fits'},
-    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B7_v0.3_drz.fits':
-    #         {'RA_min': 149.92124313872156,
-    #          'RA_max': 150.14275663077282,
-    #          'Dec_min': 2.2171194032273127,
-    #          'Dec_max': 2.4668894600843254,
-    #          'instrument': 'HST',
-    #          'filter': 'f606w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B7_v0.3_drz.fits'},
-    #     'mosaic_cosmos_web_30mas_tile_A10_hst_acs_wfc_f814w_drz.fits':
-    #         {'RA_min': 150.19627860994615,
-    #          'RA_max': 150.4177403374616,
-    #          'Dec_min': 1.7077106650773646,
-    #          'Dec_max': 1.95748401478021,
-    #          'instrument': 'HST',
-    #          'filter': 'f814w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A10_hst_acs_wfc_f814w_drz.fits'},
-    #     'mosaic_cosmos_web_30mas_tile_B1_hst_acs_wfc_f814w_drz.fits':
-    #         {'RA_min': 149.851461004901,
-    #          'RA_max': 150.07300099610117,
-    #          'Dec_min': 2.44716363899613,
-    #          'Dec_max': 2.6969192958678105,
-    #          'instrument': 'HST',
-    #          'filter': 'f814w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B1_hst_acs_wfc_f814w_drz.fits'},
-    #     'mosaic_cosmos_web_30mas_tile_A6_hst_acs_wfc_f814w_drz.fits':
-    #         {'RA_min': 149.65409755274575,
-    #          'RA_max': 149.87553166071146,
-    #          'Dec_min': 1.9049183391366178,
-    #          'Dec_max': 2.1546707802954272,
-    #          'instrument': 'HST',
-    #          'filter': 'f814w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A6_hst_acs_wfc_f814w_drz.fits'},
-    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A5_v0.3_drz.fits':
-    #         {'RA_min': 150.2621099490618,
-    #          'RA_max': 150.4836027337908,
-    #          'Dec_min': 1.8884322004081768,
-    #          'Dec_max': 2.13821611167579,
-    #          'instrument': 'HST',
-    #          'filter': 'f606w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A5_v0.3_drz.fits'},
-    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B1_v0.3_drz.fits':
-    #         {'RA_min': 149.851461004901,
-    #          'RA_max': 150.07300099610117,
-    #          'Dec_min': 2.44716363899613,
-    #          'Dec_max': 2.6969192958678105,
-    #          'instrument': 'HST',
-    #          'filter': 'f606w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B1_v0.3_drz.fits'},
-    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A3_v0.3_drz.fits':
-    #         {'RA_min': 149.99100431662018,
-    #          'RA_max': 150.2124906588673,
-    #          'Dec_min': 1.9870709292881175,
-    #          'Dec_max': 2.2368461872506997,
-    #          'instrument': 'HST',
-    #          'filter': 'f606w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A3_v0.3_drz.fits'},
-    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B5_v0.3_drz.fits':
-    #         {'RA_min': 150.39381918907853,
-    #          'RA_max': 150.6153723568971,
-    #          'Dec_min': 2.2498757037992547,
-    #          'Dec_max': 2.4996665630963677,
-    #          'instrument': 'HST',
-    #          'filter': 'f606w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B5_v0.3_drz.fits'},
-    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A1_v0.3_drz.fits':
-    #         {'RA_min': 149.7198684312791,
-    #          'RA_max': 149.94133840710182,
-    #          'Dec_min': 2.0856668828091376,
-    #          'Dec_max': 2.335425120651174,
-    #          'instrument': 'HST',
-    #          'filter': 'f606w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A1_v0.3_drz.fits'},
-    #     'mosaic_cosmos_web_30mas_tile_B6_hst_acs_wfc_f814w_drz.fits':
-    #         {'RA_min': 149.78565630431362,
-    #          'RA_max': 150.00716157478698,
-    #          'Dec_min': 2.266416753739556,
-    #          'Dec_max': 2.5161760634349686,
-    #          'instrument': 'HST',
-    #          'filter': 'f814w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B6_hst_acs_wfc_f814w_drz.fits'},
-    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A8_v0.3_drz.fits':
-    #         {'RA_min': 149.92520173116802,
-    #          'RA_max': 150.14665460908068,
-    #          'Dec_min': 1.806333866912358,
-    #          'Dec_max': 2.0561009452042205,
-    #          'instrument': 'HST',
-    #          'filter': 'f606w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A8_v0.3_drz.fits'},
-    #     'mosaic_cosmos_web_30mas_tile_B7_hst_acs_wfc_f814w_drz.fits':
-    #         {'RA_min': 149.92124313872156,
-    #          'RA_max': 150.14275663077282,
-    #          'Dec_min': 2.2171194032273127,
-    #          'Dec_max': 2.4668894600843254,
-    #          'instrument': 'HST',
-    #          'filter': 'f814w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B7_hst_acs_wfc_f814w_drz.fits'},
-    #     'mosaic_cosmos_web_30mas_tile_B9_hst_acs_wfc_f814w_drz.fits':
-    #         {'RA_min': 150.19239493646083,
-    #          'RA_max': 150.41391742542487,
-    #          'Dec_min': 2.118487783475957,
-    #          'Dec_max': 2.368273059798537,
-    #          'instrument': 'HST',
-    #          'filter': 'f814w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B9_hst_acs_wfc_f814w_drz.fits'},
-    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A10_v0.3_drz.fits':
-    #         {'RA_min': 150.19627860994615,
-    #          'RA_max': 150.4177403374616,
-    #          'Dec_min': 1.7077106650773646,
-    #          'Dec_max': 1.95748401478021,
-    #          'instrument': 'HST',
-    #          'filter': 'f606w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A10_v0.3_drz.fits'},
-    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A6_v0.3_drz.fits':
-    #         {'RA_min': 149.65409755274575,
-    #          'RA_max': 149.87553166071146,
-    #          'Dec_min': 1.9049183391366178,
-    #          'Dec_max': 2.1546707802954272,
-    #          'instrument': 'HST',
-    #          'filter': 'f606w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A6_v0.3_drz.fits'},
-    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B3_v0.3_drz.fits':
-    #         {'RA_min': 150.12265817959866,
-    #          'RA_max': 150.34420972444414,
-    #          'Dec_min': 2.348545104294105,
-    #          'Dec_max': 2.5983225463216413,
-    #          'instrument': 'HST',
-    #          'filter': 'f606w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B3_v0.3_drz.fits'},
-    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B9_v0.3_drz.fits':
-    #         {'RA_min': 150.19239493646083,
-    #          'RA_max': 150.41391742542487,
-    #          'Dec_min': 2.118487783475957,
-    #          'Dec_max': 2.368273059798537,
-    #          'instrument': 'HST',
-    #          'filter': 'f606w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B9_v0.3_drz.fits'},
-    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B2_v0.3_drz.fits':
-    #         {'RA_min': 149.98706335393913,
-    #          'RA_max': 150.2086103635022,
-    #          'Dec_min': 2.3978611807643104,
-    #          'Dec_max': 2.6476287759604964,
-    #          'instrument': 'HST',
-    #          'filter': 'f606w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B2_v0.3_drz.fits'},
-    #     'mosaic_cosmos_web_30mas_tile_B2_hst_acs_wfc_f814w_drz.fits':
-    #         {'RA_min': 149.98706335393913,
-    #          'RA_max': 150.2086103635022,
-    #          'Dec_min': 2.3978611807643104,
-    #          'Dec_max': 2.6476287759604964,
-    #          'instrument': 'HST',
-    #          'filter': 'f814w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B2_hst_acs_wfc_f814w_drz.fits'},
-    #     'mosaic_cosmos_web_30mas_tile_B5_hst_acs_wfc_f814w_drz.fits':
-    #         {'RA_min': 150.39381918907853,
-    #          'RA_max': 150.6153723568971,
-    #          'Dec_min': 2.2498757037992547,
-    #          'Dec_max': 2.4996665630963677,
-    #          'instrument': 'HST',
-    #          'filter': 'f814w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B5_hst_acs_wfc_f814w_drz.fits'},
-    #     'mosaic_cosmos_web_30mas_tile_B8_hst_acs_wfc_f814w_drz.fits':
-    #         {'RA_min': 150.05682318867414,
-    #          'RA_max': 150.2783424201258,
-    #          'Dec_min': 2.167809446029673,
-    #          'Dec_max': 2.4175881585798864,
-    #          'instrument': 'HST',
-    #          'filter': 'f814w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B8_hst_acs_wfc_f814w_drz.fits'},
-    #     'mosaic_cosmos_web_30mas_tile_A7_hst_acs_wfc_f814w_drz.fits':
-    #         {'RA_min': 149.78965229601744,
-    #          'RA_max': 150.01109702908423,
-    #          'Dec_min': 1.8556313946327687,
-    #          'Dec_max': 2.1053921999280165,
-    #          'instrument': 'HST',
-    #          'filter': 'f814w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A7_hst_acs_wfc_f814w_drz.fits'},
-    #     'mosaic_cosmos_web_30mas_tile_A9_hst_acs_wfc_f814w_drz.fits':
-    #         {'RA_min': 150.060744341293,
-    #          'RA_max': 150.28220288392387,
-    #          'Dec_min': 1.7570266566736685,
-    #          'Dec_max': 2.0067979164950267,
-    #          'instrument': 'HST',
-    #          'filter': 'f814w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A9_hst_acs_wfc_f814w_drz.fits'},
-    #     'mosaic_cosmos_web_30mas_tile_A8_hst_acs_wfc_f814w_drz.fits':
-    #         {'RA_min': 149.92520173116802,
-    #          'RA_max': 150.14665460908068,
-    #          'Dec_min': 1.806333866912358,
-    #          'Dec_max': 2.0561009452042205,
-    #          'instrument': 'HST',
-    #          'filter': 'f814w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A8_hst_acs_wfc_f814w_drz.fits'},
-    #     'mosaic_cosmos_web_30mas_tile_A2_hst_acs_wfc_f814w_drz.fits':
-    #         {'RA_min': 149.85543939696583,
-    #          'RA_max': 150.07691879661863,
-    #          'Dec_min': 2.036374703540957,
-    #          'Dec_max': 2.2861424971185635,
-    #          'instrument': 'HST',
-    #          'filter': 'f814w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A2_hst_acs_wfc_f814w_drz.fits'},
-    #     'mosaic_cosmos_web_30mas_tile_A1_hst_acs_wfc_f814w_drz.fits':
-    #         {'RA_min': 149.7198684312791,
-    #          'RA_max': 149.94133840710182,
-    #          'Dec_min': 2.0856668828091376,
-    #          'Dec_max': 2.335425120651174,
-    #          'instrument': 'HST',
-    #         'filter': 'f814w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A1_hst_acs_wfc_f814w_drz.fits'},
-    #     'mosaic_cosmos_web_30mas_tile_A4_hst_acs_wfc_f814w_drz.fits':
-    #         {'RA_min': 150.12656167292266,
-    #          'RA_max': 150.34805247673683,
-    #          'Dec_min': 1.9377564610672233,
-    #          'Dec_max': 2.1875370916742938,
-    #          'instrument': 'HST',
-    #          'filter': 'f814w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A4_hst_acs_wfc_f814w_drz.fits'},
-    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A7_v0.3_drz.fits':
-    #         {'RA_min': 149.78965229601744,
-    #          'RA_max': 150.01109702908423,
-    #          'Dec_min': 1.8556313946327687,
-    #          'Dec_max': 2.1053921999280165,
-    #          'instrument': 'HST', 'filter': 'f606w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A7_v0.3_drz.fits'},
-    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B8_v0.3_drz.fits':
-    #         {'RA_min': 150.05682318867414,
-    #          'RA_max': 150.2783424201258,
-    #          'Dec_min': 2.167809446029673,
-    #          'Dec_max': 2.4175881585798864,
-    #          'instrument': 'HST',
-    #          'filter': 'f606w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B8_v0.3_drz.fits'},
-    #     'mosaic_cosmos_web_30mas_tile_A5_hst_acs_wfc_f814w_drz.fits':
-    #         {'RA_min': 150.2621099490618,
-    #          'RA_max': 150.4836027337908,
-    #          'Dec_min': 1.8884322004081768,
-    #          'Dec_max': 2.13821611167579,
-    #          'instrument': 'HST',
-    #          'filter': 'f814w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A5_hst_acs_wfc_f814w_drz.fits'},
-    #     'mosaic_cosmos_web_30mas_tile_B3_hst_acs_wfc_f814w_drz.fits':
-    #         {'RA_min': 150.12265817959866,
-    #          'RA_max': 150.34420972444414,
-    #          'Dec_min': 2.348545104294105,
-    #          'Dec_max': 2.5983225463216413,
-    #          'instrument': 'HST',
-    #          'filter': 'f814w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B3_hst_acs_wfc_f814w_drz.fits'},
-    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B6_v0.3_drz.fits':
-    #         {'RA_min': 149.78565630431362,
-    #          'RA_max': 150.00716157478698,
-    #          'Dec_min': 2.266416753739556,
-    #          'Dec_max': 2.5161760634349686,
-    #          'instrument': 'HST',
-    #          'filter': 'f606w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B6_v0.3_drz.fits'},
-    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B10_v0.3_drz.fits':
-    #         {'RA_min': 150.3279568649288,
-    #          'RA_max': 150.5494801299735,
-    #          'Dec_min': 2.069155317459642,
-    #          'Dec_max': 2.3189450653277475,
-    #          'instrument': 'HST',
-    #          'filter': 'f606w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B10_v0.3_drz.fits'},
-    #     'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B4_v0.3_drz.fits':
-    #         {'RA_min': 150.25824396380185,
-    #          'RA_max': 150.47979756122,
-    #          'Dec_min': 2.2992163112219384,
-    #          'Dec_max': 2.549001508072617,
-    #          'instrument': 'HST',
-    #          'filter': 'f606w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B4_v0.3_drz.fits'},
-    #     'mosaic_cosmos_web_30mas_tile_B10_hst_acs_wfc_f814w_drz.fits':
-    #         {'RA_min': 150.3279568649288,
-    #          'RA_max': 150.5494801299735,
-    #          'Dec_min': 2.069155317459642,
-    #          'Dec_max': 2.3189450653277475,
-    #          'instrument': 'HST',
-    #          'filter': 'f814w',
-    #          'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B10_hst_acs_wfc_f814w_drz.fits'},
-    # }
+    #     {'path': COSMOS_HST_BASEPATH,
+    #      'name': 'primercosmos_acs_f606w_sci.fits',
+    #      'filter': 'f606w',
+    #      'instrument': 'ACS WFC',
+    #      'cols': ["ACS_F606W_FLUX", "ACS_F606W_FLUXERR"],
+    #      'labels': ["Flux", "Err"],
+    #      'image': None,
+    #      'expanded': False,
+    #      'wcs_manual': False,
+    #      'aperture': mean_FWHM* 0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
+    #      'mag_func': count_to_mag,
+    #      'sky_subtract': False
+    #      },
+    #     {'path': COSMOS_HST_BASEPATH,
+    #      'name': 'primercosmos_acs_f814w_sci.fits',
+    #      'filter': 'f814w',
+    #      'instrument': 'ACS WFC',
+    #      'cols': ["ACS_F814W_FLUX", "ACS_F814W_FLUXERR"],
+    #      'labels': ["Flux", "Err"],
+    #      'image': None,
+    #      'expanded': False,
+    #      'wcs_manual': False,
+    #      'aperture':mean_FWHM* 0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
+    #      'mag_func': count_to_mag,
+    #      'sky_subtract': False
+    #      },
+    #     {'path': COSMOS_HST_BASEPATH,
+    #      'name': 'primercosmos_wfc3_f105w_sci.fits',
+    #      'filter': 'f105w',
+    #      'instrument': 'WFC3',
+    #      'cols': [],
+    #      'labels': [],
+    #      'image': None,
+    #      'expanded': False,
+    #      'wcs_manual': False,
+    #      'aperture': mean_FWHM* 0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
+    #      'mag_func': count_to_mag,
+    #      'sky_subtract': False
+    #      },
+    #     {'path': COSMOS_HST_BASEPATH,
+    #      'name': 'primercosmos_wfc3_f125w_sci.fits',
+    #      'filter': 'f125w',
+    #      'instrument': 'WFC3',
+    #      'cols': ["WFC3_F125W_FLUX", "WFC3_F125W_FLUXERR"],
+    #      'labels': ["Flux", "Err"],
+    #      'image': None,
+    #      'expanded': False,
+    #      'wcs_manual': False,
+    #      'aperture': mean_FWHM* 0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
+    #      'mag_func': count_to_mag,
+    #      'sky_subtract': False
+    #      },
+    #     {'path': COSMOS_HST_BASEPATH,
+    #     'name': 'primercosmos_wfc3_f140w_sci.fits',
+    #     'filter': 'f140w',
+    #     'instrument': 'WFC3',
+    #     'cols': ["WFC3_F140W_FLUX", "WFC3_F140W_FLUXERR"],
+    #     'labels': ["Flux", "Err"],
+    #     'image': None,
+    #     'expanded': False,
+    #     'wcs_manual': False,
+    #     'aperture': mean_FWHM* 0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
+    #     'mag_func': count_to_mag,
+    #     'sky_subtract': False
+    #     },
+    #     {'path': COSMOS_HST_BASEPATH,
+    #      'name': 'primercosmos_wfc3_f160w_sci.fits',
+    #      'filter': 'f160w',
+    #      'instrument': 'WFC3',
+    #      'cols': ["WFC3_F160W_FLUX", "WFC3_F160W_FLUXERR"],
+    #      'labels': ["Flux", "Err"],
+    #      'image': None,
+    #      'expanded': False,
+    #      'wcs_manual': False,
+    #      'aperture': mean_FWHM* 0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
+    #      'mag_func': count_to_mag,
+    #      'sky_subtract': False
+    #      },
+    #     {'path': COSMOS_HST_BASEPATH,
+    #      'name': 'primercosmos_nrc_f090w_sci.fits',
+    #      'filter': 'f090w',
+    #      'instrument': 'nrc',
+    #      'cols': [],
+    #      'labels': [],
+    #      'image': None,
+    #      'expanded': False,
+    #      'wcs_manual': False,
+    #      'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
+    #      'mag_func': jwst_count_to_mag,
+    #      'sky_subtract': False
+    #      },
+    #     {'path': COSMOS_HST_BASEPATH,
+    #      'name': 'primercosmos_nrc_f115w_sci.fits',
+    #      'filter': 'f115w',
+    #      'instrument': 'nrc',
+    #      'cols': [],
+    #      'labels': [],
+    #      'image': None,
+    #      'expanded': False,
+    #      'wcs_manual': False,
+    #      'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
+    #      'mag_func': jwst_count_to_mag,
+    #      'sky_subtract': False
+    #      },
+    #     {'path': COSMOS_HST_BASEPATH,
+    #      'name': 'primercosmos_nrc_f150w_sci.fits',
+    #      'filter': 'f150w',
+    #      'instrument': 'nrc',
+    #      'cols': [],
+    #      'labels': [],
+    #      'image': None,
+    #      'expanded': False,
+    #      'wcs_manual': False,
+    #      'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
+    #      'mag_func': jwst_count_to_mag,
+    #      'sky_subtract': False
+    #      },
+    #     {'path': COSMOS_HST_BASEPATH,
+    #      'name': 'primercosmos_nrc_f200w_sci.fits',
+    #      'filter': 'f200w',
+    #      'instrument': 'nrc',
+    #      'cols': [],
+    #      'labels': [],
+    #      'image': None,
+    #      'expanded': False,
+    #      'wcs_manual': False,
+    #      'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
+    #      'mag_func': jwst_count_to_mag,
+    #      'sky_subtract': False
+    #      },
+    #     {'path': COSMOS_HST_BASEPATH,
+    #      'name': 'primercosmos_nrc_f277w_sci.fits',
+    #      'filter': 'f277w',
+    #      'instrument': 'nrc',
+    #      'cols': [],
+    #      'labels': [],
+    #      'image': None,
+    #      'expanded': False,
+    #      'wcs_manual': False,
+    #      'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
+    #      'mag_func': jwst_count_to_mag,
+    #      'sky_subtract': False
+    #      },
+    #     {'path': COSMOS_HST_BASEPATH,
+    #      'name': 'primercosmos_nrc_f356w_sci.fits',
+    #      'filter': 'f356w',
+    #      'instrument': 'nrc',
+    #      'cols': [],
+    #      'labels': [],
+    #      'image': None,
+    #      'expanded': False,
+    #      'wcs_manual': False,
+    #      'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
+    #      'mag_func': jwst_count_to_mag,
+    #      'sky_subtract': False
+    #      },
+    #     {'path': COSMOS_HST_BASEPATH,
+    #      'name': 'primercosmos_nrc_f410m_sci.fits',
+    #      'filter': 'f410m',
+    #      'instrument': 'nrc',
+    #      'cols': [],
+    #      'labels': [],
+    #      'image': None,
+    #      'expanded': False,
+    #      'wcs_manual': False,
+    #      'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
+    #      'mag_func': jwst_count_to_mag,
+    #      'sky_subtract': False
+    #      },
+    #     {'path': COSMOS_HST_BASEPATH,
+    #      'name': 'primercosmos_nrc_f444w_sci.fits',
+    #      'filter': 'f444w',
+    #      'instrument': 'nrc',
+    #      'cols': [],
+    #      'labels': [],
+    #      'image': None,
+    #      'expanded': False,
+    #      'wcs_manual': False,
+    #      'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
+    #      'mag_func': jwst_count_to_mag,
+    #      'sky_subtract': False
+    #      }
+    # ]
+
+    CatalogImages = []
+
+    Tile_Dict = {
+        'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A4_v0.3_drz.fits':
+            {'RA_min': 150.12656167292266,
+             'RA_max': 150.34805247673683,
+             'Dec_min': 1.9377564610672233,
+             'Dec_max': 2.1875370916742938,
+             'instrument': 'HST',
+             'filter': 'f606w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A4_v0.3_drz.fits'},
+        'mosaic_cosmos_web_30mas_tile_B4_hst_acs_wfc_f814w_drz.fits':
+            {'RA_min': 150.25824396380185,
+             'RA_max': 150.47979756122,
+             'Dec_min': 2.2992163112219384,
+             'Dec_max': 2.549001508072617,
+             'instrument': 'HST',
+             'filter': 'f814w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B4_hst_acs_wfc_f814w_drz.fits'},
+        'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A9_v0.3_drz.fits':
+            {'RA_min': 150.060744341293,
+             'RA_max': 150.28220288392387,
+             'Dec_min': 1.7570266566736685,
+             'Dec_max': 2.0067979164950267,
+             'instrument': 'HST',
+             'filter': 'f606w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A9_v0.3_drz.fits'},
+        'mosaic_cosmos_web_30mas_tile_A3_hst_acs_wfc_f814w_drz.fits':
+            {'RA_min': 149.99100431662018,
+             'RA_max': 150.2124906588673,
+             'Dec_min': 1.9870709292881175,
+             'Dec_max': 2.2368461872506997,
+             'instrument': 'HST',
+             'filter': 'f814w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A3_hst_acs_wfc_f814w_drz.fits'},
+        'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A2_v0.3_drz.fits':
+            {'RA_min': 149.85543939696583,
+             'RA_max': 150.07691879661863,
+             'Dec_min': 2.036374703540957,
+             'Dec_max': 2.2861424971185635,
+             'instrument': 'HST',
+             'filter': 'f606w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A2_v0.3_drz.fits'},
+        'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B7_v0.3_drz.fits':
+            {'RA_min': 149.92124313872156,
+             'RA_max': 150.14275663077282,
+             'Dec_min': 2.2171194032273127,
+             'Dec_max': 2.4668894600843254,
+             'instrument': 'HST',
+             'filter': 'f606w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B7_v0.3_drz.fits'},
+        'mosaic_cosmos_web_30mas_tile_A10_hst_acs_wfc_f814w_drz.fits':
+            {'RA_min': 150.19627860994615,
+             'RA_max': 150.4177403374616,
+             'Dec_min': 1.7077106650773646,
+             'Dec_max': 1.95748401478021,
+             'instrument': 'HST',
+             'filter': 'f814w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A10_hst_acs_wfc_f814w_drz.fits'},
+        'mosaic_cosmos_web_30mas_tile_B1_hst_acs_wfc_f814w_drz.fits':
+            {'RA_min': 149.851461004901,
+             'RA_max': 150.07300099610117,
+             'Dec_min': 2.44716363899613,
+             'Dec_max': 2.6969192958678105,
+             'instrument': 'HST',
+             'filter': 'f814w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B1_hst_acs_wfc_f814w_drz.fits'},
+        'mosaic_cosmos_web_30mas_tile_A6_hst_acs_wfc_f814w_drz.fits':
+            {'RA_min': 149.65409755274575,
+             'RA_max': 149.87553166071146,
+             'Dec_min': 1.9049183391366178,
+             'Dec_max': 2.1546707802954272,
+             'instrument': 'HST',
+             'filter': 'f814w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A6_hst_acs_wfc_f814w_drz.fits'},
+        'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A5_v0.3_drz.fits':
+            {'RA_min': 150.2621099490618,
+             'RA_max': 150.4836027337908,
+             'Dec_min': 1.8884322004081768,
+             'Dec_max': 2.13821611167579,
+             'instrument': 'HST',
+             'filter': 'f606w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A5_v0.3_drz.fits'},
+        'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B1_v0.3_drz.fits':
+            {'RA_min': 149.851461004901,
+             'RA_max': 150.07300099610117,
+             'Dec_min': 2.44716363899613,
+             'Dec_max': 2.6969192958678105,
+             'instrument': 'HST',
+             'filter': 'f606w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B1_v0.3_drz.fits'},
+        'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A3_v0.3_drz.fits':
+            {'RA_min': 149.99100431662018,
+             'RA_max': 150.2124906588673,
+             'Dec_min': 1.9870709292881175,
+             'Dec_max': 2.2368461872506997,
+             'instrument': 'HST',
+             'filter': 'f606w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A3_v0.3_drz.fits'},
+        'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B5_v0.3_drz.fits':
+            {'RA_min': 150.39381918907853,
+             'RA_max': 150.6153723568971,
+             'Dec_min': 2.2498757037992547,
+             'Dec_max': 2.4996665630963677,
+             'instrument': 'HST',
+             'filter': 'f606w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B5_v0.3_drz.fits'},
+        'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A1_v0.3_drz.fits':
+            {'RA_min': 149.7198684312791,
+             'RA_max': 149.94133840710182,
+             'Dec_min': 2.0856668828091376,
+             'Dec_max': 2.335425120651174,
+             'instrument': 'HST',
+             'filter': 'f606w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A1_v0.3_drz.fits'},
+        'mosaic_cosmos_web_30mas_tile_B6_hst_acs_wfc_f814w_drz.fits':
+            {'RA_min': 149.78565630431362,
+             'RA_max': 150.00716157478698,
+             'Dec_min': 2.266416753739556,
+             'Dec_max': 2.5161760634349686,
+             'instrument': 'HST',
+             'filter': 'f814w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B6_hst_acs_wfc_f814w_drz.fits'},
+        'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A8_v0.3_drz.fits':
+            {'RA_min': 149.92520173116802,
+             'RA_max': 150.14665460908068,
+             'Dec_min': 1.806333866912358,
+             'Dec_max': 2.0561009452042205,
+             'instrument': 'HST',
+             'filter': 'f606w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A8_v0.3_drz.fits'},
+        'mosaic_cosmos_web_30mas_tile_B7_hst_acs_wfc_f814w_drz.fits':
+            {'RA_min': 149.92124313872156,
+             'RA_max': 150.14275663077282,
+             'Dec_min': 2.2171194032273127,
+             'Dec_max': 2.4668894600843254,
+             'instrument': 'HST',
+             'filter': 'f814w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B7_hst_acs_wfc_f814w_drz.fits'},
+        'mosaic_cosmos_web_30mas_tile_B9_hst_acs_wfc_f814w_drz.fits':
+            {'RA_min': 150.19239493646083,
+             'RA_max': 150.41391742542487,
+             'Dec_min': 2.118487783475957,
+             'Dec_max': 2.368273059798537,
+             'instrument': 'HST',
+             'filter': 'f814w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B9_hst_acs_wfc_f814w_drz.fits'},
+        'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A10_v0.3_drz.fits':
+            {'RA_min': 150.19627860994615,
+             'RA_max': 150.4177403374616,
+             'Dec_min': 1.7077106650773646,
+             'Dec_max': 1.95748401478021,
+             'instrument': 'HST',
+             'filter': 'f606w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A10_v0.3_drz.fits'},
+        'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A6_v0.3_drz.fits':
+            {'RA_min': 149.65409755274575,
+             'RA_max': 149.87553166071146,
+             'Dec_min': 1.9049183391366178,
+             'Dec_max': 2.1546707802954272,
+             'instrument': 'HST',
+             'filter': 'f606w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A6_v0.3_drz.fits'},
+        'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B3_v0.3_drz.fits':
+            {'RA_min': 150.12265817959866,
+             'RA_max': 150.34420972444414,
+             'Dec_min': 2.348545104294105,
+             'Dec_max': 2.5983225463216413,
+             'instrument': 'HST',
+             'filter': 'f606w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B3_v0.3_drz.fits'},
+        'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B9_v0.3_drz.fits':
+            {'RA_min': 150.19239493646083,
+             'RA_max': 150.41391742542487,
+             'Dec_min': 2.118487783475957,
+             'Dec_max': 2.368273059798537,
+             'instrument': 'HST',
+             'filter': 'f606w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B9_v0.3_drz.fits'},
+        'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B2_v0.3_drz.fits':
+            {'RA_min': 149.98706335393913,
+             'RA_max': 150.2086103635022,
+             'Dec_min': 2.3978611807643104,
+             'Dec_max': 2.6476287759604964,
+             'instrument': 'HST',
+             'filter': 'f606w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B2_v0.3_drz.fits'},
+        'mosaic_cosmos_web_30mas_tile_B2_hst_acs_wfc_f814w_drz.fits':
+            {'RA_min': 149.98706335393913,
+             'RA_max': 150.2086103635022,
+             'Dec_min': 2.3978611807643104,
+             'Dec_max': 2.6476287759604964,
+             'instrument': 'HST',
+             'filter': 'f814w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B2_hst_acs_wfc_f814w_drz.fits'},
+        'mosaic_cosmos_web_30mas_tile_B5_hst_acs_wfc_f814w_drz.fits':
+            {'RA_min': 150.39381918907853,
+             'RA_max': 150.6153723568971,
+             'Dec_min': 2.2498757037992547,
+             'Dec_max': 2.4996665630963677,
+             'instrument': 'HST',
+             'filter': 'f814w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B5_hst_acs_wfc_f814w_drz.fits'},
+        'mosaic_cosmos_web_30mas_tile_B8_hst_acs_wfc_f814w_drz.fits':
+            {'RA_min': 150.05682318867414,
+             'RA_max': 150.2783424201258,
+             'Dec_min': 2.167809446029673,
+             'Dec_max': 2.4175881585798864,
+             'instrument': 'HST',
+             'filter': 'f814w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B8_hst_acs_wfc_f814w_drz.fits'},
+        'mosaic_cosmos_web_30mas_tile_A7_hst_acs_wfc_f814w_drz.fits':
+            {'RA_min': 149.78965229601744,
+             'RA_max': 150.01109702908423,
+             'Dec_min': 1.8556313946327687,
+             'Dec_max': 2.1053921999280165,
+             'instrument': 'HST',
+             'filter': 'f814w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A7_hst_acs_wfc_f814w_drz.fits'},
+        'mosaic_cosmos_web_30mas_tile_A9_hst_acs_wfc_f814w_drz.fits':
+            {'RA_min': 150.060744341293,
+             'RA_max': 150.28220288392387,
+             'Dec_min': 1.7570266566736685,
+             'Dec_max': 2.0067979164950267,
+             'instrument': 'HST',
+             'filter': 'f814w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A9_hst_acs_wfc_f814w_drz.fits'},
+        'mosaic_cosmos_web_30mas_tile_A8_hst_acs_wfc_f814w_drz.fits':
+            {'RA_min': 149.92520173116802,
+             'RA_max': 150.14665460908068,
+             'Dec_min': 1.806333866912358,
+             'Dec_max': 2.0561009452042205,
+             'instrument': 'HST',
+             'filter': 'f814w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A8_hst_acs_wfc_f814w_drz.fits'},
+        'mosaic_cosmos_web_30mas_tile_A2_hst_acs_wfc_f814w_drz.fits':
+            {'RA_min': 149.85543939696583,
+             'RA_max': 150.07691879661863,
+             'Dec_min': 2.036374703540957,
+             'Dec_max': 2.2861424971185635,
+             'instrument': 'HST',
+             'filter': 'f814w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A2_hst_acs_wfc_f814w_drz.fits'},
+        'mosaic_cosmos_web_30mas_tile_A1_hst_acs_wfc_f814w_drz.fits':
+            {'RA_min': 149.7198684312791,
+             'RA_max': 149.94133840710182,
+             'Dec_min': 2.0856668828091376,
+             'Dec_max': 2.335425120651174,
+             'instrument': 'HST',
+            'filter': 'f814w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A1_hst_acs_wfc_f814w_drz.fits'},
+        'mosaic_cosmos_web_30mas_tile_A4_hst_acs_wfc_f814w_drz.fits':
+            {'RA_min': 150.12656167292266,
+             'RA_max': 150.34805247673683,
+             'Dec_min': 1.9377564610672233,
+             'Dec_max': 2.1875370916742938,
+             'instrument': 'HST',
+             'filter': 'f814w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A4_hst_acs_wfc_f814w_drz.fits'},
+        'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A7_v0.3_drz.fits':
+            {'RA_min': 149.78965229601744,
+             'RA_max': 150.01109702908423,
+             'Dec_min': 1.8556313946327687,
+             'Dec_max': 2.1053921999280165,
+             'instrument': 'HST', 'filter': 'f606w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A7_v0.3_drz.fits'},
+        'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B8_v0.3_drz.fits':
+            {'RA_min': 150.05682318867414,
+             'RA_max': 150.2783424201258,
+             'Dec_min': 2.167809446029673,
+             'Dec_max': 2.4175881585798864,
+             'instrument': 'HST',
+             'filter': 'f606w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B8_v0.3_drz.fits'},
+        'mosaic_cosmos_web_30mas_tile_A5_hst_acs_wfc_f814w_drz.fits':
+            {'RA_min': 150.2621099490618,
+             'RA_max': 150.4836027337908,
+             'Dec_min': 1.8884322004081768,
+             'Dec_max': 2.13821611167579,
+             'instrument': 'HST',
+             'filter': 'f814w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A5_hst_acs_wfc_f814w_drz.fits'},
+        'mosaic_cosmos_web_30mas_tile_B3_hst_acs_wfc_f814w_drz.fits':
+            {'RA_min': 150.12265817959866,
+             'RA_max': 150.34420972444414,
+             'Dec_min': 2.348545104294105,
+             'Dec_max': 2.5983225463216413,
+             'instrument': 'HST',
+             'filter': 'f814w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B3_hst_acs_wfc_f814w_drz.fits'},
+        'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B6_v0.3_drz.fits':
+            {'RA_min': 149.78565630431362,
+             'RA_max': 150.00716157478698,
+             'Dec_min': 2.266416753739556,
+             'Dec_max': 2.5161760634349686,
+             'instrument': 'HST',
+             'filter': 'f606w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B6_v0.3_drz.fits'},
+        'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B10_v0.3_drz.fits':
+            {'RA_min': 150.3279568649288,
+             'RA_max': 150.5494801299735,
+             'Dec_min': 2.069155317459642,
+             'Dec_max': 2.3189450653277475,
+             'instrument': 'HST',
+             'filter': 'f606w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B10_v0.3_drz.fits'},
+        'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B4_v0.3_drz.fits':
+            {'RA_min': 150.25824396380185,
+             'RA_max': 150.47979756122,
+             'Dec_min': 2.2992163112219384,
+             'Dec_max': 2.549001508072617,
+             'instrument': 'HST',
+             'filter': 'f606w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B4_v0.3_drz.fits'},
+        'mosaic_cosmos_web_30mas_tile_B10_hst_acs_wfc_f814w_drz.fits':
+            {'RA_min': 150.3279568649288,
+             'RA_max': 150.5494801299735,
+             'Dec_min': 2.069155317459642,
+             'Dec_max': 2.3189450653277475,
+             'instrument': 'HST',
+             'filter': 'f814w',
+             'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B10_hst_acs_wfc_f814w_drz.fits'},
+        'primercosmos_acs_f435w_sci.fits':
+            {'RA_min': 150.01782001382628,
+             'RA_max': 150.2346858195737,
+             'Dec_min': 2.1472231791589897,
+             'Dec_max': 2.5147129280666793,
+             'instrument': 'HST',
+             'filter': 'f435w',
+             'path': f"{COSMOS_HST_BASEPATH}" + 'primercosmos_acs_f435w_sci.fits'},
+        'primercosmos_nrc_f444w_sci.fits':
+            {'RA_min': 150.01782001382628,
+             'RA_max': 150.2346858195737,
+             'Dec_min': 2.1472231791589786,
+             'Dec_max': 2.5147129280666904,
+             'instrument': 'HST',
+             'filter': 'f444w',
+             'path': f"{COSMOS_HST_BASEPATH}" + 'primercosmos_nrc_f444w_sci.fits'},
+        'primercosmos_acs_f606w_sci.fits':
+            {'RA_min': 150.01782001382628,
+             'RA_max': 150.2346858195737,
+             'Dec_min': 2.1472231791589897,
+             'Dec_max': 2.5147129280666793,
+             'instrument': 'HST',
+             'filter': 'f606w',
+             'path': f"{COSMOS_HST_BASEPATH}" + 'primercosmos_acs_f606w_sci.fits'},
+        'primercosmos_nrc_f356w_sci.fits':
+            {'RA_min': 150.01782001382628,
+             'RA_max': 150.2346858195737,
+             'Dec_min': 2.1472231791589786,
+             'Dec_max': 2.5147129280666904,
+             'instrument': 'HST',
+             'filter': 'f356w',
+             'path': f"{COSMOS_HST_BASEPATH}" + 'primercosmos_nrc_f356w_sci.fits'},
+        'primercosmos_nrc_f277w_sci.fits':
+            {'RA_min': 150.01782001382628,
+             'RA_max': 150.2346858195737,
+             'Dec_min': 2.1472231791589786,
+             'Dec_max': 2.5147129280666904,
+             'instrument': 'HST',
+             'filter': 'f277w',
+             'path': f"{COSMOS_HST_BASEPATH}" + 'primercosmos_nrc_f277w_sci.fits'},
+        'primercosmos_nrc_f150w_sci.fits':
+            {'RA_min': 150.01782001382628,
+             'RA_max': 150.2346858195737,
+             'Dec_min': 2.1472231791589786,
+             'Dec_max': 2.5147129280666904,
+             'instrument': 'HST',
+             'filter': 'f150w',
+             'path': f"{COSMOS_HST_BASEPATH}" + 'primercosmos_nrc_f150w_sci.fits'},
+        'primercosmos_wfc3_f125w_sci.fits':
+            {'RA_min': 150.01782001382628,
+             'RA_max': 150.2346858195737,
+             'Dec_min': 2.1472231791589897,
+             'Dec_max': 2.5147129280666793,
+             'instrument': 'HST',
+             'filter': 'f125w',
+             'path': f"{COSMOS_HST_BASEPATH}" + 'primercosmos_wfc3_f125w_sci.fits'},
+        'primercosmos_wfc3_f160w_sci.fits':
+            {'RA_min': 150.01782001382628,
+             'RA_max': 150.2346858195737,
+             'Dec_min': 2.1472231791589897,
+             'Dec_max': 2.5147129280666793,
+             'instrument': 'HST',
+             'filter': 'f160w',
+             'path': f"{COSMOS_HST_BASEPATH}" + 'primercosmos_wfc3_f160w_sci.fits'},
+        'primercosmos_wfc3_f140w_sci.fits':
+            {'RA_min': 150.01782001382628,
+             'RA_max': 150.2346858195737,
+             'Dec_min': 2.1472231791589897,
+             'Dec_max': 2.5147129280666793,
+             'instrument': 'HST',
+             'filter': 'f140w',
+             'path': f"{COSMOS_HST_BASEPATH}" + 'primercosmos_wfc3_f140w_sci.fits'},
+        'primercosmos_nrc_f200w_sci.fits':
+            {'RA_min': 150.01782001382628,
+             'RA_max': 150.2346858195737,
+             'Dec_min': 2.1472231791589786,
+             'Dec_max': 2.5147129280666904,
+             'instrument': 'HST',
+             'filter': 'f200w',
+             'path': f"{COSMOS_HST_BASEPATH}" + 'primercosmos_nrc_f200w_sci.fits'},
+        'primercosmos_acs_f814w_sci.fits':
+            {'RA_min': 150.01782001382628,
+             'RA_max': 150.2346858195737,
+             'Dec_min': 2.1472231791589897,
+             'Dec_max': 2.5147129280666793,
+             'instrument': 'HST',
+             'filter': 'f814w',
+             'path': f"{COSMOS_HST_BASEPATH}" + 'primercosmos_acs_f814w_sci.fits'},
+        'primercosmos_nrc_f115w_sci.fits':
+            {'RA_min': 150.01782001382628,
+             'RA_max': 150.2346858195737,
+             'Dec_min': 2.1472231791589786,
+             'Dec_max': 2.5147129280666904,
+             'instrument': 'HST',
+             'filter': 'f115w',
+             'path': f"{COSMOS_HST_BASEPATH}" + 'primercosmos_nrc_f115w_sci.fits'},
+        'primercosmos_nrc_f090w_sci.fits':
+            {'RA_min': 150.01782001382628,
+             'RA_max': 150.2346858195737,
+             'Dec_min': 2.1472231791589786,
+             'Dec_max': 2.5147129280666904,
+             'instrument': 'HST',
+             'filter': 'f090w',
+             'path': f"{COSMOS_HST_BASEPATH}" + 'primercosmos_nrc_f090w_sci.fits'},
+        'primercosmos_nrc_f410m_sci.fits':
+            {'RA_min': 150.01782001382628,
+             'RA_max': 150.2346858195737,
+             'Dec_min': 2.1472231791589786,
+             'Dec_max': 2.5147129280666904,
+             'instrument': 'HST',
+             'filter': 'f410m',
+             'path': f"{COSMOS_HST_BASEPATH}" + 'primercosmos_nrc_f410m_sci.fits'},
+        'primercosmos_wfc3_f105w_sci.fits':
+            {'RA_min': 150.01782001382628,
+             'RA_max': 150.2346858195737,
+             'Dec_min': 2.1472231791589897,
+             'Dec_max': 2.5147129280666793,
+             'instrument': 'HST',
+             'filter': 'f105w',
+             'path': f"{COSMOS_HST_BASEPATH}" + 'primercosmos_wfc3_f105w_sci.fits'},
+    }
 
     PhotoZCatalog = None
     SupportFilesLocation = None
@@ -679,10 +799,10 @@ class COSMOS_HST(cat_base.Catalog):
         # do this only as needed
         # self.read_main_catalog()
         # self.read_photoz_catalog()
-        # self.build_catalog_images() #will just build on demand
-
+        #self.build_catalog_images() #will just build on demand
+        self.build_catalog_of_images()
         self.master_cutout = None
-        #self.build_catalog_of_images()
+
 
     # todo: is this more efficient? garbage collection does not seem to be running
     # so building as needed does not seem to help memory
@@ -771,8 +891,9 @@ class COSMOS_HST(cat_base.Catalog):
 
         for t in self.Tile_Dict.keys(): #tile is the key (the filename)
             #for f in self.Filters: # each image now only has one filter
-            path = OSCAR_COSMOS_HST_BASEPATH #op.join(self.HSC_IMAGE_PATH,self.Tile_Dict[t]['tract'])
+            #path = OSCAR_COSMOS_HST_BASEPATH #op.join(self.HSC_IMAGE_PATH,self.Tile_Dict[t]['tract'])
             name = t
+            path = op.dirname(self.Tile_Dict[t]['path'])
             wcs_manual = False
             f = self.Tile_Dict[t]['filter']
 
@@ -845,13 +966,63 @@ class COSMOS_HST(cat_base.Catalog):
 
         return filter_fl, filter_fl_err, mag, mag_plus, mag_minus, filter_name
 
-    def find_target_tile(self,ra,dec):
+
+    def build_catalog_of_images_for_coords(self,ra,dec):
+        """
+        Unique to THIS catalog implementation and done here for expediency ...
+        basically a run-time combination of build_catalog_of_images() + find_taget_tile()
+          s|t self.ImageCatalog() contains ONLY those that fit the ra and dec
+
+        :param ra:
+        :param dec:
+        :return:  N/A
+        """
+
+        try:
+            if len(self.CatalogImages) > 0:
+                self.CatalogImages.clear()
+        except:
+            pass
+
+        self.CatalogImages = []
+        tiles = self.find_target_tiles(ra,dec)
+
+        for t in tiles: #tile is the key (the filename)
+            #for f in self.Filters: # each image now only has one filter
+            #path = OSCAR_COSMOS_HST_BASEPATH #op.join(self.HSC_IMAGE_PATH,self.Tile_Dict[t]['tract'])
+            name = t
+            path = op.dirname(self.Tile_Dict[t]['path'])
+            wcs_manual = False
+            f = self.Tile_Dict[t]['filter']
+
+            #note: self.CatalogImages already has some in it, so we are appending the new ones
+            self.CatalogImages.append(
+                {'path': path,
+                 'name': name, #filename is the tilename
+                 'tile': t,
+                 'filter': f,
+                 'instrument': "HST COSMOS",
+                 'cols': [],
+                 'labels': [],
+                 'image': None,
+                 'expanded': False,
+                 'wcs_manual': wcs_manual,
+                 'aperture': self.mean_FWHM * 0.5 + 0.5, #since a radius, half the FWHM + 0.5" for astrometric error
+                 'mag_func': count_to_mag,
+                 'sky_subtract': False
+                 })
+
+
+
+    def find_target_tiles(self,ra,dec):
         #assumed to have already confirmed this target is at least in coordinate range of this catalog
         #return at most one tile, but maybe more than one tract (for the catalog ... HSC does not completely
         #   overlap the tracts so if multiple tiles are valid, depending on which one is selected, you may
         #   not find matching objects for the associated tract)
         tile = None
         keys = []
+        filters = []
+        keep_tiles = []
         for k in self.Tile_Dict.keys():
 
             try:
@@ -860,41 +1031,71 @@ class COSMOS_HST(cat_base.Catalog):
                     continue
                 else:
                     keys.append(k)
-
+                    filters.append(self.Tile_Dict[k]['filter'])
             except:
                 pass
 
         if len(keys) == 0: #we're done ... did not find any
-            return None
-        elif len(keys) == 1: #found exactly one
-            tile = keys[0] #remember tile is a string ... there can be only one
+            pass
+        elif len(keys) == 1 or len(np.unique(filters)) == len(filters) : #found exactly one or all unique filters
+            keep_tiles = keys
         elif len(keys) > 1: #find the best one
-            log.info("Multiple overlapping tiles %s. Sub-selecting tile with maximum angular coverage around target." %keys)
+            # this is not the best way to to this, but I am tired and is good enough as there are few tiles
 
-            max_dist = 0
+            log.info("Multiple overlapping tiles %s. Sub-selecting tile with maximum angular coverage around target." %keys)
+            keys = np.array(keys)
             #we don't have the actual corners anymore, so just assume a rectangle
             #so there are 2 of each min, max coords. Only need the smallest distance so just sum one
-            for k in keys:
+            uniq_filters, cts = np.unique(filters,return_counts=True)
+            single_filters = uniq_filters[cts == 1]
+            uniq_filters = uniq_filters[cts > 1]
 
-                #should not be negative, but could be?
-                #in any case, the min is the smallest distance to an edge in RA and Dec
-                inside_ra = min((ra-self.Tile_Dict[k]['RA_min']),(self.Tile_Dict[k]['RA_max']-ra))
-                inside_dec = min((dec-self.Tile_Dict[k]['Dec_min']),(self.Tile_Dict[k]['Dec_max']-dec))
+            keep_tiles = []
+            for filter in single_filters:
+                sel_tiles = [self.Tile_Dict[k]['filter']==filter for k in keys]
+                keep_tiles += list(keys[sel_tiles])
 
-                edge_dist = min(inside_dec,inside_ra)
-                #we want the tile with the largest minium edge distance
+            for filter in uniq_filters:
+                key_sel = [self.Tile_Dict[k]['filter']==filter for k in keys]
+                tile = None
+                max_dist = 0
+                for k in keys[key_sel]:
+                    # cutout = self.get_single_cutout(ra, dec, window=1./3600, i, aperture, error, do_sky_subtract)
 
-                if edge_dist > max_dist and op.exists(self.Tile_Dict[k]['path']):
-                    max_dist = edge_dist
-                    tile = k
+                    #there are weird holes in these images, so do a test collection to see if there is actually
+                    #any coverage
+
+                    sci = science_image.science_image(wcs_manual=self.WCS_Manual,
+                                               image_location=self.Tile_Dict[k]['path'])
+
+                    cutout, *_  = sci.get_cutout(ra, dec, error=1.0, window=1.0,
+                                                 aperture=None, mag_func=None, copy=False,
+                                                 return_details=False, do_sky_subtract=False,
+                                                 detobj=None, dust_corr=None, mag_corr=None)
+
+                    if cutout is None:
+                        continue
+                    #should not be negative, but could be?
+                    #in any case, the min is the smallest distance to an edge in RA and Dec
+                    inside_ra = min((ra-self.Tile_Dict[k]['RA_min']),(self.Tile_Dict[k]['RA_max']-ra))
+                    inside_dec = min((dec-self.Tile_Dict[k]['Dec_min']),(self.Tile_Dict[k]['Dec_max']-dec))
+
+                    edge_dist = min(inside_dec,inside_ra)
+                    #we want the tile with the largest minium edge distance
+
+                    if edge_dist > max_dist and op.exists(self.Tile_Dict[k]['path']):
+                        max_dist = edge_dist
+                        tile = k
+
+                if tile is not None:
+                    keep_tiles.append(tile)
 
         else: #really?? len(keys) < 0 : this is just a sanity catch
-            log.error("ERROR! len(keys) < 0 in cat_hsc::find_target_tile.")
-            return None
+            log.error("ERROR! len(keys) < 0 in cat_hsc::find_target_tiles.")
+            return []
 
-        log.info("Selected tile: %s" % tile)
-
-        return tile
+        log.info(f"Selected tile:{keep_tiles}")
+        return keep_tiles
 
 
     def build_list_of_bid_targets(self, ra, dec, error):
@@ -1054,6 +1255,8 @@ class COSMOS_HST(cat_base.Catalog):
         :return: cutouts list of dictionaries with bid-target objects as well
         """
 
+
+        self.build_catalog_of_images_for_coords(ra,dec) #this implementation is unique to THIS catalog
         cutouts = super().build_cat_summary_details(cat_match, ra, dec, error, bid_ras, bid_decs, target_w,
                                                     fiber_locs, target_flux,detobj,do_sky_subtract=False)
 

@@ -351,58 +351,71 @@ def is_cutout_empty(cutout,check_unique_fraction=False):
 
                 sc_mean, sc_median, sc_std = sigma_clipped_stats(flat, sigma=3.0)
                 clip = sigma_clip(flat,sigma=3.0,masked=False)
-                sc_skew = stats.skew(clip)
-                sc_kurt = stats.kurtosis(clip)
-                sc_skew_zscore, sc_skew_pval = stats.skewtest(clip)
-                sc_zero_std = sc_median / sc_std
-                sc_run = np.max(clip)-np.min(clip)
-                log.debug(f"sc_mean ({sc_mean}), sc_median ({sc_median}), sc_std ({sc_std})")
-                log.debug (f"sc_skew ({sc_skew}), sc_skew_pval ({sc_skew_pval}), sc_zero_std ({sc_zero_std}), sc_kurt ({sc_kurt}), sc_run ({sc_run})")
+                if len(clip) == 0:
+                    log.debug(f"Empty sigma clip. Image is empty.")
+                    rc = True
+                elif len(clip) < 8:
+                    log.debug(f"Too few data post sigma clip. Image is effectively empty.")
+                    rc = True
+                else:
+                    sc_skew = stats.skew(clip)
+                    sc_kurt = stats.kurtosis(clip)
+                    try:
+                        sc_skew_zscore, sc_skew_pval = stats.skewtest(clip)
+                    except:
+                        log.debug("Exception in is_cutout_empty() calling stats.skewtest()")
+                        sc_skew_zscore = -1.
+                        sc_skew_pval = 999.
 
-                if frac_uniq < G.FRAC_UNIQUE_PIXELS_MINIMUM:
-                    log.warning(f"Fraction of (minimum) unique pixels ({frac_uniq}) < ({G.FRAC_UNIQUE_PIXELS_MINIMUM}) "
-                                f" Assume cutout is empty or simple pattern.")
-                    rc = True
-                elif (frac_uniq < G.FRAC_UNIQUE_PIXELS_NOT_EMPTY) and (frac_top_duplicates > G.FRAC_DUPLICATE_PIXELS):
-                        #and (uniq_array[np.argmax(uniq_counts)] < 5000.0):
-                    log.warning(f"Fraction of unique pixels ({frac_uniq}) < ({G.FRAC_UNIQUE_PIXELS_NOT_EMPTY}) "
-                                f"and fraction of top duplicates ({frac_top_duplicates}) > ({G.FRAC_DUPLICATE_PIXELS}) "
-                             f" Assume cutout is empty or simple pattern.")
-                    rc = True
-                elif ((hzc > 0.99) or (vtc > 0.99)) and (frac_uniq < G.FRAC_UNIQUE_PIXELS_AUTOCORRELATE):
-                    log.warning(f"Fraction of unique pixels ({frac_uniq}) small AND horizontal or vertical "
-                             f"auto-correlaction. Assume cutout is empty or simple pattern.")
-                    rc = True
-                elif frac_nonzero < G.FRAC_NONZERO_PIXELS:
-                    log.warning(f"Fraction of zero pixels ({frac_nonzero}) < ({G.FRAC_NONZERO_PIXELS}). "
-                                f"Assume cutout is empty or simple pattern.")
-                    rc = True
-                elif (sc_zero_std < -2.5) and (sc_skew_pval < 1e-20):
-                    log.warning(f"Negative median ({sc_median},  ({sc_zero_std}) from zero,"
-                                f"and very inconsistent with normal (pval {sc_skew_pval}) post sigma-clip. "
-                               f"Assume cutout is empty or simple pattern or junk.")
-                    rc = True
-                elif sc_zero_std < -10.0 : #absurdly low (basically, small std dev and all values are very negative)
-                    log.warning(f"Very negative values, ({sc_zero_std}) std from zero,"
-                               f"Assume cutout is empty or simple pattern or junk.")
-                    rc = True
+                    sc_zero_std = sc_median / sc_std
+                    sc_run = np.max(clip)-np.min(clip)
+                    log.debug(f"sc_mean ({sc_mean}), sc_median ({sc_median}), sc_std ({sc_std})")
+                    log.debug (f"sc_skew ({sc_skew}), sc_skew_pval ({sc_skew_pval}), sc_zero_std ({sc_zero_std}), sc_kurt ({sc_kurt}), sc_run ({sc_run})")
 
-
-                #no ... these can trap signal (real) sources and good images
-                # elif (mean < 0) and (skew < -1.0) and (skew_pval < 1e-20):
-                #     log.warning(f"Negative mean ({mean}, very negative skew ({skew}), and very inconsistent with normal (pval {skew_pval}). "
-                #                f"Assume cutout is empty or simple pattern or junk.")
-                #     rc = True
-                # elif (median < mean) and (mean < 0) and (skew < 0.0) and (skew_pval < 1e-20):
-                #     log.warning(f"Negative median ({median} < negative mean ({mean}), very negative skew ({skew}), "
-                #                 f"and very inconsistent with normal (pval {skew_pval}). "
-                #                f"Assume cutout is empty or simple pattern or junk.")
-                #     rc = True
-                elif frac_uniq < 0.9:
-                    log.info(f"Low fraction of unique pixels ({frac_uniq}). Image may be bad.")
-                    if check_unique_fraction:
+                    if frac_uniq < G.FRAC_UNIQUE_PIXELS_MINIMUM:
+                        log.warning(f"Fraction of (minimum) unique pixels ({frac_uniq}) < ({G.FRAC_UNIQUE_PIXELS_MINIMUM}) "
+                                    f" Assume cutout is empty or simple pattern.")
                         rc = True
-                    #print(f"Low fraction of unique pixels ({frac_uniq}). Image may be bad.")
+                    elif (frac_uniq < G.FRAC_UNIQUE_PIXELS_NOT_EMPTY) and (frac_top_duplicates > G.FRAC_DUPLICATE_PIXELS):
+                            #and (uniq_array[np.argmax(uniq_counts)] < 5000.0):
+                        log.warning(f"Fraction of unique pixels ({frac_uniq}) < ({G.FRAC_UNIQUE_PIXELS_NOT_EMPTY}) "
+                                    f"and fraction of top duplicates ({frac_top_duplicates}) > ({G.FRAC_DUPLICATE_PIXELS}) "
+                                 f" Assume cutout is empty or simple pattern.")
+                        rc = True
+                    elif ((hzc > 0.99) or (vtc > 0.99)) and (frac_uniq < G.FRAC_UNIQUE_PIXELS_AUTOCORRELATE):
+                        log.warning(f"Fraction of unique pixels ({frac_uniq}) small AND horizontal or vertical "
+                                 f"auto-correlaction. Assume cutout is empty or simple pattern.")
+                        rc = True
+                    elif frac_nonzero < G.FRAC_NONZERO_PIXELS:
+                        log.warning(f"Fraction of zero pixels ({frac_nonzero}) < ({G.FRAC_NONZERO_PIXELS}). "
+                                    f"Assume cutout is empty or simple pattern.")
+                        rc = True
+                    elif (sc_zero_std < -2.5) and (sc_skew_pval < 1e-20):
+                        log.warning(f"Negative median ({sc_median},  ({sc_zero_std}) from zero,"
+                                    f"and very inconsistent with normal (pval {sc_skew_pval}) post sigma-clip. "
+                                   f"Assume cutout is empty or simple pattern or junk.")
+                        rc = True
+                    elif sc_zero_std < -10.0 : #absurdly low (basically, small std dev and all values are very negative)
+                        log.warning(f"Very negative values, ({sc_zero_std}) std from zero,"
+                                   f"Assume cutout is empty or simple pattern or junk.")
+                        rc = True
+
+
+                    #no ... these can trap signal (real) sources and good images
+                    # elif (mean < 0) and (skew < -1.0) and (skew_pval < 1e-20):
+                    #     log.warning(f"Negative mean ({mean}, very negative skew ({skew}), and very inconsistent with normal (pval {skew_pval}). "
+                    #                f"Assume cutout is empty or simple pattern or junk.")
+                    #     rc = True
+                    # elif (median < mean) and (mean < 0) and (skew < 0.0) and (skew_pval < 1e-20):
+                    #     log.warning(f"Negative median ({median} < negative mean ({mean}), very negative skew ({skew}), "
+                    #                 f"and very inconsistent with normal (pval {skew_pval}). "
+                    #                f"Assume cutout is empty or simple pattern or junk.")
+                    #     rc = True
+                    elif frac_uniq < 0.9:
+                        log.info(f"Low fraction of unique pixels ({frac_uniq}). Image may be bad.")
+                        if check_unique_fraction:
+                            rc = True
+                        #print(f"Low fraction of unique pixels ({frac_uniq}). Image may be bad.")
             except:
                 log.debug("*** Exception! Exception in science_image::is_cutout_empty()", exc_info=True)
     except:
@@ -1624,6 +1637,7 @@ class science_image():
                 if (source_objects is not None) and (len(source_objects) > 0):
 
                     #get the mag for all
+
                     for sobj in source_objects:
 
                         #start with the the fixed aperture (since we re-use the varaiables: counts, etc later
@@ -1720,6 +1734,7 @@ class science_image():
                         except:
                             log.error("Exception calling mag_func.",exc_info=True)
 
+
                         sobj['mag'] = mag if mag < 90 else 99.9
                         sobj['mag_faint'] = mag_faint if mag_faint < 90 else 99.9
                         sobj['mag_bright'] = mag_bright if mag_bright < 90 else 99.9
@@ -1737,7 +1752,10 @@ class science_image():
                             log.debug("Exception converting source extrator x,y to RA, Dec", exc_info=True)
 
 
-                            #matplotlib plotting later needs these in sky units (arcsec) not pixels
+
+                        #matplotlib plotting later needs these in sky units (arcsec) not pixels
+
+
 
                     if detobj is not None and detobj.best_gmag is not None and selected_obj_idx is not None:
                         try:

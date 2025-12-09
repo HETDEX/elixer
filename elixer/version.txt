@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.24.1a4 [2025-12-09]
+* update restricted catalog cat_rstr_cosmos_hst_jwst for new imaging tiles
+
 1.24.1a3 [2025-12-03]
 * fix bug where dust correction in aperture and source extractor was not persisting to the h5 catalog
   (was only being applied to the "selected" object and even then was being overwritten at the end)
