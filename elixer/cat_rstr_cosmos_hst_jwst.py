@@ -897,13 +897,18 @@ class COSMOS_HST(cat_base.Catalog):
             wcs_manual = False
             f = self.Tile_Dict[t]['filter']
 
+            if "primer" in op.basename(self.Tile_Dict[t]['path']):
+                instr = "PRIMER HST"
+            else:
+                instr = "MOSAIC HST"
+
             #note: self.CatalogImages already has some in it, so we are appending the new ones
             self.CatalogImages.append(
                 {'path': path,
                  'name': name, #filename is the tilename
                  'tile': t,
                  'filter': f,
-                 'instrument': "HST COSMOS",
+                 'instrument': instr,
                  'cols': [],
                  'labels': [],
                  'image': None,
@@ -994,6 +999,10 @@ class COSMOS_HST(cat_base.Catalog):
             path = op.dirname(self.Tile_Dict[t]['path'])
             wcs_manual = False
             f = self.Tile_Dict[t]['filter']
+            if "primer" in op.basename(self.Tile_Dict[t]['path']):
+                instr = "PRIMER HST"
+            else:
+                instr = "MOSAIC HST"
 
             #note: self.CatalogImages already has some in it, so we are appending the new ones
             self.CatalogImages.append(
@@ -1001,7 +1010,7 @@ class COSMOS_HST(cat_base.Catalog):
                  'name': name, #filename is the tilename
                  'tile': t,
                  'filter': f,
-                 'instrument': "HST COSMOS",
+                 'instrument': instr,
                  'cols': [],
                  'labels': [],
                  'image': None,
