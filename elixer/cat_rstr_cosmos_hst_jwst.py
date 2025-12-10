@@ -56,22 +56,33 @@ def count_to_mag(count,cutout=None,headers=None,dust_mag_correction=0.0):
         #if cutout is not None:
         #get the conversion factor, each tile is different
         try:
+            do_flam = False
+            do_mjsr = False
             for h in headers:
                 if 'PHOTFLAM' in h:
                     photoflam = float(h['PHOTFLAM']) #inverse sensitivity, ergs / cm2 / Ang / electron
                     photozero = float(h['PHOTZPT']) #/ ST magnitude zero point
+                    do_flam = True
+                    break
+                elif 'PHOTMJSR' in h and 'PIXAR_SR' in h:
+                    photmjsr = float(h['PHOTMJSR']) #mJy/sr
+                    pixar_sr = float(h['PIXAR_SR'])  # pixel area per sr
+                    do_mjsr = True
                     break
                 else:
                     log.warning("Cannot compute flux from counts. No defined conversion.")
                     return 99.9
 
-
             if not isinstance(count, float):
                 count = count.value
 
             if count > 0:
-                flux = photoflam*count
-                return  -2.5 * np.log10(flux) + photozero + dust_mag_correction
+                if do_flam:
+                    return  -2.5 * np.log10(photoflam*count) + photozero + dust_mag_correction
+                elif do_mjsr:
+                    return -6.10 - 2.5 * np.log10(count * photmjsr * pixar_sr) + dust_mag_correction
+                else:
+                    return 99.9
             else:
                 return 99.9  # need a better floor
         except:
@@ -809,7 +820,8 @@ class COSMOS_HST(cat_base.Catalog):
     def build_catalog_images(self):
         for i in self.CatalogImages:  # i is a dictionary
             i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
-                                                     image_location=op.join(i['path'], i['name']))
+                                                     image_location=op.join(i['path'], i['name']),
+                                                     mag_depth=i['mag_depth'])
 
     @classmethod
     def read_photoz_catalog(cls):
@@ -916,7 +928,8 @@ class COSMOS_HST(cat_base.Catalog):
                  'wcs_manual': wcs_manual,
                  'aperture': self.mean_FWHM * 0.5 + 0.5, #since a radius, half the FWHM + 0.5" for astrometric error
                  'mag_func': count_to_mag,
-                 'sky_subtract': False
+                 'sky_subtract': False,
+                 'mag_depth': self.MAG_LIMIT #could be as deep as 31.5 for HST as best case
                  })
 
 
@@ -1075,7 +1088,8 @@ class COSMOS_HST(cat_base.Catalog):
                     #any coverage
 
                     sci = science_image.science_image(wcs_manual=self.WCS_Manual,
-                                               image_location=self.Tile_Dict[k]['path'])
+                                               image_location=self.Tile_Dict[k]['path'],
+                                               mag_depth=self.MAG_LIMIT)
 
                     cutout, *_  = sci.get_cutout(ra, dec, error=1.0, window=1.0,
                                                  aperture=None, mag_func=None, copy=False,
@@ -1222,7 +1236,8 @@ class COSMOS_HST(cat_base.Catalog):
             try:
                 if i['image'] is None:
                     i['image'] = science_image.science_image(wcs_manual=wcs_manual,
-                                                             image_location=op.join(i['path'], i['name']))
+                                                             image_location=op.join(i['path'], i['name']),
+                                                             mag_depth=i['mag_depth'])
                 sci = i['image']
 
                 cutout, _, _, _ = sci.get_cutout(ra, dec, error, window=window, aperture=None, mag_func=None)
@@ -1573,7 +1588,8 @@ class COSMOS_HST(cat_base.Catalog):
 
             if i['image'] is None:
                 i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
-                                                         image_location=op.join(i['path'], i['name']))
+                                                         image_location=op.join(i['path'], i['name']),
+                                                         mag_depth=self.MAG_LIMIT)
             sci = i['image']
 
             # sci.load_image(wcs_manual=True)

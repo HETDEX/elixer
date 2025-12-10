@@ -427,7 +427,7 @@ def is_cutout_empty(cutout,check_unique_fraction=False):
 
 class science_image():
 
-    def __init__(self, wcs_manual=False, image_location=None,frame=None, wcs_idx=0, hdulist=None):
+    def __init__(self, wcs_manual=False, image_location=None,frame=None, wcs_idx=0, hdulist=None, mag_depth=None):
         self.image_location = None
         #self.image_name = None
         self.compressed = False
@@ -460,6 +460,7 @@ class science_image():
         self.wcs_manual = wcs_manual
         self.wcs_idx = wcs_idx #usually on hdu 0 but sometimes not (i.e. HyperSuprimeCam on 1)
         self.footprint = None #on sky footprint, decimal degrees Ra,Dec as 4x2 array (with North up: LL, UL, UR, LR)
+        self.mag_depth = mag_depth #for source extractor, reject detections deeper than this + error (if not None)
 
         #todo: do I need to worry about this?
         if frame is not None:
@@ -1637,7 +1638,8 @@ class science_image():
                 if (source_objects is not None) and (len(source_objects) > 0):
 
                     #get the mag for all
-
+                    #remove any that cannot get a magnitude computed
+                    keep_sobj = []
                     for sobj in source_objects:
 
                         #start with the the fixed aperture (since we re-use the varaiables: counts, etc later
@@ -1743,6 +1745,7 @@ class science_image():
                         try:
                             #this assumes lower-left is 0,0 but the object x,y uses center as 0,0
                             #sobj['x'] and y ARE IN ARCSEC ... need to be in pixels for this cal
+                            # FYI matplotlib plotting later needs these in sky units (arcsec) not pixels
                             sc = wcs_utils.pixel_to_skycoord(sobj['x']/self.pixel_size + cutout.center_cutout[0],
                                                              sobj['y']/self.pixel_size + cutout.center_cutout[1],
                                                              cutout.wcs, origin=0)
@@ -1751,11 +1754,27 @@ class science_image():
                         except:
                             log.debug("Exception converting source extrator x,y to RA, Dec", exc_info=True)
 
+                        #make it positive logic to be more clear
+                        check_mag = sobj['mag_faint'] if sobj['mag_faint'] is not None else sobj['mag'] + 0.5 #allow some error
+                        if (self.mag_depth is not None and check_mag is not None) and \
+                                (self.mag_depth > G.SOURCE_EXTRACTOR_MIN_MAG_LIMIT) and \
+                                (check_mag > self.mag_depth):
+                            keep_sobj.append(False) #limit is defined and "detection" is fainter than the limit
+                        else:
+                            keep_sobj.append(True) #limit is NOT defined or "detection" is brighter than the limit
 
+                    if selected_obj_idx is not None:
+                        keep_sobj[selected_obj_idx] = True
+                        saved_sobj = source_objects[selected_obj_idx]
+                    else:
+                        saved_sobj = None
 
-                        #matplotlib plotting later needs these in sky units (arcsec) not pixels
-
-
+                    source_objects = list(np.array(source_objects)[np.array(keep_sobj)])
+                    #update to the new index for selected_obj_index
+                    if saved_sobj is not None:
+                        selected_obj_idx = source_objects.index(saved_sobj)
+                    else:
+                        selected_obj_idx = None
 
                     if detobj is not None and detobj.best_gmag is not None and selected_obj_idx is not None:
                         try:

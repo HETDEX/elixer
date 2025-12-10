@@ -315,7 +315,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
     def build_catalog_images(self):
         for i in self.CatalogImages:  # i is a dictionary
             i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
-                                                     image_location=op.join(i['path'], i['name']))
+                                                     image_location=op.join(i['path'], i['name']),
+                                                     mag_depth=self.MAG_LIMIT)
 
     @classmethod
     def read_main_catalog(cls):
@@ -639,7 +640,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             try:
                 if i['image'] is None:
                     i['image'] = science_image.science_image(wcs_manual=wcs_manual,
-                                                             image_location=op.join(i['path'], i['name']))
+                                                             image_location=op.join(i['path'], i['name']),
+                                                             mag_depth=self.MAG_LIMIT)
                 sci = i['image']
 
                 cutout, _, _, _ = sci.get_cutout(ra, dec, error, window=window, aperture=None, mag_func=None)
@@ -995,7 +997,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
             if i['image'] is None:
                 i['image'] = science_image.science_image(wcs_manual=wcs_manual,
-                                                         image_location=op.join(i['path'], i['name']))
+                                                         image_location=op.join(i['path'], i['name']),
+                                                         mag_depth=self.MAG_LIMIT)
             sci = i['image']
 
             # sci.load_image(wcs_manual=True)

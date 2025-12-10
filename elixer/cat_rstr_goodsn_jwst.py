@@ -48,6 +48,43 @@ pd.options.mode.chained_assignment = None  #turn off warning about setting the d
 GOODSN_JWST_BASEPATH = "/work/03564/stevenf/lonestar/JWST_images/GOODSN"
 
 
+def count_to_mag(count,cutout=None,headers=None,dust_mag_correction=0.0):
+    if count is not None:
+        #if cutout is not None:
+        #get the conversion factor, each tile is different
+        try:
+            do_flam = False
+            do_mjsr = False
+            for h in headers:
+                if 'PHOTFLAM' in h:
+                    photoflam = float(h['PHOTFLAM']) #inverse sensitivity, ergs / cm2 / Ang / electron
+                    photozero = float(h['PHOTZPT']) #/ ST magnitude zero point
+                    do_flam = True
+                    break
+                elif 'PHOTMJSR' in h and 'PIXAR_SR' in h:
+                    photmjsr = float(h['PHOTMJSR']) #mJy/sr
+                    pixar_sr = float(h['PIXAR_SR'])  # pixel area per sr
+                    do_mjsr = True
+                    break
+                else:
+                    log.warning("Cannot compute flux from counts. No defined conversion.")
+                    return 99.9
+
+            if not isinstance(count, float):
+                count = count.value
+
+            if count > 0:
+                if do_flam:
+                    return  -2.5 * np.log10(photoflam*count) + photozero + dust_mag_correction
+                elif do_mjsr:
+                    return -6.10 - 2.5 * np.log10(count * photmjsr * pixar_sr) + dust_mag_correction
+                else:
+                    return 99.9
+            else:
+                return 99.9  # need a better floor
+        except:
+            log.warning("Exception in count_to_mag",exc_info=True)
+            return 99.9
 
 def jwst_count_to_mag(count,cutout=None,headers=None,dust_mag_correction=0.0):
     if count is not None:
@@ -278,7 +315,8 @@ class GOODSN_JWST(cat_base.Catalog):
     def build_catalog_images(self):
         for i in self.CatalogImages:  # i is a dictionary
             i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
-                                                     image_location=op.join(i['path'], i['name']))
+                                                     image_location=op.join(i['path'], i['name']),
+                                                     mag_depth=self.MAG_LIMIT)
 
     @classmethod
     def read_photoz_catalog(cls):
@@ -523,7 +561,8 @@ class GOODSN_JWST(cat_base.Catalog):
             try:
                 if i['image'] is None:
                     i['image'] = science_image.science_image(wcs_manual=wcs_manual,
-                                                             image_location=op.join(i['path'], i['name']))
+                                                             image_location=op.join(i['path'], i['name']),
+                                                             mag_depth=self.MAG_LIMIT)
                 sci = i['image']
 
                 cutout, _, _, _ = sci.get_cutout(ra, dec, error, window=window, aperture=None, mag_func=None)
@@ -872,7 +911,8 @@ class GOODSN_JWST(cat_base.Catalog):
 
             if i['image'] is None:
                 i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
-                                                         image_location=op.join(i['path'], i['name']))
+                                                         image_location=op.join(i['path'], i['name']),
+                                                         mag_depth=self.MAG_LIMIT)
             sci = i['image']
 
             # sci.load_image(wcs_manual=True)

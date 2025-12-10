@@ -1,7 +1,9 @@
 changes to elixer by version
 
-1.24.1a4 [2025-12-09]
+1.24.1a4 [2025-12-10]
 * update restricted catalog cat_rstr_cosmos_hst_jwst for new imaging tiles
+* add enforceable maglimit on source extractor detection (see global_config SOURCE_EXTRACTOR_MIN_MAG_LIMIT and
+  the individual catalog mag_limits). Currently only set to potentially trigger for HST and JWST.
 
 1.24.1a3 [2025-12-03]
 * fix bug where dust correction in aperture and source extractor was not persisting to the h5 catalog
