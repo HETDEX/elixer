@@ -159,7 +159,8 @@ class UDS_HST(cat_base.Catalog):
          'wcs_manual': False,
          'aperture': mean_FWHM* 0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
          'mag_func': count_to_mag,
-         'sky_subtract': False
+         'sky_subtract': False,
+         'mag_depth': 27.72,
          },
 
         {'path': UDS_HST_BASEPATH,
@@ -173,7 +174,8 @@ class UDS_HST(cat_base.Catalog):
          'wcs_manual': False,
          'aperture': mean_FWHM* 0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
          'mag_func': count_to_mag,
-         'sky_subtract': False
+         'sky_subtract': False,
+         'mag_depth': 28.40,
          },
         {'path': UDS_HST_BASEPATH,
          'name': 'primeruds_acs_f814w_sci.fits',
@@ -186,7 +188,8 @@ class UDS_HST(cat_base.Catalog):
          'wcs_manual': False,
          'aperture':mean_FWHM* 0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
          'mag_func': count_to_mag,
-         'sky_subtract': False
+         'sky_subtract': False,
+         'mag_depth': 28.27,
          },
         {'path': UDS_HST_BASEPATH,
          'name': 'primeruds_wfc3_f125w_sci.fits',
@@ -199,7 +202,8 @@ class UDS_HST(cat_base.Catalog):
          'wcs_manual': False,
          'aperture': mean_FWHM* 0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
          'mag_func': count_to_mag,
-         'sky_subtract': False
+         'sky_subtract': False,
+         'mag_depth': 26.95,
          },
         {'path': UDS_HST_BASEPATH,
         'name': 'primeruds_wfc3_f140w_sci.fits',
@@ -212,7 +216,8 @@ class UDS_HST(cat_base.Catalog):
         'wcs_manual': False,
         'aperture': mean_FWHM* 0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
         'mag_func': count_to_mag,
-        'sky_subtract': False
+        'sky_subtract': False,
+        'mag_depth': 26.18,
         },
         {'path': UDS_HST_BASEPATH,
          'name': 'primeruds_wfc3_f160w_sci.fits',
@@ -225,7 +230,8 @@ class UDS_HST(cat_base.Catalog):
          'wcs_manual': False,
          'aperture': mean_FWHM* 0.5 + 0.5, # since a radius, half the FWHM + 0.5" for astrometric error
          'mag_func': count_to_mag,
-         'sky_subtract': False
+         'sky_subtract': False,
+         'mag_depth': 27.81,
          },
         {'path': UDS_HST_BASEPATH,
          'name': 'primeruds_nrc_f090w_sci.fits',
@@ -238,7 +244,8 @@ class UDS_HST(cat_base.Catalog):
          'wcs_manual': False,
          'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
          'mag_func': jwst_count_to_mag,
-         'sky_subtract': False
+         'sky_subtract': False,
+         'mag_depth': 28.31,
          },
         {'path': UDS_HST_BASEPATH,
          'name': 'primeruds_nrc_f115w_sci.fits',
@@ -251,7 +258,8 @@ class UDS_HST(cat_base.Catalog):
          'wcs_manual': False,
          'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
          'mag_func': jwst_count_to_mag,
-         'sky_subtract': False
+         'sky_subtract': False,
+         'mag_depth': 28.43,
          },
         {'path': UDS_HST_BASEPATH,
          'name': 'primeruds_nrc_f150w_sci.fits',
@@ -264,7 +272,8 @@ class UDS_HST(cat_base.Catalog):
          'wcs_manual': False,
          'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
          'mag_func': jwst_count_to_mag,
-         'sky_subtract': False
+         'sky_subtract': False,
+         'mag_depth': 28.63,
          },
         {'path': UDS_HST_BASEPATH,
          'name': 'primeruds_nrc_f200w_sci.fits',
@@ -277,7 +286,8 @@ class UDS_HST(cat_base.Catalog):
          'wcs_manual': False,
          'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
          'mag_func': jwst_count_to_mag,
-         'sky_subtract': False
+         'sky_subtract': False,
+         'mag_depth': 28.73,
          },
         {'path': UDS_HST_BASEPATH,
          'name': 'primeruds_nrc_f277w_sci.fits',
@@ -290,7 +300,8 @@ class UDS_HST(cat_base.Catalog):
          'wcs_manual': False,
          'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
          'mag_func': jwst_count_to_mag,
-         'sky_subtract': False
+         'sky_subtract': False,
+         'mag_depth': 29.12,
          },
         {'path': UDS_HST_BASEPATH,
          'name': 'primeruds_nrc_f356w_sci.fits',
@@ -303,7 +314,8 @@ class UDS_HST(cat_base.Catalog):
          'wcs_manual': False,
          'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
          'mag_func': jwst_count_to_mag,
-         'sky_subtract': False
+         'sky_subtract': False,
+         'mag_depth': 29.10,
          },
         {'path': UDS_HST_BASEPATH,
          'name': 'primeruds_nrc_f410m_sci.fits',
@@ -316,7 +328,8 @@ class UDS_HST(cat_base.Catalog):
          'wcs_manual': False,
          'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
          'mag_func': jwst_count_to_mag,
-         'sky_subtract': False
+         'sky_subtract': False,
+         'mag_depth': 28.29,
          },
         {'path': UDS_HST_BASEPATH,
          'name': 'primeruds_nrc_f444w_sci.fits',
@@ -329,7 +342,8 @@ class UDS_HST(cat_base.Catalog):
          'wcs_manual': False,
          'aperture': mean_FWHM * 0.5 + 0.5,  # since a radius, half the FWHM + 0.5" for astrometric error
          'mag_func': jwst_count_to_mag,
-         'sky_subtract': False
+         'sky_subtract': False,
+         'mag_depth': 28.68,
          }
     ]
 
@@ -357,7 +371,7 @@ class UDS_HST(cat_base.Catalog):
         for i in self.CatalogImages:  # i is a dictionary
             i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
                                                      image_location=op.join(i['path'], i['name']),
-                                                     mag_depth=self.MAG_LIMIT)
+                                                     mag_depth=i['mag_depth'])
 
     @classmethod
     def read_photoz_catalog(cls):
@@ -603,7 +617,7 @@ class UDS_HST(cat_base.Catalog):
                 if i['image'] is None:
                     i['image'] = science_image.science_image(wcs_manual=wcs_manual,
                                                              image_location=op.join(i['path'], i['name']),
-                                                             mag_depth=self.MAG_LIMIT)
+                                                             mag_depth=i['mag_depth'])
                 sci = i['image']
 
                 cutout, _, _, _ = sci.get_cutout(ra, dec, error, window=window, aperture=None, mag_func=None)
@@ -953,8 +967,12 @@ class UDS_HST(cat_base.Catalog):
             if i['image'] is None:
                 i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
                                                          image_location=op.join(i['path'], i['name']),
-                                                         mag_depth=self.MAG_LIMIT)
+                                                         mag_depth=i['mag_depth'])
             sci = i['image']
+            try:
+                mag_limit = i['mag_depth'] if i['mag_depth'] is not None else self.MAG_LIMIT
+            except:
+                mag_limit = self.MAG_LIMIT
 
             # sci.load_image(wcs_manual=True)
             #log.info("Reminder: aperture issue with .drz fits file, so no forced aperture magnitude.")
@@ -962,14 +980,14 @@ class UDS_HST(cat_base.Catalog):
                                                      aperture=aperture, mag_func=mag_func,
                                                     do_sky_subtract=do_sky_subtract,return_details=True,detobj=detobj)
 
-            if (self.MAG_LIMIT < mag < 100) and (mag_radius > 0):
+            if (mag_limit < mag < 100) and (mag_radius > 0):
                 details['fail_mag_limit'] = True
                 details['raw_mag'] = mag
                 details['raw_mag_bright'] = details['mag_bright']
                 details['raw_mag_faint'] = details['mag_faint']
                 details['raw_mag_err'] = details['mag_err']
-                log.warning(f"Cutout mag {mag} greater than limit {self.MAG_LIMIT}. Setting to limit.")
-                mag = self.MAG_LIMIT
+                log.warning(f"Cutout mag {mag} greater than limit {mag_limit}. Setting to limit.")
+                mag = mag_limit
                 if details:
                     details['mag'] = mag
                     details['mag_raw'] = mag  # mag limit

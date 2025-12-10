@@ -2795,7 +2795,13 @@ class Catalog:
                d['cutout'] = cutout
                details['catalog_name']=self.name
                details['filter_name']=catalog_image['filter']
-               d['mag_limit']=self.get_mag_limit(catalog_image['name'],mag_radius*2.)
+               try:
+                   if catalog_image['mag_depth'] is not None:
+                       d['mag_limit'] = catalog_image['mag_depth']
+                   else:
+                       d['mag_limit']=self.get_mag_limit(catalog_image['name'],mag_radius*2.)
+               except:
+                    d['mag_limit'] = self.get_mag_limit(catalog_image['name'], mag_radius * 2.)
 
                # get the dust correction
                details['dust_corr_mult'] = 1.0

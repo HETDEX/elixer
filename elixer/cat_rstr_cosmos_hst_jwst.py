@@ -130,6 +130,7 @@ class COSMOS_HST(cat_base.Catalog):
     MainCatalog = None
     Name = "COSMOS-HST"
     MAG_LIMIT = 28.0 # associated catalog goes deeper, but this is a general limit 29-30 mag
+    PRIMER_MAG_LIMIT = 28.0
     mean_FWHM = 0.15 #typical use for photometric aperture, but is too good here ... objects that are point
                     #sources may be resolved with HST
 
@@ -362,6 +363,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.1875370916742938,
              'instrument': 'HST',
              'filter': 'f606w',
+             'mag_limit': 28.29,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A4_v0.3_drz.fits'},
         'mosaic_cosmos_web_30mas_tile_B4_hst_acs_wfc_f814w_drz.fits':
             {'RA_min': 150.25824396380185,
@@ -370,6 +372,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.549001508072617,
              'instrument': 'HST',
              'filter': 'f814w',
+             'mag_limit': MAG_LIMIT,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B4_hst_acs_wfc_f814w_drz.fits'},
         'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A9_v0.3_drz.fits':
             {'RA_min': 150.060744341293,
@@ -378,6 +381,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.0067979164950267,
              'instrument': 'HST',
              'filter': 'f606w',
+             'mag_limit': 27.47,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A9_v0.3_drz.fits'},
         'mosaic_cosmos_web_30mas_tile_A3_hst_acs_wfc_f814w_drz.fits':
             {'RA_min': 149.99100431662018,
@@ -386,6 +390,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.2368461872506997,
              'instrument': 'HST',
              'filter': 'f814w',
+             'mag_limit': 28.16,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A3_hst_acs_wfc_f814w_drz.fits'},
         'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A2_v0.3_drz.fits':
             {'RA_min': 149.85543939696583,
@@ -394,6 +399,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.2861424971185635,
              'instrument': 'HST',
              'filter': 'f606w',
+             'mag_limit': 27.89,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A2_v0.3_drz.fits'},
         'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B7_v0.3_drz.fits':
             {'RA_min': 149.92124313872156,
@@ -402,6 +408,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.4668894600843254,
              'instrument': 'HST',
              'filter': 'f606w',
+             'mag_limit': 28.09,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B7_v0.3_drz.fits'},
         'mosaic_cosmos_web_30mas_tile_A10_hst_acs_wfc_f814w_drz.fits':
             {'RA_min': 150.19627860994615,
@@ -410,6 +417,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 1.95748401478021,
              'instrument': 'HST',
              'filter': 'f814w',
+             'mag_limit': 27.78,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A10_hst_acs_wfc_f814w_drz.fits'},
         'mosaic_cosmos_web_30mas_tile_B1_hst_acs_wfc_f814w_drz.fits':
             {'RA_min': 149.851461004901,
@@ -418,6 +426,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.6969192958678105,
              'instrument': 'HST',
              'filter': 'f814w',
+             'mag_limit': 27.79,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B1_hst_acs_wfc_f814w_drz.fits'},
         'mosaic_cosmos_web_30mas_tile_A6_hst_acs_wfc_f814w_drz.fits':
             {'RA_min': 149.65409755274575,
@@ -426,6 +435,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.1546707802954272,
              'instrument': 'HST',
              'filter': 'f814w',
+             'mag_limit': 27.75,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A6_hst_acs_wfc_f814w_drz.fits'},
         'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A5_v0.3_drz.fits':
             {'RA_min': 150.2621099490618,
@@ -434,6 +444,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.13821611167579,
              'instrument': 'HST',
              'filter': 'f606w',
+             'mag_limit': 28.11,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A5_v0.3_drz.fits'},
         'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B1_v0.3_drz.fits':
             {'RA_min': 149.851461004901,
@@ -442,6 +453,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.6969192958678105,
              'instrument': 'HST',
              'filter': 'f606w',
+             'mag_limit': 28.06,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B1_v0.3_drz.fits'},
         'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A3_v0.3_drz.fits':
             {'RA_min': 149.99100431662018,
@@ -450,6 +462,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.2368461872506997,
              'instrument': 'HST',
              'filter': 'f606w',
+             'mag_limit': 28.30,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A3_v0.3_drz.fits'},
         'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B5_v0.3_drz.fits':
             {'RA_min': 150.39381918907853,
@@ -458,6 +471,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.4996665630963677,
              'instrument': 'HST',
              'filter': 'f606w',
+             'mag_limit': MAG_LIMIT,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B5_v0.3_drz.fits'},
         'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A1_v0.3_drz.fits':
             {'RA_min': 149.7198684312791,
@@ -466,6 +480,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.335425120651174,
              'instrument': 'HST',
              'filter': 'f606w',
+             'mag_limit': 27.98,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A1_v0.3_drz.fits'},
         'mosaic_cosmos_web_30mas_tile_B6_hst_acs_wfc_f814w_drz.fits':
             {'RA_min': 149.78565630431362,
@@ -474,6 +489,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.5161760634349686,
              'instrument': 'HST',
              'filter': 'f814w',
+             'mag_limit': 27.89,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B6_hst_acs_wfc_f814w_drz.fits'},
         'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A8_v0.3_drz.fits':
             {'RA_min': 149.92520173116802,
@@ -482,6 +498,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.0561009452042205,
              'instrument': 'HST',
              'filter': 'f606w',
+             'mag_limit': 27.70,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A8_v0.3_drz.fits'},
         'mosaic_cosmos_web_30mas_tile_B7_hst_acs_wfc_f814w_drz.fits':
             {'RA_min': 149.92124313872156,
@@ -490,6 +507,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.4668894600843254,
              'instrument': 'HST',
              'filter': 'f814w',
+             'mag_limit': 27.77,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B7_hst_acs_wfc_f814w_drz.fits'},
         'mosaic_cosmos_web_30mas_tile_B9_hst_acs_wfc_f814w_drz.fits':
             {'RA_min': 150.19239493646083,
@@ -498,6 +516,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.368273059798537,
              'instrument': 'HST',
              'filter': 'f814w',
+             'mag_limit': 27.89,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B9_hst_acs_wfc_f814w_drz.fits'},
         'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A10_v0.3_drz.fits':
             {'RA_min': 150.19627860994615,
@@ -506,6 +525,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 1.95748401478021,
              'instrument': 'HST',
              'filter': 'f606w',
+             'mag_limit': 28.63, #note file says 98.63, but assume that is a typo
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A10_v0.3_drz.fits'},
         'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A6_v0.3_drz.fits':
             {'RA_min': 149.65409755274575,
@@ -514,6 +534,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.1546707802954272,
              'instrument': 'HST',
              'filter': 'f606w',
+             'mag_limit': 27.62,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A6_v0.3_drz.fits'},
         'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B3_v0.3_drz.fits':
             {'RA_min': 150.12265817959866,
@@ -522,6 +543,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.5983225463216413,
              'instrument': 'HST',
              'filter': 'f606w',
+             'mag_limit': 28.10,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B3_v0.3_drz.fits'},
         'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B9_v0.3_drz.fits':
             {'RA_min': 150.19239493646083,
@@ -530,6 +552,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.368273059798537,
              'instrument': 'HST',
              'filter': 'f606w',
+             'mag_limit': 28.17,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B9_v0.3_drz.fits'},
         'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B2_v0.3_drz.fits':
             {'RA_min': 149.98706335393913,
@@ -538,6 +561,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.6476287759604964,
              'instrument': 'HST',
              'filter': 'f606w',
+             'mag_limit': 28.09,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B2_v0.3_drz.fits'},
         'mosaic_cosmos_web_30mas_tile_B2_hst_acs_wfc_f814w_drz.fits':
             {'RA_min': 149.98706335393913,
@@ -546,6 +570,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.6476287759604964,
              'instrument': 'HST',
              'filter': 'f814w',
+             'mag_limit': 28.09,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B2_hst_acs_wfc_f814w_drz.fits'},
         'mosaic_cosmos_web_30mas_tile_B5_hst_acs_wfc_f814w_drz.fits':
             {'RA_min': 150.39381918907853,
@@ -554,6 +579,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.4996665630963677,
              'instrument': 'HST',
              'filter': 'f814w',
+             'mag_limit': MAG_LIMIT,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B5_hst_acs_wfc_f814w_drz.fits'},
         'mosaic_cosmos_web_30mas_tile_B8_hst_acs_wfc_f814w_drz.fits':
             {'RA_min': 150.05682318867414,
@@ -562,6 +588,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.4175881585798864,
              'instrument': 'HST',
              'filter': 'f814w',
+             'mag_limit': 28.17,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B8_hst_acs_wfc_f814w_drz.fits'},
         'mosaic_cosmos_web_30mas_tile_A7_hst_acs_wfc_f814w_drz.fits':
             {'RA_min': 149.78965229601744,
@@ -570,6 +597,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.1053921999280165,
              'instrument': 'HST',
              'filter': 'f814w',
+             'mag_limit': 27.87,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A7_hst_acs_wfc_f814w_drz.fits'},
         'mosaic_cosmos_web_30mas_tile_A9_hst_acs_wfc_f814w_drz.fits':
             {'RA_min': 150.060744341293,
@@ -578,6 +606,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.0067979164950267,
              'instrument': 'HST',
              'filter': 'f814w',
+             'mag_limit': 27.77,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A9_hst_acs_wfc_f814w_drz.fits'},
         'mosaic_cosmos_web_30mas_tile_A8_hst_acs_wfc_f814w_drz.fits':
             {'RA_min': 149.92520173116802,
@@ -586,6 +615,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.0561009452042205,
              'instrument': 'HST',
              'filter': 'f814w',
+             'mag_limit': 27.73,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A8_hst_acs_wfc_f814w_drz.fits'},
         'mosaic_cosmos_web_30mas_tile_A2_hst_acs_wfc_f814w_drz.fits':
             {'RA_min': 149.85543939696583,
@@ -594,6 +624,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.2861424971185635,
              'instrument': 'HST',
              'filter': 'f814w',
+             'mag_limit': 27.84,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A2_hst_acs_wfc_f814w_drz.fits'},
         'mosaic_cosmos_web_30mas_tile_A1_hst_acs_wfc_f814w_drz.fits':
             {'RA_min': 149.7198684312791,
@@ -602,6 +633,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.335425120651174,
              'instrument': 'HST',
             'filter': 'f814w',
+             'mag_limit': 27.80,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A1_hst_acs_wfc_f814w_drz.fits'},
         'mosaic_cosmos_web_30mas_tile_A4_hst_acs_wfc_f814w_drz.fits':
             {'RA_min': 150.12656167292266,
@@ -610,13 +642,16 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.1875370916742938,
              'instrument': 'HST',
              'filter': 'f814w',
+             'mag_limit': 27.90,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A4_hst_acs_wfc_f814w_drz.fits'},
         'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A7_v0.3_drz.fits':
             {'RA_min': 149.78965229601744,
              'RA_max': 150.01109702908423,
              'Dec_min': 1.8556313946327687,
              'Dec_max': 2.1053921999280165,
-             'instrument': 'HST', 'filter': 'f606w',
+             'instrument': 'HST',
+             'filter': 'f606w',
+             'mag_limit': 27.96,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_A7_v0.3_drz.fits'},
         'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B8_v0.3_drz.fits':
             {'RA_min': 150.05682318867414,
@@ -625,6 +660,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.4175881585798864,
              'instrument': 'HST',
              'filter': 'f606w',
+             'mag_limit': 28.24,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B8_v0.3_drz.fits'},
         'mosaic_cosmos_web_30mas_tile_A5_hst_acs_wfc_f814w_drz.fits':
             {'RA_min': 150.2621099490618,
@@ -633,6 +669,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.13821611167579,
              'instrument': 'HST',
              'filter': 'f814w',
+             'mag_limit': 27.76,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_A5_hst_acs_wfc_f814w_drz.fits'},
         'mosaic_cosmos_web_30mas_tile_B3_hst_acs_wfc_f814w_drz.fits':
             {'RA_min': 150.12265817959866,
@@ -641,6 +678,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.5983225463216413,
              'instrument': 'HST',
              'filter': 'f814w',
+             'mag_limit': 28.14,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B3_hst_acs_wfc_f814w_drz.fits'},
         'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B6_v0.3_drz.fits':
             {'RA_min': 149.78565630431362,
@@ -649,6 +687,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.5161760634349686,
              'instrument': 'HST',
              'filter': 'f606w',
+             'mag_limit': 28.18,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B6_v0.3_drz.fits'},
         'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B10_v0.3_drz.fits':
             {'RA_min': 150.3279568649288,
@@ -657,6 +696,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.3189450653277475,
              'instrument': 'HST',
              'filter': 'f606w',
+             'mag_limit': 28.39,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B10_v0.3_drz.fits'},
         'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B4_v0.3_drz.fits':
             {'RA_min': 150.25824396380185,
@@ -665,6 +705,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.549001508072617,
              'instrument': 'HST',
              'filter': 'f606w',
+             'mag_limit': MAG_LIMIT,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_all_hst_acs_wfc_f606w_30mas_tile_B4_v0.3_drz.fits'},
         'mosaic_cosmos_web_30mas_tile_B10_hst_acs_wfc_f814w_drz.fits':
             {'RA_min': 150.3279568649288,
@@ -673,6 +714,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.3189450653277475,
              'instrument': 'HST',
              'filter': 'f814w',
+             'mag_limit': 27.98,
              'path': f"{OSCAR_COSMOS_HST_BASEPATH}" + 'mosaic_cosmos_web_30mas_tile_B10_hst_acs_wfc_f814w_drz.fits'},
         'primercosmos_acs_f435w_sci.fits':
             {'RA_min': 150.01782001382628,
@@ -681,6 +723,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.5147129280666793,
              'instrument': 'HST',
              'filter': 'f435w',
+             'mag_limit': 28.57,
              'path': f"{COSMOS_HST_BASEPATH}" + 'primercosmos_acs_f435w_sci.fits'},
         'primercosmos_nrc_f444w_sci.fits':
             {'RA_min': 150.01782001382628,
@@ -689,6 +732,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.5147129280666904,
              'instrument': 'HST',
              'filter': 'f444w',
+             'mag_limit': 28.82,
              'path': f"{COSMOS_HST_BASEPATH}" + 'primercosmos_nrc_f444w_sci.fits'},
         'primercosmos_acs_f606w_sci.fits':
             {'RA_min': 150.01782001382628,
@@ -697,6 +741,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.5147129280666793,
              'instrument': 'HST',
              'filter': 'f606w',
+             'mag_limit': 28.34,
              'path': f"{COSMOS_HST_BASEPATH}" + 'primercosmos_acs_f606w_sci.fits'},
         'primercosmos_nrc_f356w_sci.fits':
             {'RA_min': 150.01782001382628,
@@ -705,6 +750,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.5147129280666904,
              'instrument': 'HST',
              'filter': 'f356w',
+             'mag_limit': 29.37,
              'path': f"{COSMOS_HST_BASEPATH}" + 'primercosmos_nrc_f356w_sci.fits'},
         'primercosmos_nrc_f277w_sci.fits':
             {'RA_min': 150.01782001382628,
@@ -713,6 +759,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.5147129280666904,
              'instrument': 'HST',
              'filter': 'f277w',
+             'mag_limit': 29.21,
              'path': f"{COSMOS_HST_BASEPATH}" + 'primercosmos_nrc_f277w_sci.fits'},
         'primercosmos_nrc_f150w_sci.fits':
             {'RA_min': 150.01782001382628,
@@ -721,6 +768,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.5147129280666904,
              'instrument': 'HST',
              'filter': 'f150w',
+             'mag_limit': 28.71,
              'path': f"{COSMOS_HST_BASEPATH}" + 'primercosmos_nrc_f150w_sci.fits'},
         'primercosmos_wfc3_f125w_sci.fits':
             {'RA_min': 150.01782001382628,
@@ -729,6 +777,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.5147129280666793,
              'instrument': 'HST',
              'filter': 'f125w',
+             'mag_limit': 27.25,
              'path': f"{COSMOS_HST_BASEPATH}" + 'primercosmos_wfc3_f125w_sci.fits'},
         'primercosmos_wfc3_f160w_sci.fits':
             {'RA_min': 150.01782001382628,
@@ -737,6 +786,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.5147129280666793,
              'instrument': 'HST',
              'filter': 'f160w',
+             'mag_limit': 27.21,
              'path': f"{COSMOS_HST_BASEPATH}" + 'primercosmos_wfc3_f160w_sci.fits'},
         'primercosmos_wfc3_f140w_sci.fits':
             {'RA_min': 150.01782001382628,
@@ -745,6 +795,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.5147129280666793,
              'instrument': 'HST',
              'filter': 'f140w',
+             'mag_limit': 26.66,
              'path': f"{COSMOS_HST_BASEPATH}" + 'primercosmos_wfc3_f140w_sci.fits'},
         'primercosmos_nrc_f200w_sci.fits':
             {'RA_min': 150.01782001382628,
@@ -753,6 +804,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.5147129280666904,
              'instrument': 'HST',
              'filter': 'f200w',
+             'mag_limit': 29.29,
              'path': f"{COSMOS_HST_BASEPATH}" + 'primercosmos_nrc_f200w_sci.fits'},
         'primercosmos_acs_f814w_sci.fits':
             {'RA_min': 150.01782001382628,
@@ -761,6 +813,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.5147129280666793,
              'instrument': 'HST',
              'filter': 'f814w',
+             'mag_limit': 28.16,
              'path': f"{COSMOS_HST_BASEPATH}" + 'primercosmos_acs_f814w_sci.fits'},
         'primercosmos_nrc_f115w_sci.fits':
             {'RA_min': 150.01782001382628,
@@ -769,6 +822,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.5147129280666904,
              'instrument': 'HST',
              'filter': 'f115w',
+             'mag_limit': 28.61,
              'path': f"{COSMOS_HST_BASEPATH}" + 'primercosmos_nrc_f115w_sci.fits'},
         'primercosmos_nrc_f090w_sci.fits':
             {'RA_min': 150.01782001382628,
@@ -777,6 +831,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.5147129280666904,
              'instrument': 'HST',
              'filter': 'f090w',
+             'mag_limit': 28.56,
              'path': f"{COSMOS_HST_BASEPATH}" + 'primercosmos_nrc_f090w_sci.fits'},
         'primercosmos_nrc_f410m_sci.fits':
             {'RA_min': 150.01782001382628,
@@ -785,6 +840,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.5147129280666904,
              'instrument': 'HST',
              'filter': 'f410m',
+             'mag_limit': 28.47,
              'path': f"{COSMOS_HST_BASEPATH}" + 'primercosmos_nrc_f410m_sci.fits'},
         'primercosmos_wfc3_f105w_sci.fits':
             {'RA_min': 150.01782001382628,
@@ -793,6 +849,7 @@ class COSMOS_HST(cat_base.Catalog):
              'Dec_max': 2.5147129280666793,
              'instrument': 'HST',
              'filter': 'f105w',
+             'mag_limit': 27.42,
              'path': f"{COSMOS_HST_BASEPATH}" + 'primercosmos_wfc3_f105w_sci.fits'},
     }
 
@@ -929,7 +986,8 @@ class COSMOS_HST(cat_base.Catalog):
                  'aperture': self.mean_FWHM * 0.5 + 0.5, #since a radius, half the FWHM + 0.5" for astrometric error
                  'mag_func': count_to_mag,
                  'sky_subtract': False,
-                 'mag_depth': self.MAG_LIMIT #could be as deep as 31.5 for HST as best case
+                 'mag_depth': self.Tile_Dict[t]['mag_limit'], #could be as deep as 31.5 for HST as best case
+                 'mag_limit': self.Tile_Dict[t]['mag_limit'] #same value, just for safety against code typos
                  })
 
 
@@ -1020,7 +1078,7 @@ class COSMOS_HST(cat_base.Catalog):
             #note: self.CatalogImages already has some in it, so we are appending the new ones
             self.CatalogImages.append(
                 {'path': path,
-                 'name': name, #filename is the tilename
+                 'name': name,  #filename is the tilename
                  'tile': t,
                  'filter': f,
                  'instrument': instr,
@@ -1029,10 +1087,11 @@ class COSMOS_HST(cat_base.Catalog):
                  'image': None,
                  'expanded': False,
                  'wcs_manual': wcs_manual,
-                 'aperture': self.mean_FWHM * 0.5 + 0.5, #since a radius, half the FWHM + 0.5" for astrometric error
+                 'aperture': self.mean_FWHM * 0.5 + 0.5,  #since a radius, half the FWHM + 0.5" for astrometric error
                  'mag_func': count_to_mag,
                  'sky_subtract': False,
-                 'mag_depth': self.MAG_LIMIT
+                 'mag_depth': self.Tile_Dict[t]['mag_limit'],
+                 'mag_limit': self.Tile_Dict[t]['mag_limit']  # same value, just for safety against code typos
                  })
 
 
@@ -1090,7 +1149,7 @@ class COSMOS_HST(cat_base.Catalog):
 
                     sci = science_image.science_image(wcs_manual=self.WCS_Manual,
                                                image_location=self.Tile_Dict[k]['path'],
-                                               mag_depth=self.MAG_LIMIT)
+                                               mag_depth=self.Tile_Dict[k]['mag_limit']) #does not matter here, just a coverage check
 
                     cutout, *_  = sci.get_cutout(ra, dec, error=1.0, window=1.0,
                                                  aperture=None, mag_func=None, copy=False,
@@ -1590,8 +1649,12 @@ class COSMOS_HST(cat_base.Catalog):
             if i['image'] is None:
                 i['image'] = science_image.science_image(wcs_manual=self.WCS_Manual,
                                                          image_location=op.join(i['path'], i['name']),
-                                                         mag_depth=self.MAG_LIMIT)
+                                                         mag_depth=i['mag_depth'])
             sci = i['image']
+            try:
+                mag_limit = i['mag_depth'] if i['mag_depth'] is not None else self.MAG_LIMIT
+            except:
+                mag_limit = self.MAG_LIMIT
 
             # sci.load_image(wcs_manual=True)
             #log.info("Reminder: aperture issue with .drz fits file, so no forced aperture magnitude.")
@@ -1599,14 +1662,14 @@ class COSMOS_HST(cat_base.Catalog):
                                                      aperture=aperture, mag_func=mag_func,
                                                     do_sky_subtract=do_sky_subtract,return_details=True,detobj=detobj)
 
-            if (self.MAG_LIMIT < mag < 100) and (mag_radius > 0):
+            if (mag_limit < mag < 100) and (mag_radius > 0):
                 details['fail_mag_limit'] = True
                 details['raw_mag'] = mag
                 details['raw_mag_bright'] = details['mag_bright']
                 details['raw_mag_faint'] = details['mag_faint']
                 details['raw_mag_err'] = details['mag_err']
-                log.warning(f"Cutout mag {mag} greater than limit {self.MAG_LIMIT}. Setting to limit.")
-                mag = self.MAG_LIMIT
+                log.warning(f"Cutout mag {mag} greater than limit {mag_limit}. Setting to limit.")
+                mag = mag_limit
                 if details:
                     details['mag'] = mag
                     details['mag_raw'] = mag  # mag limit

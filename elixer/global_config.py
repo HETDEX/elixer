@@ -1154,7 +1154,7 @@ SHADE_1D_SPEC_PEAKS = False #if true, shade in red the 1D spec peaks above the N
 
 USE_SOURCE_EXTRACTOR = True #use source extractor to ID objects and get magnitudes ... fall back to circular aperture
                              #if source extractor code fails
-SOURCE_EXTRACTOR_MIN_MAG_LIMIT = 28.0 #brightest mag limit at which to restrict detections found by source extractor
+SOURCE_EXTRACTOR_MIN_MAG_LIMIT = 27.0 #brightest mag limit at which to restrict detections found by source extractor
 DYNAMIC_MAG_APERTURE = True  #allow aperture size to change to fit maximum magnitude
 MIN_DYNAMIC_MAG_RADIUS = 1.0 #in arcsec
 FIXED_MAG_APERTURE = 1.5 #radius in arcsec (default: each catalog can set its own per image)

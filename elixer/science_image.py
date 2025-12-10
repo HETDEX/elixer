@@ -1755,13 +1755,16 @@ class science_image():
                             log.debug("Exception converting source extrator x,y to RA, Dec", exc_info=True)
 
                         #make it positive logic to be more clear
-                        check_mag = sobj['mag_faint'] if sobj['mag_faint'] is not None else sobj['mag'] + 0.3 #allow ~50% error
+                        check_mag = sobj['mag_bright'] if sobj['mag_bright'] is not None else sobj['mag'] + 0.3 #allow ~50% error
                         if (self.mag_depth is not None and check_mag is not None) and \
                                 (self.mag_depth >= G.SOURCE_EXTRACTOR_MIN_MAG_LIMIT) and \
                                 (check_mag > self.mag_depth):
                             keep_sobj.append(False) #limit is defined and "detection" is fainter than the limit
+                            log.debug(f"**** reject SEP set at {check_mag:0.2f} as fainter than limit {self.mag_depth:0.2f}")
                         else:
                             keep_sobj.append(True) #limit is NOT defined or "detection" is brighter than the limit
+                            log.debug(f"**** keep SEP set at {check_mag:0.2f}. limit {self.mag_depth} "
+                                      f"(min: {G.SOURCE_EXTRACTOR_MIN_MAG_LIMIT})")
 
                     if selected_obj_idx is not None:
                         keep_sobj[selected_obj_idx] = True
