@@ -1755,7 +1755,7 @@ class science_image():
                             log.debug("Exception converting source extrator x,y to RA, Dec", exc_info=True)
 
                         #make it positive logic to be more clear
-                        check_mag = sobj['mag_faint'] if sobj['mag_faint'] is not None else sobj['mag'] + 0.5 #allow some error
+                        check_mag = sobj['mag_faint'] if sobj['mag_faint'] is not None else sobj['mag'] + 0.3 #allow ~50% error
                         if (self.mag_depth is not None and check_mag is not None) and \
                                 (self.mag_depth >= G.SOURCE_EXTRACTOR_MIN_MAG_LIMIT) and \
                                 (check_mag > self.mag_depth):
