@@ -1757,7 +1757,7 @@ class science_image():
                         #make it positive logic to be more clear
                         check_mag = sobj['mag_faint'] if sobj['mag_faint'] is not None else sobj['mag'] + 0.5 #allow some error
                         if (self.mag_depth is not None and check_mag is not None) and \
-                                (self.mag_depth > G.SOURCE_EXTRACTOR_MIN_MAG_LIMIT) and \
+                                (self.mag_depth >= G.SOURCE_EXTRACTOR_MIN_MAG_LIMIT) and \
                                 (check_mag > self.mag_depth):
                             keep_sobj.append(False) #limit is defined and "detection" is fainter than the limit
                         else:
