@@ -129,7 +129,7 @@ class COSMOS_HST(cat_base.Catalog):
     # class variables
     MainCatalog = None
     Name = "COSMOS-HST"
-    MAG_LIMIT = 30.0 # associated catalog goes deeper, but this is a general limit 29-30 mag
+    MAG_LIMIT = 28.0 # associated catalog goes deeper, but this is a general limit 29-30 mag
     mean_FWHM = 0.15 #typical use for photometric aperture, but is too good here ... objects that are point
                     #sources may be resolved with HST
 
@@ -1031,7 +1031,8 @@ class COSMOS_HST(cat_base.Catalog):
                  'wcs_manual': wcs_manual,
                  'aperture': self.mean_FWHM * 0.5 + 0.5, #since a radius, half the FWHM + 0.5" for astrometric error
                  'mag_func': count_to_mag,
-                 'sky_subtract': False
+                 'sky_subtract': False,
+                 'mag_depth': self.MAG_LIMIT
                  })
 
 

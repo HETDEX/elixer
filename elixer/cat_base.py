@@ -2736,7 +2736,13 @@ class Catalog:
 
         try:
             if catalog_image['image'] is None:
-                catalog_image['image'] = science_image.science_image(wcs_manual=wcs_manual,
+                if "mag_depth" in catalog_image.keys():
+                    catalog_image['image'] = science_image.science_image(wcs_manual=wcs_manual,
+                                                                         image_location=op.join(catalog_image['path'],
+                                                                                                catalog_image['name']),
+                                                                         mag_depth=catalog_image['mag_depth'])
+                else:
+                    catalog_image['image'] = science_image.science_image(wcs_manual=wcs_manual,
                                                          image_location=op.join(catalog_image['path'],
                                                                                 catalog_image['name']))
                 catalog_image['image'].catalog_name = catalog_image['name']
