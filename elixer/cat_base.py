@@ -1760,9 +1760,9 @@ class Catalog:
             #EW
             if counterpart.bid_ew_lya_rest is not None:
                 if counterpart.bid_ew_lya_rest_err is not None:
-                    text = text + utilities.unc_str((counterpart.bid_ew_lya_rest, counterpart.bid_ew_lya_rest_err)) + "$\AA$\n"
+                    text = text + utilities.unc_str((counterpart.bid_ew_lya_rest, counterpart.bid_ew_lya_rest_err)) + r"$\AA$\n"
                 else:
-                    text = text + utilities.unc_str((counterpart.bid_ew_lya_rest, 0.0)) + "$\AA$\n"
+                    text = text + utilities.unc_str((counterpart.bid_ew_lya_rest, 0.0)) + r"$\AA$\n"
             else:
                 text += "---\n"
 
