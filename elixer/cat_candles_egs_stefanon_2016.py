@@ -1254,7 +1254,7 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         if (not G.ZOO) and (best_plae_poii is not None):
             try:
                 text.set_text(
-                    text.get_text() + "  P(LAE)/P(OII): " + r"$%.4g\ ^{%.4g}_{%.4g}$ (%s)" %
+                    text.get_text() + "  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$ (%s)" %
                     (round(best_plae_poii, 3),
                      round(best_plae_range[2], 3),
                      round(best_plae_range[1], 3),
@@ -1521,11 +1521,10 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
                                 SU.lya_ewr(target_flux,lineFlux_err,target_w, bid_target.bid_filter,
                                            bid_target.bid_flux_est_cgs,bid_target.bid_flux_est_cgs_unc)
 
-                            text = text + utilities.unc_str((bid_target.bid_ew_lya_rest, bid_target.bid_ew_lya_rest_err))\
-                                   + r"$\AA$\n"
+                            text = text + utilities.unc_str((bid_target.bid_ew_lya_rest, bid_target.bid_ew_lya_rest_err)) + "$\AA$\n"
                         except:
                             log.debug("Exception computing catalog EW: ", exc_info=True)
-                            text = text + r"%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
+                            text = text + "%g $\AA$\n" % (target_flux / filter_fl_cgs / (target_w / G.LyA_rest))
 
                         addl_waves = None
                         addl_flux = None

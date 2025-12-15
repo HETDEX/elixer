@@ -1279,7 +1279,7 @@ class EmissionLineInfo:
                 ucoef = unc
                 uexp = 0
 
-            s = r'%0.2f($\pm$%0.2f)e%d' % (fcoef, ucoef * 10 ** (uexp - fexp), fexp)
+            s = '%0.2f($\pm$%0.2f)e%d' % (fcoef, ucoef * 10 ** (uexp - fexp), fexp)
         except:
             log.warning("Exception in EmissionLineInfo::unc_str()", exc_info=False)
 
@@ -1579,7 +1579,7 @@ class EmissionLineInfo:
             y_unc = 0.5 * (abs(self.mcmc_continuum_tuple[1])+abs(self.mcmc_continuum_tuple[2]))
 
             ew_unc = abs(ew) * np.sqrt((a_unc / self.mcmc_line_flux) ** 2 + (y_unc / self.mcmc_continuum) ** 2)
-            s = r"%0.2g($\pm$%0.2g)" % (ew, ew_unc)
+            s = "%0.2g($\pm$%0.2g)" % (ew, ew_unc)
         except:
             try:
                 ew = self.line_flux / self.fit_y / (self.fit_x0 / G.LyA_rest)
@@ -1587,7 +1587,7 @@ class EmissionLineInfo:
                 y_unc = abs(self.fit_y_err)
 
                 ew_unc = abs(ew) * np.sqrt((a_unc / self.line_flux) ** 2 + (y_unc / self.fit_y) ** 2)
-                s = r"%0.2g($\pm$%0.2g)" % (ew, ew_unc)
+                s = "%0.2g($\pm$%0.2g)" % (ew, ew_unc)
             except:
                 log.warning("Exception in eqw_lya_unc",exc_info=True)
 
@@ -3411,7 +3411,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
 
         gauss_plot.set_ylabel("Flux [unsp] ")
-        gauss_plot.set_xlabel(r"Wavelength [$\AA$] ")
+        gauss_plot.set_xlabel("Wavelength [$\AA$] ")
 
         # ymin, ymax = gauss_plot.get_ylim()
         #
