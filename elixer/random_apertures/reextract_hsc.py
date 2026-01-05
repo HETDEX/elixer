@@ -6,7 +6,7 @@ You need to update which file is used
 You need to specify local or ffsky or rescor in the code
 
 """
-
+import os
 import sys
 import os.path as op
 import numpy as np
@@ -48,6 +48,7 @@ if "--input" in args:
     i = args.index("--input")
     try:
         inputfile = sys.argv[i + 1]
+        basename = os.path.basename(inputfile).split(".")[0]
     except:
         print("no input file")
         exit(-1)
@@ -77,8 +78,8 @@ else:
     print("no sky")
     exit(-1)
 
-dT_name = f"{inputfile}_dets" #_ffrc"#.fits"
-fT_name = f"{inputfile}_fibers" #_ffrc" #.fits"
+dT_name = f"{basename}_dets" #_ffrc"#.fits"
+fT_name = f"{basename}_fibers" #_ffrc" #.fits"
 
 if skychoice == 0: #local
     ffsky = False
@@ -102,10 +103,20 @@ else:
 #selection = sel #sel_bright
 survey_name = "hdr5"
 
-#hub
-#rescor_path = "/home/jovyan/Hobby-Eberly-Telesco/hdr5/reduction/ffsky_rescor/"#rc{str(shot)[0:8]}v{str(shot)[8:]}.h5"):
-#not hub
-rescor_path = "/scratch/projects/hetdex/hdr5/reduction/ffsky_rescor/"#rc{str(shot)[0:8]}v{str(shot)[8:]}.h5"):
+
+if os.path.exists("/home/jovyan/Hobby-Eberly-Telesco"):
+    HUB = True
+else: #not hub
+    if os.path.exists("/scratch/projects/hetdex"):
+        HUB = False
+    else:
+        print("FATAL. Cannot identify base location")
+        exit(-1)
+
+if HUB:
+    rescor_path = "/home/jovyan/Hobby-Eberly-Telesco/hdr5/reduction/ffsky_rescor/"  # rc{str(shot)[0:8]}v{str(shot)[8:]}.h5"):
+else:
+    rescor_path = "/scratch/projects/hetdex/hdr5/reduction/ffsky_rescor/"  # rc{str(shot)[0:8]}v{str(shot)[8:]}.h5"):
 
 radius = 3.5
 
@@ -115,7 +126,7 @@ get_dust = True
 
 multiprocess = True #but not using this switch here ... is diectly True/False in call
 
-save_every = 1100 #so never, give the 1000 limit on the call from the outside
+save_every = None # 1100 #so never, give the 1000 limit on the call from the outside
 bin_every = None #3 * save_every - 1 #the -1 so it trips properly
 
 #old#
@@ -128,6 +139,11 @@ bin_every = None #3 * save_every - 1 #the -1 so it trips properly
 #34.49354912 -5.16855732 20201020016 0 98000002 37484842471937319 988.15  216.97 23.91 23.70 24.18
 
 
+#or just coords files:
+#ra          dec        shot     (wave) detid
+#15.92812252 2.01704121 20211030011 0 99093203940
+#15.89463329 2.05761242 20211030011 0 99093203951
+#15.88883781 2.05769825 20211030011 0 99093203952
 shots,dets = np.loadtxt(inputfile,dtype=int,unpack=True, usecols=[2,4])
 ras,decs   = np.loadtxt(inputfile,dtype=float,unpack=True, usecols=[0,1])
 
@@ -208,7 +224,40 @@ start_idx = 0
 #start_idx = np.where(dets==9100524143001)[0][0] + 1
 #bin_ctstr = "_007"
 
-print(f"(re)starting at {start_idx} with {dets[start_idx]} ...")
+if os.path.exists(basename + ".h5"):
+    print(f"{basename} already done, skipping ...")
+    exit(0)
+elif os.path.exists(dT_name+bin_ctstr+".fits") and os.path.exists(fT_name+bin_ctstr+".fits"):
+    #the h5 was not created:
+
+    combined_dT = Table.read(dT_name+bin_ctstr+".fits")
+    combined_fT = Table.read(fT_name+bin_ctstr+".fits")
+
+    hdf5.write_table_hdf5(combined_dT, basename + ".h5", path="Detections", append=True, overwrite=True)
+    hdf5.write_table_hdf5(combined_fT, basename + ".h5", path="Fibers", append=True, overwrite=True)
+
+    # set the index
+    h5 = tables.open_file(basename + ".h5", mode='r+')
+    h5.root.Detections.cols.detectid.create_csindex()
+    h5.root.Detections.flush()
+    h5.root.Fibers.cols.detectid.create_csindex()
+    h5.root.Fibers.flush()
+
+    h5.close()
+
+    del combined_dT
+    del combined_fT
+
+    #print(f"Trying to remove: ", dT_name + bin_ctstr+".fits")
+    os.remove(dT_name + bin_ctstr+".fits")
+    os.remove(fT_name + bin_ctstr+".fits")
+
+    print(f"{basename} updated to h5, skipping ...")
+    exit(0)
+else:
+    pass #not done
+
+print(f"{basename} : (re)starting at {start_idx} with {dets[start_idx]} ...")
 
 #for ct, row in enumerate(tqdm(source_table[selection][0:10])):
 #for ct, data in enumerate(tqdm(zip(dets[start_idx:],ras[start_idx:],decs[start_idx:],shots[start_idx:],seeing[start_idx:],thruput[start_idx:]),total=len(dets[start_idx:]))):
@@ -331,7 +380,7 @@ for ct, data in enumerate(zip(dets, ras, decs, shots)): #w/o tqdm
         print(traceback.format_exc())
         
                 
-    if ct % save_every == 0:
+    if save_every is not None and ct % save_every == 0:
 
         try:
             if len(combined_fT) == 0:
@@ -385,6 +434,19 @@ combined_dT.sort('detectid')
 combined_fT.add_index('detectid')
 combined_dT.add_index('detectid')
 
-combined_dT.write(dT_name+bin_ctstr+".fits",format='fits',overwrite=True)
-combined_fT.write(fT_name+bin_ctstr+".fits",format='fits',overwrite=True)
+#combined_dT.write(dT_name+bin_ctstr+".fits",format='fits',overwrite=True)
+#combined_fT.write(fT_name+bin_ctstr+".fits",format='fits',overwrite=True)
+
+hdf5.write_table_hdf5(combined_dT,basename+".h5",path="Detections",append=True,overwrite=True)
+hdf5.write_table_hdf5(combined_fT,basename+".h5",path="Fibers",append=True,overwrite=True)
+
+#set the index
+h5 = tables.open_file(basename+".h5",mode='r+')
+h5.root.Detections.cols.detectid.create_csindex()
+h5.root.Detections.flush()
+h5.root.Fibers.cols.detectid.create_csindex()
+h5.root.Fibers.flush()
+h5.close()
+
+print(f"{basename} : Done. {len(combined_dT)} detections, {len(combined_fT)} fibers.")
         
