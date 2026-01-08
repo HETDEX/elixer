@@ -81,21 +81,24 @@ else:
 dT_name = f"{basename}_dets" #_ffrc"#.fits"
 fT_name = f"{basename}_fibers" #_ffrc" #.fits"
 
-if skychoice == 0: #local
+if skychoice == 0:  # local
     ffsky = False
     rescor = False
-    dT_name += "_ll"
-    fT_name += "_ll"
-elif skychoice == 1: #local
+    sky_ext = "_ll"
+    dT_name += sky_ext
+    fT_name += sky_ext
+elif skychoice == 1:  # local
     ffsky = True
     rescor = False
-    dT_name += "_ff"
-    fT_name += "_ff"
-elif skychoice == 2: #local
+    sky_ext = "_ff"
+    dT_name += sky_ext
+    fT_name += sky_ext
+elif skychoice == 2:  # local
     ffsky = True
     rescor = True
-    dT_name += "_rc"
-    fT_name += "_rc"
+    sky_ext = "_rc"
+    dT_name += sky_ext
+    fT_name += sky_ext
 else:
     print("invalid sky")
     exit(-1)
@@ -437,11 +440,11 @@ combined_dT.add_index('detectid')
 #combined_dT.write(dT_name+bin_ctstr+".fits",format='fits',overwrite=True)
 #combined_fT.write(fT_name+bin_ctstr+".fits",format='fits',overwrite=True)
 
-hdf5.write_table_hdf5(combined_dT,basename+".h5",path="Detections",append=True,overwrite=True)
-hdf5.write_table_hdf5(combined_fT,basename+".h5",path="Fibers",append=True,overwrite=True)
+hdf5.write_table_hdf5(combined_dT,basename+sky_ext+".h5",path="Detections",append=True,overwrite=True)
+hdf5.write_table_hdf5(combined_fT,basename+sky_ext+".h5",path="Fibers",append=True,overwrite=True)
 
 #set the index
-h5 = tables.open_file(basename+".h5",mode='r+')
+h5 = tables.open_file(basename+sky_ext+".h5",mode='r+')
 h5.root.Detections.cols.detectid.create_csindex()
 h5.root.Detections.flush()
 h5.root.Fibers.cols.detectid.create_csindex()
