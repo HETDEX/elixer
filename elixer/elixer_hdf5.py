@@ -122,7 +122,7 @@ class Detections(tables.IsDescription):
     plae_line_max = tables.Float32Col(dflt=UNSET_FLOAT)
     plae_line_min = tables.Float32Col(dflt=UNSET_FLOAT)
 
-    #new
+
     continuum_wide = tables.Float32Col(dflt=UNSET_FLOAT) #continuum from (mostly) the full spectrum width, from pseudo g-band magnitude
     continuum_wide_err = tables.Float32Col(dflt=UNSET_FLOAT)
     mag_g_wide = tables.Float32Col(dflt=UNSET_FLOAT) #the pseudo g-band magnitude from the spectrum
@@ -134,7 +134,6 @@ class Detections(tables.IsDescription):
     plae_wide_max = tables.Float32Col(dflt=UNSET_FLOAT)
     plae_wide_min = tables.Float32Col(dflt=UNSET_FLOAT)
 
-    #more new
     continuum_masked = tables.Float32Col(dflt=UNSET_FLOAT) #continuum from (mostly) the full spectrum width, from pseudo g-band magnitude
     continuum_masked_err = tables.Float32Col(dflt=UNSET_FLOAT)
 
@@ -216,8 +215,8 @@ class Detections(tables.IsDescription):
     color_ur = tables.Float32Col(shape=(3,),dflt=[np.nan,np.nan,np.nan] ) #as color, blue max, red_max
     color_gr = tables.Float32Col(shape=(3,),dflt=[np.nan,np.nan,np.nan] ) #as color, blue max, red_max
 
-    obs_total_exptime = tables.Float32Col(dflt=UNSET_FLOAT)
-    obs_num_dithers = tables.Int8Col(dflt=0)
+    obs_total_exptime = tables.Float32Col(dflt=UNSET_FLOAT)  #added 0.9.2
+    obs_num_dithers = tables.Int8Col(dflt=0)  #added 0.9.2
 
     if LOCAL_ODIN_HACK:
         odin_lineflux = tables.Float32Col(dflt=UNSET_FLOAT) #reported odin lineflux
@@ -350,7 +349,7 @@ class NeighborSpectra(tables.IsDescription):
     mag = tables.Float32Col(pos=17,dflt=UNSET_FLOAT)
     mag_err = tables.Float32Col(pos=18,dflt=UNSET_FLOAT)
 
-    mag_dered = tables.Float32Col(pos=17,dflt=UNSET_FLOAT)
+    mag_dered = tables.Float32Col(pos=17,dflt=UNSET_FLOAT) #added 0.9.2
 
     mag_limit = tables.Float32Col(pos=19,dflt=UNSET_FLOAT)
 
@@ -403,7 +402,7 @@ class Aperture(tables.IsDescription):
     mag = tables.Float32Col(dflt=UNSET_FLOAT) #was aperture_mag
     mag_err = tables.Float32Col(dflt=UNSET_FLOAT) #was  aperture_mag_err
 
-    mag_dered = tables.Float32Col(dflt=UNSET_FLOAT) #was aperture_mag
+    mag_dered = tables.Float32Col(dflt=UNSET_FLOAT) # #added 0.9.2
 
     aperture_area_pix = tables.Float32Col(dflt=UNSET_FLOAT) #pixels
     sky_area_pix = tables.Float32Col(dflt=UNSET_FLOAT) #pixels
@@ -430,7 +429,7 @@ class ElixerApertures(tables.IsDescription):
     mag = tables.Float32Col(dflt=UNSET_FLOAT)
     mag_err = tables.Float32Col(dflt=UNSET_FLOAT)
 
-    mag_dered = tables.Float32Col(dflt=UNSET_FLOAT)
+    mag_dered = tables.Float32Col(dflt=UNSET_FLOAT)  #added 0.9.2
 
     # sky_total_cts = tables.Float32Col(dflt=UNSET_FLOAT) #sky_counts
     # sky_total_pix = tables.Float32Col(dflt=UNSET_FLOAT) #sky_average
@@ -464,7 +463,7 @@ class ExtractedObjects(tables.IsDescription):
     mag = tables.Float32Col(dflt=UNSET_FLOAT)
     mag_err = tables.Float32Col(dflt=UNSET_FLOAT)
 
-    mag_dered = tables.Float32Col(dflt=UNSET_FLOAT)
+    mag_dered = tables.Float32Col(dflt=UNSET_FLOAT)  #added 0.9.2
 
 
     background_cts = tables.Float32Col(dflt=UNSET_FLOAT)
@@ -480,7 +479,7 @@ class ExtractedObjects(tables.IsDescription):
     fixed_aper_mag = tables.Float32Col(dflt=UNSET_FLOAT)
     fixed_aper_mag_err = tables.Float32Col(dflt=UNSET_FLOAT)
 
-    fixed_aper_mag_dered = tables.Float32Col(dflt=UNSET_FLOAT)
+    fixed_aper_mag_dered = tables.Float32Col(dflt=UNSET_FLOAT)  #added 0.9.2
 
 
     fixed_aper_flux_cts = tables.Float32Col(dflt=UNSET_FLOAT)
@@ -4412,7 +4411,9 @@ def upgrade_0p6p2_to_0p6p3(oldfile_handle,newfile_handle):
 def upgrade_0p9p0_to_0p9p2(oldfile_handle,newfile_handle):
     """
 
-    #added mag dered stuff
+    #added mag dered stuff in 0.9.1
+    #yes, this was a versioning mistake, 0.9.1 should have been 0.10.0 due to the new fields
+    #then 0.9.2 was minor changes to 0.9.1 and was okay in that standpoint and would have otherwise been 0.10.1
 
     :param oldfile_handle:
     :param newfile_handle:
