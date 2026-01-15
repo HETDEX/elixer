@@ -4407,6 +4407,123 @@ def upgrade_0p6p2_to_0p6p3(oldfile_handle,newfile_handle):
         log.error("Upgrade failed %s to %s:" %(from_version,to_version),exc_info=True)
         return False
 
+
+
+def upgrade_0p9p0_to_0p9p2(oldfile_handle,newfile_handle):
+    """
+
+    #added mag dered stuff
+
+    :param oldfile_handle:
+    :param newfile_handle:
+    :return:
+    """
+
+    from_version = "0.9.0"
+    to_version = "0.9.2"
+
+    try:
+        log.info("Upgrading %s to %s ..." %(from_version,to_version))
+
+        dtb_new = newfile_handle.root.Detections
+        stb_new = newfile_handle.root.CalibratedSpectra
+        ltb_new = newfile_handle.root.SpectraLines
+        atb_new = newfile_handle.root.Aperture
+        ctb_new = newfile_handle.root.CatalogMatch
+        etb_new = newfile_handle.root.ExtractedObjects
+        xtb_new = newfile_handle.root.ElixerApertures
+
+        dtb_old = oldfile_handle.root.Detections
+        stb_old = oldfile_handle.root.CalibratedSpectra
+        ltb_old = oldfile_handle.root.SpectraLines
+        atb_old = oldfile_handle.root.Aperture
+        ctb_old = oldfile_handle.root.CatalogMatch
+        etb_old = oldfile_handle.root.ExtractedObjects
+        xtb_old = oldfile_handle.root.ElixerApertures
+
+        #Detections
+        for old_row in dtb_old.read():
+            new_row = dtb_new.row
+            for n in dtb_new.colnames:
+                try: #can be missing name (new columns)
+                    if n == "obs_total_exptime":
+                        new_row[n] = UNSET_FLOAT
+                    elif n == "obs_num_dithers":
+                        new_row[n] = 0
+                    else:
+                        new_row[n] = old_row[n]
+                except:
+                    log.debug("Detection column failed (%s). Default set."%n)
+            new_row.append()
+            dtb_new.flush()
+
+        #no change to Calibrated Spectra
+        stb_new.append(stb_old.read())
+        stb_new.flush()
+
+
+        #SpectraLines
+        ltb_new.append(ltb_old.read())
+        ltb_new.flush()
+
+        #Aperture
+        for old_row in atb_old.read():
+            new_row = atb_new.row
+            for n in atb_new.colnames:
+                try: #can be missing name (new columns)
+                    if n == "mag_dered":
+                        new_row[n] = UNSET_FLOAT
+                    else:
+                        new_row[n] = old_row[n]
+                except:
+                    log.debug("Aperture column failed (%s). Default set."%n)
+            new_row.append()
+            atb_new.flush()
+
+
+        #CatalogMatch
+        ctb_new.append(ctb_old.read())
+        ctb_new.flush()
+
+        #ExtractedObjects
+        for old_row in etb_old.read():
+            new_row = etb_new.row
+            for n in etb_new.colnames:
+                try: #can be missing name (new columns)
+                    if n == "mag_dered":
+                        new_row[n] = UNSET_FLOAT
+                    else:
+                        new_row[n] = old_row[n]
+                except:
+                    log.debug("ExtractedObjects column failed (%s). Default set."%n)
+            new_row.append()
+            etb_new.flush()
+
+        #ElixerApertures
+        for old_row in xtb_old.read():
+            new_row = xtb_new.row
+            for n in xtb_new.colnames:
+                try: #can be missing name (new columns)
+                    if n == "mag_dered":
+                        new_row[n] = UNSET_FLOAT
+                    else:
+                        new_row[n] = old_row[n]
+                except:
+                    log.debug("ElixerApertures column failed (%s). Default set."%n)
+            new_row.append()
+            xtb_new.flush()
+
+        flush_all(newfile_handle)
+
+        # close the merge input file
+        newfile_handle.close()
+        oldfile_handle.close()
+
+        return True
+    except:
+        log.error("Upgrade failed %s to %s:" %(from_version,to_version),exc_info=True)
+        return False
+
 def upgrade_hdf5(oldfile,newfile):
     """
     Primarily here because pytables does not allow for renaming of column names
@@ -4461,6 +4578,9 @@ def upgrade_hdf5(oldfile,newfile):
             elif (max_version == '0.6.2'):
                 func_list.append(upgrade_0p6p2_to_0p6p3)
                 max_version = "0.6.3"
+            elif (max_version == '0.9.0'):
+                func_list.append(upgrade_0p9p0_to_0p9p2)
+                max_version = "0.9.2"
             else:
                 done = True
 

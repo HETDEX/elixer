@@ -3559,7 +3559,7 @@ def merge_hdf5(args=None):
 
         #fn_list.append(sorted(glob.glob("dispatch_*/*/*_cat.h5")))
         if len(fn_list) != 0:
-            log.critical(f"Meging: {fn_list}")
+            log.critical(f"Merging: {fn_list}")
             merge_fn = elixer_hdf5.merge_elixer_hdf5_files(merge_fn,fn_list)
             if merge_fn is not None:
                 print("Done: " + merge_fn)
