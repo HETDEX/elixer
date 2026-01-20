@@ -113,7 +113,11 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
     INCLUDE_KPNO_G = False
 
 
-    MAG_LIMIT = 26.2 #mostly care about r (this give a little slop for error and for smaller aperture before the limit kicks in)
+    MAG_LIMIT = 26.2 #mostly care about Wide-r (this give a little slop for error and for smaller aperture before the limit kicks in)
+    #NOTES: Wide (most of the survey):                    g = 26.5, r = 26.1, i = 25.9, z = 25.1, y = 24.4
+    #       Deep (XMM-LSS, E-COSMOS, ELAIS-N1, DEEP2-F3): g = 27.5, r = 27.1, i = 26.8, z = 26.3, y = 25.3  * just COSMOS for us
+    # Ultra-Deep (SXDS, COSMOS):                          g = 28.1, r = 27.7, i = 27.4, z = 26.8, y = 26.3  * just COSMOS for us
+    # see https://hsc.mtk.nao.ac.jp/ssp/survey/
 
     mean_FWHM = 0.75 #average: g=0.77, r=0.76, i = 0.58, z = 0.68, y = 0.68
 
