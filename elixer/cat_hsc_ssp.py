@@ -102,7 +102,7 @@ def hsc_count_to_mag(count,cutout=None,headers=None,dust_mag_correction=0.0):
         else:
             return 99.9  # need a better floor
 
-class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
+class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam
     # class variables
 
     HSC_BASE_PATH = G.HSC_SSP_BASE_PATH
@@ -120,6 +120,10 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
     # see https://hsc.mtk.nao.ac.jp/ssp/survey/
 
     mean_FWHM = 0.75 #average: g=0.77, r=0.76, i = 0.58, z = 0.68, y = 0.68
+
+    DEPTH_DICT = {'wide_g':26.5,'wide_r':26.1,'wide_i':25.9,'wide_z':25.1,'wide_y':24.4,
+                  'deep_g':27.5,'deep_r':27.1,'deep_i':26.8,'deep_z':26.3,'deep_y':25.3,
+                  'ultra_g':28.1,'ultra_r':27.7,'ultra_i':27.4,'ultra_z':26.8,'ultra_y':26.3}
 
     CONT_EST_BASE = None
 
@@ -343,6 +347,46 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
             log.error("Exception!",exc_info=True)
             return None
 
+
+    def guess_depth(self,fits_path):
+        """
+        open the fits file and check for a VisitInfo extension and make an eductated
+        guess as to the depth (wide, deep, or ulta deep) based on the number of entries
+        in that extension and the length of each exposure
+
+        :param fits_path:
+        :return:
+        """
+
+        depth = None
+        try:
+            #get the band
+            fn = op.basename(fits_path)
+            #e.g. calexp-HSC-G-9813-5,5.fits
+            toks = fn.split("-")
+            if toks[0] != 'calexp': #this not expected
+                log.warning(f"Cannot guess as filter depth for: {fits_path}")
+            else:
+                band = toks[2].lower()
+
+                #open the fits file and get the VisitInfo
+                with astropyFITS.open(fits_path) as hdu:
+                    #get the VisitInfo extenstion
+                    xts = [x.header['AR_NAME'] if 'AR_NAME' in x.header else None for x in hdu]
+                    visit_idx = xts.index('VisitInfo')
+                    total_time = len(hdu[visit_idx].data) * np.nanmean([x[1] for x in hdu[visit_idx].data])
+
+                    if total_time < 15000.0: #wide
+                        depth = self.DEPTH_DICT["wide_" + band]
+                    elif total_time < 100000.0: #deep
+                        depth = self.DEPTH_DICT["deep_" + band]
+                    else: #ultradeep
+                        depth = self.DEPTH_DICT["ultra_" + band]
+
+        except:
+            log.warning("cat_hsc_nep.py guess_depth fail.", exc_info=True)
+
+        return depth
 
     def get_mag_limit(self,image_identification=None,aperture_diameter=None):
         """
