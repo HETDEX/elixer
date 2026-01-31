@@ -626,6 +626,9 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--shot_h5', help="Use the specified shot hdf5 file rather than the HETDEX catalog(s)",
                         required=False, default=None)
 
+    # parser.add_argument('--ssr_h5', help="Use the specified single-shot-reduction hdf5 file rather than the HETDEX catalog(s)",
+    #                     required=False, default=None)
+
     # parser.add_argument('--shot_cat', help="Use the specified shot detections catalog file. Can be used with or instead of --dets",
     #                     required=False, default=None)
 
@@ -1012,6 +1015,13 @@ def parse_commandline(auto_force=False):
     except:
         pass
 
+    # if args.ssr_h5 is not None:
+    #     #this can serve as shot_h5, hdf5
+    #     if args.shot_h5 is None:
+    #         args.shot_h5 = args.ssr_h5
+    #
+    #     if args.hdf5 is None:
+    #         args.hdf5 = args.ssr_h5
 
     if args.shot_h5 is not None:
         #path could have changed

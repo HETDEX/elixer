@@ -10501,7 +10501,12 @@ class DetObj:
 
             detection_table = h5_detect.root.Detections
             fiber_table = h5_detect.root.Fibers
-            spectra_table = h5_detect.root.Spectra
+            alt_spectra = False
+            try:
+                spectra_table = h5_detect.root.Spectra
+            except:
+                spectra_table = h5_detect.root.CalibratedSpectra
+                alt_spectra = True
             #spectra_table.cols.detectid.create_csindex()
 
             #get the multi-fits equivalent info
@@ -10627,7 +10632,11 @@ class DetObj:
                 # except:
                 #     pass  #unimportant, but some versions don't have this column
             else:
-                self.pdf_name = row['inputid'].decode()
+                try:
+                    self.pdf_name = row['inputid'].decode()
+                except:
+                    self.pdf_name = str(row['detectid'])#.decode()
+
                 # try:
                 #     self.hdf5_detectname = row['detectname'].decode()
                 # except:
@@ -10639,8 +10648,12 @@ class DetObj:
             ############################
 
             if self.target_wavelength is None: #normal case, use the wavelength specified in HETDEX data
-                self.w = row['wave']
-                self.w_unc = row['wave_err']
+                try:
+                    self.w = row['wave']
+                    self.w_unc = row['wave_err']
+                except:
+                    self.w = row['wavelength_obs']
+                    self.w_unc = row['wavelength_obs_err']
             elif self.target_wavelength <= 0: #user does not know the anchor wavelength, but does not want to use HETDEX value
                 self.w = 0
                 self.w_unc = 0
@@ -10654,10 +10667,18 @@ class DetObj:
             if self.ra is None:
                 self.ra = self.wra
                 self.dec = self.wdec
-            self.survey_shotid = row['shotid']
 
-            self.ifu_x = row['x_ifu']
-            self.ifu_y = row['y_ifu']
+
+            try:
+                self.survey_shotid = row['shotid']
+                self.ifu_x = row['x_ifu']
+                self.ifu_y = row['y_ifu']
+            except:
+                #different location
+                self.survey_shotid = h5_detect.root.Shot.read(field="shotid")
+                #need from fibers but, need to know which one
+                self.ifu_x = None
+                self.ifu_y = None
 
 
             if shot_specific_h5 is not None: #takes priority over survey
@@ -10784,16 +10805,19 @@ class DetObj:
                     return
                 row = rows[0]
 
-                self.sumspec_counts = row['counts1d']  # not really using this anymore
-                # self.sumspec_countserr #not using this
-                self.sumspec_wavelength = row['wave1d']
-                if self.extraction_ffsky:
-                    self.sumspec_flux = row['spec1d_ffsky']
+                if alt_spectra:
+                    pass
                 else:
-                    self.sumspec_flux = row['spec1d'] #DOES NOT have units attached, but is 10^17 (so *1e-17 to get to real units)
-                self.sumspec_fluxerr = row['spec1d_err']
+                    self.sumspec_counts = row['counts1d']  # not really using this anymore
+                    # self.sumspec_countserr #not using this
+                    self.sumspec_wavelength = row['wave1d']
+                    if self.extraction_ffsky:
+                        self.sumspec_flux = row['spec1d_ffsky']
+                    else:
+                        self.sumspec_flux = row['spec1d'] #DOES NOT have units attached, but is 10^17 (so *1e-17 to get to real units)
+                    self.sumspec_fluxerr = row['spec1d_err']
 
-                self.sumspec_apcor = row['apcor'] #aperture correction
+                    self.sumspec_apcor = row['apcor'] #aperture correction
 
             if G.APPLY_GALACTIC_DUST_CORRECTION:
                 try:
