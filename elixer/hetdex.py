@@ -10506,7 +10506,7 @@ class DetObj:
                 spectra_table = h5_detect.root.Spectra
             except:
                 spectra_table = h5_detect.root.CalibratedSpectra
-                alt_spectra = True
+                alt_spectra = True #from the SSR h5 file ... this has limited use
             #spectra_table.cols.detectid.create_csindex()
 
             #get the multi-fits equivalent info
@@ -11263,6 +11263,12 @@ class DetObj:
 
             log.debug(f"Loading base fiber data from HDF5 ({id})...")
             #todo: for the alternate method, need to get the fibers that compose the PSF weighted extracted spectra
+            # that is NOT currently recorded in the elixer h5 catalog file
+            # would have to pull that list from the original detections *_line.h5 or *_cont.h5 and add
+            # to the ssr*h5 file. For now, however, maybe just disallow a re0build of the elixer report (which
+            # is already present in the ssr*h5 file, including the images). This would only be useful if there
+            # is a change to elixer that would alter the classification, but then that would require the full
+            # shot data to re-run anyway.
             rows = fiber_table.read_where("detectid == id")
             subset_norm = 0.0 #for the relative weights
 

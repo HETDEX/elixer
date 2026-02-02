@@ -984,6 +984,21 @@ def parse_commandline(auto_force=False):
         print("prep_recover complete; exiting ...")
         exit(0)
 
+    if args.ssr_h5 is not None:
+        # this can serve as shot_h5, hdf5
+        G.SSR_RUN = True
+        if args.shot_h5 is None:
+            args.shot_h5 = args.ssr_h5
+
+        if args.hdf5 is None:
+            args.hdf5 = args.ssr_h5
+
+        if args.aperture is None:
+            print(
+                f"WARNING! --ssr_h5 REQUIRES reextraction and --aperture <x> was not specified. Defaulting to 3.5 arcsec")
+            args.aperture = 3.5
+
+
     #if the cutout size (driven by args.error) is smaller than
     #the forced extraction aperture specified, increase the error (window) size
     if args.aperture and args.error:
@@ -1014,15 +1029,6 @@ def parse_commandline(auto_force=False):
         args.command_line_shotid = args.shotid
     except:
         pass
-
-    if args.ssr_h5 is not None:
-        #this can serve as shot_h5, hdf5
-        G.SSR_RUN = True
-        if args.shot_h5 is None:
-            args.shot_h5 = args.ssr_h5
-
-        if args.hdf5 is None:
-            args.hdf5 = args.ssr_h5
 
     if args.shot_h5 is not None:
         #path could have changed
