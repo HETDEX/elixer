@@ -10264,15 +10264,25 @@ class DetObj:
             #my own fitting
             try:
 
+                if G.SSR_RUN and (self.w is not None and self.w > 0):
+                    fit_min_sigma = self.sigma
+                    fwhm = self.fwhm
+                    fwhm_unc = self.fwhm_unc
+                else:
+                    fit_min_sigma = None
+                    fwhm = None
+                    fwhm_unc = None
+
                 self.spec_obj.set_spectra(self.sumspec_wavelength, self.sumspec_flux, self.sumspec_fluxerr, self.w,
                                           values_units=-17, estflux=self.estflux, estflux_unc=self.estflux_unc,
+                                          fit_min_sigma=fit_min_sigma,fwhm=fwhm,fwhm_unc=fwhm_unc,
                                           eqw_obs=self.eqw_obs, eqw_obs_unc=self.eqw_obs_unc,
                                           estcont=self.cont_cgs, estcont_unc=self.cont_cgs_unc,
                                           continuum_g=self.best_gmag_cgs_cont,continuum_g_unc=self.best_gmag_cgs_cont_unc,
                                           gmag=self.best_gmag,gmag_err=self.best_gmag_unc,detobj=self)
 
-
-                if self.spec_obj.central_eli is not None:
+                if self.spec_obj.central_eli is not None and (not G.SSR_RUN or (G.SSR_RUN and G.SSR_REFIT)):
+                    #and ((self.estflux is None) or (self.estflux <= 0)):
 
                     #update the central wavelength
                     log.info(f"Central Wavelength updated from {self.w} to {self.spec_obj.central_eli.fit_x0}")
@@ -10369,7 +10379,8 @@ class DetObj:
                     self.estflux_h5_unc = self.estflux_unc
 
                 else:
-                    log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra(). spec_obj.central_eli is None.")
+                    if not G.SSR_RUN or (G.SSR_RUN and G.SSR_REFIT):
+                        log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra(). spec_obj.central_eli is None.")
 
 
                 #update DEX-g based continuum and EW
@@ -10687,6 +10698,47 @@ class DetObj:
                 self.load_hdf5_shot_info(hdf5_survey_fqfn, self.survey_shotid, shot_specific_h5=shot_specific_h5)
 
             if basic_only: #we're done, this is all we need
+                #though, if this is SSR, we may want the rest
+                if G.SSR_RUN and alt_spectra:
+                    try:
+                        self.chi2 = row['chi2']
+                        self.chi2_unc = row['chi2_err']
+
+                        self.snr = row['sn']
+                        self.snr_unc = row['sn_err']
+
+                        self.fwhm = row['fwhm_line_aa']  # AA
+                        self.fwhm_unc = row['fwhm_line_aa_err']  # AA
+                        self.sigma = self.fwhm / 2.355
+                        self.sigma_unc = self.fwhm_unc / 2.355
+
+                        # in the original detection h5, these are not (yet) dust corrected, same is TRUE in SSR h5, but
+                        # the dust multiplier is also recorded:  dust = row['flux_line_dust_corr']
+                        self.estflux = row['flux_line']
+                        self.estflux_unc = row['flux_line_err']
+                        self.estflux_obs = row['flux_line_obs']
+                        self.estflux_unc_obs = row['flux_line_obs_err']
+
+                        self.estflux_h5 = self.estflux
+                        self.estflux_h5_unc = self.estflux_unc
+
+                        # need to undo the conversion to flux density and scaled to 1e-17
+                        self.cont_cgs = row[ 'continuum_line'] #* G.FLUX_WAVEBIN_WIDTH / G.HETDEX_FLUX_BASE_CGS  # units of e-17 set below !!!this is in 2AA bins so /2AA
+                        self.cont_cgs_unc = row['continuum_line_err'] #* G.FLUX_WAVEBIN_WIDTH / G.HETDEX_FLUX_BASE_CGS
+                        self.cont_cgs_obs = self.cont_cgs
+                        self.cont_cgs_unc_obs = self.cont_cgs_unc
+
+                        self.line_gaussfit_parms = (self.w, self.sigma, self.estflux * G.FLUX_WAVEBIN_WIDTH,
+                                                    self.cont_cgs * G.FLUX_WAVEBIN_WIDTH, G.FLUX_WAVEBIN_WIDTH)  # *2.0 for Karl's bin width
+                        self.line_gaussfit_unc = (self.w_unc, self.sigma_unc, self.estflux_unc * G.FLUX_WAVEBIN_WIDTH,
+                                                  self.cont_cgs_unc * G.FLUX_WAVEBIN_WIDTH,0.0)
+
+                        log.debug(f"DEX Gaussian parms: x0 = {self.w:0.2f}AA, sigma = {self.sigma:0.3f}, "
+                                  f"A = {self.estflux * G.FLUX_WAVEBIN_WIDTH:0.2f}e-17, "
+                                  f"y = {self.cont_cgs:0.2f}e-17")
+                    except:
+                        pass
+
                 return
 
             #need the Sky X,Y ?

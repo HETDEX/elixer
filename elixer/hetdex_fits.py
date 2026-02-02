@@ -612,7 +612,7 @@ class HetdexFits:
                                     log.error(f"Exception retrieving field: {logname_info} : {field_name}")
                                     return np.full(shape, 0)
                             else:
-                                log.debug(f"SSR: Ignoring ValueError on rertrieving field: {logname_info} : {field_name}")
+                                #log.debug(f"SSR: Ignoring ValueError on rertrieving field: {logname_info} : {field_name}")
                                 return np.full(shape, 0)
 
                         except:
@@ -620,7 +620,7 @@ class HetdexFits:
                                 log.error(f"Exception retrieving field: {logname_info} : {field_name}",exc_info=True)
                                 return np.full(shape,0)
                             else:
-                                log.debug(f"SSR: Ignoring ValueError on rertrieving field: {logname_info} : {field_name}")
+                                #log.debug(f"SSR: Ignoring ValueError on rertrieving field: {logname_info} : {field_name}")
                                 return np.full(shape, 0)
 
                     for row in rows:

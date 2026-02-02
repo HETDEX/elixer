@@ -994,9 +994,12 @@ def parse_commandline(auto_force=False):
             args.hdf5 = args.ssr_h5
 
         if args.aperture is None:
-            print(
-                f"WARNING! --ssr_h5 REQUIRES reextraction and --aperture <x> was not specified. Defaulting to 3.5 arcsec")
-            args.aperture = 3.5
+            args.aperture = 3.0
+            print( f"WARNING! --ssr_h5 <> REQUIRES reextraction and --aperture <x> was not specified. "
+                   f"Defaulting to {args.aperture} arcsec")
+            G.SSR_REFIT = False
+        else:
+            G.SSR_REFIT = True
 
 
     #if the cutout size (driven by args.error) is smaller than
