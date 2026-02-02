@@ -10699,26 +10699,52 @@ class DetObj:
             self.snr = row['sn']
             self.snr_unc = row['sn_err']
 
-            self.sigma = row['linewidth']#AA
-            self.sigma_unc = row['linewidth_err']
-            if (self.sigma_unc is None) or (self.sigma_unc < 0.0):
-                self.sigma_unc = 0.0
-            self.fwhm = 2.35 * self.sigma
-            self.fwhm_unc = 2.35 * self.sigma_unc
+            try:
+                self.sigma = row['linewidth']#AA
+                self.sigma_unc = row['linewidth_err']
+                if (self.sigma_unc is None) or (self.sigma_unc < 0.0):
+                    self.sigma_unc = 0.0
+                self.fwhm = 2.35 * self.sigma
+                self.fwhm_unc = 2.35 * self.sigma_unc
 
-            #these are not (yet) dust corrected
-            self.estflux = row['flux']
-            self.estflux_unc = row['flux_err']
-            self.estflux_obs = row['flux']
-            self.estflux_unc_obs = row['flux_err']
+                # these are not (yet) dust corrected
+                self.estflux = row['flux']
+                self.estflux_unc = row['flux_err']
+                self.estflux_obs = row['flux']
+                self.estflux_unc_obs = row['flux_err']
 
-            self.estflux_h5 = self.estflux
-            self.estflux_h5_unc = self.estflux_unc
+                self.estflux_h5 = self.estflux
+                self.estflux_h5_unc = self.estflux_unc
 
-            self.cont_cgs = row['continuum'] / G.FLUX_WAVEBIN_WIDTH #units of e-17 set below !!!this is in 2AA bins so /2AA
-            self.cont_cgs_unc = row['continuum_err'] /G.FLUX_WAVEBIN_WIDTH
-            self.cont_cgs_obs = row['continuum'] / G.FLUX_WAVEBIN_WIDTH #units of e-17 set below !!!this is in 2AA bins so /2AA
-            self.cont_cgs_unc_obs = row['continuum_err'] /G.FLUX_WAVEBIN_WIDTH
+                self.cont_cgs = row[
+                                    'continuum'] / G.FLUX_WAVEBIN_WIDTH  # units of e-17 set below !!!this is in 2AA bins so /2AA
+                self.cont_cgs_unc = row['continuum_err'] / G.FLUX_WAVEBIN_WIDTH
+                self.cont_cgs_obs = row[
+                                        'continuum'] / G.FLUX_WAVEBIN_WIDTH  # units of e-17 set below !!!this is in 2AA bins so /2AA
+                self.cont_cgs_unc_obs = row['continuum_err'] / G.FLUX_WAVEBIN_WIDTH
+
+
+            except: #different source, SSR h5 file OR if this fails, it is fatal and just let the exception pop
+                self.fwhm = row['fwhm_line_aa']#AA
+                self.fwhm_unc =row['fwhm_line_aa_err']#AA
+                self.sigma = self.fwhm / 2.355
+                self.sigma_unc = self.fwhm_unc / 2.355
+
+                #in the original detection h5, these are not (yet) dust corrected, same is TRUE in SSR h5, but
+                #the dust multiplier is also recorded:  dust = row['flux_line_dust_corr']
+                self.estflux = row['flux_line']
+                self.estflux_unc = row['flux_line_err']
+                self.estflux_obs = row['flux_line_obs']
+                self.estflux_unc_obs = row['flux_line_obs_err']
+
+                self.estflux_h5 = self.estflux
+                self.estflux_h5_unc = self.estflux_unc
+
+                # need to undo the conversion to flux density and scaled to 1e-17
+                self.cont_cgs = row['continuum_line'] * G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS#units of e-17 set below !!!this is in 2AA bins so /2AA
+                self.cont_cgs_unc = row['continuum_line_err'] * G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS
+                self.cont_cgs_obs = self.cont_cgs
+                self.cont_cgs_unc_obs =  self.cont_cgs_unc
 
 
             #bad idea (leaving here just as a reminder)... setting as a small value leads to artifically
@@ -10805,8 +10831,13 @@ class DetObj:
                     return
                 row = rows[0]
 
-                if alt_spectra:
-                    pass
+                if alt_spectra: #need to get from CalibratedSpectra
+                    self.sumspec_counts = None  # not really using this anymore
+                    # self.sumspec_countserr #not using this
+                    self.sumspec_wavelength = G.CALFIB_WAVEGRID
+                    self.sumspec_flux = row['flux']  # DOES NOT have units attached, but is 10^17 (so *1e-17 to get to real units)
+                    self.sumspec_fluxerr = row['flux_err']
+                    self.sumspec_apcor = None #row['apcor']  # aperture correction
                 else:
                     self.sumspec_counts = row['counts1d']  # not really using this anymore
                     # self.sumspec_countserr #not using this
@@ -11231,6 +11262,7 @@ class DetObj:
              #    panacea_fiber_index=-1, detect_id = -1):
 
             log.debug(f"Loading base fiber data from HDF5 ({id})...")
+            #todo: for the alternate method, need to get the fibers that compose the PSF weighted extracted spectra
             rows = fiber_table.read_where("detectid == id")
             subset_norm = 0.0 #for the relative weights
 
@@ -15713,27 +15745,29 @@ class HETDEX:
         summed_image =np.zeros(datakeep['im'][np.nanargmax([np.sum(x.shape) for x in datakeep['im']])].shape)
 
         #sanity check for the top few fiber cutouts as identical
-        duplicate_weight = 0
-        try:
-            #trip on any one of the top 3 as identical, checked in weight order
-            if not np.any(datakeep['im'][-1] - datakeep['im'][-2]):
-                #blue and green fiber cutouts are the same
-                log.info("Probable spurious detection. Duplicate fiber cutouts detected (blue and green).")
-                duplicate_weight += datakeep['fiber_weight'][-1] + datakeep['fiber_weight'][-2]
-            elif not np.any(datakeep['im'][-1] - datakeep['im'][-3]):
-                #blue and yellow fiber cutouts are the same
-                log.info("Probable spurious detection. Duplicate fiber cutouts detected (blue and yellow).")
-                duplicate_weight += datakeep['fiber_weight'][-1] + datakeep['fiber_weight'][-3]
-            elif not np.any(datakeep['im'][-2] - datakeep['im'][-3]):
-                #green and yellow fiber cutouts are the same
-                log.info("Probable spurious detection. Duplicate fiber cutouts detected (green and yellow).")
-                duplicate_weight += datakeep['fiber_weight'][-2] + datakeep['fiber_weight'][-3]
+        #thiis does not work for SSR
+        if not G.SSR_RUN:
+            duplicate_weight = 0
+            try:
+                #trip on any one of the top 3 as identical, checked in weight order
+                if not np.any(datakeep['im'][-1] - datakeep['im'][-2]):
+                    #blue and green fiber cutouts are the same
+                    log.info("Probable spurious detection. Duplicate fiber cutouts detected (blue and green).")
+                    duplicate_weight += datakeep['fiber_weight'][-1] + datakeep['fiber_weight'][-2]
+                elif not np.any(datakeep['im'][-1] - datakeep['im'][-3]):
+                    #blue and yellow fiber cutouts are the same
+                    log.info("Probable spurious detection. Duplicate fiber cutouts detected (blue and yellow).")
+                    duplicate_weight += datakeep['fiber_weight'][-1] + datakeep['fiber_weight'][-3]
+                elif not np.any(datakeep['im'][-2] - datakeep['im'][-3]):
+                    #green and yellow fiber cutouts are the same
+                    log.info("Probable spurious detection. Duplicate fiber cutouts detected (green and yellow).")
+                    duplicate_weight += datakeep['fiber_weight'][-2] + datakeep['fiber_weight'][-3]
 
-            if duplicate_weight != 0:
-                detobj.duplicate_fiber_cutout_pair_weight = duplicate_weight
+                if duplicate_weight != 0:
+                    detobj.duplicate_fiber_cutout_pair_weight = duplicate_weight
 
-        except:
-            log.warning("Excpetion comparing fiber cutouts in hetdex.py build_2d_image()",exc_info=True)
+            except:
+                log.warning("Excpetion comparing fiber cutouts in hetdex.py build_2d_image()",exc_info=True)
 
         #need i to start at zero
         #building from bottom up
@@ -17237,15 +17271,19 @@ class HETDEX:
             except:
                 #if we can't find the min and max there is a serious problem and the spectrum is junk
                 #this is probably a zero sized array ValueError
-                try:
-                    log.error("Unable to build full width spec plot.")
-                    buf = io.BytesIO()
-                    plt.savefig(buf, format='png', dpi=300)
-                    plt.close(fig)
-                    return buf
-                except:
-                    log.error("Unable to build full width spec plot or blank plot.")
-                    return None
+                if G.SSR_RUN:
+                    mn = np.nanmin(datakeep['sumspec_flux']) #_zoom']) #the whole width, not just the central peak
+                    mx= np.nanmax(datakeep['sumspec_flux']) #_zoom'])
+                else:
+                    try:
+                        log.error("Unable to build full width spec plot.")
+                        buf = io.BytesIO()
+                        plt.savefig(buf, format='png', dpi=300)
+                        plt.close(fig)
+                        return buf
+                    except:
+                        log.error("Unable to build full width spec plot or blank plot.")
+                        return None
 
 
             absorber = False
@@ -17299,7 +17337,15 @@ class HETDEX:
 
             #plot the Error (fill between) light grey
             #specplot.fill_between(bigwave, 5.0 * E, -5.0 * E, facecolor='gray', alpha=0.4, zorder=4)
-            specplot.fill_between(bigwave,noise_multiplier*E,-noise_multiplier*E,facecolor='gray',alpha=0.5,zorder=5)
+            if len(bigwave) ==0:
+                # specplot.fill_between(datakeep['sumspec_wave'], noise_multiplier * datakeep['sumspec_ferr'],
+                #                       -noise_multiplier *  datakeep['sumspec_ferr'], facecolor='gray', alpha=0.5,
+                #                       zorder=5)
+                specplot.fill_between(datakeep['sumspec_wave'], noise_multiplier * datakeep['detobj'].calfib_noise_estimate,
+                                      -noise_multiplier *  datakeep['detobj'].calfib_noise_estimate, facecolor='gray', alpha=0.5,
+                                      zorder=5)
+            else:
+                specplot.fill_between(bigwave,noise_multiplier*E,-noise_multiplier*E,facecolor='gray',alpha=0.5,zorder=5)
 
             #red tips on peaks above 3sigma
             where_red = np.where( (F-noise_multiplier*E) > 0.0)
@@ -17307,7 +17353,11 @@ class HETDEX:
             mask[where_red]=True
 
             #specplot.step(bigwave, F, c='b', where='mid', lw=1)
-            specplot.plot(bigwave, F, c='b', lw=1,zorder=8)
+            if len(bigwave) == 0 or len(F) == 0:
+                specplot.plot(datakeep['sumspec_wave'], datakeep['sumspec_flux'], c='b', lw=1, zorder=8)
+            else:
+                specplot.plot(bigwave, F, c='b', lw=1,zorder=8)
+
             if G.SHADE_1D_SPEC_PEAKS:
                 specplot.fill_between(bigwave, noise_multiplier * E,F,where=mask,facecolor='r',edgecolor='r', alpha=1.0, zorder=9)
             specplot.plot([cwave, cwave], [mn - ran * rm, mn + ran * (1 + rm)], lw=0.75,ls='dashed', c='k',zorder=9) #[0.3, 0.3, 0.3])
@@ -17316,8 +17366,16 @@ class HETDEX:
             #add the zero reference line
             specplot.axhline(y=0,color='k',alpha=0.5)
 
+
+            if left == right == 0:
+                left = datakeep['sumspec_wave'][0]
+                right = datakeep['sumspec_wave'][-1]
+
             if G.FIT_FULL_SPEC_IN_WINDOW:
-                specplot.axis([left, right,np.min(F),np.max(F)])
+                if len(F) == 0:
+                    specplot.axis([left, right, mn - ran / 20, mx + ran / 20])
+                else:
+                    specplot.axis([left, right,np.min(F),np.max(F)])
             else:
                 specplot.axis([left, right, mn - ran / 20, mx + ran / 20])
             # specplot.set_ylabel(y_label) #not honoring it, so just put in the text plot

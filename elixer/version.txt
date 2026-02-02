@@ -1,8 +1,10 @@
 changes to elixer by version
 
-1.24.1a5 [2026-01-15]
+1.24.1a5 [2026-02-02]
 * update hsc_ssp_meta.py to mark the HSC SSP D/UD (deep/ultra deep) tracts (in COSMOS) with the deeper limits
   (prior to this all were marked as if they were the HSC SSP wide limits)
+* fix (very old, minor) bug that checked the source extrator brighter mag against the mag limit. In the case were no
+    "bright" mag was found (e.g. no error defined), the assumed 50% error went the wrong way (made it fainter)
 
 1.24.1a4 [2025-12-10]
 * update restricted catalog cat_rstr_cosmos_hst_jwst for new imaging tiles

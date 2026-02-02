@@ -298,7 +298,15 @@ class HetdexFits:
 
             with tables.open_file(self.filename, mode="r") as h5_multifits:
                 fibers_table = h5_multifits.root.Data.Fibers
-                images_table = h5_multifits.root.Data.Images
+                try:
+                    images_table = h5_multifits.root.Data.Images
+                except:
+                    if G.SSR_RUN: #ignore in this case
+                        images_table = None
+                        log.debug("Allowing missing root.Data.Images on SSR re-run.")
+                    else:
+                        #this is fatal
+                        log.error("Could not open root.Data.Images. Cannot continue.",exc_info=True)
                 shots_table = h5_multifits.root.Shot
 
                 # try: #not necessary ... this is also in the survey h5, no need to repeatedly get it here
@@ -343,42 +351,47 @@ class HetdexFits:
                 #########################################
                 #Amp info (big images)
                 #########################################
-                rows = images_table.read_where("(multiframe==q_multiframe) & (expnum==q_expnum)")
+                if images_table is not None:
+                    rows = images_table.read_where("(multiframe==q_multiframe) & (expnum==q_expnum)")
 
 
-                if (rows is None):
-                    self.okay = False
-                    log.error("Problem loading multi-fits HDF5 equivalant. Bad Images table (0 rows returned).")
-                elif (rows.size != 1):
-                    self.okay = False
-                    log.error("Problem loading multi-fits HDF5 equivalant. Bad Images table "
-                              "(%d rows returned. Expected 1.) %s expn %d" %(rows.size, q_multiframe, q_expnum))
-                    return
+                    if (rows is None):
+                        self.okay = False
+                        log.error("Problem loading multi-fits HDF5 equivalant. Bad Images table (0 rows returned).")
+                    elif (rows.size != 1):
+                        self.okay = False
+                        log.error("Problem loading multi-fits HDF5 equivalant. Bad Images table "
+                                  "(%d rows returned. Expected 1.) %s expn %d" %(rows.size, q_multiframe, q_expnum))
+                        return
 
-                row = rows[0]
+                    row = rows[0]
 
-                # use the cleaned image
-                self.data = row['clean_image']
-                self.data[np.isnan(self.data)] = 0.0  # clean up any NaNs
-                if self.data.shape != (1032, 1032):
-                    log.error(
-                        "ERROR!! Unexpected data shape for [clean_image]. Expected (1032,1032), got (%d,%d)" % (
-                            self.data.shape))
+                    # use the cleaned image
+                    self.data = row['clean_image']
+                    self.data[np.isnan(self.data)] = 0.0  # clean up any NaNs
+                    if self.data.shape != (1032, 1032):
+                        log.error(
+                            "ERROR!! Unexpected data shape for [clean_image]. Expected (1032,1032), got (%d,%d)" % (
+                                self.data.shape))
 
-                # get the error
-                self.err_data = row['error']
-                self.err_data[np.isnan(self.err_data)] = 0.0
-                if self.err_data.shape != (1032, 1032):
-                    log.error("ERROR!! Unexpected data shape for [error]. Expected (1032,1032), got (%d,%d)"
-                              % (self.err_data.shape))
-                    self.err_data = np.full(self.data.shape,0.0)
+                    # get the error
+                    self.err_data = row['error']
+                    self.err_data[np.isnan(self.err_data)] = 0.0
+                    if self.err_data.shape != (1032, 1032):
+                        log.error("ERROR!! Unexpected data shape for [error]. Expected (1032,1032), got (%d,%d)"
+                                  % (self.err_data.shape))
+                        self.err_data = np.full(self.data.shape,0.0)
 
-                # with the sky NOT subtracted (the raw image)
-                self.data_sky = row['image']
-                self.data_sky[np.isnan(self.data_sky)] = 0.0  # clean up any NaNs
-                if self.data_sky.shape != (1032, 1032):
-                    log.error("ERROR!! Unexpected data shape for [0] (data_sky). Expected (1032,1032), got (%d,%d)"
-                          % (self.data_sky.shape))
+                    # with the sky NOT subtracted (the raw image)
+                    self.data_sky = row['image']
+                    self.data_sky[np.isnan(self.data_sky)] = 0.0  # clean up any NaNs
+                    if self.data_sky.shape != (1032, 1032):
+                        log.error("ERROR!! Unexpected data shape for [0] (data_sky). Expected (1032,1032), got (%d,%d)"
+                              % (self.data_sky.shape))
+                else:
+                    self.data = np.full((1032,1032),255)
+                    self.data_sky = self.data
+                    self.err_data = self.data
 
                 #temp:
                 # im_max = np.max(self.data_sky)
@@ -589,13 +602,26 @@ class HetdexFits:
                             data = np.nan_to_num(data)
                             return data
                         except ValueError as ve:
-                            if "no field" in str(ve): #these are generally expected
-                                log.debug(f"Exception retrieving field: {logname_info} : {field_name}")
-                                raise ve
-                                return np.full(shape,0)
+                            if not G.SSR_RUN:
+                                if "no field" in str(ve): #these are generally expected
+                                    log.debug(f"Exception retrieving field: {logname_info} : {field_name}")
+                                    raise ve
+                                    return np.full(shape,0)
+                                else:
+                                    raise ve
+                                    log.error(f"Exception retrieving field: {logname_info} : {field_name}")
+                                    return np.full(shape, 0)
+                            else:
+                                log.debug(f"SSR: Ignoring ValueError on rertrieving field: {logname_info} : {field_name}")
+                                return np.full(shape, 0)
+
                         except:
-                            log.error(f"Exception retrieving field: {logname_info} : {field_name}",exc_info=True)
-                            return np.full(shape,0)
+                            if not G.SSR_RUN:
+                                log.error(f"Exception retrieving field: {logname_info} : {field_name}",exc_info=True)
+                                return np.full(shape,0)
+                            else:
+                                log.debug(f"SSR: Ignoring ValueError on rertrieving field: {logname_info} : {field_name}")
+                                return np.full(shape, 0)
 
                     for row in rows:
                         #at some point this changes to fibidx
