@@ -2173,7 +2173,10 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
     # 1.0 is not bad, but occasionally miss something by just a bit
 
     if fit_range_AA is None:
-        fit_range_AA = max(GAUSS_FIT_PIX_ERROR * pix_size, GAUSS_FIT_AA_ERROR)
+        if G.GAUSS_FIT_DELTA_WAVE >= 0:
+            fit_range_AA = G.GAUSS_FIT_DELTA_WAVE
+        else:
+            fit_range_AA = max(GAUSS_FIT_PIX_ERROR * pix_size, GAUSS_FIT_AA_ERROR)
         #fit_range_AA = GAUSS_FIT_PIX_ERROR * pix_size #1.0  # peak must fit to within +/- fit_range AA
                                   # this allows room to fit, but will enforce +/- pix_size after
     #num_of_sigma = 3.0  # number of sigma to include on either side of the central peak to estimate noise

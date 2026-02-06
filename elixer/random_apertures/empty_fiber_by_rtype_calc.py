@@ -8,7 +8,7 @@ and for each detection, recreates its PSF weighted spectra, applying the particu
 These spectra are then stacked within each rtype+mag_bin and plotted. The "best" rtype is chosen as the default calibration.
 ("best" being overall closest to the 1:1 center line of the mag bin)
 
-!!! Note: an additoinal correction should be made that could alter the "best" rtype selection. Based on Mahan's investigation,
+!!! Note: an additional correction should be made that could alter the "best" rtype selection. Based on Mahan's investigation,
 the HSC imaging is a bit over(sky) subtracted and as the object magnitudes get faint and are stacked, this may become
 a meaningful difference.
 

@@ -523,7 +523,7 @@ def parse_commandline(auto_force=False):
 
     parser.add_argument('--fit_delta_wave',
                         help="Delta wavelength in AA for line fitting Gaussian. Used with --wavelength",
-                        required=False, type=float)
+                        required=False, type=float,default=-1)
 
 
     parser.add_argument('--version', help='Print the version to screen.',
@@ -1380,7 +1380,7 @@ def parse_commandline(auto_force=False):
             log.error(f"Fatal. Invalid fit_sigma parameters: {args.fit_sigma}")
             exit(-1)
 
-    if args.fit_delta_wave:
+    if args.fit_delta_wave >= 0:
         if 0.0 <= args.fit_delta_wave <= (G.WAVEGRID_RED_LIMIT - G.WAVEGRID_BLUE_LIMIT):
             G.GAUSS_FIT_DELTA_WAVE = args.fit_delta_wave
         else:
