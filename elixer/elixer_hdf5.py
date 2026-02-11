@@ -5,7 +5,7 @@ merge existing ELiXer catalogs
 """
 
 
-__version__ = '0.9.2' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
+__version__ = '0.10.0' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -527,6 +527,19 @@ class CatalogMatch(tables.IsDescription):
     #cat_photz_pdf_p = tables.Float32Col(1036, )
 
 
+class Fiber2DCutouts (tables.IsDescription):
+
+    detectid = tables.Int64Col(pos=0)
+    ###needs to be array of 4 (top 4 fibers)
+    fiber_id = tables.StringCol(shape=(4,),itemsize=38, pos=1)
+    distance = tables.Float32Col(shape=(4,),pos=2)
+    weight = tables.Float32Col(shape=(4,),pos=3)
+    wavelength = tables.Float32Col(shape=(49,),pos=4)
+    img_sum = tables.Float32Col(shape=(9,49),pos=5)
+    img_arr = tables.Float32Col(shape=(4, 9, 49),pos=6)
+    err_arr = tables.Float32Col(shape=(4, 9, 49),pos=7)
+
+
 def version_match(fileh):
     """
     Checks an existing HDF5 file to see if the version is compatible for appending
@@ -581,6 +594,7 @@ def flush_all(fileh,reindex=True):
         stb = fileh.root.CalibratedSpectra
         atb = fileh.root.Aperture
         ctb = fileh.root.CatalogMatch
+        f2dtb = file.root.Fiber2DCutouts
 
         vtb.flush()
         dtb.flush()
@@ -588,6 +602,7 @@ def flush_all(fileh,reindex=True):
         stb.flush()
         atb.flush()
         ctb.flush()
+        f2dtb.flush()
 
         try:
             etb = fileh.root.ExtractedObjects
@@ -644,11 +659,17 @@ def flush_all(fileh,reindex=True):
             log.debug("Failed to remove detectid index on multiple tables",exc_info=True)
 
 
+        try:
+            f2dtb.cols.detectid.remove_index()
+        except:
+            log.debug("Failed to remove detectid index on Fiber2DCutouts tables", exc_info=True)
+
         dtb.flush()
         ltb.flush()
         stb.flush()
         atb.flush()
         ctb.flush()
+        f2dtb.flush()
 
         #create (new) index
         # vtb does not have or need an index
@@ -684,6 +705,11 @@ def flush_all(fileh,reindex=True):
         except:
             log.debug("Index fail on catalog match table",exc_info=True)
 
+        try:
+            f2dtb.cols.detectid.create_csindex()
+        except:
+            log.debug("Index fail on Fiber2DCutouts table",exc_info=True)
+
 
         #vtb.flush() # no need to re-flush vtb
         dtb.flush()
@@ -691,6 +717,8 @@ def flush_all(fileh,reindex=True):
         stb.flush()
         atb.flush()
         ctb.flush()
+        f2dtb.flush()
+
 
         try:
             etb.cols.detectid.remove_index()
@@ -832,6 +860,10 @@ def get_hdf5_filehandle(fname,append=False,allow_overwrite=True,must_exist=False
                                'ELiXer Image Circular Apertures Table',
                                expectedrows=estimated_dets*5) #mostly a g and r aperture, sometimes more
 
+            fileh.create_table(fileh.root, 'Fiber2DCutouts', Fiber2DCutouts,
+                               'ELiXer Fiber2DCutouts Table',
+                               expectedrows=estimated_dets)
+
             if G.LyC or G.DeblendSpectra: #special Lyman Continuum project handling (this IS called from elixer so G.LyC is set)
                 fileh.create_table(fileh.root, 'NeighborSpectra', NeighborSpectra,
                                    'NeighborSpectra Table',
@@ -866,6 +898,8 @@ def append_entry(fileh,det,overwrite=False):
         ltb = fileh.root.SpectraLines
         atb = fileh.root.Aperture
         ctb = fileh.root.CatalogMatch
+
+
         try:
             etb = fileh.root.ExtractedObjects
         except:
@@ -880,7 +914,15 @@ def append_entry(fileh,det,overwrite=False):
                                'ELiXer Image Circular Apertures Table')
             xtb = fileh.root.ElixerApertures
 
-        list_tables = [dtb,stb,ltb,atb,ctb,etb,xtb]
+
+        try:
+            f2dtb = fileh.root.Fiber2DCutouts
+        except:
+            fileh.create_table(fileh.root, 'Fiber2DCutouts', Fiber2DCutouts,
+                               'ELiXer Fiber2DCutouts Table')
+            f2dtb = fileh.root.Fiber2DCutouts
+
+        list_tables = [dtb,stb,ltb,atb,ctb,etb,xtb,f2dtb]
 
 
         try:
@@ -1402,6 +1444,26 @@ def append_entry(fileh,det,overwrite=False):
         row.append()
         stb.flush()
 
+
+        #############################
+        #ELiXer Fiber2DCutouts
+        #############################
+        row = f2dtb.row
+
+        try:
+            row['detectid'] = det.hdf5_detectid
+            row['fiber_id'] = det.ml_2d_fiber_ids
+            row['distance'] = det.ml_2d_fiber_dists
+            row['weight'] = det.ml_2d_fiber_weights
+            row['wavelength'] = det.ml_2d_fiber_waves
+            row['img_sum'] = det.ml_2d_fiber_sum
+            row['img_arr'] = det.ml_2d_fiber_cutouts
+            row['err_arr'] = det.ml_2d_error_cutouts
+
+            row.append()
+            f2dtb.flush()
+        except:
+            log.error("Failed to insert Fiber2DCutouts row",exc_info=True)
 
         #############################
         #ELiXer Found Spectral Lines Table

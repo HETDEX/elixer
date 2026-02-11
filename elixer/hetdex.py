@@ -909,6 +909,16 @@ class DetObj:
 
         self.best_counterpart = None #selected in cat_base::build_cat_summary_pdf_section
 
+        #for machine learning
+        self.ml_2d_fiber_ids = [] #the fiber id, so can look up later if needed
+        self.ml_2d_fiber_weights = []  # the fiber weight (e.g in the sum)
+        self.ml_2d_fiber_dists = []  # the fiber center distance (in arcsec) to the PSF weighted center
+        self.ml_2d_fiber_waves = [] # single array of the wavelenghs (all fibers are assumed to be at the same)
+        self.ml_2d_fiber_cutouts = [] #list of usually 9x49 pixels (1 fiber tall, ~ 90AA wide), top 4 fibers
+        self.ml_2d_error_cutouts = [] #corresponding errors
+        self.ml_2d_fiber_sum     = None #no matching error array single 9x49 array
+
+
         if emission:
             self.type = 'emis'
             # actual line number from the input file
@@ -1758,7 +1768,7 @@ class DetObj:
                             break
 
                 ######################################################
-                # check for no SEP ellipse wthin 0.5"
+                # check for no SEP ellipse wthin 0.8"
                 # NOTE: specfically this only applies to SEP ellipses ... if there are NO ellipses this flag is skipped
                 # and is covered by the NO_COUNTERPART flag
                 ######################################################
@@ -1772,8 +1782,8 @@ class DetObj:
                     #have to have at least one set of SEP objects, otherwise this flag makes no sense
                     new_flag = G.DETFLAG_DISTANT_COUNTERPART
                     for s in d['sep_objects']:
-                        if s['dist_curve'] < 0.5:
-                            # done, we are inside at least one ellipse (negative distance) OR within 0.5"
+                        if s['dist_curve'] < 0.8:
+                            # done, we are inside at least one ellipse (negative distance) OR within 0.8"
                             new_flag = 0
                             break
 
@@ -10023,10 +10033,17 @@ class DetObj:
 
                 log.debug("Building fiber %d of %d (%s e%d) ..." % (count, num_fibers,idstring + str(fiber_index+1),int(row['expnum'])))
                 idstring += str(fiber_index) #add the fiber index (zero based)
+                try:
+                    hetdex_api_fiber_id = row['fiber_id'].decode()
+                except:
+                    try:
+                        hetdex_api_fiber_id = row['fiber_id']
+                    except:
+                        hetdex_api_fiber_id = None
 
                 fiber = elixer_fiber.Fiber(idstring=idstring,specid=specid,ifuslot=ifuslot,ifuid=ifuid,amp=amp,
                                            date=date,time=time,time_ex=time_ex, panacea_fiber_index=fiber_index,
-                                           detect_id=self.id)
+                                           detect_id=self.id,hetdex_api_fiber_id=hetdex_api_fiber_id)
 
                 if fiber is not None:
                     duplicate = False
@@ -11362,20 +11379,27 @@ class DetObj:
                 try:
                     if mfits_name[-2:] != amp:
                         log.warning("hetdex.py amp string comparision mismatch: %s != %s",(mfits_name[-2:],amp))
-
                 except:
                     log.debug("hetdex.py amp string comparision failed",exec_info=True)
 
 
 
                 #idstring = date + "v" + time_ex + "_" + specid + "_" + ifuslot + "_" + ifuid + "_" + amp + "_" #leave off the fiber for the moment
-                idstring = str(self.survey_shotid)[:-3] + "v" + str(self.survey_shotid)[-3:] + "_" + specid + "_" + ifuslot + "_" + ifuid + "_" + amp + "_" #leave off the fiber for the moment
+                idstring = str(self.survey_shotid)[:-3] + "v" + str(self.survey_shotid)[-3:] + "_" + \
+                           specid + "_" + ifuslot + "_" + ifuid + "_" + amp + "_" #leave off the fiber for the moment
                 log.debug("Building fiber %d of %d (%s e%d) ..." % (count, num_fibers,idstring + str(fiber_index+1),int(row['expnum'])))
                 idstring += str(fiber_index) #add the fiber index (zero based)
+                try:
+                    hetdex_api_fiber_id = row['fiber_id'].decode()
+                except:
+                    try:
+                        hetdex_api_fiber_id = row['fiber_id']
+                    except:
+                        hetdex_api_fiber_id = None
 
                 fiber = elixer_fiber.Fiber(idstring=idstring,specid=specid,ifuslot=ifuslot,ifuid=ifuid,amp=amp,
                                            date=date,time=time,time_ex=time_ex, panacea_fiber_index=fiber_index,
-                                           detect_id=id)
+                                           detect_id=id,hetdex_api_fiber_id=hetdex_api_fiber_id)
 
                 if fiber is not None:
                     duplicate = False
@@ -14664,6 +14688,7 @@ class HETDEX:
             dd['obsid'] = []
             dd['expid'] = []
             dd['fib'] = []
+            dd['hetdex_api_fiber_id'] =[]
             dd['fib_idx1'] = []
             dd['ifu_slot_id'] = []
             dd['ifu_id'] = []
@@ -14691,6 +14716,7 @@ class HETDEX:
             dd['d'] = []
             dd['dx'] = []
             dd['dy'] = []
+            dd['im_wave'] = []
             dd['im'] = []
             dd['fw_im'] = [] #full width (1024)
             dd['fxl'] = []
@@ -14918,8 +14944,13 @@ class HETDEX:
             #  then in original func, slice as below
 
             if sci is not None:
-                datakeep['im'].append(sci.data[yl:yh,xl:xh])
-                datakeep['fw_im'].append(sci.data[yl:yh, 0:FRAME_WIDTH_X-1])
+                datakeep['im'].append(sci.data[yl:yh,xl:xh+1])
+                datakeep['im_wave'].append(sci.fits.wave_data[loc,xl:xh+1] )
+                try:
+                    datakeep['fw_im'].append(sci.data[yl:yh, 0:FRAME_WIDTH_X])
+                except:
+                    datakeep['fw_im'].append(sci.data[yl:yh, 0:FRAME_WIDTH_X-1])
+
 
                 z1, z2 = self.get_vrange(sci.data[yl:yh, xl:xh], scale=contrast1)
                 log.debug("2D cutout zscale1 (smoothed) = %f, %f  for D,S,F = %d, %s, %d"
@@ -15209,6 +15240,7 @@ class HETDEX:
                     fiber.expid = dither + 1
                     datakeep['expid'].append(str(fiber.expid))
 
+                datakeep['hetdex_api_fiber_id'].append(fiber.hetdex_api_fiber_id)
                 datakeep['fib_idx1'].append(str(fiber.panacea_idx+1))
                 datakeep['ifu_slot_id'].append(str(fiber.ifuslot).zfill(3))
                 datakeep['ifu_id'].append(str(fiber.ifuid).zfill(3))
@@ -15498,8 +15530,12 @@ class HETDEX:
                     else:
                         log.warning(f"Unable to build blank data.", exc_info=True)
 
-                datakeep['im'].append(deepcopy(blank))
-                datakeep['fw_im'].append(fits.data[yl:yh, 0:FRAME_WIDTH_X - 1])
+                datakeep['im'].append(deepcopy(blank)) #reminder, blank usually is not "blank", and has the actual data
+                datakeep['im_wave'].append(fits.wave_data[loc, xl:xh+ 1])
+                try:
+                    datakeep['fw_im'].append(fits.data[yl:yh+1, 0:FRAME_WIDTH_X])
+                except:
+                    datakeep['fw_im'].append(fits.data[yl:yh, 0:FRAME_WIDTH_X - 1])
 
                 z1, z2 = self.get_vrange(fits.data[yl:yh, xl:xh],scale=contrast1)
                 log.debug(f"2D cutout zscale1 (smoothed) = {z1}, {z2} for D,S,F = {dither+1} {fits.side} {fiber.number_in_ccd}")
@@ -15850,6 +15886,20 @@ class HETDEX:
                     ext = list(np.hstack([datakeep['xl'][ind[i]], datakeep['xh'][ind[i]],
                                           datakeep['yl'][ind[i]], datakeep['yh'][ind[i]]]))
 
+                    #copy into DetObj's ML input list (reverse order)
+                    h,w = datakeep['im'][ind[i]].shape
+                    detobj.ml_2d_fiber_cutouts.insert(0,datakeep['im'][ind[i]][h//2-4:h//2+5])
+                    detobj.ml_2d_error_cutouts.insert(0,datakeep['err'][ind[i]][h//2-4:h//2+5])
+                    detobj.ml_2d_fiber_ids.insert(0,datakeep['hetdex_api_fiber_id'][ind[i]])
+                    detobj.ml_2d_fiber_weights.insert(0, datakeep['fiber_weight'][ind[i]])
+                    detobj.ml_2d_fiber_dists.insert(0, datakeep['d'][ind[i]])
+                    detobj.ml_2d_fiber_waves = datakeep['im_wave'][ind[i]] #keep overwritting with the next higher fiber
+                    #print(i,ind[i],datakeep['im_wave'][ind[i]])
+                    #notice: each fiber actually has its own individual wavelength solution
+                    #        but we are simplifying here and assuming the last one for all of them
+                    #        (the variation should only be a fraction of a angstrom)
+
+
                     # set the hot (cosmic) pixel values to zero then employ guassian_filter
                     a = datakeep['im'][ind[i]]
                     a = np.ma.masked_where(datakeep['err'][ind[i]] == -1, a)
@@ -16018,6 +16068,10 @@ class HETDEX:
                 plot_label = "SUM"
 
                 GF = gaussian_filter(summed_image, (2, 1))
+
+                h, w = summed_image.shape
+                detobj.ml_2d_fiber_sum = summed_image[h//2-4:h//2+5]
+
                 image = summed_image
                 img_vmin, img_vmax = self.get_vrange(summed_image, scale=contrast2)
                 gauss_vmin, gauss_vmax =  self.get_vrange(summed_image, scale=contrast1)
@@ -16166,8 +16220,17 @@ class HETDEX:
                                 #!!! multi*fits is <specid>_<ifuslot>_<ifuid> !!!
                                 #!!! so do NOT change from spec_id
                                 #!!! note: having all three identifiers makes the string too long so leave as is
-                                l4 = datakeep['spec_id'][ind[i]] + "_" + datakeep['amp'][ind[i]] + "_" + \
-                                     str(datakeep['fib_idx1'][ind[i]]).zfill(3) #+ "#" + str(datakeep['fib'][ind[i]]).zfill(3)
+
+                                if datakeep['hetdex_api_fiber_id'][ind[i]] is not None:
+                                    #we want the IFUSLOT AMP and fiber NUMBER
+                                    #example: '20191024020_2_multi_301_052_072_LU_059
+                                    toks = datakeep['hetdex_api_fiber_id'][ind[i]].split("_")
+                                    reduced_fiber_id = toks[4] + toks[6] + " #" + toks[7]
+                                else:
+                                    reduced_fiber_id = datakeep['spec_id'][ind[i]] + "_" + datakeep['amp'][ind[i]] + "_" + \
+                                     str(datakeep['fib_idx1'][ind[i]]).zfill(3)
+
+                                l4 = reduced_fiber_id #+ "#" + str(datakeep['fib'][ind[i]]).zfill(3)
 
                                 borplot.text(1.05, .25, l3,
                                              transform=smplot.transAxes, fontsize=6, color='k',
@@ -17426,8 +17489,8 @@ class HETDEX:
 
 
             if left == right == 0:
-                left = datakeep['sumspec_wave'][0]
-                right = datakeep['sumspec_wave'][-1]
+                left = datakeep['sumspec_wave'][50] #ignore most extreme ends
+                right = datakeep['sumspec_wave'][-50]
 
             if G.FIT_FULL_SPEC_IN_WINDOW:
                 if len(F) == 0:
@@ -18031,8 +18094,16 @@ class HETDEX:
                                 # !!! multi*fits is <specid>_<ifuslot>_<ifuid> !!!
                                 # !!! so do NOT change from spec_id
                                 # !!! note: having all three identifiers makes the string too long so leave as is
-                                l4 = datakeep['spec_id'][ind[i]] + "_" + datakeep['amp'][ind[i]] + "_" + \
-                                     datakeep['fib_idx1'][ind[i]]
+                                if datakeep['hetdex_api_fiber_id'][ind[i]] is not None:
+                                    #we want the IFUSLOT AMP and fiber NUMBER
+                                    #example: '20191024020_2_multi_301_052_072_LU_059
+                                    toks = datakeep['hetdex_api_fiber_id'][ind[i]].split("_")
+                                    reduced_fiber_id = toks[4] + toks[6] + " #" + toks[7]
+                                else:
+                                    reduced_fiber_id = datakeep['spec_id'][ind[i]] + "_" + datakeep['amp'][ind[i]] + "_" + \
+                                     str(datakeep['fib_idx1'][ind[i]]).zfill(3)
+
+                                l4 = reduced_fiber_id
 
                                 borplot.text(1.05, .33, l3,
                                              transform=smplot.transAxes, fontsize=6, color='k',

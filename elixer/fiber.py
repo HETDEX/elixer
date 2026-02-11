@@ -98,7 +98,7 @@ def parse_fiber_idstring(idstring):
 class Fiber:
     #todo: if needed allow fiber number (in amp or side or ccd) to be passed in instead of panacea index
     def __init__(self,idstring=None,specid=None,ifuslot=None,ifuid=None,amp=None,date=None,time=None,time_ex=None,
-                 panacea_fiber_index=-1, detect_id = -1):
+                 panacea_fiber_index=-1, detect_id = -1, hetdex_api_fiber_id=None):
 
         if idstring is None:
             #must specify something
@@ -126,6 +126,7 @@ class Fiber:
         self.bad = False
         self.detect_id = detect_id
         self.idstring = idstring #whole string
+        self.hetdex_api_fiber_id = hetdex_api_fiber_id
         #scifits_idstring ... just the first part that IDs the file
         self.scifits_idstring = idstring.split("_")[0] #todo: if cure, strip off leading non-numeric characters
         self.specid = specid

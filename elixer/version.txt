@@ -1,5 +1,10 @@
 changes to elixer by version
 
+1.25.0a1 [2026-02-10]
+* [in progress] adding ML inputs to hdf5 file
+* change flag for distant counterpart to tigger past 0.8" rather than 0.5" to better deal with typical astrometric uncertainty
+
+
 1.24.1a5 [2026-02-02]
 * update hsc_ssp_meta.py to mark the HSC SSP D/UD (deep/ultra deep) tracts (in COSMOS) with the deeper limits
   (prior to this all were marked as if they were the HSC SSP wide limits)
