@@ -918,6 +918,8 @@ class DetObj:
         self.ml_2d_error_cutouts = [] #corresponding errors
         self.ml_2d_fiber_sum     = None #no matching error array single 9x49 array
 
+        self.pixel_flat_weighted_bad_pixel_count = 0.0
+
 
         if emission:
             self.type = 'emis'
@@ -6844,6 +6846,9 @@ class DetObj:
         #a question of fit ...
 
         #check for bad pixel flats
+        if self.pixel_flat_weighted_bad_pixel_count > 1.0:
+            self.flags |= G.DETFLAG_BAD_PIXEL_FLAT #this can set the flag, but not trigger the spurious reason
+
         bad_pixflt_weight = 0
         for fidx in range(len(self.fibers)): #are in decreasing order of weight
 
@@ -15837,6 +15842,9 @@ class HETDEX:
 
         #not all the same shape, corrupt can be 0,0 or 1,1, so take largest
         summed_image =np.zeros(datakeep['im'][np.nanargmax([np.sum(x.shape) for x in datakeep['im']])].shape)
+        summed_pixel_flat = np.zeros(datakeep['pix'][np.nanargmax([np.sum(x.shape) for x in datakeep['pix']])].shape)
+        summed_weights = 0
+        bad_pix_flat_weighted_count = 0.0 #a count, but will be weighted, so treat as float
 
         #sanity check for the top few fiber cutouts as identical
         #thiis does not work for SSR
@@ -15927,6 +15935,13 @@ class HETDEX:
 
                     #pix_image = pixel_flat ... should usually be all near 1.0
                     pix_image = datakeep['pix'][ind[i]]
+                    if summed_pixel_flat.shape == pix_image.shape:
+                        summed_pixel_flat += pix_image * datakeep['fiber_weight'][ind[i]] #give it the fiber weight
+                        summed_weights += datakeep['fiber_weight'][ind[i]]
+                    else:
+                        log.warning(f"Warning! shape mismiatch: summed_pixel_flat {summed_pixel_flat.shape} != "
+                                    f"{pix_image.shape} in build_2d_image().")
+
                     #bad_pix_image = datakeep['pix'][ind[i]][:]
                     #image = flux image
                     image = datakeep['im'][ind[i]]  # im can be the cosmic removed version, depends on G.PreferCosmicCleaned
@@ -15934,51 +15949,69 @@ class HETDEX:
                     image_err = datakeep['err'][ind[i]]
 
                     # check for bad flat in the center (where emission line would be)
-                    # check 9 central pixels (using "blank")
+                    # check 9x9 central pixels (using "blank")
                     try:
                         flat = pix_image.flatten()
                         nonzero = len(np.where(flat != 0)[0])
-                        if nonzero > 0 and float(nonzero)/float(len(flat)) > 0.5:
-                            cy,cx = np.array(np.shape(pix_image))//2
-                            #cntr = pix_image[cy - 1:cy + 2, cx - 2:cx + 3]  # center 3 high, 5 wide
-                            #cntr25 = pix_image[cy-2:cy+3,cx-2:cx+3]   #center 25 of the pixel flat image
-                            #center 25 of the FLUX (not the pixel flat)
-                            detobj.fibers[len(detobj.fibers) - i - 1].cntr_flux_sum = np.nansum(image[cy - 2:cy + 3, cx - 2:cx + 3])
-                            #detobj.fibers[len(detobj.fibers) - i - 1].cntr_flux_avg = np.nanmedian(image[cy-2:cy+3,cx-2:cx+3])
-                            detobj.fibers[len(detobj.fibers) - i - 1].cntr_flux_err = np.sqrt(np.nansum(image_err[cy - 2:cy + 3, cx - 2:cx + 3]**2))
 
-                            detobj.fibers[len(detobj.fibers) - i - 1].wide_flux_med = np.nanmedian(image[cy - 2:cy + 3, :])
-                            detobj.fibers[len(detobj.fibers) - i - 1].wide_flux_sum = np.nansum(image[cy - 2:cy + 3, : ])
-                            detobj.fibers[len(detobj.fibers) - i - 1].wide_flux_err = np.sqrt(np.nansum(image_err[cy - 2:cy + 3, :] ** 2))
+                        pf_dx = 2
+                        pf_dy = 2
+                        if nonzero > 0 and float(nonzero) / float(len(flat)) > 0.5:
+                            cy, cx = np.array(np.shape(pix_image)) // 2
+                            # cntr = pix_image[cy - 1:cy + 2, cx - 2:cx + 3]  # center 3 high, 5 wide
+                            # cntr25 = pix_image[cy-2:cy+3,cx-2:cx+3]   #center 25 of the pixel flat image
+                            # center 25 of the FLUX (not the pixel flat)
+                            detobj.fibers[len(detobj.fibers) - i - 1].cntr_flux_sum = np.nansum(
+                                image[cy - pf_dy:cy + pf_dy + 1, cx - pf_dx:cx + pf_dx + 1])
+                            # detobj.fibers[len(detobj.fibers) - i - 1].cntr_flux_avg = np.nanmedian(image[cy-2:cy+3,cx-2:cx+3])
+                            detobj.fibers[len(detobj.fibers) - i - 1].cntr_flux_err = np.sqrt(
+                                np.nansum(image_err[cy - pf_dy:cy + pf_dy + 1, cx - pf_dx:cx + pf_dx + 1] ** 2))
 
-                            #looking for charge traps (full height, but 3 wide total)
-                            detobj.fibers[len(detobj.fibers) - i - 1].tall_flux_med = np.nanmedian(image[:, cx - 1:cx + 2])
-                            detobj.fibers[len(detobj.fibers) - i - 1].tall_flux_sum = np.nansum(image[:, cx - 1:cx + 2 ])
-                            detobj.fibers[len(detobj.fibers) - i - 1].tall_flux_err = np.sqrt(np.nansum(image_err[:, cx - 1:cx + 2] ** 2))
+                            detobj.fibers[len(detobj.fibers) - i - 1].wide_flux_med = np.nanmedian(
+                                image[cy - pf_dy:cy + pf_dy + 1, :])
+                            detobj.fibers[len(detobj.fibers) - i - 1].wide_flux_sum = np.nansum(
+                                image[cy - pf_dy:cy + pf_dy + 1, :])
+                            detobj.fibers[len(detobj.fibers) - i - 1].wide_flux_err = np.sqrt(
+                                np.nansum(image_err[cy - pf_dy:cy + pf_dy + 1, :] ** 2))
 
                             # looking for charge traps (full height, but 3 wide total)
-                            #detobj.fibers[len(detobj.fibers) - i - 1].tall_flux_std = np.nanstd(image[:, cx])
-                            #detobj.fibers[len(detobj.fibers) - i - 1].tall_flux_stdw = np.nanstd(image[:, cx - 1:cx + 2])
+                            detobj.fibers[len(detobj.fibers) - i - 1].tall_flux_med = np.nanmedian(
+                                image[:, cx - 1:cx + 2])
+                            detobj.fibers[len(detobj.fibers) - i - 1].tall_flux_sum = np.nansum(image[:, cx - 1:cx + 2])
+                            detobj.fibers[len(detobj.fibers) - i - 1].tall_flux_err = np.sqrt(
+                                np.nansum(image_err[:, cx - 1:cx + 2] ** 2))
 
-                            #detobj.fibers[len(detobj.fibers) - i - 1].cntr_flux_std = np.nanstd(image[cy - 2:cy + 3, cx - 2:cx + 3])
-                            #cntr = pix_image[cy - 3:cy + 4, cx - 3:cx + 4]  # center 49
+                            # looking for charge traps (full height, but 3 wide total)
+                            # detobj.fibers[len(detobj.fibers) - i - 1].tall_flux_std = np.nanstd(image[:, cx])
+                            # detobj.fibers[len(detobj.fibers) - i - 1].tall_flux_stdw = np.nanstd(image[:, cx - 1:cx + 2])
+
+                            # detobj.fibers[len(detobj.fibers) - i - 1].cntr_flux_std = np.nanstd(image[cy - 2:cy + 3, cx - 2:cx + 3])
+                            # cntr = pix_image[cy - 4:cy + 5, cx - 1:cx + 2]  # center 81 (9x9)
+                            #cntr = pix_image[cy - 1:cy + 2, cx - 13:cx + 14]
+                            #cntr = pix_image[cy - 4:cy + 5, cx - 4:cx + 5]  # center 81 (9x9)
+                            # cntr = pix_image[cy - 3:cy + 4, cx - 3:cx + 4]  # center 49
                             cntr = pix_image[cy - 1:cy + 2, cx - 1:cx + 2]  # center 9 (3x3)
                             # nan_pix_image = copy(pix_image) #makes no difference to 4 or 5 decimal places
                             # nan_pix_image[cy - 1:cy + 2, cx - 1:cx + 2] = np.nan
 
-                            #bad_pix_value = np.nanmedian(pix_image) * G.MIN_PIXEL_FLAT_CENTER_RATIO
-                            if G.PIXEL_FLAT_ABSOLUTE_BAD_VALUE > -1: #based on a fixed value
+                            # bad_pix_value = np.nanmedian(pix_image) * G.MIN_PIXEL_FLAT_CENTER_RATIO
+                            if G.PIXEL_FLAT_ABSOLUTE_BAD_VALUE > -1:  # based on a fixed value
                                 bad_pix_value = G.PIXEL_FLAT_ABSOLUTE_BAD_VALUE
 
-                                #Either condition below will trip bad flat
-                                #if the average of the center (-the error) is below the absolute bad value
-                                #OR if the mean of the center is less than a fraction of the median of the rest
+                                #how many in the "center" are below the threshold (this is a count, but we will weight it)
+                                bad_pix_flat_weighted_count += datakeep['fiber_weight'][ind[i]] * \
+                                                               float(np.count_nonzero(pix_image[cy-4:cy+5, cx-1:cx+2]
+                                                                                      <= G.PIXEL_FLAT_ABSOLUTE_BAD_VALUE))
 
-                                #mean - 1std dev ... should it be -2x std dev?
+                                # Either condition below will trip bad flat
+                                # if the average of the center (-the error) is below the absolute bad value
+                                # OR if the mean of the center is less than a fraction of the median of the rest
+
+                                # mean - 1std dev ... should it be -2x std dev?
                                 cntr_avg = np.nanmean(cntr) - np.nanstd(cntr)
                                 detobj.fibers[len(detobj.fibers) - i - 1].pixel_flat_center_avg = cntr_avg
                                 if cntr_avg < G.PIXEL_FLAT_ABSOLUTE_BAD_VALUE:
-                                    #could be bad
+                                    # could be bad
                                     log.info("Possible bad pixel flat at emission line position")
 
                                 # yes, I want mean for cntr and median for the whole cutout
@@ -15989,27 +16022,27 @@ class HETDEX:
                                     # could be bad
                                     log.info("Possible bad pixel flat at emission line position")
 
-                            else: #based on standard deviation
-                                mask_pix_image = np.ma.masked_where((pix_image == 0)|(np.isnan(pix_image)), pix_image)
+                            else:  # based on standard deviation
+                                mask_pix_image = np.ma.masked_where((pix_image == 0) | (np.isnan(pix_image)), pix_image)
                                 bad_pix_value = np.ma.median(mask_pix_image) - \
-                                                G.MARK_PIXEL_FLAT_DEVIATION*np.ma.std(mask_pix_image)
+                                                G.MARK_PIXEL_FLAT_DEVIATION * np.ma.std(mask_pix_image)
 
-                                #here, just for reference
+                                # here, just for reference
                                 cntr_avg = np.nanmean(cntr) - np.nanstd(cntr)
                                 detobj.fibers[len(detobj.fibers) - i - 1].pixel_flat_center_avg = cntr_avg
 
-                                #yes, I want mean for cntr and median for the whole cutout
+                                # yes, I want mean for cntr and median for the whole cutout
                                 cntr_ratio = np.nanmean(cntr) / np.nanmedian(pix_image)
-                                #sorting is different, need to reverse
-                                detobj.fibers[len(detobj.fibers)-i-1].pixel_flat_center_ratio = cntr_ratio
+                                # sorting is different, need to reverse
+                                detobj.fibers[len(detobj.fibers) - i - 1].pixel_flat_center_ratio = cntr_ratio
                                 if cntr_ratio < G.MIN_PIXEL_FLAT_CENTER_RATIO:
-                                    #could be bad
+                                    # could be bad
                                     log.info("Possible bad pixel flat at emission line position")
                     except:
-                        log.debug("Exception checking for bad pixel flat",exc_info=True)
+                        log.debug("Exception checking for bad pixel flat", exc_info=True)
 
-                    #update pix_image to a mask to use later when ploting
-                    #pix_image = np.ma.masked_where((pix_image < bad_pix_value) & (pix_image != 0), pix_image)
+                    # update pix_image to a mask to use later when ploting
+                    # pix_image = np.ma.masked_where((pix_image < bad_pix_value) & (pix_image != 0), pix_image)
                     pix_image = np.ma.masked_where(pix_image < bad_pix_value, pix_image)
 
                     #check for same pixel (as a string for easy compare (all integer values)
@@ -16075,6 +16108,100 @@ class HETDEX:
                 image = summed_image
                 img_vmin, img_vmax = self.get_vrange(summed_image, scale=contrast2)
                 gauss_vmin, gauss_vmax =  self.get_vrange(summed_image, scale=contrast1)
+
+                pix_image = summed_pixel_flat / summed_weights
+
+                #cloned code from above to mark the "bad" values
+                try:
+                    flat = pix_image.flatten()
+                    nonzero = len(np.where(flat != 0)[0])
+
+                    pf_dx = 4
+                    pf_dy = 4
+                    if nonzero > 0 and float(nonzero) / float(len(flat)) > 0.5:
+                        cy, cx = np.array(np.shape(pix_image)) // 2
+                        # cntr = pix_image[cy - 1:cy + 2, cx - 2:cx + 3]  # center 3 high, 5 wide
+                        # cntr25 = pix_image[cy-2:cy+3,cx-2:cx+3]   #center 25 of the pixel flat image
+                        # center 25 of the FLUX (not the pixel flat)
+                        detobj.fibers[len(detobj.fibers) - i - 1].cntr_flux_sum = np.nansum(
+                            image[cy - pf_dy:cy + pf_dy+1, cx - pf_dx:cx + pf_dx + 1])
+                        # detobj.fibers[len(detobj.fibers) - i - 1].cntr_flux_avg = np.nanmedian(image[cy-2:cy+3,cx-2:cx+3])
+                        detobj.fibers[len(detobj.fibers) - i - 1].cntr_flux_err = np.sqrt(
+                            np.nansum(image_err[cy - pf_dy:cy + pf_dy+1, cx - pf_dx:cx + pf_dx+1] ** 2))
+
+                        detobj.fibers[len(detobj.fibers) - i - 1].wide_flux_med = np.nanmedian(image[cy - pf_dy:cy + pf_dy +1, :])
+                        detobj.fibers[len(detobj.fibers) - i - 1].wide_flux_sum = np.nansum(image[cy - pf_dy:cy + pf_dy+1, :])
+                        detobj.fibers[len(detobj.fibers) - i - 1].wide_flux_err = np.sqrt(
+                            np.nansum(image_err[cy - pf_dy:cy + pf_dy+1, :] ** 2))
+
+                        # looking for charge traps (full height, but 3 wide total)
+                        detobj.fibers[len(detobj.fibers) - i - 1].tall_flux_med = np.nanmedian(image[:, cx - 1:cx + 2])
+                        detobj.fibers[len(detobj.fibers) - i - 1].tall_flux_sum = np.nansum(image[:, cx - 1:cx + 2])
+                        detobj.fibers[len(detobj.fibers) - i - 1].tall_flux_err = np.sqrt(
+                            np.nansum(image_err[:, cx - 1:cx + 2] ** 2))
+
+                        # looking for charge traps (full height, but 3 wide total)
+                        # detobj.fibers[len(detobj.fibers) - i - 1].tall_flux_std = np.nanstd(image[:, cx])
+                        # detobj.fibers[len(detobj.fibers) - i - 1].tall_flux_stdw = np.nanstd(image[:, cx - 1:cx + 2])
+
+                        # detobj.fibers[len(detobj.fibers) - i - 1].cntr_flux_std = np.nanstd(image[cy - 2:cy + 3, cx - 2:cx + 3])
+                        #cntr = pix_image[cy - 4:cy + 5, cx - 1:cx + 2]  # center 49
+                        # cntr = pix_image[cy - 3:cy + 4, cx - 3:cx + 4]  # center 49
+                        cntr = pix_image[cy - 1:cy + 2, cx - 1:cx + 2]  # center 9 (3x3)
+                        # nan_pix_image = copy(pix_image) #makes no difference to 4 or 5 decimal places
+                        # nan_pix_image[cy - 1:cy + 2, cx - 1:cx + 2] = np.nan
+
+                        # bad_pix_value = np.nanmedian(pix_image) * G.MIN_PIXEL_FLAT_CENTER_RATIO
+                        if G.PIXEL_FLAT_ABSOLUTE_BAD_VALUE > -1:  # based on a fixed value
+                            bad_pix_value = G.PIXEL_FLAT_ABSOLUTE_BAD_VALUE
+
+                            # Either condition below will trip bad flat
+                            # if the average of the center (-the error) is below the absolute bad value
+                            # OR if the mean of the center is less than a fraction of the median of the rest
+
+                            # mean - 1std dev ... should it be -2x std dev?
+                            cntr_avg = np.nanmean(cntr) - np.nanstd(cntr)
+                            detobj.fibers[len(detobj.fibers) - i - 1].pixel_flat_center_avg = cntr_avg
+                            if cntr_avg < G.PIXEL_FLAT_ABSOLUTE_BAD_VALUE:
+                                # could be bad
+                                log.info("Possible bad pixel flat at emission line position")
+
+                            # yes, I want mean for cntr and median for the whole cutout
+                            cntr_ratio = np.nanmean(cntr) / np.nanmedian(pix_image)
+                            detobj.fibers[len(detobj.fibers) - i - 1].pixel_flat_center_ratio = cntr_ratio
+                            # sorting is different, need to reverse
+                            if cntr_ratio < G.MIN_PIXEL_FLAT_CENTER_RATIO:
+                                # could be bad
+                                log.info("Possible bad pixel flat at emission line position")
+
+                        else:  # based on standard deviation
+                            mask_pix_image = np.ma.masked_where((pix_image == 0) | (np.isnan(pix_image)), pix_image)
+                            bad_pix_value = np.ma.median(mask_pix_image) - \
+                                            G.MARK_PIXEL_FLAT_DEVIATION * np.ma.std(mask_pix_image)
+
+                            # here, just for reference
+                            cntr_avg = np.nanmean(cntr) - np.nanstd(cntr)
+                            detobj.fibers[len(detobj.fibers) - i - 1].pixel_flat_center_avg = cntr_avg
+
+                            # yes, I want mean for cntr and median for the whole cutout
+                            cntr_ratio = np.nanmean(cntr) / np.nanmedian(pix_image)
+                            # sorting is different, need to reverse
+                            detobj.fibers[len(detobj.fibers) - i - 1].pixel_flat_center_ratio = cntr_ratio
+                            if cntr_ratio < G.MIN_PIXEL_FLAT_CENTER_RATIO:
+                                # could be bad
+                                log.info("Possible bad pixel flat at emission line position")
+                except:
+                    log.debug("Exception checking for bad pixel flat", exc_info=True)
+
+                # update pix_image to a mask to use later when ploting
+                # pix_image = np.ma.masked_where((pix_image < bad_pix_value) & (pix_image != 0), pix_image)
+                pix_image = np.ma.masked_where(pix_image < bad_pix_value, pix_image)
+
+
+            #check bad pixel flat bad pixel weighted count
+            if bad_pix_flat_weighted_count >= 1.0:
+                log.info(f"Possible bad pixel flat at emission line position. Weighted bad pixel count = {bad_pix_flat_weighted_count:0.2f}")
+                detobj.pixel_flat_weighted_bad_pixel_count = bad_pix_flat_weighted_count
 
             if make_display:
 

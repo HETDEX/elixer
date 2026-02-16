@@ -1,8 +1,12 @@
 changes to elixer by version
 
-1.25.0a1 [2026-02-10]
+1.25.0a1 [2026-02-16]
 * [in progress] adding ML inputs to hdf5 file
 * change flag for distant counterpart to tigger past 0.8" rather than 0.5" to better deal with typical astrometric uncertainty
+* add another way to trigger BAD_PIEXL_FLAT flag ... if a fiber weighted count of pixel flat values within the
+  central pixel column (3 pix wide, 9 tall) of the top 4 fibers is greater than 1.0.
+  note: several pixels in several fibers are needed to trigger since it is a count * the corresponding fiber weight
+  note: this does not set the spurious reason and auto reject the detection, it just sets the flag
 
 
 1.24.1a5 [2026-02-02]
