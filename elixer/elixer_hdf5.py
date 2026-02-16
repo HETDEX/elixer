@@ -594,7 +594,7 @@ def flush_all(fileh,reindex=True):
         stb = fileh.root.CalibratedSpectra
         atb = fileh.root.Aperture
         ctb = fileh.root.CatalogMatch
-        f2dtb = file.root.Fiber2DCutouts
+        f2dtb = fileh.root.Fiber2DCutouts
 
         vtb.flush()
         dtb.flush()
