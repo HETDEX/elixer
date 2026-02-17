@@ -9354,11 +9354,19 @@ class DetObj:
             else:
                 get_spectra_survey = f"hdr{G.HDR_Version}"
 
+            if self.survey_response < 0.08:
+                log.warning(f"WARNING! Low throughput {self.survey_response:0.3f}. Forcing off tpmin and spec element masking")
+                tpmin = 0.001
+                spec_elem_masking = False
+            else:
+                tpmin = 0.0
+                spec_elem_masking = G.FIBER_SPEC_ELEM_MASKING
+
             apt = hda_get_spectra(coord, survey=get_spectra_survey, shotid=self.survey_shotid,
                                   ffsky=self.extraction_ffsky, multiprocess=G.GET_SPECTRA_MULTIPROCESS, rad=aper,
-                                  tpmin=0.0,fiberweights=False,loglevel=get_spectra_loglevel,
+                                  tpmin=tpmin,fiberweights=False,loglevel=get_spectra_loglevel,
                                   fiber_flux_offset = fiber_flux_offset,
-                                  ffsky_rescor=G.FFSKY_RESCOR, apply_mask=G.FIBER_SPEC_ELEM_MASKING,shot_h5=G.SINGLE_SHOT_H5)
+                                  ffsky_rescor=G.FFSKY_RESCOR, apply_mask=spec_elem_masking,shot_h5=G.SINGLE_SHOT_H5)
                                   #don't need the fiber weights
         except:
             log.info("hetdex.py neighbor_forced_extraction(). Exception calling HETDEX_API get_spectra",exc_info=True)
@@ -9582,12 +9590,20 @@ class DetObj:
 
            # if self.survey_shotid is None and G.SINGLE_SHOT_H5 is not None:
 
+            #may not be able to use masking IF throughput is low (less than 0.08
+            if self.survey_response < 0.08:
+                log.warning(f"WARNING! Low throughput {self.survey_response:0.3f}. Forcing off tpmin and spec element masking")
+                tpmin = 0.001
+                spec_elem_masking = False
+            else:
+                tpmin = 0.0
+                spec_elem_masking = G.FIBER_SPEC_ELEM_MASKING
 
             apt = hda_get_spectra(coord, survey=get_spectra_survey, shotid=self.survey_shotid,
                                   ffsky=self.extraction_ffsky, multiprocess=G.GET_SPECTRA_MULTIPROCESS,
-                                  rad=self.extraction_aperture, tpmin=0.0,fiberweights=True,return_fiber_info=True,
+                                  rad=self.extraction_aperture, tpmin=tpmin,fiberweights=True,return_fiber_info=True,
                                   loglevel=get_spectra_loglevel, fiber_flux_offset = fiber_flux_offset,
-                                  ffsky_rescor=G.FFSKY_RESCOR, apply_mask=G.FIBER_SPEC_ELEM_MASKING,shot_h5=G.SINGLE_SHOT_H5)
+                                  ffsky_rescor=G.FFSKY_RESCOR, apply_mask=spec_elem_masking,shot_h5=G.SINGLE_SHOT_H5)
             log.debug("Calling get_spectra() ... Done.")
 
         except:
