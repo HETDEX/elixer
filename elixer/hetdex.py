@@ -14681,19 +14681,19 @@ class HETDEX:
         except:
             return None,None
 
-        if isinstance(vals[0],np.float16):
-            _vals = np.float32(vals)
-        else:
-            _vals = vals
+        # if isinstance(vals[0],np.float16):
+        #     _vals = np.float32(vals)
+        # else:
+        #     _vals = vals
 
         try:
             zscale = ZScaleInterval(contrast=1.0,krej=2.5) #nsamples=len(vals)
-            vmin,vmax = zscale.get_limits(values=_vals)
+            vmin,vmax = zscale.get_limits(values=vals.astype(np.float32))
             vmin = vmin/scale
             vmax = vmax/scale
-            log.debug("HETDEX (zscale) vrange = (%f, %f) raw range = (%f, %f)" %(vmin,vmax,np.min(_vals),np.max(_vals)))
+            log.debug("HETDEX (zscale) vrange = (%f, %f) raw range = (%f, %f)" %(vmin,vmax,np.min(vals),np.max(vals)))
         except:
-            if _vals is not None:# and len(vals) > 2:
+            if vals is not None:# and len(vals) > 2:
                 log.info("Exception in hetdex::get_vrange:",exc_info =True)
 
         return vmin, vmax
