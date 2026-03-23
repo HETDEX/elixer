@@ -1056,7 +1056,10 @@ def parse_commandline(auto_force=False):
             G.SINGLE_SHOT_SHOTID = ss_h5.root.Shot.read(field="shotid")[0]
             ss_h5.close()
         except:
-            pass
+            if not os.path.exists(args.shot_h5):
+                log.error(f"Specified shot_h5 file does not exist: {args.shot_h5}")
+                print(f"Specified shot_h5 file does not exist: {args.shot_h5}")
+
         G.LOAD_SPEC_FROM_HETDEX_API = False
 
     if args.hdf5 is not None:
