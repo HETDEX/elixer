@@ -1048,6 +1048,10 @@ FORCE_SINGLE_PAGE = True
 SHOW_SKYLINES = True  #main lines are 3545 +/- 10   and  5462 +/- 5
 PENALIZE_FOR_EMISSION_IN_SKYLINE = False #since HDR 2.1.x the skyline removal has been quite good and this is no longer needed
 
+#common skylines (centers): 3544, 3831, 4313, 4359, 5169, 5466 (or 5462 in elixer)
+# width                    +/-10                          +/-5
+
+
 #1 fiber (the edge-most) fiber
 CCD_EDGE_FIBERS_BOTTOM = range(1,20)
 CCD_EDGE_FIBERS_TOP = range(439,449)
