@@ -14790,6 +14790,12 @@ class HETDEX:
             dd['color'] = []
             dd['index'] = []
             dd['primary_idx'] = None #index in datakeep of the primary fiber
+
+            if G.MAKE_MACHINE_LEARNING_CUTOUTS:
+                dd['ml_im'] = []
+                dd['ml_err'] = []
+                dd['ml_im_wave'] = []
+
         return dd
 
 
@@ -15547,7 +15553,7 @@ class HETDEX:
 
                 datakeep['sn'].append(e.sigma)
 
-                try:
+                try: #ELiXer 2D cutout (3 fibers high (9x3 = 21 pixels) by 49 pixels wide
                     blank[(yl-blank_yl):(yl-blank_yl)+(yh-yl)+1, (xl-blank_xl):(xl-blank_xl)+(xh-xl)+1] = \
                         fits.data[yl:yh+1, xl:xh+1]
                 except:
@@ -15555,6 +15561,37 @@ class HETDEX:
                         pass
                     else:
                         log.warning(f"Unable to build blank data.", exc_info=True)
+
+                if G.MAKE_MACHINE_LEARNING_CUTOUTS:
+                    try: #Machine Learning 2D cutout (1 fiber high (9pix) by 100 pixels wide
+                        #xl to xh is 49 pixels, so start left an extra 26 and end right  and extra 25
+                        ml_blank = np.zeros((9, 100))  # fixed size for machine learning
+                        ml_blank_wave = np.zeros(100)
+
+                        ml_xl = max(xl-26, 0)
+                        ml_xh = min(xh+26,max_x)
+                        #yl to yh is 21 pixels (3 fibers) and we want just the center 9 pixles (1 fiber)
+                        ml_yl = max((yl+yh)//2-4,0)
+                        ml_yh = min((yl+yh)//2+5,max_y)
+
+
+                        d_yl = (yl+yh)//2-4 - ml_yl #if same, == 0, else is the starting offset into ml_blank
+                        d_yh = 9 - ( (yl+yh)//2+5 - ml_yh)
+                        d_xl = xl-26 - ml_xl
+                        d_xh = 100 - (xh+26 - ml_xh)
+
+                        ml_blank[d_yl:d_yh,d_xl:d_xh] = fits.data[ml_yl:ml_yh, ml_xl:ml_xh]
+                        datakeep['ml_im'].append(deepcopy(ml_blank))
+
+                        ml_blank_wave[d_xl:d_xh] = fits.wave_data[loc, ml_xl:ml_xh]
+                        datakeep['ml_im_wave'].append(deepcopy(ml_blank_wave))
+
+                        #re-use ml_blank for the error
+                        ml_blank[d_yl:d_yh, d_xl:d_xh] = fits.err_data[ml_yl:ml_yh, ml_xl:ml_xh]
+                        datakeep['ml_err'].append(deepcopy(ml_blank))
+                    except:
+                        log.warning(f"Unable to build machine learning input blank data.", exc_info=True)
+
 
                 datakeep['im'].append(deepcopy(blank)) #reminder, blank usually is not "blank", and has the actual data
                 datakeep['im_wave'].append(fits.wave_data[loc, xl:xh+ 1])
@@ -15863,6 +15900,8 @@ class HETDEX:
 
         #not all the same shape, corrupt can be 0,0 or 1,1, so take largest
         summed_image =np.zeros(datakeep['im'][np.nanargmax([np.sum(x.shape) for x in datakeep['im']])].shape)
+        if G.MAKE_MACHINE_LEARNING_CUTOUTS:
+            detobj.ml_2d_fiber_sum = np.zeros(datakeep['ml_im'][np.nanargmax([np.sum(x.shape) for x in datakeep['ml_im']])].shape)
         summed_pixel_flat = np.zeros(datakeep['pix'][np.nanargmax([np.sum(x.shape) for x in datakeep['pix']])].shape)
         summed_weights = 0
         bad_pix_flat_weighted_count = 0.0 #a count, but will be weighted, so treat as float
@@ -15917,16 +15956,31 @@ class HETDEX:
 
                     #copy into DetObj's ML input list (reverse order)
                     h,w = datakeep['im'][ind[i]].shape
-                    detobj.ml_2d_fiber_cutouts.insert(0,datakeep['im'][ind[i]][h//2-4:h//2+5])
-                    detobj.ml_2d_error_cutouts.insert(0,datakeep['err'][ind[i]][h//2-4:h//2+5])
-                    detobj.ml_2d_fiber_ids.insert(0,datakeep['hetdex_api_fiber_id'][ind[i]])
-                    detobj.ml_2d_fiber_weights.insert(0, datakeep['fiber_weight'][ind[i]])
-                    detobj.ml_2d_fiber_dists.insert(0, datakeep['d'][ind[i]])
-                    detobj.ml_2d_fiber_waves = datakeep['im_wave'][ind[i]] #keep overwritting with the next higher fiber
-                    #print(i,ind[i],datakeep['im_wave'][ind[i]])
-                    #notice: each fiber actually has its own individual wavelength solution
-                    #        but we are simplifying here and assuming the last one for all of them
-                    #        (the variation should only be a fraction of a angstrom)
+
+                    if G.MAKE_MACHINE_LEARNING_CUTOUTS:
+                        #the elixer 2d cutous are 3 fibers tall (we just want the center fiber, so h//2-4:h//2+5)
+                        #replaced with ml specific cutout, so don't need the h//2-4:h//2+5 anymore
+                        detobj.ml_2d_fiber_cutouts.insert(0,datakeep['ml_im'][ind[i]])
+                        detobj.ml_2d_error_cutouts.insert(0,datakeep['ml_err'][ind[i]])
+                        detobj.ml_2d_fiber_ids.insert(0,datakeep['hetdex_api_fiber_id'][ind[i]])
+                        detobj.ml_2d_fiber_weights.insert(0, datakeep['fiber_weight'][ind[i]])
+                        detobj.ml_2d_fiber_dists.insert(0, datakeep['d'][ind[i]])
+                        detobj.ml_2d_fiber_waves = datakeep['ml_im_wave'][ind[i]] #keep overwritting with the next higher fiber
+                        #print(i,ind[i],datakeep['im_wave'][ind[i]])
+                        #notice: each fiber actually has its own individual wavelength solution
+                        #        but we are simplifying here and assuming the last one for all of them
+                        #        (the variation should only be a fraction of a angstrom)
+
+                        ml_a = datakeep['ml_im'][ind[i]]
+                        ml_a = np.ma.masked_where(datakeep['ml_err'][ind[i]] == -1, ml_a)
+                        ml_a = np.ma.filled(ml_a, 0.0)
+
+                        if detobj.ml_2d_fiber_sum.shape == ml_a.shape:
+                            detobj.ml_2d_fiber_sum += ml_a * datakeep['fiber_weight'][ind[i]]
+                        else:
+                            log.warning(
+                                f"Warning! shape mismiatch: detobj.ml_2d_fiber_sum {detobj.ml_2d_fiber_sum.shape} != ml_a {ml_a.shape} in "
+                                f"build_2d_image(). Will not add fiber idx {ind[i]} to image.")
 
 
                     # set the hot (cosmic) pixel values to zero then employ guassian_filter
@@ -15947,6 +16001,7 @@ class HETDEX:
                     else:
                         log.warning(f"Warning! shape mismiatch: summed_image {summed_image.shape} != a {a.shape} in "
                                  f"build_2d_image(). Will not add fiber idx {ind[i]} to image.")
+
 
                     # GF = gaussian_filter(datakeep['im'][ind[i]], (2, 1))
                     GF = gaussian_filter(a, (2, 1))
@@ -16123,8 +16178,8 @@ class HETDEX:
 
                 GF = gaussian_filter(summed_image, (2, 1))
 
-                h, w = summed_image.shape
-                detobj.ml_2d_fiber_sum = summed_image[h//2-4:h//2+5]
+                #h, w = summed_image.shape
+                #detobj.ml_2d_fiber_sum = summed_image[h//2-4:h//2+5]
 
                 image = summed_image
                 img_vmin, img_vmax = self.get_vrange(summed_image, scale=contrast2)

@@ -1,7 +1,10 @@
 changes to elixer by version
 
+1.25.0a2 [2026-03-26]
+* revised ML inputs (Fiber2DCutouts table in h5 file) to be 9x100 pixels rather than 9x49 in previous version
+
 1.25.0a1 [2026-02-17]
-* [in progress] adding ML inputs to hdf5 file
+* added ML inputs to hdf5 file (based on ELiXer 2D Fiber cutouts)
 * change flag for distant counterpart to tigger past 0.8" rather than 0.5" to better deal with typical astrometric uncertainty
 * add another way to trigger BAD_PIEXL_FLAT flag ... if a fiber weighted count of pixel flat values within the
   central pixel column (3 pix wide, 9 tall) of the top 4 fibers is greater than 1.0.

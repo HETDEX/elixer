@@ -25,7 +25,7 @@ if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
 #version
-__version__ = '1.25.0a1'
+__version__ = '1.25.0a2'
 
 
 #initial working dir
@@ -106,6 +106,9 @@ try:
 except:
     pass
 
+
+
+MAKE_MACHINE_LEARNING_CUTOUTS = True
 IGNORE_ARGS_TMP = True #I/O issues with TACC, ignore the --tmp option if provided
 TMP_COPY_TAR = 0 #when using --tmp, tar the output before copying to the original working dir
                  #0 = Do not use, 1 = make and copy tar to /scratch, but do not extract,

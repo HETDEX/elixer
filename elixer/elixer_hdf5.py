@@ -4,8 +4,10 @@ create ELiXer catalog(s) as HDF5
 merge existing ELiXer catalogs
 """
 
+#start taking update notes:
+# 0.10.1  changed sizes of Fiber2DCutouts (ML table) to be 9pix x 100pix vs old 9pix x 49pix
 
-__version__ = '0.10.0' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
+__version__ = '0.10.1' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -528,16 +530,21 @@ class CatalogMatch(tables.IsDescription):
 
 
 class Fiber2DCutouts (tables.IsDescription):
+    """
+    for Machine Learning
+    was 9x49 (similar to elixer cutouts) but with version 0.10.1 is 9x100 each
+
+    """
 
     detectid = tables.Int64Col(pos=0)
     ###needs to be array of 4 (top 4 fibers)
     fiber_id = tables.StringCol(shape=(4,),itemsize=38, pos=1)
     distance = tables.Float32Col(shape=(4,),pos=2)
     weight = tables.Float32Col(shape=(4,),pos=3)
-    wavelength = tables.Float32Col(shape=(49,),pos=4)
-    img_sum = tables.Float32Col(shape=(9,49),pos=5)
-    img_arr = tables.Float32Col(shape=(4, 9, 49),pos=6)
-    err_arr = tables.Float32Col(shape=(4, 9, 49),pos=7)
+    wavelength = tables.Float32Col(shape=(100,),pos=4)
+    img_sum = tables.Float32Col(shape=(9,100),pos=5)
+    img_arr = tables.Float32Col(shape=(4, 9, 100),pos=6)
+    err_arr = tables.Float32Col(shape=(4, 9, 100),pos=7)
 
 
 def version_match(fileh):
@@ -594,7 +601,7 @@ def flush_all(fileh,reindex=True):
         stb = fileh.root.CalibratedSpectra
         atb = fileh.root.Aperture
         ctb = fileh.root.CatalogMatch
-        f2dtb = fileh.root.Fiber2DCutouts
+        f2dtb = fileh.root.Fiber2DCutouts #go ahead and always build it, even if empty
 
         vtb.flush()
         dtb.flush()
@@ -860,6 +867,7 @@ def get_hdf5_filehandle(fname,append=False,allow_overwrite=True,must_exist=False
                                'ELiXer Image Circular Apertures Table',
                                expectedrows=estimated_dets*5) #mostly a g and r aperture, sometimes more
 
+            #go ahead and always build the table, even if empty, so later runs could optionally add in rows
             fileh.create_table(fileh.root, 'Fiber2DCutouts', Fiber2DCutouts,
                                'ELiXer Fiber2DCutouts Table',
                                expectedrows=estimated_dets)
@@ -1448,22 +1456,23 @@ def append_entry(fileh,det,overwrite=False):
         #############################
         #ELiXer Fiber2DCutouts
         #############################
-        row = f2dtb.row
+        if G.MAKE_MACHINE_LEARNING_CUTOUTS:
+            row = f2dtb.row
 
-        try:
-            row['detectid'] = det.hdf5_detectid
-            row['fiber_id'] = det.ml_2d_fiber_ids
-            row['distance'] = det.ml_2d_fiber_dists
-            row['weight'] = det.ml_2d_fiber_weights
-            row['wavelength'] = det.ml_2d_fiber_waves
-            row['img_sum'] = det.ml_2d_fiber_sum
-            row['img_arr'] = det.ml_2d_fiber_cutouts
-            row['err_arr'] = det.ml_2d_error_cutouts
+            try:
+                row['detectid'] = det.hdf5_detectid
+                row['fiber_id'] = det.ml_2d_fiber_ids
+                row['distance'] = det.ml_2d_fiber_dists
+                row['weight'] = det.ml_2d_fiber_weights
+                row['wavelength'] = det.ml_2d_fiber_waves
+                row['img_sum'] = det.ml_2d_fiber_sum
+                row['img_arr'] = det.ml_2d_fiber_cutouts
+                row['err_arr'] = det.ml_2d_error_cutouts
 
-            row.append()
-            f2dtb.flush()
-        except:
-            log.error("Failed to insert Fiber2DCutouts row",exc_info=True)
+                row.append()
+                f2dtb.flush()
+            except:
+                log.error("Failed to insert Fiber2DCutouts row",exc_info=True)
 
         #############################
         #ELiXer Found Spectral Lines Table
