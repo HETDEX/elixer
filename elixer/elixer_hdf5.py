@@ -771,7 +771,8 @@ def flush_all(fileh,reindex=True):
 
 
 def get_hdf5_filehandle(fname,append=False,allow_overwrite=True,must_exist=False,
-                        estimated_dets=tables.parameters.EXPECTED_ROWS_TABLE):
+                        estimated_dets=tables.parameters.EXPECTED_ROWS_TABLE,
+                        explicit_read_only=False):
     """
     Return a file handle to work on. Create if does not exist, return existing handle if already present and versions
     are compatible (and append is requested).
@@ -789,7 +790,10 @@ def get_hdf5_filehandle(fname,append=False,allow_overwrite=True,must_exist=False
         if os.path.exists(fname):
             if append or must_exist:
                 #log.debug("ELiXer HDF5 exists (%s). Will append if versions allow." %(fname))
-                fileh = tables.open_file(fname, 'a', 'ELiXer Detection Catalog')
+                if not explicit_read_only:
+                    fileh = tables.open_file(fname, 'a', 'ELiXer Detection Catalog')
+                else:
+                    fileh = tables.open_file(fname, 'r', 'ELiXer Detection Catalog')
                 #check the version
 
                 if must_exist and not append:
@@ -2487,8 +2491,8 @@ def merge_unique(newfile,file1,file2):
 
     chunk_size = 25000 #25k
     try:
-        file1_handle = get_hdf5_filehandle(file1,append=False,allow_overwrite=False,must_exist=True)
-        file2_handle = get_hdf5_filehandle(file2, append=False, allow_overwrite=False, must_exist=True)
+        file1_handle = get_hdf5_filehandle(file1,append=False,allow_overwrite=False,must_exist=True,explicit_read_only=True)
+        file2_handle = get_hdf5_filehandle(file2, append=False, allow_overwrite=False, must_exist=True,explicit_read_only=True)
 
 
         if (file1_handle is None) or (file2_handle is None):
@@ -2764,8 +2768,8 @@ def merge_unique_limited(newfile,file1,file2):
 
     chunk_size = 25000 #25k
     try:
-        file1_handle = get_hdf5_filehandle(file1,append=False,allow_overwrite=False,must_exist=True)
-        file2_handle = get_hdf5_filehandle(file2, append=False, allow_overwrite=False, must_exist=True)
+        file1_handle = get_hdf5_filehandle(file1,append=False,allow_overwrite=False,must_exist=True,explicit_read_only=True)
+        file2_handle = get_hdf5_filehandle(file2, append=False, allow_overwrite=False, must_exist=True,explicit_read_only=True)
 
 
         if (file1_handle is None) or (file2_handle is None):
@@ -3345,7 +3349,7 @@ def merge_elixer_hdf5_files(fname,flist=[]):
         if f == fname: #could be the output file is one of those to merge
             continue #just skip and move on
 
-        fh = get_hdf5_filehandle(f,append=False,allow_overwrite=False,must_exist=True)
+        fh = get_hdf5_filehandle(f,append=False,allow_overwrite=False,must_exist=True,explicit_read_only=True)
         try:
             _ = fh.root.NeighborSpectra
             G.LyC = True
