@@ -3780,7 +3780,7 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
 
         If there is no matching shotid, return the nearest from simple cartesian distance for seeing, response
 
-        Always returns in observed frame with in-air wavelengths
+        Always returns in observed frame with in-air wavelengths and already dust-corrected (dereddend)
 
         Always in 1AA bins as flux denity (erg/s/sm2/AA) in 1e-17 scale
 
@@ -6718,7 +6718,7 @@ def spectra_deblend(measured_flux_matrix, overlap_tensor):
 ##################################
 
 
-def shift_flam_to_rest_luminosity_per_aa(z,flux_density,wave,eflux=None,apply_air_to_vac=False):
+def shift_flam_to_rest_luminosity_per_aa(z,flux_density,wave,eflux=None,apply_air_to_vac=False,cosmology=None):
     """
     !!! ??? this is REALLY a luminosity "density" analogous to flux density, so Lum/AA not Lum/volume ??? !!!
 
@@ -6749,7 +6749,7 @@ def shift_flam_to_rest_luminosity_per_aa(z,flux_density,wave,eflux=None,apply_ai
             wave = air_to_vac(wave)
 
         wave = wave / (1.0 + z)
-        ld = luminosity_distance(z).to(U.cm) #this is in Mpc
+        ld = luminosity_distance(z,cosmology).to(U.cm) #this is in Mpc
 
         try:
             _ = flux_density.value
@@ -6780,7 +6780,7 @@ def shift_flam_to_rest_luminosity_per_aa(z,flux_density,wave,eflux=None,apply_ai
     return None, None, None
 
 
-def shift_flam_to_rest_luminosity(z,flux_density,wave,eflux=None,apply_air_to_vac=False):
+def shift_flam_to_rest_luminosity(z,flux_density,wave,eflux=None,apply_air_to_vac=False,cosmology=None):
     """
     Takes flux density (flam) and returns luminosity (NOT luminosity per AA)
 
@@ -6824,7 +6824,7 @@ def shift_flam_to_rest_luminosity(z,flux_density,wave,eflux=None,apply_air_to_va
             wave = air_to_vac(wave)
 
         wave = wave / (1.0 + z)
-        ld = luminosity_distance(z).to(U.cm) #this is in Mpc
+        ld = luminosity_distance(z,cosmology).to(U.cm) #this is in Mpc
 
         try:
             _ = flux_density.value
@@ -6867,7 +6867,7 @@ def shift_flam_to_rest_luminosity(z,flux_density,wave,eflux=None,apply_air_to_va
     return None, None, None
 
 
-def shift_flux_to_rest_luminosity(z,flux,wave,eflux=None,apply_air_to_vac=False):
+def shift_flux_to_rest_luminosity(z,flux,wave,eflux=None,apply_air_to_vac=False,cosmology=None):
     """
     Assume z, wavelengths, and luminosity distances are without error
 
@@ -6896,7 +6896,7 @@ def shift_flux_to_rest_luminosity(z,flux,wave,eflux=None,apply_air_to_vac=False)
             wave = air_to_vac(wave)
 
         wave = wave / (1.0 + z)
-        ld = luminosity_distance(z).to(U.cm) #this is in Mpc
+        ld = luminosity_distance(z,cosmology).to(U.cm) #this is in Mpc
 
         try:
             _ = flux.value
@@ -6919,7 +6919,7 @@ def shift_flux_to_rest_luminosity(z,flux,wave,eflux=None,apply_air_to_vac=False)
     return None, None, None
 
 
-def rest_line_luminosity(z,line_flux,line_flux_err=None):
+def rest_line_luminosity(z,line_flux,line_flux_err=None,cosmology=None):
     """
 
     Assume z, wavelengths, and luminosity distances are without error
@@ -6941,7 +6941,7 @@ def rest_line_luminosity(z,line_flux,line_flux_err=None):
     lum = np.nan
     lum_err = np.nan
     try:
-        ld = luminosity_distance(z)
+        ld = luminosity_distance(z,cosmology)
         factor = (4.0 * np.pi * ld * ld ).to(U.cm**2) #no DO NOT have (1+z) in there ... this is line flux, not a density
         #and the 1+z factors are handled in the Luminosity Distance
 
