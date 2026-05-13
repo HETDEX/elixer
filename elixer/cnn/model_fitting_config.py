@@ -2,7 +2,7 @@
 # Python modules
 import os
 import sys
-sys.path.append('./model/')
+#sys.path.append('./model/')
 import numpy as np
 from astropy.table import Table, vstack, join
 from astropy.io import ascii
@@ -41,7 +41,7 @@ mkdir_output(dir_child)
 def create_model(model_name, input_channels, num_classes, dropout_rate):
     # Select and initialize the model architecture
     if model_name == "TDSA_LeakyGAP":
-        from TDSA_LeakyGAP_logit import TDSA_LeakyGAP_logit
+        from elixer.cnn.model.TDSA_LeakyGAP_logit import TDSA_LeakyGAP_logit
         return TDSA_LeakyGAP_logit(input_channels=input_channels, num_classes=num_classes, dropout_rate=dropout_rate)    
 
 # Use GPU if available; otherwise use CPU

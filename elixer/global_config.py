@@ -109,6 +109,7 @@ except:
 
 
 MAKE_MACHINE_LEARNING_CUTOUTS = True
+COMPUTE_ML_CNN_SCORE = True #run the CNN scoring on the 2D cutouts (MAKE_MACHINE_LEARNING_CUTOUTS needs to also be True)
 IGNORE_ARGS_TMP = True #I/O issues with TACC, ignore the --tmp option if provided
 TMP_COPY_TAR = 0 #when using --tmp, tar the output before copying to the original working dir
                  #0 = Do not use, 1 = make and copy tar to /scratch, but do not extract,

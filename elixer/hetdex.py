@@ -14,6 +14,7 @@ try:
     from elixer import galaxy_mask
     from elixer import cat_sdss #for the z-catalog
     from elixer import cat_gaia_dex
+    #import elixer.cnn.model_fitting_single_detection as CNN_Score
 except:
     import global_config as G
     import line_prob
@@ -29,6 +30,7 @@ except:
     import galaxy_mask
     import cat_sdss #for the z-catalog
     import cat_gaia_dex
+    #import cnn.model_fitting_single_detection as CNN_Score
 
 from hetdex_api.detections import Detections as hda_Detections
 from hetdex_tools.get_spec import get_spectra as hda_get_spectra
@@ -917,6 +919,7 @@ class DetObj:
         self.ml_2d_fiber_cutouts = [] #list of usually 9x49 pixels (1 fiber tall, ~ 90AA wide), top 4 fibers
         self.ml_2d_error_cutouts = [] #corresponding errors
         self.ml_2d_fiber_sum     = None #no matching error array single 9x49 array
+        self.ml_cnn_score = -1.0
 
         self.pixel_flat_weighted_bad_pixel_count = 0.0
 
@@ -14451,6 +14454,15 @@ class HETDEX:
                     im = Image.open(buf)
                     plt.imshow(im,interpolation='none') #needs to be 'none' else get blurring
                     #gs.tight_layout()
+
+
+                    try:
+                        if G.COMPUTE_ML_CNN_SCORE and datakeep['detobj'] is not None \
+                                and len(datakeep['detobj'].ml_2d_fiber_cutouts) > 0:
+                            #todo: do the CNN scoring now that we have the 2d cutouts
+                            pass
+                    except:
+                        log.info("Failed to produce CNN scoring", exc_info=True)
 
                     if G.ZOO_MINI:
                         e.image_2d_fibers_1st_col, _ = self.build_2d_image_1st_column_only(datakeep)
