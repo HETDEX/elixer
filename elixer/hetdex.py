@@ -934,6 +934,7 @@ class DetObj:
         self.ml_2d_error_cutouts = [] #corresponding errors
         self.ml_2d_fiber_sum     = None #no matching error array single 9x100 array
         self.ml_cnn_score = -1.0
+        self.ml_cnn_model_str = "N/A"
 
         self.pixel_flat_weighted_bad_pixel_count = 0.0
 
@@ -14478,9 +14479,11 @@ class HETDEX:
                                 and len(datakeep['detobj'].ml_2d_fiber_sum) > 0:
                             #since only running one, the detectid (entry_id) does not really matter
                             if ML_CNN is not None:
+                                print(ML_CNN.model_name,)
                                 cnn_t = ML_CNN.process_detections([datakeep['detobj'].ml_2d_fiber_sum.astype(np.float32)], [datakeep['detobj'].entry_id])
                                 if cnn_t is not None:
                                     datakeep['detobj'].ml_cnn_score = cnn_t[0]['CNN_Score_2D_Spectra']
+                                    datakeep['detobj'].ml_cnn_model_str = ML_CNN.model_name + ":" + ML_CNN.training_id
                                     log.info(f"eid({datakeep['detobj'].entry_id}) CNN score = {datakeep['detobj'].ml_cnn_score}")
                             else:
                                 log.warning(

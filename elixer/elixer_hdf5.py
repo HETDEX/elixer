@@ -222,6 +222,7 @@ class Detections(tables.IsDescription):
     obs_num_dithers = tables.Int8Col(dflt=0)  #added 0.9.2
 
     p_cnn = tables.Float32Col(dflt=-1.0)
+    p_cnn_model = tables.StringCol(itemsize=32,dflt="")
 
     if LOCAL_ODIN_HACK:
         odin_lineflux = tables.Float32Col(dflt=UNSET_FLOAT) #reported odin lineflux
@@ -1374,6 +1375,7 @@ def append_entry(fileh,det,overwrite=False):
 
         try:
             row['p_cnn'] = det.ml_cnn_score
+            row['p_cnn_model'] = det.ml_cnn_model_str[:32] #max 32 char
         except:
             pass
 
