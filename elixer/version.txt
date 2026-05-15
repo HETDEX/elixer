@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.25.1a1 [2026-05-15]
+* adding in CNN ML stuff ... in progress
+
 1.25.0a3 [2026-04-22]
 * extended option to provide an alternate cosmology
    (the default is and has been concordance, Flat Lambda CDM, 70 km/s/Mpc, 0.3M, 2.73Kelvin)

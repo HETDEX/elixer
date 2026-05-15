@@ -6,8 +6,9 @@ merge existing ELiXer catalogs
 
 #start taking update notes:
 # 0.10.1  changed sizes of Fiber2DCutouts (ML table) to be 9pix x 100pix vs old 9pix x 49pix
+# 0.10.2  added p_cnn to Detection table
 
-__version__ = '0.10.1' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
+__version__ = '0.10.2' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -219,6 +220,8 @@ class Detections(tables.IsDescription):
 
     obs_total_exptime = tables.Float32Col(dflt=UNSET_FLOAT)  #added 0.9.2
     obs_num_dithers = tables.Int8Col(dflt=0)  #added 0.9.2
+
+    p_cnn = tables.Float32Col(dflt=-1.0)
 
     if LOCAL_ODIN_HACK:
         odin_lineflux = tables.Float32Col(dflt=UNSET_FLOAT) #reported odin lineflux
@@ -1366,6 +1369,11 @@ def append_entry(fileh,det,overwrite=False):
             if det.exptimes is not None and len(det.exptimes) > 0 and det.exptimes[0] is not None:
                 row['obs_total_exptime'] = np.nansum(det.exptimes)
                 row['obs_num_dithers'] = np.count_nonzero(det.exptimes)
+        except:
+            pass
+
+        try:
+            row['p_cnn'] = det.ml_cnn_score
         except:
             pass
 
