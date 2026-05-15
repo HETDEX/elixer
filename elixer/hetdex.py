@@ -14340,8 +14340,9 @@ class HETDEX:
         if (e.chi2 is not None) and (e.chi2 != 666) and (e.chi2 != 0):
             title += " $\chi^2$ = %0.1f($\pm$%0.1f)" % (e.chi2,e.chi2_unc)
 
-        if 0 <= e.ml_cnn_score <= 1.0:
-            title += f" CNN = {e.ml_cnn_score:0.2f}"
+        # DO NOT HAVE this info yet, so cannot add here
+        # if 0. <= e.ml_cnn_score <= 1.0:
+        #     title += f" CNN = {e.ml_cnn_score:0.2f}"
 
 
         #if e.dqs is None:

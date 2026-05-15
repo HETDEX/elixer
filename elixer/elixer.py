@@ -6500,7 +6500,7 @@ def main():
 
                                         #if scale_plae_list[0] < 0:
                                         if scale_plae < 0:
-                                                header_text = r"Combined P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  P(Ly$\alpha$): %d %s" \
+                                                header_text = r"P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  P(Ly$\alpha$): %d %s" \
                                                               % (round(plae, 3), round(plae_high, 3), round(plae_low, 3),
                                                                  int(scale_plae), reason)
                                         else:
@@ -6534,6 +6534,11 @@ def main():
                                                 combined_ew = 0
                                                 combined_ew_err = 0
 
+                                            if 0. <= e.ml_cnn_score <= 1.0:
+                                                p_cnn_txt = f"CNN: {e.ml_cnn_score:0.2f}"
+                                            else:
+                                                p_cnn_txt = "CNN: N/A"
+
                                             if len(p_of_z_list) > 0 and p_of_z_list[0] >= 0:
                                                 if e.cluster_z == best_z_list[0]:
                                                     #scale_plae = scale_plae_list[0]
@@ -6542,8 +6547,10 @@ def main():
                                                     e.flags |= G.DETFLAG_Z_FROM_NEIGHBOR
                                                     line_label = e.spec_obj.match_line(e.w, best_z,aa_error=6.0,
                                                                                        continuum=G.CONTINUUM_RULES).name
-                                                    header_text = r"EW: %0.1f$\pm$%0.1f$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  " \
-                                                                  r"P(Ly$\alpha$): %0.3f  Q(z): %0.2f  z: %0.4f*  %s (%s)" \
+                                                    header_text = r"EW: %0.1f$\pm$%0.1f$\AA$  PLAE: $%.4g\ ^{%.4g}_{%.4g}$  " \
+                                                                  r"P(Ly$\alpha$): %0.3f  Q(z): %0.2f  " \
+                                                                  f"{p_cnn_txt}  " \
+                                                                  r"z: %0.4f*  %s (%s)" \
                                                                   % (max(-9999,min(combined_ew,9999)),max(-9999,min(combined_ew_err,9999)),
                                                                       round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae,p_of_z,best_z,line_label,
                                                                      e.cluster_parent)
@@ -6575,20 +6582,26 @@ def main():
 
 
                                                     if len(best_z_list) == 1:
-                                                        header_text = r"EW: %0.1f$\pm$%0.1f$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  " \
-                                                                  r"P(Ly$\alpha$): %0.3f  Q(z): %0.2f  z: %0.4f %s" \
+                                                        header_text = r"EW: %0.1f$\pm$%0.1f$\AA$  PLAE: $%.4g\ ^{%.4g}_{%.4g}$  " \
+                                                                  r"P(Ly$\alpha$): %0.3f  Q(z): %0.2f  " \
+                                                                  f"{p_cnn_txt}  " \
+                                                                  r"z: %0.4f %s" \
                                                               % (max(-9999,min(combined_ew,9999)),max(-9999,min(combined_ew_err,9999)),round(plae, 3),round(plae_high, 3),round(plae_low, 3),
                                                                  scale_plae,p_of_z_list[0],best_z_list[0],line_label)
                                                     elif len(best_z_list) == 2:
-                                                        header_text = r"EW: %0.1f$\pm$%0.1f$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  " \
-                                                                  r"P(Ly$\alpha$): %0.3f  Q(z): $%0.2f\ ^{%0.2f}$  z: $%0.4f\ ^{%0.4f}$ %s" \
+                                                        header_text = r"EW: %0.1f$\pm$%0.1f$\AA$  PLAE: $%.4g\ ^{%.4g}_{%.4g}$  " \
+                                                                  r"P(Ly$\alpha$): %0.3f  Q(z): $%0.2f\ ^{%0.2f}$  " \
+                                                                  f"{p_cnn_txt}  " \
+                                                                  r"z: $%0.4f\ ^{%0.4f}$ %s" \
                                                               % (max(-9999,min(combined_ew,9999)),max(-9999,min(combined_ew_err,9999)),round(plae, 3),round(plae_high, 3),round(plae_low, 3),
                                                                  scale_plae,
                                                                  p_of_z_list[0],p_of_z_list[1],
                                                                  best_z_list[0],best_z_list[1],line_label)
                                                     elif len(best_z_list) == 3:
-                                                        header_text = r"EW: %0.1f$\pm$%0.1f$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  " \
-                                                                      r"P(Ly$\alpha$): %0.3f  Q(z): $%0.2f\ ^{%0.2f}_{%0.2f}$  z: $%0.4f\ ^{%0.4f}_{%0.4f}$ %s" \
+                                                        header_text = r"EW: %0.1f$\pm$%0.1f$\AA$  PLAE: $%.4g\ ^{%.4g}_{%.4g}$  " \
+                                                                      r"P(Ly$\alpha$): %0.3f  Q(z): $%0.2f\ ^{%0.2f}_{%0.2f}$  " \
+                                                                      f"{p_cnn_txt}  " \
+                                                                      r"z: $%0.4f\ ^{%0.4f}_{%0.4f}$ %s" \
                                                                       % (max(-9999, min(combined_ew, 9999)),
                                                                          max(-9999, min(combined_ew_err, 9999)),
                                                                          round(plae, 3), round(plae_high, 3),
@@ -6597,14 +6610,17 @@ def main():
                                                                          p_of_z_list[0], p_of_z_list[1], p_of_z_list[2],
                                                                          best_z_list[0], best_z_list[1],best_z_list[2],line_label)
                                                     else:
-                                                        header_text = r"EW: %0.1f$\pm$%0.1f$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  " \
-                                                                  r"P(Ly$\alpha$): %0.3f  Q(z): %0.2f  z: %0.4f %s" \
+                                                        header_text = r"EW: %0.1f$\pm$%0.1f$\AA$  PLAE: $%.4g\ ^{%.4g}_{%.4g}$  " \
+                                                                  r"P(Ly$\alpha$): %0.3f  Q(z): %0.2f  " \
+                                                                  f"{p_cnn_txt}  " \
+                                                                  r"z: %0.4f %s" \
                                                               % (max(-9999,min(combined_ew,9999)),max(-9999,min(combined_ew_err,9999)),round(plae, 3),round(plae_high, 3),round(plae_low, 3),
                                                                  scale_plae,p_of_z_list[0],best_z_list[0],line_label)
-                                                        log.error(f"ERROR! Unexpected lenght of best_z_list: {len(best_z_list)}")
+                                                        log.error(f"ERROR! Unexpected length of best_z_list: {len(best_z_list)}")
                                             else:
-                                                header_text = r"EW: %0.1f$\pm$%0.1f$\AA$  P(LAE)/P(OII): $%.4g\ ^{%.4g}_{%.4g}$  P(Ly$\alpha$): %0.3f" \
-                                                  % (max(-9999,min(combined_ew,9999)),max(-9999,min(combined_ew_err,9999)),round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae)
+                                                header_text = r"EW: %0.1f$\pm$%0.1f$\AA$  PLAE: $%.4g\ ^{%.4g}_{%.4g}$  P(Ly$\alpha$): %0.3f  " \
+                                                              f"{p_cnn_txt}  " \
+                                                              % (max(-9999,min(combined_ew,9999)),max(-9999,min(combined_ew_err,9999)),round(plae, 3),round(plae_high, 3),round(plae_low, 3),scale_plae)
 
                                         try:
                                             if len(e.spec_obj.classification_label) > 0:
