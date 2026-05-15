@@ -30,7 +30,16 @@ except:
     import cat_sdss #for the z-catalog
     import cat_gaia_dex
 
-ML_CNN = None
+#ML_CNN = None
+try:
+    from elixer.cnn import model_fitting_config as ML_CNN
+except:
+    log.error(f"Error! Cannot import ML/CNN package. Will try alternate form.", exc_info=True)
+    try:
+        from elixer import model_fitting_config as ML_CNN
+    except:
+        log.error(f"Error! Cannot import ML/CNN package",exc_info=True)
+        ML_CNN = None
 
 from hetdex_api.detections import Detections as hda_Detections
 from hetdex_tools.get_spec import get_spectra as hda_get_spectra
@@ -13816,7 +13825,6 @@ class HETDEX:
         return pages
 
     def build_hetdex_data_page(self,pages,detectid):
-        global ML_CNN
 
         e = self.get_emission_detect(detectid) #this is a DetObj
         if e is None:
@@ -14460,16 +14468,16 @@ class HETDEX:
                         if G.COMPUTE_ML_CNN_SCORE and datakeep['detobj'] is not None \
                                 and len(datakeep['detobj'].ml_2d_fiber_sum) > 0:
 
-                            if ML_CNN is None:
-                                try:
-                                    from elixer.cnn import model_fitting_config as ML_CNN
-                                except:
-                                    log.error(f"Error! Cannot import ML/CNN package. Will try alternate form.", exc_info=True)
-                                    try:
-                                        from elixer import model_fitting_config as ML_CNN
-                                    except:
-                                        log.error(f"Error! Cannot import ML/CNN package",exc_info=True)
-                                        ML_CNN = None
+                            # if ML_CNN is None:
+                            #     try:
+                            #         from elixer.cnn import model_fitting_config as ML_CNN
+                            #     except:
+                            #         log.error(f"Error! Cannot import ML/CNN package. Will try alternate form.", exc_info=True)
+                            #         try:
+                            #             from elixer import model_fitting_config as ML_CNN
+                            #         except:
+                            #             log.error(f"Error! Cannot import ML/CNN package",exc_info=True)
+                            #             ML_CNN = None
 
                             #since only running one, the detectid (entry_id) does not really matter
                             #this needs to be wrapped in cnn module
