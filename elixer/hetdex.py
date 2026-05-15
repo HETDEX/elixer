@@ -14464,10 +14464,11 @@ class HETDEX:
                                 try:
                                     import elixer.cnn.model_fitting_config as ML_CNN
                                 except:
+                                    log.error(f"Error! Cannot import ML/CNN package. Will try alternate form.", exc_info=True)
                                     try:
                                         import cnn.model_fitting_config as ML_CNN
                                     except:
-                                        log.error(f"Error! Cannot import ML/CNN package")
+                                        log.error(f"Error! Cannot import ML/CNN package",exc_info=True)
                                         ML_CNN = None
 
                             #since only running one, the detectid (entry_id) does not really matter
