@@ -114,7 +114,7 @@ class SpectraDataset(Dataset): #DD vesion
 #---------------------------------------------------
 # Fitting Process
 
-def process_detections(spec_cutouts, detectids, label, folds=3, batch_size=10000, dl_batch_size=256, num_workers=4):
+def process_detections(spec_cutouts, detectids, label=-1, folds=3, batch_size=10000, dl_batch_size=256, num_workers=4):
    """
 
    :param spec_cutouts: [] array of 2D spec cutouts (the single top4 summations)

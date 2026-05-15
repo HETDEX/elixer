@@ -14,7 +14,6 @@ try:
     from elixer import galaxy_mask
     from elixer import cat_sdss #for the z-catalog
     from elixer import cat_gaia_dex
-    #import elixer.cnn.model_fitting_single_detection as CNN_Score
 except:
     import global_config as G
     import line_prob
@@ -30,7 +29,8 @@ except:
     import galaxy_mask
     import cat_sdss #for the z-catalog
     import cat_gaia_dex
-    #import cnn.model_fitting_single_detection as CNN_Score
+
+ML_CNN = None
 
 from hetdex_api.detections import Detections as hda_Detections
 from hetdex_tools.get_spec import get_spectra as hda_get_spectra
@@ -916,9 +916,9 @@ class DetObj:
         self.ml_2d_fiber_weights = []  # the fiber weight (e.g in the sum)
         self.ml_2d_fiber_dists = []  # the fiber center distance (in arcsec) to the PSF weighted center
         self.ml_2d_fiber_waves = [] # single array of the wavelenghs (all fibers are assumed to be at the same)
-        self.ml_2d_fiber_cutouts = [] #list of usually 9x49 pixels (1 fiber tall, ~ 90AA wide), top 4 fibers
+        self.ml_2d_fiber_cutouts = [] #list of usually 9x100 pixels (1 fiber tall, ~ 200AA wide), top 4 fibers
         self.ml_2d_error_cutouts = [] #corresponding errors
-        self.ml_2d_fiber_sum     = None #no matching error array single 9x49 array
+        self.ml_2d_fiber_sum     = None #no matching error array single 9x100 array
         self.ml_cnn_score = -1.0
 
         self.pixel_flat_weighted_bad_pixel_count = 0.0
@@ -13816,6 +13816,7 @@ class HETDEX:
         return pages
 
     def build_hetdex_data_page(self,pages,detectid):
+        global ML_CNN
 
         e = self.get_emission_detect(detectid) #this is a DetObj
         if e is None:
@@ -14455,12 +14456,31 @@ class HETDEX:
                     plt.imshow(im,interpolation='none') #needs to be 'none' else get blurring
                     #gs.tight_layout()
 
-
                     try:
                         if G.COMPUTE_ML_CNN_SCORE and datakeep['detobj'] is not None \
-                                and len(datakeep['detobj'].ml_2d_fiber_cutouts) > 0:
-                            #todo: do the CNN scoring now that we have the 2d cutouts
-                            pass
+                                and len(datakeep['detobj'].ml_2d_fiber_sum) > 0:
+
+                            if ML_CNN is None:
+                                try:
+                                    import elixer.cnn.model_fitting_config as ML_CNN
+                                except:
+                                    try:
+                                        import cnn.model_fitting_config as ML_CNN
+                                    except:
+                                        log.error(f"Error! Cannot import ML/CNN package")
+                                        ML_CNN = None
+
+                            #since only running one, the detectid (entry_id) does not really matter
+                            #this needs to be wrapped in cnn module
+                            if ML_CNN is not None:
+                                cnn_t = ML_CNN.process_detections(datakeep['detobj'].ml_2d_fiber_sum, [datakeep['detobj'].entry_id])
+                                if cnn_t is not None:
+                                    datakeep['detobj'].ml_cnn_score = cnn_t[0]['CNN_Score_2D_Spectra']
+                                    log.info(f"eid({datakeep['detobj'].entry_id}) CNN score = {datakeep['detobj'].ml_cnn_score}")
+                            else:
+                                log.warning(
+                                    f"eid({datakeep['detobj'].entry_id}) CNN score = unavailable")
+
                     except:
                         log.info("Failed to produce CNN scoring", exc_info=True)
 

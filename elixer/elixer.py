@@ -646,6 +646,9 @@ def parse_commandline(auto_force=False):
                                              "merged file name. Only applies if --post_merge also used.",
                         required=False, default=None, type=str)
 
+    parser.add_argument('--cnn', help='Attempt ML CNN line scoring.', required=False,
+                        action='store_true', default=False)
+
     try:
         args = parser.parse_args()
     except:
@@ -1565,6 +1568,9 @@ def parse_commandline(auto_force=False):
 
     if args.include_all_amps:
         G.INCLUDE_ALL_AMPS = True
+
+    if args.cnn:
+        G.COMPUTE_ML_CNN_SCORE = True
 
     if valid_parameters(args):
         return args
