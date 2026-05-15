@@ -21,7 +21,7 @@ def mkdir_output(output_dir):
 training_id = '14.0.1_d0.2' # Training ID
 model_name = 'TDSA_LeakyGAP' # Model architecture
 # Path to the trained model parameters from 3-fold cross-validation
-ELIXER_CODE_PATH = op.dirname(op.realpath(__file__))
+ELIXER_CODE_PATH = os.path.dirname(op.realpath(__file__))
 best_model_path = os.path.join(ELIXER_CODE_PATH, './cnn/model/')
 
 # Input size: channels, height, width
