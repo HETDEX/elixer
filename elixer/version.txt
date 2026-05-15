@@ -1,7 +1,8 @@
 changes to elixer by version
 
 1.25.1a1 [2026-05-15]
-* adding in CNN ML stuff ... in progress
+* adding in CNN ML stuff ... in progress, not yet acting on the score
+  + added p_cnn to elixer hdf5 catalog file Detections table
 
 1.25.0a3 [2026-04-22]
 * extended option to provide an alternate cosmology

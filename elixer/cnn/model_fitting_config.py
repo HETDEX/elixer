@@ -141,7 +141,7 @@ def process_detections(spec_cutouts, detectids, label=-1, folds=3, batch_size=10
        if device.type == "cuda":
            torch.cuda.empty_cache()
 
-       print(f"\n===== Fold {fold_num + 1} Fitting =====")
+       #print(f"\n===== Fold {fold_num + 1} Fitting =====")
 
        # Load the trained model parameters for this fold
        best_model_name = best_model_path + f"best_model_{training_id}_fold{fold_num + 1}.pth"
@@ -231,7 +231,7 @@ def process_directory(directory, label, folds=3, batch_size=10000, dl_batch_size
         if device.type == "cuda":
             torch.cuda.empty_cache()
             
-        print(f"\n===== Fold {fold_num+1} Fitting =====")
+        #print(f"\n===== Fold {fold_num+1} Fitting =====")
     
         # Load the trained model parameters for this fold
         best_model_name = best_model_path+f"best_model_{training_id}_fold{fold_num+1}.pth"
