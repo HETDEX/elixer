@@ -30,7 +30,6 @@ except:
     import cat_sdss #for the z-catalog
     import cat_gaia_dex
 
-#ML_CNN = None
 try:
     #from elixer.cnn import model_fitting_config as ML_CNN
     import cnn.model_fitting_config as ML_CNN
@@ -14469,21 +14468,10 @@ class HETDEX:
                         if G.COMPUTE_ML_CNN_SCORE and datakeep['detobj'] is not None \
                                 and len(datakeep['detobj'].ml_2d_fiber_sum) > 0:
 
-                            # if ML_CNN is None:
-                            #     try:
-                            #         from elixer.cnn import model_fitting_config as ML_CNN
-                            #     except:
-                            #         log.error(f"Error! Cannot import ML/CNN package. Will try alternate form.", exc_info=True)
-                            #         try:
-                            #             from elixer import model_fitting_config as ML_CNN
-                            #         except:
-                            #             log.error(f"Error! Cannot import ML/CNN package",exc_info=True)
-                            #             ML_CNN = None
-
                             #since only running one, the detectid (entry_id) does not really matter
                             #this needs to be wrapped in cnn module
                             if ML_CNN is not None:
-                                cnn_t = ML_CNN.process_detections(datakeep['detobj'].ml_2d_fiber_sum, [datakeep['detobj'].entry_id])
+                                cnn_t = ML_CNN.process_detections([datakeep['detobj'].ml_2d_fiber_sum], [datakeep['detobj'].entry_id])
                                 if cnn_t is not None:
                                     datakeep['detobj'].ml_cnn_score = cnn_t[0]['CNN_Score_2D_Spectra']
                                     log.info(f"eid({datakeep['detobj'].entry_id}) CNN score = {datakeep['detobj'].ml_cnn_score}")
