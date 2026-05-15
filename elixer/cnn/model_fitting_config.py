@@ -41,7 +41,8 @@ mkdir_output(dir_child)
 def create_model(model_name, input_channels, num_classes, dropout_rate):
     # Select and initialize the model architecture
     if model_name == "TDSA_LeakyGAP":
-        from elixer.cnn.model.TDSA_LeakyGAP_logit import TDSA_LeakyGAP_logit
+        #import cnn.model_fitting_config as ML_CNN
+        from model.TDSA_LeakyGAP_logit import TDSA_LeakyGAP_logit
         return TDSA_LeakyGAP_logit(input_channels=input_channels, num_classes=num_classes, dropout_rate=dropout_rate)    
 
 # Use GPU if available; otherwise use CPU
