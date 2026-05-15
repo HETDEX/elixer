@@ -8,6 +8,7 @@ from astropy.table import Table, vstack, join
 from astropy.io import ascii
 import torch
 from torch.utils.data import Dataset, DataLoader
+from elixer import global_config as G
 
 def mkdir_output(output_dir):
     # Create the output directory if it does not exist
@@ -20,7 +21,7 @@ def mkdir_output(output_dir):
 training_id = '14.0.1_d0.2' # Training ID
 model_name = 'TDSA_LeakyGAP' # Model architecture
 # Path to the trained model parameters from 3-fold cross-validation
-best_model_path = './model/' 
+best_model_path = os.path.join(G.ELIXER_CODE_PATH, './cnn/model/')
 
 # Input size: channels, height, width
 # The cutout is applied in the data-loading step below
