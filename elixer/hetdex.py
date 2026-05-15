@@ -30,16 +30,6 @@ except:
     import cat_sdss #for the z-catalog
     import cat_gaia_dex
 
-try:
-    #from elixer.cnn import model_fitting_config as ML_CNN
-    import cnn.model_fitting_config as ML_CNN
-except:
-    log.error(f"Error! Cannot import ML/CNN package. Will try alternate form.", exc_info=True)
-    try:
-        from elixer import model_fitting_config as ML_CNN
-    except:
-        log.error(f"Error! Cannot import ML/CNN package",exc_info=True)
-        ML_CNN = None
 
 from hetdex_api.detections import Detections as hda_Detections
 from hetdex_tools.get_spec import get_spectra as hda_get_spectra
@@ -96,6 +86,21 @@ import os.path as op
 from copy import copy, deepcopy
 
 import tables
+
+
+try:
+    #from elixer.cnn import model_fitting_config as ML_CNN
+    if G.COMPUTE_ML_CNN_SCORE:
+        import cnn.model_fitting_config as ML_CNN
+    else:
+        ML_CNN = None
+except:
+    log.error(f"Error! Cannot import ML/CNN package. Will try alternate form.", exc_info=True)
+    try:
+        from elixer import model_fitting_config as ML_CNN
+    except:
+        log.error(f"Error! Cannot import ML/CNN package",exc_info=True)
+        ML_CNN = None
 
 #todo: write a class wrapper for log
 #an instance called log that has functions .Info, .Debug, etc
@@ -14335,6 +14340,9 @@ class HETDEX:
         if (e.chi2 is not None) and (e.chi2 != 666) and (e.chi2 != 0):
             title += " $\chi^2$ = %0.1f($\pm$%0.1f)" % (e.chi2,e.chi2_unc)
 
+        if 0 <= e.ml_cnn_score <= 1.0:
+            title += f" CNN = {e.ml_cnn_score:0.2f}"
+
 
         #if e.dqs is None:
         #    e.dqs_score() #not doing dqs anymore
@@ -14467,9 +14475,7 @@ class HETDEX:
                     try:
                         if G.COMPUTE_ML_CNN_SCORE and datakeep['detobj'] is not None \
                                 and len(datakeep['detobj'].ml_2d_fiber_sum) > 0:
-
                             #since only running one, the detectid (entry_id) does not really matter
-                            #this needs to be wrapped in cnn module
                             if ML_CNN is not None:
                                 cnn_t = ML_CNN.process_detections([datakeep['detobj'].ml_2d_fiber_sum.astype(np.float32)], [datakeep['detobj'].entry_id])
                                 if cnn_t is not None:

@@ -109,7 +109,12 @@ except:
 
 
 MAKE_MACHINE_LEARNING_CUTOUTS = True
-COMPUTE_ML_CNN_SCORE = False #run the CNN scoring on the 2D cutouts (MAKE_MACHINE_LEARNING_CUTOUTS needs to also be True)
+#need this BEFORE we do the argparse
+args = list(sys.argv)
+if "--cnn" in args:
+    COMPUTE_ML_CNN_SCORE = True
+else:
+    COMPUTE_ML_CNN_SCORE = False #run the CNN scoring on the 2D cutouts (MAKE_MACHINE_LEARNING_CUTOUTS needs to also be True)
                              #this requires special packages and may not always be available (see --cnn switch on elixer call)
 IGNORE_ARGS_TMP = True #I/O issues with TACC, ignore the --tmp option if provided
 TMP_COPY_TAR = 0 #when using --tmp, tar the output before copying to the original working dir
