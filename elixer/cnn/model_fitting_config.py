@@ -22,7 +22,7 @@ training_id = '14.0.1_d0.2' # Training ID
 model_name = 'TDSA_LeakyGAP' # Model architecture
 # Path to the trained model parameters from 3-fold cross-validation
 ELIXER_CODE_PATH = os.path.dirname(os.path.realpath(__file__))
-best_model_path = os.path.join(ELIXER_CODE_PATH, './cnn/model/')
+best_model_path = os.path.join(ELIXER_CODE_PATH, './model/')
 
 # Input size: channels, height, width
 # The cutout is applied in the data-loading step below
