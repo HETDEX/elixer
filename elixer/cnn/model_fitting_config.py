@@ -32,10 +32,11 @@ num_classes = 1  # Binary classification: 0 or 1
 dropout_rate = 0.2  # Required for loading the model architecture, but not used during fitting
 
 # Create output directories
-dir_parent = './output/'
-dir_child = dir_parent + training_id + '/' 
-mkdir_output(dir_parent)
-mkdir_output(dir_child)
+# do not need for elixer integration
+# dir_parent = './output/'
+# dir_child = dir_parent + training_id + '/'
+# mkdir_output(dir_parent)
+# mkdir_output(dir_child)
 
 
 #---------------------------------------------------
