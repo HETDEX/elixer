@@ -14462,11 +14462,11 @@ class HETDEX:
 
                             if ML_CNN is None:
                                 try:
-                                    import elixer.cnn.model_fitting_config as ML_CNN
+                                    from elixer.cnn import model_fitting_config as ML_CNN
                                 except:
                                     log.error(f"Error! Cannot import ML/CNN package. Will try alternate form.", exc_info=True)
                                     try:
-                                        import cnn.model_fitting_config as ML_CNN
+                                        from elixer import model_fitting_config as ML_CNN
                                     except:
                                         log.error(f"Error! Cannot import ML/CNN package",exc_info=True)
                                         ML_CNN = None
