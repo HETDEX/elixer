@@ -101,6 +101,7 @@ except:
     except:
         log.error(f"Error! Cannot import ML/CNN package",exc_info=True)
         ML_CNN = None
+        G.COMPUTE_ML_CNN_SCORE = False
 
 #todo: write a class wrapper for log
 #an instance called log that has functions .Info, .Debug, etc
