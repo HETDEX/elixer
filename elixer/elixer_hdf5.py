@@ -795,8 +795,10 @@ def get_hdf5_filehandle(fname,append=False,allow_overwrite=True,must_exist=False
             if append or must_exist:
                 #log.debug("ELiXer HDF5 exists (%s). Will append if versions allow." %(fname))
                 if not explicit_read_only:
+                    log.info(f"Opening (append) {fname} ... ")
                     fileh = tables.open_file(fname, 'a', 'ELiXer Detection Catalog')
                 else:
+                    log.info(f"Opening (read only) {fname} ... ")
                     fileh = tables.open_file(fname, 'r', 'ELiXer Detection Catalog')
                 #check the version
 
