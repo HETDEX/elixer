@@ -1,8 +1,10 @@
 changes to elixer by version
 
-1.25.1a1 [2026-05-15]
+1.25.1a1 [2026-05-22]
 * adding in CNN ML stuff ... in progress, not yet acting on the score
   + added p_cnn to elixer hdf5 catalog file Detections table
+* update to special OIII-5007 handling. Allow inconsistencies to reach full rejection state.
+* initial function to reject redshift solution if emission line is impossibly too wide. Currently only OII-3272 included.
 
 1.25.0a3 [2026-04-22]
 * extended option to provide an alternate cosmology

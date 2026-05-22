@@ -1253,6 +1253,7 @@ class EmissionLineInfo:
 
         self.gmag = None
         self.gmag_err = None
+        self.linewidth_possible = None #None = unset, 0 = no, 1 = possible in extreme (e.g AGN), 2 = yes
 
 
     @property
@@ -5844,17 +5845,20 @@ class Spectrum:
 
         upper_limit = 3.0
         lower_limit = 0.2
-        if consistency_score < -4:
-            #consistency_score = 0.0
-            log.info(f"Consistency score penalty limited to {lower_limit} with score {consistency_score}")
-            consistency_score = lower_limit #limit to 0.2
-        elif consistency_score < 0:
+        if consistency_score < -10.: #extreme ... flat out reject
+            log.info(f"Consistency score penalty set to full reject with score {consistency_score}")
+            return 0.0 #consistency_score = 0.0 #limit to 0.2
+        # elif consistency_score < -4:
+        #     #consistency_score = 0.0
+        #     log.info(f"Consistency score penalty limited to {lower_limit} with score {consistency_score}")
+        #     consistency_score = lower_limit #limit to 0.2
+        elif consistency_score < 0: #penalize
             #already negative so, a -1 --> 1/2, -2 --> 1/3 and so on
             consistency_score = -1./(consistency_score-1.)
-        else:
+        else: #boost
             consistency_score += 1.0
 
-        return min(max(consistency_score, lower_limit), upper_limit) #don't let it be zero
+        return min(max(consistency_score, lower_limit), upper_limit) #don't let it be zero, except in extreme case (see above)
 
     # # actually impemented in hetdex.py DetObj.check_for_meteor() as it is more convenient to do so there
     # # were the individual exposures and fibers are readily available
@@ -6158,7 +6162,11 @@ class Spectrum:
               [None, None, None, None, None, None, None, 3.00, 1.00]]  #OIII 5007
              # OII   H_eta H_zet H_eps H_del H_gam H_bet  OIII OIII
 
-            sel = np.where(np.array([l.absorber for l in solution.lines]) == False)[0]
+            sel_idx = np.where(np.array([l.absorber for l in solution.lines])==False)[0] #these are the indices
+            #do not allow extreme condition (1) on linewidth_possible
+            sel_idx2 = np.where(np.array([l.linewidth_possible in (None, 2) for l in solution.lines]) )[0]
+            sel = np.intersect1d(sel_idx,sel_idx2)
+
             sol_lines = np.array(solution.lines)[sel]
             line_waves = [solution.central_rest] + [l.w_rest for l in sol_lines]
             if self.central_eli is not None:
@@ -6217,7 +6225,7 @@ class Spectrum:
                     except:
                         #did not find 4959 and MUST find it in this case
                         log.info("OIII-5007 is bright but OIII-4959 not found. Penalizing score.")
-                        score -= 2.0
+                        score -= 10.0
             except:
                 pass
 
@@ -6507,7 +6515,10 @@ class Spectrum:
               [None, None, None, None, 0.50, None, None, None, None, None, 1.00] ] #OII
              # LyA    CIV  CIII   CII  MgII   NV   SiII  SiVI  HeII   OVI  OII
 
-            sel = np.where(np.array([l.absorber for l in solution.lines])==False)[0]
+            sel_idx = np.where(np.array([l.absorber for l in solution.lines])==False)[0] #these are the indices
+            sel_idx2 = np.where(np.array([l.linewidth_possible in (None, 1, 2) for l in solution.lines]) )[0]
+            sel = np.intersect1d(sel_idx,sel_idx2)
+
             sol_lines = np.array(solution.lines)[sel]
             line_waves = [solution.central_rest] + [l.w_rest for l in sol_lines]
             try:
@@ -6808,7 +6819,11 @@ class Spectrum:
                   [None, None, None, None, 0.50, None, None, None, None, None, 1.00] ] #OII
                  # LyA    CIV  CIII   CII  MgII   NV   SiII  SiVI  HeII   OVI  OII
 
-            sel = np.where(np.array([l.absorber for l in solution.lines])==False)[0]
+
+            sel_idx = np.where(np.array([l.absorber for l in solution.lines])==False)[0] #these are the indices
+            sel_idx2 = np.where(np.array([l.linewidth_possible in (None, 1, 2) for l in solution.lines]) )[0]
+            sel = np.intersect1d(sel_idx,sel_idx2)
+
             sol_lines = np.array(solution.lines)[sel]
             line_waves = [solution.central_rest] + [l.w_rest for l in sol_lines]
             line_obs_waves = [solution.central_rest*(1+solution.z)] + [l.w_obs for l in sol_lines]
@@ -8649,6 +8664,13 @@ class Spectrum:
 
 
                     if add_to_sol:
+                        #sanity check the linewidth
+                        a.linewidth_possible = SU.is_linewidth_plausible(a.w_rest,a.w_obs,eli.fit_sigma*2.355)
+                        if a.linewidth_possible == 0:
+                            add_to_sol = False
+                            log.debug(f"Linewdith failed to meet maximum limits for given solution. Rejecting.")
+
+                    if add_to_sol:
                         l = copy.deepcopy(a)
                         l.w_obs = l.w_rest * (1.0 + sol.z)
                         l.z = sol.z
@@ -8974,7 +8996,7 @@ class Spectrum:
                     s.score =  boost * s.score
                     #!!! do not impose a boost minium limit on the check for oiii_lines ... you CAN get OIII 5007 and
                     #not a significant OII line, or HBeta, so the boost criteria may be << 1 and that is okay
-                    if s.score < G.MULTILINE_MIN_SOLUTION_SCORE and oiii_lines:# and boost > 0.2:
+                    if 0 < s.score < G.MULTILINE_MIN_SOLUTION_SCORE and oiii_lines:# and boost > 0.2:
 
                         if s.rejected_lines is not None and \
                             np.any(np.intersect1d([G.OIII_4959,G.OIII_5007], [rl.w_rest for rl in s.rejected_lines])):

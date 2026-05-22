@@ -168,6 +168,53 @@ McDonald_Coord = Coord.EarthLocation.of_site('mcdonald')
 #simple dict format to use for zPDFs
 zPDF_dict = {"PDF": [], "z": [], "path": None, "desc": None}
 
+def is_linewidth_plausible(rest_wave, obs_wave, line_fwhm_aa=None, line_fwhm_kms=None):
+    """
+
+    given a suggestied line identification (rest_wave) is the fitted linewidth (FWHM) possible, plausible (e.g. in
+       extreme case, like AGN), or unlikely
+
+    this is mostly focused on being too wide
+
+    :param rest_wave: in AA
+    :param obs_wave:  in AA
+    :param line_fwhm: in AA
+    :return: None if cannot determine, 0 if not possible, 1 if possible in extreme cases, 2 if possible
+    """
+
+    try:
+        if rest_wave <= 0 or obs_wave <= 0:
+            log.info(f"Cannot check for plausible line width. Invalid waves provided: rest {rest_wave}, obs {obs_wave}.")
+            return None
+
+        if line_fwhm_kms is None:
+            if line_fwhm_aa is None:
+                #this is a failure
+                log.info("Cannot check for plausible line width. No line width provided.")
+                return None
+            else:
+                line_fwhm_kms = line_fwhm_aa / obs_wave * 3e5
+
+        #what waves do we know about
+        atol = 1.0 #only allow 1AA difference in rest wave
+        yes = 2
+        maybe = 1 #e.g.if AGN
+        no = 0
+
+        if np.isclose(rest_wave,G.OII_rest,atol=atol):
+            if line_fwhm_kms <= 1200.0:
+                return yes
+            elif line_fwhm_kms <= 2500.0:
+                return maybe
+            else:
+                return no
+
+        else: #last case, don't now this line
+            return None
+    except:
+        log.info("Exception in spectrum::is_linewidth_plausible()", exc_info=True)
+        return None
+
 
 def conf_interval(num_samples,sd,conf=0.95):
     """
