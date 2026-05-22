@@ -3383,6 +3383,7 @@ def merge_elixer_hdf5_files(fname,flist=[]):
             continue
         else:
             max_dets += len(fh.root.Detections)
+            fh.close()
 
     #merging existing distinct HDF5 files w/o new additions from an active run
     fileh = get_hdf5_filehandle(fname,append=True,estimated_dets=max_dets)
@@ -3430,8 +3431,8 @@ def merge_elixer_hdf5_files(fname,flist=[]):
         try:
             if f == fname: #could be the output file is one of those to merge
                 continue #just skip and move on
-
-            merge_fh = get_hdf5_filehandle(f,append=True)
+            merge_fh = get_hdf5_filehandle(f, append=False, allow_overwrite=False, must_exist=True, explicit_read_only=True)
+            #merge_fh = get_hdf5_filehandle(f,append=True)
 
             if merge_fh is None:
                 log.error("Unable to merge: %s" %(f))
