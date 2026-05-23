@@ -94,8 +94,9 @@ log.setlevel(G.LOG_LEVEL)
 try:
     #from elixer.cnn import model_fitting_config as ML_CNN
     if G.COMPUTE_ML_CNN_SCORE:
-        import cnn.model_fitting_config as ML_CNN
+        #import cnn.model_fitting_config as ML_CNN
         #from cnn import model_fitting_config as ML_CNN
+        from elixer.cnn import model_fitting_config as ML_CNN
     else:
         ML_CNN = None
 except:
