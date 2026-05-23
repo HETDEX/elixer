@@ -1,5 +1,7 @@
 changes to elixer by version
 
+1.25.1a2 [2026-05-23]
+
 1.25.1a1 [2026-05-22]
 * adding in CNN ML stuff ... in progress, not yet acting on the score
   + added p_cnn to elixer hdf5 catalog file Detections table

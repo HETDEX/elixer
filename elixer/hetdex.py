@@ -15623,7 +15623,7 @@ class HETDEX:
                         d_yl = (yl+yh)//2-4 - ml_yl #if same, == 0, else is the starting offset into ml_blank
                         d_yh = 9 - ( (yl+yh)//2+5 - ml_yh)
                         d_xl = xl-26 - ml_xl
-                        d_xh = 100 - (xh+26 - ml_xh)
+                        d_xh = d_xl + (ml_xh - ml_xl) #100 - (xh+26 - ml_xh)
 
                         ml_blank[d_yl:d_yh,d_xl:d_xh] = fits.data[ml_yl:ml_yh, ml_xl:ml_xh]
                         datakeep['ml_im'].append(deepcopy(ml_blank))
