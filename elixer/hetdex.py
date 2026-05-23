@@ -102,7 +102,8 @@ try:
 except:
     log.error(f"Error! Cannot import ML/CNN package. Will try alternate form.", exc_info=True)
     try:
-        from cnn import model_fitting_config as ML_CNN
+        #from cnn import model_fitting_config as ML_CNN
+        import cnn.model_fitting_config as ML_CNN
     except:
         log.error(f"Error! Cannot import ML/CNN package",exc_info=True)
         ML_CNN = None
