@@ -15621,7 +15621,7 @@ class HETDEX:
 
 
                         d_yl = (yl+yh)//2-4 - ml_yl #if same, == 0, else is the starting offset into ml_blank
-                        d_yh = 9 - ( (yl+yh)//2+5 - ml_yh)
+                        d_yh = d_yl + (ml_yh - ml_yl) #9 - ( (yl+yh)//2+5 - ml_yh)
                         d_xl = xl-26 - ml_xl
                         d_xh = d_xl + (ml_xh - ml_xl) #100 - (xh+26 - ml_xh)
 
