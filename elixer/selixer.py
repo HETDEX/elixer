@@ -4,7 +4,7 @@ import sys
 import os
 import errno
 try:
-    from elixer import elixer
+    from elixer import elixer_main
     from elixer import smerge
 except:
     import elixer
@@ -986,7 +986,7 @@ except:
     pass #will just have to deal with the relative path and hope it works
 
 if not MERGE:
-    path = os.path.join(elixer_basepath,"elixer.py")
+    path = os.path.join(elixer_basepath, "elixer_main.py")
 else:
     path = os.path.join(elixer_basepath,"smerge.py")
 nodes = 1
@@ -1573,7 +1573,7 @@ try:
     if POST_MERGE > 0:
         elixer_path = os.path.dirname(importlib.util.find_spec("elixer").origin)
         slurm += "echo \"Running blind merge ... \"\n"
-        slurm += f"python {elixer_path}/elixer.py --merge \n"
+        slurm += f"python {elixer_path}/elixer_main.py --merge \n"
 
         if POST_MERGE > 1:
             slurm += "echo \"moving report images to all_pngs ... \"\n"

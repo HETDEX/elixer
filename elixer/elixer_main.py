@@ -738,7 +738,7 @@ def parse_commandline(auto_force=False):
     except:
         pass
 
-    #--tmp ONLY applies to the elixer.py script, Otherwise, ignore it.
+    #--tmp ONLY applies to the elixer_main.py script, Otherwise, ignore it.
     #--tmp also should not be used with --cluster
     if args.tmp is not None:
         if G.IGNORE_ARGS_TMP:
@@ -750,7 +750,7 @@ def parse_commandline(auto_force=False):
             log.info(f"Warning! --tmp ignored with --cluster.")
             args.tmp = None
         else:
-            if G.MAIN_SCRIPT != 'elixer.py':
+            if G.MAIN_SCRIPT != 'elixer_main.py':
                 args.tmp = None
             else:
                 if args.dispatch is not None:
@@ -2831,7 +2831,7 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,shotid=None,wave=None,sort=Fal
 
 
     except:
-        log.error(f"Exception in elixer.py get_hdf5_detectids_by_coord",exc_info=True)
+        log.error(f"Exception in elixer_main.py get_hdf5_detectids_by_coord",exc_info=True)
 
     if sort:
         return detectids,ras,decs,dists

@@ -746,7 +746,7 @@ class Catalog:
     def build_bid_target_reports(self, cat_match, target_ra, target_dec, error, num_hits=0, section_title="", base_count=0,
                                  target_w=0, fiber_locs=None,target_flux=None,detobj=None):
         #implement in child class
-        #called from elixer.py to get the list of bid targets for each catalog as part of a pre-report search
+        #called from elixer_main.py to get the list of bid targets for each catalog as part of a pre-report search
         pass
 
 

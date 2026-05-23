@@ -100,11 +100,13 @@ try:
     else:
         ML_CNN = None
 except:
+    print(f"Error! Cannot import ML/CNN package. Will try alternate form.")
     log.error(f"Error! Cannot import ML/CNN package. Will try alternate form.", exc_info=True)
     try:
         #from cnn import model_fitting_config as ML_CNN
         import cnn.model_fitting_config as ML_CNN
     except:
+        printf("Error! Cannot import ML/CNN package. Will continue without running CNN line scoring.")
         log.error(f"Error! Cannot import ML/CNN package",exc_info=True)
         ML_CNN = None
         G.COMPUTE_ML_CNN_SCORE = False
@@ -666,7 +668,7 @@ class DetObj:
         self.full_flag_check_performed = False
         self.red_header = False #flag the top line in the report in red
 
-        self.matched_cats = [] #list of catalogs in which this object appears (managed outside this class, in elixer.py)
+        self.matched_cats = [] #list of catalogs in which this object appears (managed outside this class, in elixer_main.py)
         self.status = 0
         self.annulus = None
         self.target_wavelength = None

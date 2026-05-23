@@ -1088,7 +1088,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
     def build_bid_target_reports(self, cat_match, target_ra, target_dec, error, num_hits=0, section_title="",
                                  base_count=0,
                                  target_w=0, fiber_locs=None, target_flux=None,detobj=None):
-        #called from elixer.py
+        #called from elixer_main.py
 
         self.clear_pages()
         num_targets, _, _ = self.build_list_of_bid_targets(target_ra, target_dec, error)

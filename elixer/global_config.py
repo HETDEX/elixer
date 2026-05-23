@@ -25,7 +25,7 @@ if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
 #version
-__version__ = '1.25.1a2'
+__version__ = '1.26.0a1'
 
 
 #initial working dir
@@ -34,7 +34,7 @@ cl_args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so nee
 MAIN_SCRIPT = os.path.basename(cl_args[0])
 #cl_args[0] is the main script. The --tmp DOES NOT APPLY to the initial setup via selixer.
 
-if MAIN_SCRIPT == 'elixer.py':
+if MAIN_SCRIPT == 'elixer_main.py':
     if "--tmp" in cl_args:
         i = cl_args.index("--tmp")
 
@@ -734,7 +734,7 @@ if "--log" in cl_args: #overide default if specified on command line
 
 
 
-##log initialization moved to elixer.py to incorporate --name into filename
+##log initialization moved to elixer_main.py to incorporate --name into filename
 # reminder to self ... this is pointless with SLURM given the bash wraper (which does not know about the
 # specific dir name and just builds elixer.run ... so leave this here
 if "--merge" in cl_args or "--merge_unique" in cl_args:
@@ -742,7 +742,7 @@ if "--merge" in cl_args or "--merge_unique" in cl_args:
 else:
     LOG_FILENAME = "elixer.log"
 
-#loggin intialization moved to elixer.py in parse_commandline as that is the first place we need to log ...
+#loggin intialization moved to elixer_main.py in parse_commandline as that is the first place we need to log ...
 #   if --help, then the logger is not created
 #logging.basicConfig(filename=LOG_FILENAME,level=LOG_LEVEL,filemode='w')
 #.debug(), .info(), .warning(), .error(), .critical()
@@ -1189,7 +1189,7 @@ NUDGE_SEP_MAX_DIST_LATER_DATA = 1.1 #1.0 #allow source extractor found objects t
                           #in arcsec
 
 NUDGE_SEP_MAX_DIST = 1.25 # 1.0 allow source extractor found objects to be matched to the HETDEX target up to this distances
-                          #in arcsec. NOTICE. this takes one of the above values (set in elixer.py) based on the observation
+                          #in arcsec. NOTICE. this takes one of the above values (set in elixer_main.py) based on the observation
                           #date
 
 MAX_SKY_SUBTRACT_MAG = 2.0 #if local sky subtraction results in a magnitude change greater than this value, do not apply it

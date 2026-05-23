@@ -1,6 +1,11 @@
 changes to elixer by version
 
+1.26.0a1 [2026-05-23]
+* refactor. rename elixer.py to elixer_main.py to avoid shadowing the elixer package naming
+
+
 1.25.1a2 [2026-05-23]
+* CNN issues
 
 1.25.1a1 [2026-05-22]
 * adding in CNN ML stuff ... in progress, not yet acting on the score
