@@ -88,16 +88,20 @@ from copy import copy, deepcopy
 import tables
 
 
+log = G.Global_Logger('hetdex_logger')
+log.setlevel(G.LOG_LEVEL)
+
 try:
     #from elixer.cnn import model_fitting_config as ML_CNN
     if G.COMPUTE_ML_CNN_SCORE:
         import cnn.model_fitting_config as ML_CNN
+        #from cnn import model_fitting_config as ML_CNN
     else:
         ML_CNN = None
 except:
     log.error(f"Error! Cannot import ML/CNN package. Will try alternate form.", exc_info=True)
     try:
-        from elixer import model_fitting_config as ML_CNN
+        from cnn import model_fitting_config as ML_CNN
     except:
         log.error(f"Error! Cannot import ML/CNN package",exc_info=True)
         ML_CNN = None
@@ -111,8 +115,7 @@ except:
 #log = G.logging.getLogger('hetdex_logger')
 #log.setLevel(G.logging.DEBUG)
 
-log = G.Global_Logger('hetdex_logger')
-log.setlevel(G.LOG_LEVEL)
+
 
 CONFIG_BASEDIR = G.CONFIG_BASEDIR
 VIRUS_CONFIG = G.VIRUS_CONFIG #op.join(CONFIG_BASEDIR,"virus_config")
