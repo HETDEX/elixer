@@ -4,10 +4,10 @@ import sys
 import os
 import errno
 try:
-    from elixer import elixer_main
+    from elixer import elixer_main as elixer
     from elixer import smerge
 except:
-    import elixer
+    import elixer_main as elixer
     import smerge
 
 import numpy as np
