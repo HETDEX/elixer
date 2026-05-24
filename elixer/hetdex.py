@@ -106,7 +106,7 @@ except:
         #from cnn import model_fitting_config as ML_CNN
         import cnn.model_fitting_config as ML_CNN
     except:
-        printf("Error! Cannot import ML/CNN package. Will continue without running CNN line scoring.")
+        print("Error! Cannot import ML/CNN package. Will continue without running CNN line scoring.")
         log.error(f"Error! Cannot import ML/CNN package",exc_info=True)
         ML_CNN = None
         G.COMPUTE_ML_CNN_SCORE = False
