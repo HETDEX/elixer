@@ -5754,8 +5754,9 @@ class Spectrum:
         """
         try:
 
-            if self.all_found_lines is None:
-                return []
+            all_found_lines = [] if self.all_found_lines is None else self.all_found_lines
+
+            all_found_absorbs = [] if self.all_found_absorbs is None else self.all_found_absorbs
 
             all_match = []
 
@@ -5766,11 +5767,11 @@ class Spectrum:
             # and be in absorption
 
             if allow_emission and allow_absorption:
-                line_list = self.all_found_lines + self.all_found_absorbs
+                line_list = all_found_lines + all_found_absorbs
             elif allow_emission:
-                line_list = self.all_found_lines
+                line_list = all_found_lines
             elif allow_absorption:
-                line_list = self.all_found_absorbs
+                line_list = all_found_absorbs
             else: #should not be called this way
                 line_list = []
                 log.warning(f"Unexpected call into spectrum::match_found_lines(). Neither emission nor absorption allowed.")
@@ -7733,13 +7734,14 @@ class Spectrum:
                 #todo: could be more selective and alsu use SNR and chi2
                 #num_strong_lines = np.count_nonzero([x.raw_score > 10.0 for x in self.all_found_lines])
                 num_strong_lines = 0
-                for x in self.all_found_lines:
-                    if x.raw_score is not None:
-                        if x.raw_score > 10.0:
-                            num_strong_lines += 1
-                    elif x.line_score is not None:
-                        if x.line_score > 10.0:
-                            num_strong_lines += 1
+                if self.all_found_lines is not None:
+                    for x in self.all_found_lines:
+                        if x.raw_score is not None:
+                            if x.raw_score > 10.0:
+                                num_strong_lines += 1
+                        elif x.line_score is not None:
+                            if x.line_score > 10.0:
+                                num_strong_lines += 1
 
                 if num_strong_lines > 2: #3 or more
                     #save off the original central, central eli, etc
@@ -9124,10 +9126,11 @@ class Spectrum:
                     sol.prob_noise = 0.0
                     sol.emission_line.absorber = self.central_eli.absorber
                     #need to add lines
-                    for l in self.all_found_absorbs:
-                        lineinfo = self.match_line(l.fit_x0, 0)
-                        if lineinfo is not None:
-                            sol.lines.append(lineinfo) #just to have them
+                    if self.all_found_absorbs is not None:
+                        for l in self.all_found_absorbs:
+                            lineinfo = self.match_line(l.fit_x0, 0)
+                            if lineinfo is not None:
+                                sol.lines.append(lineinfo) #just to have them
 
                     sol.score = G.MULTILINE_FULL_SOLUTION_SCORE + 0.5 * len(sol.lines) * G.MULTILINE_FULL_SOLUTION_SCORE
                     solutions.append(sol)
