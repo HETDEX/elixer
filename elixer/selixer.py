@@ -1585,7 +1585,8 @@ try:
                 if merged_cat_name[-3:] != ".h5":
                     merged_cat_name += ".h5"
             slurm += f"mv elixer_merged_cat.h5 {merged_cat_name} \n"
-            slurm += f"sacct -j $SLURM_JOB_ID --format=JobID,State,Elapsed,Timelimit,Start,End >> elixer.done \n"
+            #no point in having State or ,End  as well, since right here, the job is necessarifly still active
+            slurm += f"sacct -j $SLURM_JOB_ID --format=JobID,Elapsed,Timelimit,Start >> elixer.done \n"
             slurm += f"echo '  ' >> elixer.done \n"
             #slurm += f"touch elixer.done \n"
         except:
