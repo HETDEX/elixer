@@ -1174,6 +1174,51 @@ class DetObj:
         # as this next step takes a while
         #self.load_fluxcalibrated_spectra()
 
+    def is_line_real(self):
+        """
+        this is an attempt to combine information to see if an emission line is likely even real
+        (mostly s|t we don't call something OII that really should be a line in the first palce)
+
+
+        :return: None if fail, else 0 - 1 with 0 being No and 1 being Yes and everything in between
+        """
+
+        rc = 0.5 # I don't know ....
+
+        if self.ml_cnn_score > 0.4:
+            rc += self.ml_cnn_score / 2.0
+        elif 0 <= self.ml_cnn_score < 0.3:
+            rc += -1 * (0.4 - self.ml_cnn_score)
+
+        if self.rvb is not None:
+            if self.rvb['flag'] == 0: #or 'flag_str' == 'good'
+                test_ratio = self.rvb['ratio']
+                if test_ratio <= 0:
+                    test_ratio = 1.0 #useless
+                elif test_ratio < 1:
+                    test_ratio = 1./test_ratio
+                if test_ratio > 2.5: #big tilt (more likely a star or something)
+                    rc += -0.5
+                elif test_ratio > 1.5:
+                    rc += -0.2
+
+        #check observed EW
+        if self.spec_obj is not None:
+            try:
+                if (self.spec_obj.eqw_obs + self.spec_obj.eqw_obs_unc) < 3.0:
+                    rc += -0.3
+                elif (self.spec_obj.eqw_obs + self.spec_obj.eqw_obs_unc) < 5.0:
+                    rc += -0.1
+                elif (self.spec_obj.eqw_obs - self.spec_obj.eqw_obs_unc) > 10.0:
+                    rc += 0.5
+                elif (self.spec_obj.eqw_obs - self.spec_obj.eqw_obs_unc) > 5.0:
+                    rc += 0.25
+            except:
+                pass
+
+        return np.clip(rc,a_min = 0.01, a_max = 1.0)
+
+
     def compact(self):
         """
         After this object is processed and the report PDF created,
@@ -2397,17 +2442,27 @@ class DetObj:
 
                         elif scaled_plae_classification < plya_vote_thresh:
                             z = self.w / G.OII_rest - 1.0
-
                             if possible_agn: #not likely OII given the velocity width, though could still be broadend
                                 p = min(0.2,p/2.0)
+                                is_real = self.is_line_real()
+                                if is_real <= 0.3:
+                                    p = min(p, is_real)
+
                                 log.info(f"Q(z): Multiline solution rejected as weak and inconsistent. "
                                          f"P(LyA) favors OII {scaled_plae_classification}, but large velocity. Set to OII z:{z} with Q(z): {p}")
                             else:
+                                is_real = self.is_line_real()
+                                if is_real <= 0.3:
+                                    p = min(0.1,is_real)
 
                                 log.info(f"Q(z): Multiline solution rejected as weak and inconsistent. "
                                          f"P(LyA) favors OII {scaled_plae_classification}. Set to OII z:{z} with Q(z): {p}")
                         else:
                             z= self.w / G.LyA_rest - 1.0
+
+                            is_real = self.is_line_real()
+                            if is_real <= 0.3:
+                                p = min(p, is_real)
 
                             log.info(f"Q(z): Multiline solution rejected as weak and inconsistent. "
                                      f"P(LyA) favors LyA {scaled_plae_classification}. Set to LyA z:{z} with Q(z): {p}")
@@ -2765,7 +2820,14 @@ class DetObj:
                 if scaled_plae_classification > plya_vote_thresh:
                     p = scaled_plae_classification
                 else:
-                    p = max(0.01,plya_vote_thresh - scaled_plae_classification) #todo: need to figure a better value (not much else it can be than LyA)
+                    try:
+                        if self.classification_dict['combined_eqw_rest_lya'] < 10.0 and self.best_gmag < 22.0:
+                            z = -1.0
+                        else:
+                            p = max(0.01, plya_vote_thresh - scaled_plae_classification)  # todo: need to figure a better value (not much else it can be than LyA)
+
+                    except:
+                        p = max(0.01, plya_vote_thresh - scaled_plae_classification)  # todo: need to figure a better value (not much else it can be than LyA)
 
             #check that if the z > 1.9 (probably means LAE) but the g or r mag is in the questionabale range
             #and the eqivalent widht is also questionable (with error between 15-25)
@@ -2998,7 +3060,7 @@ class DetObj:
 
                 #a few conditions to trip
                 if ((self.flags & G.DETFLAG_QUESTIONABLE_DETECTION) or (self.flags & G.DETFLAG_BAD_EMISSION_LINE)) or \
-                   (p < 0.1 and self.fwhm > 14.0) or (p < 0.05):
+                   (p < 0.1 and self.fwhm > 14.0) or (p < 0.05) or (0.0 <= self.ml_cnn_score <= 0.3) or z < -0.01:
 
                     #what is the diagnose z
                     #print("diagnose")
@@ -3006,9 +3068,20 @@ class DetObj:
                     dg_label = ['star','gal','agn']
                     dg_chi2 = [self.diagnose_dict['chi2_star'], self.diagnose_dict['chi2_galaxy'],self.diagnose_dict['chi2_qso']]
                     dg_z = [self.diagnose_dict['z_star'], self.diagnose_dict['z_galaxy'], self.diagnose_dict['z_qso']]
-                    idx_chi2 = np.argmin(dg_chi2)
+
+                    sorted_chi2_idx = np.argsort(dg_chi2)
+                    idx_chi2 = sorted_chi2_idx[0] #smallest chi2
+                    #idx_chi2 = np.argmin(dg_chi2)
                     diagnose_chi2 = dg_chi2[idx_chi2]
                     diagnose_z = dg_z[idx_chi2] #self.diagnose_dict['z_best']
+                    diagnose_z_unclear = False
+
+                    try:
+                        if dg_chi2[sorted_chi2_idx[0]] / dg_chi2[sorted_chi2_idx[1]] > 0.8: #too close
+                            if abs(dg_z[sorted_chi2_idx[0]] - dg_z[sorted_chi2_idx[1]]) > 0.1: #too far apart
+                                diagnose_z_unclear = True
+                    except:
+                        pass
 
                     #is the chi2 good enough?? what is good enough
                     if diagnose_chi2 < 2.0 or \
@@ -3047,7 +3120,10 @@ class DetObj:
 
                         z = self.diagnose_adjusted_z
                         #set Q(z) based on the chi2 of the Diagnose match, but cap to 0.25
-                        p = min(0.25, 1. / diagnose_chi2)
+                        if diagnose_z_unclear:
+                            p = 0.01
+                        else:
+                            p = min(0.25, 1. / diagnose_chi2)
                         self.spec_obj.add_classification_label(dg_label[idx_chi2],replace=True)
                         log.warning(f"Using Diagnose based {dg_label[idx_chi2]} redshift: "
                                     f"z={z} with chi2={diagnose_chi2} and assigned Q(z)={p:0.2f}")
