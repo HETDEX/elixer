@@ -2885,7 +2885,7 @@ class DetObj:
             except:
                 pass
 
-            if p <= 0.1 and not (self.flags & G.DETFLAG_UNCERTAIN_CLASSIFICATION):
+            if z < -0.01 or (p <= 0.1 and not (self.flags & G.DETFLAG_UNCERTAIN_CLASSIFICATION)):
                 self.flags |= G.DETFLAG_UNCERTAIN_CLASSIFICATION
                 log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_UNCERTAIN_CLASSIFICATION (in best_redshift)")
 
@@ -3051,7 +3051,7 @@ class DetObj:
             # ... even with the flags, IF there are multiple lines at high SNR
             # keep the elixer classification ... this is an issue for especially long exposures with bright
             # galaxies ... we can get a "bad fiber trace" in one fiber, but that happens to be inconsquential
-            if self.diagnose_dict is not None and ((self.best_gmag - self.best_gmag_unc) <= 22.0) and \
+            if self.diagnose_dict is not None and ((self.best_gmag - self.best_gmag_unc) <= 23.0) and \
                 not (p >= 0.7 and selected_solution_idx >= 0 and multiline_sol_diag >= 1):
                 # (basically, if the object is < g 23 and the elixer confidence is low and/or the line is questionable
                 # give it the diagnose redshift ... even if that is not consistent with the "line" ???
@@ -3076,7 +3076,7 @@ class DetObj:
                     diagnose_z = dg_z[idx_chi2] #self.diagnose_dict['z_best']
                     diagnose_z_unclear = False
 
-                    try:
+                    try: #chi2 is strictly positive (note we'll do some checks on the actual chi2 value a bit below)
                         if dg_chi2[sorted_chi2_idx[0]] / dg_chi2[sorted_chi2_idx[1]] > 0.8: #too close
                             if abs(dg_z[sorted_chi2_idx[0]] - dg_z[sorted_chi2_idx[1]]) > 0.1: #too far apart
                                 diagnose_z_unclear = True
@@ -3121,11 +3121,39 @@ class DetObj:
                         z = self.diagnose_adjusted_z
                         #set Q(z) based on the chi2 of the Diagnose match, but cap to 0.25
                         if diagnose_z_unclear:
-                            p = 0.01
+
+                            best_phot_z = -999
+                            best_phot_z_weight = 0
+                            if self.phot_z_votes is not None and len(self.phot_z_votes) > 0:
+                                if self.phot_z_vote_weights is not None and len(self.phot_z_vote_weights) > 0:
+                                    sel_photz = np.argmax(self.phot_z_vote_weights)
+                                    best_phot_z_weight = self.phot_z_vote_weights[sel_photz]
+                                    best_phot_z = self.phot_z_votes[sel_photz]
+                                else:
+                                    best_phot_z = self.phot_z_votes[0]
+
+                            if abs((best_phot_z - z)/(best_phot_z + z)) * 2. < 0.20: #better than a bit above 20%
+                                #treat this photz as support of Diagnose and boost the p(z)
+                                #but keep the Diagnose value
+                                p = 0.25
+                                self.spec_obj.add_classification_label(dg_label[idx_chi2], replace=True)
+                                log.warning(f"Using photz supported Diagnose based {dg_label[idx_chi2]} redshift: "
+                                            f"z={z} with chi2={diagnose_chi2} and assigned Q(z)={p:0.2f}")
+                            else:
+                                if diagnose_chi2 > 1.25 and best_phot_z_weight >= 0.5:
+                                    z = best_phot_z
+                                    p = 0.1
+                                    log.info(f"Diagnose uncertain, good hit on photz. Using z = {z} from photz")
+                                else:
+                                    p = 0.01
+                                    self.spec_obj.add_classification_label(dg_label[idx_chi2], replace=True)
+                                    log.warning(f"Using unclear Diagnose based {dg_label[idx_chi2]} redshift: "
+                                                f"z={z} with chi2={diagnose_chi2} and assigned Q(z)={p:0.2f}")
                         else:
                             p = min(0.25, 1. / diagnose_chi2)
-                        self.spec_obj.add_classification_label(dg_label[idx_chi2],replace=True)
-                        log.warning(f"Using Diagnose based {dg_label[idx_chi2]} redshift: "
+
+                            self.spec_obj.add_classification_label(dg_label[idx_chi2],replace=True)
+                            log.warning(f"Using Diagnose based {dg_label[idx_chi2]} redshift: "
                                     f"z={z} with chi2={diagnose_chi2} and assigned Q(z)={p:0.2f}")
 
 
