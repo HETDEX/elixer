@@ -3353,7 +3353,9 @@ class DetObj:
                     dsel = np.argmin(dists)
                     diag_id = G.DIAGNOSE_TABLE['detectid'][sel][dsel]
                     sel = G.DIAGNOSE_TABLE['detectid'] == diag_id
-
+                    if np.count_nonzero(sel) != 1:
+                        log.info(f"No unique match within Diagnose catalog for {self.entry_id} ({self.ra},{self.dec})")
+                        return  # we are done, no matches
                 else:
                     log.info(f"No match within Diagnose catalog for {self.entry_id} ({self.ra},{self.dec})")
                     return #we are done, no matches
@@ -3362,6 +3364,13 @@ class DetObj:
             #now, at this point sel should be exactly one ...
             #print(G.DIAGNOSE_TABLE[sel])
             self.diagnose_dict = dict(G.DIAGNOSE_TABLE[sel][0])
+
+            logstr = f"Diagnose match: [{self.diagnose_dict['detectid']}]" \
+                     f" z={self.diagnose_dict['z_best']:0.4f} - {self.diagnose_dict['classification']} : " \
+                     f" Star: (z={self.diagnose_dict['z_star']:0.4f},{self.diagnose_dict['chi2_star']:0.4f})," \
+                     f" Gal: (z={self.diagnose_dict['z_galaxy']:0.4f},{self.diagnose_dict['chi2_galaxy']:0.4f})," \
+                     f" QSO: (z={self.diagnose_dict['z_qso']:0.4f},{self.diagnose_dict['chi2_qso']:0.4f})"
+            log.info(f"{logstr}")
             #load the results and save for the best_redshift check
 
 
