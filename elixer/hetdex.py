@@ -3361,7 +3361,7 @@ class DetObj:
 
             #now, at this point sel should be exactly one ...
             #print(G.DIAGNOSE_TABLE[sel])
-            self.diagnose_dict = dict(G.DIAGNOSE_TABLE[0])
+            self.diagnose_dict = dict(G.DIAGNOSE_TABLE[sel][0])
             #load the results and save for the best_redshift check
 
 

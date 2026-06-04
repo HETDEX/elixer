@@ -1,5 +1,14 @@
 changes to elixer by version
 
+
+1.26.0a3 [2026-06-04]
+* fix bad selection from Diagnose table. Was pulling in the wrong row for comparison.
+
+
+1.26.0a2 [2026-05-23]
+* test version, do not use anymore
+
+
 1.26.0a1 [2026-05-23]
 * refactor. rename elixer.py to elixer_main.py to avoid shadowing the elixer package naming
 
