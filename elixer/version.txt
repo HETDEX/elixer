@@ -1,6 +1,9 @@
 changes to elixer by version
 
 
+1.26.0a4 [2026-06-10]
+* tweak trigger to invoke Diagnose redshift to ignore classification that is strongly LyA and not brighter than g=22
+
 1.26.0a3 [2026-06-04]
 * fix bad selection from Diagnose table. Was pulling in the wrong row for comparison.
 
