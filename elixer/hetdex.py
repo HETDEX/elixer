@@ -3053,19 +3053,37 @@ class DetObj:
             # ... even with the flags, IF there are multiple lines at high SNR
             # keep the elixer classification ... this is an issue for especially long exposures with bright
             # galaxies ... we can get a "bad fiber trace" in one fiber, but that happens to be inconsquential
-            if self.diagnose_dict is not None and ((self.best_gmag - self.best_gmag_unc) <= 23.0) and \
-                not (p >= 0.7 and selected_solution_idx >= 0 and multiline_sol_diag >= 1) and \
-                not (scaled_plae_classification >= plya_fixed_hi and rest == G.LyA_rest and
-                     ((self.best_gmag + self.best_gmag_unc) > 22.0)):
+
+            #trying to make this a little more readable
+            diagnose_extra = 0  #0 = no, 1 = yes, with conditions, 2 = yes, force
+            if self.diagnose_dict is not None and ((self.best_gmag - self.best_gmag_unc) <= 23.0):
+                #it could be checked
+                if SU.is_on_skyline(self.w,self.exptimes,self.fwhm) > 1 or (0.0 <= self.ml_cnn_score <= 0.1):
+                    diagnose_extra = 2 #it should be checked (force)
+                else:
+                    diagnose_extra = 1 #check, unless other conditions prohibit it
+
+                    if (p >= 0.7 and selected_solution_idx >= 0 and multiline_sol_diag >= 1):
+                        diagnose_extra = 0
+                    elif (scaled_plae_classification >= plya_fixed_hi and rest == G.LyA_rest and
+                        ((self.best_gmag + self.best_gmag_unc) > 22.0)):
+                            diagnose_extra = 0
+
+            # if self.diagnose_dict is not None and ((self.best_gmag - self.best_gmag_unc) <= 23.0) and \
+            #     not (p >= 0.7 and selected_solution_idx >= 0 and multiline_sol_diag >= 1) and \
+            #     not (scaled_plae_classification >= plya_fixed_hi and rest == G.LyA_rest and
+            #          ((self.best_gmag + self.best_gmag_unc) > 22.0)):
+            if diagnose_extra > 0:
                 # (basically, if the object is < g 23 and the elixer confidence is low and/or the line is questionable
                 # give it the diagnose redshift ... even if that is not consistent with the "line" ???
                 # maybe that case needs a new flag that says so ... inconsistent with line??
                 #       or the line is quite broad ... could compare to G.BROAD_FWHM_KMS or G.REALLY_BROAD_FWHM_KMS
 
                 #a few conditions to trip
-                if ((self.flags & G.DETFLAG_QUESTIONABLE_DETECTION) or (self.flags & G.DETFLAG_BAD_EMISSION_LINE)) or \
+                if diagnose_extra > 1 or \
+                   (((self.flags & G.DETFLAG_QUESTIONABLE_DETECTION) or (self.flags & G.DETFLAG_BAD_EMISSION_LINE)) or \
                    (p < 0.1 and self.fwhm > 14.0) or (p < 0.1 and self.fwhm < 3.75) or (p < 0.05) or \
-                    (0.0 <= self.ml_cnn_score <= 0.3) or z < -0.01:
+                    (0.0 <= self.ml_cnn_score <= 0.3) or z < -0.01):
 
                     #what is the diagnose z
                     #print("diagnose")

@@ -25,7 +25,7 @@ if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
 #version
-__version__ = '1.26.0a4'
+__version__ = '1.26.0a5'
 
 
 #initial working dir
@@ -1058,6 +1058,9 @@ FORCE_SINGLE_PAGE = True
 SHOW_SKYLINES = True  #main lines are 3545 +/- 10   and  5462 +/- 5
 PENALIZE_FOR_EMISSION_IN_SKYLINE = False #since HDR 2.1.x the skyline removal has been quite good and this is no longer needed
 
+SKYLINE_CENTERS =  [3544.0, 3831.0, 4313.0, 4359.0, 5169.0, 5462.0]
+SKYLINE_WIDTHS =   [  10.0,    2.0,    2.0,    2.0,    2.0,   5.0]
+SKYLINE_STRENGTHS =[   0.7,    0.1,    0.1,    0.1,    0.1,   0.3] #lower number is weaker
 #common skylines (centers): 3544, 3831, 4313, 4359, 5169, 5466 (or 5462 in elixer)
 # width                    +/-10                          +/-5
 

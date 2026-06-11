@@ -216,6 +216,61 @@ def is_linewidth_plausible(rest_wave, obs_wave, line_fwhm_aa=None, line_fwhm_kms
         return None
 
 
+
+def is_on_skyline(obs_wave,exptimes=[],snr=None,fwhm_aa=None):
+    """
+
+    :param obs_wave:
+    :param exptime: array of exptimes(s) e.g. one entry per dither or fixed length with 0s for unused dithers
+    :param snr:
+    :param fwhm_aa:
+    :return:  -1 error, 0 No, 1 yes, 2 yes AND weakly questionable, 3 yes AND very questionable
+    """
+
+    rc = -1
+    try:
+        #is it in the footprint
+        sky_idx = -1
+        abs_delta_center = -1
+        for i in range(len(G.SKYLINE_CENTERS)): # c,w in zip(G.SKYLINE_CENTERS,G.SKYLINE_WIDTHS):
+            abs_delta_center = abs(obs_wave - G.SKYLINE_CENTERS[i])
+            if abs_delta_center < G.SKYLINE_WIDTHS[i]:
+                sky_idx = i
+                break
+
+        if sky_idx < 0: #we're done
+            log.info(f"Emission line not on significant skyline")
+            return 0
+
+        rc = 1
+
+        if fwhm_aa is not None:
+            if (G.SKYLINE_WIDTHS[sky_idx] - abs_delta_center) > (0.5 * fwhm_aa):
+                rc += 1
+
+        if snr is not None: #check SNR
+            # depends on the skyline strength and the length of exposure
+            if exptimes is not None and len(exptimes) > 0:
+                try:
+                    total_exptime = np.sum(exptimes)
+                    rel_exptime = total_exptime / 1080.0
+                except:
+                    rel_exptime = 1.0
+            else:
+                rel_exptime = 1.0
+            snr_thresh = min(4.8 + G.SKYLINE_STRENGTHS[sky_idx] * np.sqrt(rel_exptime), 6.0)
+            if snr < snr_thresh:
+                rc += 1
+
+        log.info(f"Emission line is on significant skyline at {G.SKYLINE_CENTERS[sky_idx]}. Impact level: {rc}")
+
+    except:
+        log.info("Exception in spectrum::is_linewidth_plausible()", exc_info=True)
+        rc = -1
+
+    return np.clip(rc,a_min = -1, a_max = 3)
+
+
 def conf_interval(num_samples,sd,conf=0.95):
     """
     mean +/- error  ... this is the +/- error part as 95% (or other) confidence interval (assuming normal distro)

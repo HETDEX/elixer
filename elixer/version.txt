@@ -1,5 +1,7 @@
 changes to elixer by version
 
+1.26.0a5 [2026-06-10]
+* add severity check for the emission line being on skyline and possible trigger of Diagnose classification extras
 
 1.26.0a4 [2026-06-10]
 * tweak trigger to invoke Diagnose redshift to ignore classification that is strongly LyA and not brighter than g=22
