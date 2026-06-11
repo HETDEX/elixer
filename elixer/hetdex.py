@@ -3070,7 +3070,7 @@ class DetObj:
                     #what is the diagnose z
                     #print("diagnose")
                     #check the chi2
-                    dg_label = ['star','gal','agn']
+                    dg_label = ['star_D','gal_D','agn_D']
                     dg_chi2 = [self.diagnose_dict['chi2_star'], self.diagnose_dict['chi2_galaxy'],self.diagnose_dict['chi2_qso']]
                     dg_z = [self.diagnose_dict['z_star'], self.diagnose_dict['z_galaxy'], self.diagnose_dict['z_qso']]
 
@@ -3151,13 +3151,13 @@ class DetObj:
                                     log.info(f"Diagnose uncertain, good hit on photz. Using z = {z} from photz")
                                 else:
                                     p = 0.01
-                                    self.spec_obj.add_classification_label(dg_label[idx_chi2], replace=True)
+                                    self.spec_obj.add_classification_label(dg_label[idx_chi2], prepend=True)
                                     log.warning(f"Using unclear Diagnose based {dg_label[idx_chi2]} redshift: "
                                                 f"z={z} with chi2={diagnose_chi2} and assigned Q(z)={p:0.2f}")
                         else:
                             p = min(0.25, 1. / diagnose_chi2)
 
-                            self.spec_obj.add_classification_label(dg_label[idx_chi2],replace=True)
+                            self.spec_obj.add_classification_label(dg_label[idx_chi2],prepend=True)
                             log.warning(f"Using Diagnose based {dg_label[idx_chi2]} redshift: "
                                     f"z={z} with chi2={diagnose_chi2} and assigned Q(z)={p:0.2f}")
 
