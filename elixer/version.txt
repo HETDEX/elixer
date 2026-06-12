@@ -1,5 +1,9 @@
 changes to elixer by version
 
+
+1.26.0a6 [2026-06-11]
+* if MCMC fails to converge on targetted fit, shift and try once more
+
 1.26.0a5 [2026-06-10]
 * add severity check for the emission line being on skyline and possible trigger of Diagnose classification extras
 

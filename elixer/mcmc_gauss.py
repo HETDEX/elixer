@@ -159,6 +159,7 @@ class MCMC_Gauss:
 
         self.convergence_check =  0 #do not check if 0, otherwise is a scale; 20-25 is about right for HETDEX
         self.convergence_check_step = 100 #if testing for convergence, re-evaluate each of this many iterations
+        self.converged = False #set to True if the MCMC converged
 
     def approx_symmetric_error(self,parm): #parm is assumed to be a 3 vector as [0] = mean, [1] = +error, [2] = -error
 
@@ -423,6 +424,9 @@ class MCMC_Gauss:
 
                     if not bConverged:
                         log.info(f"MCMC. Failed to converge within {self.main_run} steps at {self.convergence_check} scale.")
+                        self.converged = False
+                    else:
+                        self.converged = True
 
             self.samples = self.sampler.flatchain  # collapse the walkers and interations (aka steps or epochs)
 
