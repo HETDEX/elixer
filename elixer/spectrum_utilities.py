@@ -925,7 +925,7 @@ def get_fluxlimits(ra,dec,wave,datevobs,sncut=4.8,flim_model="v4",ffsky=False,ra
 
 
 def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=G.DEX_G_EFF_LAM,aper=3.5,ifu_fibid = None,
-                     central_fiber=None, detectid=None):
+                     central_fiber=None, detectid=None,exptimes=[], apcor=None):
     """
     calcuate an approximage gband mag limit for THIS set of calfibs (e.g. typically one IFU for one shot)
 
@@ -940,6 +940,9 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=G.DE
     :param ifu_fibid: fiber ID 1 - 448 (really only used in debugging)
     :param central_fiber: the "blue" central fiber
     :param detectid:
+    :poram exptimes: array of exposure times
+    :param apcor: apaerture correction to use (esp. for when not HETDEX dithered)... be careful though, this can be low
+                  due to lack of dithers (or limited shifting in the dithers) or being close to the edge
     :return:
     """
 
@@ -947,7 +950,33 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=G.DE
 
     try:
         limit = G.HETDEX_CONTINUUM_MAG_LIMIT
-        min_num_final_fibers = max(100, int(len(calfib)/4) )  # 1/4 of the standard, but at least 100
+
+        num_input_fibers = len(calfib)
+        num_exposures = -1
+        if exptimes is not None:
+            try:
+                num_exposures = np.count_nonzero(exptimes)
+                min_num_final_fibers = max(37*num_exposures,int(len(calfib)/4))
+            except:
+                num_exposures = -1
+                min_num_final_fibers = max(100, int(num_input_fibers / 4))
+        else:
+            min_num_final_fibers = max(100, int(num_input_fibers/4) )  # 1/4 of the standard, but at least 100
+
+        if apcor is not None:
+            try:
+                if len(apcor) == len(G.CALFIB_WAVEGRID):
+                    ix,*_ = getnearpos(G.CALFIB_WAVEGRID,wavelength)
+                    est_apcor = apcor[ix]
+                else:
+                    est_apcor = np.nanmean(apcor)
+            except:
+                try:
+                    est_apcor = np.nanmean(apcor)
+                except:
+                    est_apcor = -1
+
+
         #so if 1344 passed in, would need at leat 336 ... if 336 passed in (112x3) would need 100
         # min_std_of_fiber_means = 0.003 #e-17 ... leads to mag limits 26 and fainter; see these with large objects in the IFU
         # can still push down the error ... I think it squelces variation in the IFU
@@ -1109,10 +1138,25 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=G.DE
 
         gaps_correction = 0.9487  # assume xx% coverage (roughly  1 - (root(3)-pi/2))/pi) #the area outside of fiber radius
                                   # not covered by fiber
+
+
+        #basically, want to use the apcor if this is not a fully dithered observation
+        #BUT, could have three dithers that did not shift, so like one long dither ... so cannot rely on that
+        #AND cannot directly rely on apcor as that is computed for this detection, which might be on the edge
+        #todo: really should look at the dithering pattern, like in apothecary reduce_shot.py
+        dither_correction = 1.0
+        if not edge:
+            if 0 < est_apcor < 0.6:
+                dither_correction = np.sqrt(est_apcor/gaps_correction) #kind of a proxy for an area correction under the PSF
+                #the apcor already included a gaps correction from HETDEX_API, so need to take that back out for this case
+        else: # this is an edge fiber
+            if 0 < num_exposures < 3 and num_input_fibers < 300: #normally would be 336 though could be a few bad fibers
+                dither_correction = np.sqrt(num_exposures / 3.) #kind of a proxy for an area correction under the PSF
+
         radius_rat = effective_radius / 0.75 #single fiber radius
         area_rat = whole / inner
 
-        psf_corr = area_rat * radius_rat / gaps_correction
+        psf_corr = area_rat * radius_rat / gaps_correction * dither_correction
 
         #this is sort of a best case ... if the object is faint and not near the center of a fiber, it can be more
         #difficult to detect

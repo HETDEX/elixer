@@ -3092,6 +3092,15 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
             mcmc.initial_A = raw_peak * 2.355 * mcmc.initial_sigma  # / adjust
             if absorber:
                 mcmc.initial_A *= -1
+        elif targetted_fit and not np.isclose(eli.fit_x0,central,atol=4.0):
+            #this should normally handle edge cases where the LSQ fell apart (like at the very edge of the range)
+            #the y and raw_peak may well be wrong too, but the starting x position should be better and this should
+            #end up being okay
+            mcmc.initial_mu = central
+            mcmc.initial_sigma = 1.7
+            mcmc.initial_A = raw_peak * 2.355 * mcmc.initial_sigma  # / adjust
+            if absorber:
+                mcmc.initial_A *= -1
         else:
             mcmc.initial_mu = eli.fit_x0
             mcmc.initial_sigma = eli.fit_sigma
@@ -3148,7 +3157,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
 
         mcmc.run_mcmc()
 
-        if not mcmc.converged and targetted_fit:
+        if mcmc.converged == 0 and targetted_fit:
             if targetted_fit and not np.isclose(mcmc.initial_mu,central,atol=4.0):
                 #try again but set to central
                 mcmc.initial_mu = central
@@ -3160,7 +3169,7 @@ def signal_score(wavelengths,values,errors,central,central_z = 0.0, spectrum=Non
                 log.info("MCMC failed to converge. Possible poor initial fit, maybe near edge. Trying once more with adjusted initial conditions.")
                 mcmc.run_mcmc()
 
-                if not mcmc.converged:
+                if mcmc.converged == 0:
                     log.info("MCMC still failed to converge. Giving up.")
 
         if True:

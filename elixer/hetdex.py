@@ -10434,7 +10434,10 @@ class DetObj:
                                                                  fwhm=self.survey_fwhm,
                                                                  aper=self.extraction_aperture,
                                                                  ifu_fibid=ifu_fibid,
-                                                                 central_fiber=self.fibers[0], detectid=self.entry_id)
+                                                                 central_fiber=self.fibers[0],
+                                                                 detectid=self.entry_id,
+                                                                 exptimes=self.exptimes,
+                                                                 apcor=self.sumspec_apcor)
 
                     try:
                         log.info(
@@ -11794,7 +11797,10 @@ class DetObj:
                                                                 fwhm=self.survey_fwhm,
                                                                 aper=self.extraction_aperture,
                                                                 ifu_fibid = ifu_fibid,
-                                                                central_fiber=self.fibers[0],detectid=self.entry_id)
+                                                                central_fiber=self.fibers[0],
+                                                                detectid=self.entry_id,
+                                                                exptimes=self.exptimes,
+                                                                apcor=self.sumspec_apcor)
 
                     try:
                         log.info(f"HETDEX gmag limit ({self.hetdex_gmag_limit:0.2f}); seeeing ({self.survey_fwhm:0.2f}), "

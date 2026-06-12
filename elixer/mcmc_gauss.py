@@ -159,7 +159,7 @@ class MCMC_Gauss:
 
         self.convergence_check =  0 #do not check if 0, otherwise is a scale; 20-25 is about right for HETDEX
         self.convergence_check_step = 100 #if testing for convergence, re-evaluate each of this many iterations
-        self.converged = False #set to True if the MCMC converged
+        self.converged = -1 #-1 not set, 0  = no, 1 = yes
 
     def approx_symmetric_error(self,parm): #parm is assumed to be a 3 vector as [0] = mean, [1] = +error, [2] = -error
 
@@ -393,6 +393,7 @@ class MCMC_Gauss:
             #args are the positional args AFTER theta for self.lnprob function
 
             if self.convergence_check is None or self.convergence_check <= 0:
+                self.converged = -1
                 with warnings.catch_warnings(): #ignore the occassional warnings from the walkers (NaNs, etc that reject step)
                     warnings.simplefilter("ignore")
                     log.debug("MCMC burn in (%d) ...." %self.burn_in)
@@ -404,7 +405,7 @@ class MCMC_Gauss:
                 with warnings.catch_warnings(): #ignore the occassional warnings from the walkers (NaNs, etc that reject step)
                     warnings.simplefilter("ignore")
 
-                    bConverged = False
+                    self.converged = 0
 
                     log.debug(f"MCMC. Burn in ({self.burn_in}), Max iter ({self.main_run}), convergence ({self.convergence_check})")
                     pos, prob, state = self.sampler.run_mcmc(pos, self.burn_in,
@@ -418,15 +419,13 @@ class MCMC_Gauss:
 
                         ac_t = self.sampler.get_autocorr_time(tol=0)
                         if np.all(self.sampler.iteration > self.convergence_check * ac_t):
-                            bConverged = True
+                            self.converged = 1
                             log.info(f"MCMC. All chains converged in ~ {i + self.convergence_check_step} steps at {self.convergence_check} scale.")
                             break  # stop sampling
 
-                    if not bConverged:
+                    if self.converged == 0:
                         log.info(f"MCMC. Failed to converge within {self.main_run} steps at {self.convergence_check} scale.")
-                        self.converged = False
-                    else:
-                        self.converged = True
+
 
             self.samples = self.sampler.flatchain  # collapse the walkers and interations (aka steps or epochs)
 
