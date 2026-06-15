@@ -10351,6 +10351,10 @@ class DetObj:
                 # use the std dev of all "mostly empty" (hence sigma=3.0) or "sky" fibers as the error
                 mean, median, std = sigma_clipped_stats(all_calfib, axis=0, sigma=3.0)
                 self.calfib_noise_estimate = std
+
+                if self.dust_corr is not None:
+                    self.calfib_noise_estimate *= self.dust_corr
+
                 if not G.MULTILINE_USE_ERROR_SPECTRUM_AS_NOISE:
                     self.spec_obj.noise_estimate = self.calfib_noise_estimate
                     self.spec_obj.noise_estimate_wave = G.CALFIB_WAVEGRID
@@ -11721,6 +11725,8 @@ class DetObj:
                 #use the std dev of all "mostly empty" (hence sigma=3.0) or "sky" fibers as the error
                 mean, median, std = sigma_clipped_stats(all_calfib, axis=0, sigma=3.0)
                 self.calfib_noise_estimate = std
+                if self.dust_corr is not None:
+                    self.calfib_noise_estimate  *= self.dust_corr
                 if not G.MULTILINE_USE_ERROR_SPECTRUM_AS_NOISE:
                     self.spec_obj.noise_estimate = self.calfib_noise_estimate
                     self.spec_obj.noise_estimate_wave = G.CALFIB_WAVEGRID

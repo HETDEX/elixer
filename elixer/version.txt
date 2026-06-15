@@ -1,6 +1,11 @@
 changes to elixer by version
 
 
+1.26.0a7 [2026-06-15]
+* down-weight rank 4 and 5 lines based on their SNR with respect to solution scoring
+* add MW dereddeinging to estimated noise level on full width spectrum figure
+
+
 1.26.0a6 [2026-06-11]
 * if MCMC fails to converge on targetted fit, shift and try once more
 * attempt to deal with non-HETDEX dithering in computing the estimated equivalent g-band depth for the observation

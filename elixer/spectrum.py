@@ -5432,6 +5432,19 @@ class Spectrum:
         #from HDF5
 
 
+    def adjust_solution_line_score_by_rank(self,rank,snr):
+        if snr > 8.0: #don't care about the rank if the SNR is high
+            return 1.0
+        else:
+            snr_boost = max(0,(snr - 6.0)/2.0)
+
+            if rank >= 5:
+                return min(1.0, 0.5 + snr_boost)
+            elif rank >=4:
+                return min(1.0, 0.8 + snr_boost)
+            else:
+                return 1.0
+
     def gband_masked_continuum(self, recompute=False):
         """
         Sum over observed EW for all emission and (subtract) all absorption
@@ -6263,7 +6276,24 @@ class Spectrum:
             # compare all pairs of lines
 
             if len(overlap) < 2:  # done (0 or 1) if only 1 line, can't go any farther with comparison
-                #todo: any fwhm that would imply low-z? more narrow?
+                # #todo: any fwhm that would imply low-z? more narrow?
+                # #could further penalize if only poor ranks are supporting?
+                # # however, these poor rank lines are already penalized in the scoring if low SNR so this would
+                # #  be excessive AND the logic here is that the solution is being penalized for lines that are expected
+                # #  but not found, not also penalized for questionable lines that don't add much support
+                # support_rank_score = -1.0
+                # for line in solution.lines: #the additional supporting lines
+                #     if line.rank >= 5:
+                #         support_rank_score += 0.35
+                #     elif line.rank >= 4:
+                #         support_rank_score += 0.7
+                #     else:
+                #         support_rank_score += 1.0
+                #
+                # if support_rank_score < 0:
+                #     score += support_rank_score #this is actually a penalty
+                #     log.info(f"LzG additional penalty due to poor support from additional lines. New total score penaly = {score}")
+
                 return score
 
 
@@ -8720,7 +8750,7 @@ class Spectrum:
                         l.eli = copy.deepcopy(eli) #get all the emission line info fit data (only a few places use it)
 
                         per_line_total_score += eli.line_score  # cumulative score for ALL solutions
-                        sol.score += eli.line_score  # score for this solution
+                        sol.score += eli.line_score  * self.adjust_solution_line_score_by_rank(l.rank,l.snr)# score for this solution
                         sol.prob_noise *= eli.prob_noise
 
                         sol.lines.append(l)

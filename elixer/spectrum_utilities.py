@@ -1136,27 +1136,21 @@ def calc_dex_g_limit(calfib,calfibe=None,fwhm=1.7,flux_limit=4.0,wavelength=G.DE
         #     else:
         #         effective_radius = outer_bins[rad_idx[0]]
 
+        #DD 2026-06-15, just set to 1.0 ... assume apcor is computed correctly and then assume
+        #    that this applies to a fully filled aperture, even if the dithering does not fill it, since the apcor
+        #    adjusts for that
         gaps_correction = 0.9487  # assume xx% coverage (roughly  1 - (root(3)-pi/2))/pi) #the area outside of fiber radius
-                                  # not covered by fiber
+                                  # not covered by fiber;
+                                  # e.g. a value of 1. == no correction ALL LIGHT captured; < 1 == divide to get missing light
+                                  # the larger the gaps_correction, the smaller the input "flux" and the fainter
+                                  #     the limit becomes (deeper it becomes)
 
 
-        #basically, want to use the apcor if this is not a fully dithered observation
-        #BUT, could have three dithers that did not shift, so like one long dither ... so cannot rely on that
-        #AND cannot directly rely on apcor as that is computed for this detection, which might be on the edge
-        #todo: really should look at the dithering pattern, like in apothecary reduce_shot.py
-        dither_correction = 1.0
-        if not edge:
-            if 0 < est_apcor < 0.6:
-                dither_correction = np.sqrt(est_apcor/gaps_correction) #kind of a proxy for an area correction under the PSF
-                #the apcor already included a gaps correction from HETDEX_API, so need to take that back out for this case
-        else: # this is an edge fiber
-            if 0 < num_exposures < 3 and num_input_fibers < 300: #normally would be 336 though could be a few bad fibers
-                dither_correction = np.sqrt(num_exposures / 3.) #kind of a proxy for an area correction under the PSF
 
         radius_rat = effective_radius / 0.75 #single fiber radius
         area_rat = whole / inner
 
-        psf_corr = area_rat * radius_rat / gaps_correction * dither_correction
+        psf_corr = area_rat * radius_rat / gaps_correction
 
         #this is sort of a best case ... if the object is faint and not near the center of a fiber, it can be more
         #difficult to detect
