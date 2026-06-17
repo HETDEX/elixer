@@ -7,8 +7,9 @@ merge existing ELiXer catalogs
 #start taking update notes:
 # 0.10.1  changed sizes of Fiber2DCutouts (ML table) to be 9pix x 100pix vs old 9pix x 49pix
 # 0.10.2  added p_cnn to Detection table
+# 0.10.3  added healpix to Detection table
 
-__version__ = '0.10.2' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
+__version__ = '0.10.3' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -75,24 +76,25 @@ class Detections(tables.IsDescription):
     #about the detection
     ra = tables.Float32Col(dflt=UNSET_FLOAT,pos=4)
     dec = tables.Float32Col(dflt=UNSET_FLOAT,pos=5)
-    wavelength_obs = tables.Float32Col(dflt=UNSET_FLOAT,pos=6)
-    wavelength_obs_err = tables.Float32Col(dflt=UNSET_FLOAT,pos=7)
+    healpix = tables.Int64Col(dflt=-999,pos=6)
+    wavelength_obs = tables.Float32Col(dflt=UNSET_FLOAT,pos=7)
+    wavelength_obs_err = tables.Float32Col(dflt=UNSET_FLOAT,pos=8)
 
-    z_best = tables.Float32Col(dflt=-1.0,pos=8)
-    z_best_pz = tables.Float32Col(dflt=0.0,pos=9)
+    z_best = tables.Float32Col(dflt=-1.0,pos=9)
+    z_best_pz = tables.Float32Col(dflt=0.0,pos=10)
     #!!!!   idx = 9 can't do this ... the parsing logic for pytables takes this as a column definition
 #    idx +=1
-    z_best_plya_thresh = tables.Float32Col(dflt=-1.0, pos=10)
-    z_best_2 = tables.Float32Col(dflt=-1.0, pos=11)
-    z_best_pz_2 = tables.Float32Col(dflt=0.0, pos=12)
-    z_best_plya_thresh_2 = tables.Float32Col(dflt=-1.0, pos=13)
-    z_best_3 = tables.Float32Col(dflt=-1.0, pos=14)
-    z_best_pz_3 = tables.Float32Col(dflt=0.0, pos=15)
-    z_best_plya_thresh_3 = tables.Float32Col(dflt=-1.0, pos=16)
+    z_best_plya_thresh = tables.Float32Col(dflt=-1.0, pos=11)
+    z_best_2 = tables.Float32Col(dflt=-1.0, pos=12)
+    z_best_pz_2 = tables.Float32Col(dflt=0.0, pos=13)
+    z_best_plya_thresh_2 = tables.Float32Col(dflt=-1.0, pos=14)
+    z_best_3 = tables.Float32Col(dflt=-1.0, pos=15)
+    z_best_pz_3 = tables.Float32Col(dflt=0.0, pos=16)
+    z_best_plya_thresh_3 = tables.Float32Col(dflt=-1.0, pos=17)
 
-    flags = tables.Int32Col(dflt=0,pos=17)
-    review = tables.Int8Col(dflt=0,pos=18)
-    cluster_parent = tables.Int64Col(dflt=0,pos=19)
+    flags = tables.Int32Col(dflt=0,pos=18)
+    review = tables.Int8Col(dflt=0,pos=19)
+    cluster_parent = tables.Int64Col(dflt=0,pos=20)
 
 
     flux_line = tables.Float32Col(dflt=UNSET_FLOAT) #actual flux not flux density
@@ -1036,6 +1038,13 @@ def append_entry(fileh,det,overwrite=False):
         elif det.ra is not None:
             row['ra'] = det.ra
             row['dec'] = det.dec
+
+        if det.healpix is not None:
+            try: #might be appending to an older version that does not have this column defined
+                row['healpix'] = det.healpix
+            except:
+                pass
+
         row['wavelength_obs'] = det.w
         row['wavelength_obs_err'] = det.w_unc
 

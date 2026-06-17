@@ -1593,10 +1593,13 @@ def sigmoid_linear_interp(x1, y1, x2, y2, x):
         return None
 
 
-def get_healpix_region(ra,dec,radius=6.0,Nside=32768):
+def get_healpix_region(ra,dec,radius=6.73,Nside=32768):
     """
     return healpix region (list of healpix IDs (integers)) that contains ra, dec out to radius
     (Nside needs to match what is being searched to generate the same IDs)
+
+    separations vary, but maximum is 6.7"
+    (hp.max_pixrad(32768, degrees=True) * 3600) == 6.7288)
 
     :param ra: degrees (float)
     :param dec: degrees (float)
@@ -1614,7 +1617,26 @@ def get_healpix_region(ra,dec,radius=6.0,Nside=32768):
 
     return hp_region
 
+def get_healpix_id(ra,dec,Nside=32768):
+    """
+    return single integer, healpix ID, that covers this ra, dec
 
+    separations vary, but maximum is 6.7"
+    (hp.max_pixrad(32768, degrees=True) * 3600) == 6.7288)
+
+    :param ra: degrees (float)
+    :param dec: degrees (float)
+    :param Nside: default 2**15 to match HETDEX_API
+    :return: single integer, healpix ID
+    """
+
+    try:
+        hp_id = None
+        hp_id = hp.ang2pix(Nside, ra, dec, lonlat=True)
+    except:
+        log.warning("Exception! get_healpix_id",exc_info=True)
+
+    return hp_id
 
 ################################
 # special code for ODIN HACK

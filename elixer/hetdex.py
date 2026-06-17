@@ -1161,6 +1161,7 @@ class DetObj:
 
         self.ra = None  # calculated value
         self.dec = None  # calculated value
+        self.healpix = None
         self.nearest_fiber = None
         self.fiber_locs = None #built later, tuples of Ra,Dec of fiber centers
 

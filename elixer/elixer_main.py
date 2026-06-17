@@ -6329,6 +6329,13 @@ def main():
                                 ra = e.ra
                                 dec = e.dec
 
+                            #healpix
+                            try:
+                                e.healpix = UTIL.get_healpix_id(ra,dec)
+                                log.debug(f"Assigned healpix id {e.healpix} to {id}")
+                            except:
+                                log.debug(f"Failed to assign healpix id to {id}")
+
 
                             #todo: ANNULUS STUFF HERE
                             #todo: still use hetdex objects, but want a different hetdex section

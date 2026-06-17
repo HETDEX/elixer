@@ -1,9 +1,10 @@
 changes to elixer by version
 
 
-1.26.0a7 [2026-06-15]
+1.26.0a7 [2026-06-17]
 * down-weight rank 4 and 5 lines based on their SNR with respect to solution scoring
 * add MW dereddeinging to estimated noise level on full width spectrum figure
+* add healpix ID to Detections table
 
 
 1.26.0a6 [2026-06-11]
