@@ -1593,7 +1593,7 @@ def sigmoid_linear_interp(x1, y1, x2, y2, x):
         return None
 
 
-def get_healpix_region(ra,dec,radius,Nside=32768):
+def get_healpix_region(ra,dec,radius=6.0,Nside=32768):
     """
     return healpix region (list of healpix IDs (integers)) that contains ra, dec out to radius
     (Nside needs to match what is being searched to generate the same IDs)
@@ -1607,7 +1607,7 @@ def get_healpix_region(ra,dec,radius,Nside=32768):
 
     try:
         hp_region = None
-        vec = hp.ang2vec(ra,dec, lonlat=lonlat)
+        vec = hp.ang2vec(ra,dec, lonlat=True)
         hp_region = hp.query_disc(Nside, vec, (radius / 3600.0 * np.pi / 180))
     except:
         log.warning("Exception! get_healpix_region",exc_info=True)

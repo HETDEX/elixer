@@ -606,11 +606,11 @@ elif hostname == "lonestar6" or hostname == 'ls6':
                 MAX_TASKS = 10000
                 MAX_NODES = 128
                 if neighborhood == 0:
-                    MAX_TASKS_PER_NODE = 64  # need usually around 4GB per core, 256GB/ (4GB/task) = 64 tasks, 4.5GB = 56
+                    MAX_TASKS_PER_NODE = 45  # need usually around 7-8GB per core, 256GB/ (4GB/task) = 64 tasks, 4.5GB = 56
                 else:
-                    MAX_TASKS_PER_NODE = 56  # need usually around 4GB per core, 256GB/ (4GB/task) = 64 tasks, 4.5GB = 56
+                    MAX_TASKS_PER_NODE = 30  # need usually around 7-8GB per core, 256GB/ (4GB/task) = 64 tasks, 4.5GB = 56
             # MAX_TASKS = MAX_NODES * MAX_TASKS_PER_NODE #800
-    elif queue == 'vm-small':  #much smaller, less memory, just a guess at this time
+    elif queue == 'vm-small':  #much smaller, less memory (32GB), just a guess at this time
         cores_per_node = 16
         if recover_mode:
             if neighborhood_only:
@@ -638,7 +638,7 @@ elif hostname == "lonestar6" or hostname == 'ls6':
             else:
                 MAX_TASKS = 10000
                 MAX_NODES = 100
-                MAX_TASKS_PER_NODE = 16
+                MAX_TASKS_PER_NODE = 6
             # MAX_TASKS = MAX_NODES * MAX_TASKS_PER_NODE  # 2000
     TIME_OVERHEAD = 4.0  # MINUTES of overhead to get started (per task call ... just a safety)
 
