@@ -5,6 +5,8 @@ changes to elixer by version
 * down-weight rank 4 and 5 lines based on their SNR with respect to solution scoring
 * add MW dereddeinging to estimated noise level on full width spectrum figure
 * add healpix ID to Detections table
+* minor tweak to special OIII-5007 handling in LzG compatibility; allow to continue if 4959 not found but OII-3727 and/or
+  Balmer lines found
 
 
 1.26.0a6 [2026-06-11]

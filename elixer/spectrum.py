@@ -6252,6 +6252,7 @@ class Spectrum:
             score = -1 * max(missing_weight,len(missing))
 
             #add special case: if OIII-5007 and BRIGHT then MUST find OIII-4959
+            oiii_fail_continue_anyway = False
             try:
                 idx_5007 = np.where(np.array(rest_idx)==8)[0][0]
                 if line_flux[line_idx[idx_5007]] > 1.e-16 and line_snr[line_idx[idx_5007]] > 8.0:
@@ -6263,14 +6264,44 @@ class Spectrum:
                                      f"{line_flux[line_idx[idx_5007]]/line_flux[line_idx[idx_4959]]:0.4g}. Penalizing score.")
                             score -= 2.0
                     except:
-                        #did not find 4959 and MUST find it in this case
-                        log.info("OIII-5007 is bright but OIII-4959 not found. Penalizing score.")
+                        #did not find 4959 and REALLy should find it in this case, but might be weak?
+                        #todo: see if there is a flux excess where it should be?
+                        # also do not penalize so much IF other lines are found (OII, H_beta)
+
+
+                        try:
+                            idx_3727 = np.where(np.array(rest_idx)==0)[0][0]
+                        except:
+                            idx_3727 = None
+                        try:
+                            idx_4861 = np.where(np.array(rest_idx) == 6)[0][0]
+                        except:
+                            idx_4861 = None
+                        try:
+                            idx_4340 = np.where(np.array(rest_idx) == 5)[0][0]
+                        except:
+                            idx_4340 = None
+
+                        #if all hit, this un-does the penalty
+                        if idx_3727 is not None:
+                            score += 6.0
+                            oiii_fail_continue_anyway = True
+                        if idx_4861 is not None:
+                            score += 3.0
+                            oiii_fail_continue_anyway = True
+                        if idx_4340 is not None:
+                            score += 1.0
+
                         score -= 10.0
+                        if score < 0:
+                            log.info("OIII-5007 is bright but OIII-4959 not found. Penalizing score.")
+                        else:
+                            log.info("OIII-5007 is bright but OIII-4959 not found. Other supporting lines found.")
             except:
                 pass
 
 
-            if score < 0:
+            if score < 0 and not oiii_fail_continue_anyway:
                 log.info(f"LzG consistency failure. Initial Score = {score}. "
                          f"Missing expected lines [(rest,obs)] {[z for z in zip(rest_waves[missing],obs_waves[missing])]}. ")
             # compare all pairs of lines
