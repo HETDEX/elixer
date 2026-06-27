@@ -935,7 +935,7 @@ if i != -1:
         if not time_set: #updated later on when we know the number of tasks per CPU
             time = "00:10:00" #10 minutes (no known elixer call takes more than 1 minute, give lots of slop
     elif (ntasks_per_node < 1) or (ntasks_per_node > MAX_TASKS_PER_NODE):
-        print (f"Invalid --ntasks_per_node value. Must be 0 (auto-max) or between 1 to {MAX_TASKS_PER_NODE} inclusive.")
+        print (f"Invalid --ntasks_per_node value = {ntasks_per_node}. Must be 0 (auto-max) or between 1 to {MAX_TASKS_PER_NODE} inclusive.")
         exit(-1)
     else:
         MAX_TASKS_PER_NODE = ntasks_per_node
