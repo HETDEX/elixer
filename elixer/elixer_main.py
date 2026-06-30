@@ -2841,6 +2841,42 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,shotid=None,wave=None,sort=Fal
 
 
 
+def get_ssr_filtered_detectid_set(args):
+    """
+
+    for SSR this is the downselected list that would actually be passed to elixer to run
+    as opposed to the full list of possible detections that meet the basic minimum
+
+    :param args:
+    :return:
+    """
+    if args.hdf5 is None or len(args.hdf5) < 4:
+        return set([])
+
+    try:
+        #strip off the _line.h5  or _cont.h5
+        ssr_line_dets_tab_fn = args.hdf5[:-7] + "line_sourcecat.tab" #could be lines or cont sources
+        if os.path.exists(ssr_line_dets_tab_fn):  # only care about the 1st column, the detectid
+            ssr_line_dets = np.loadtxt(ssr_line_dets_tab_fn, skiprows=1, usecols=0, dtype=np.int64)
+        else:
+            return set([])
+    except:
+        log.info("Exception in elixer_main::get_ssr_filtered_detectid_set on lines step",exc_info=True)
+        return set([])
+
+    try:
+        #strip off the _line.h5  or _cont.h5
+        ssr_cont_dets_tab_fn = args.hdf5[:-7] + "cont_sourcecat.tab" #could be lines or cont sources
+        if os.path.exists(ssr_cont_dets_tab_fn):  # only care about the 1st column, the detectid
+            ssr_cont_dets = np.loadtxt(ssr_cont_dets_tab_fn, skiprows=1, usecols=0, dtype=np.int64)
+        else:
+            return set([])
+    except:
+        log.info("Exception in elixer_main::get_ssr_filtered_detectid_set on cont step",exc_info=True)
+        return set([])
+
+    return set(list(ssr_line_dets)+list(ssr_cont_dets))
+
 def get_hdf5_detectids_to_process(args,as_rows=False):
     """
     returns a list of detectids (Int64) to process
@@ -4197,7 +4233,8 @@ def build_3panel_zoo_image(fname, image_2d_fiber, image_1d_fit, image_cutout_fib
 
 def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=None, distance=None, cwave=None,
                            fname=None,original_distance=None,this_detection=None,broad_hdf5=None,primary_shotid=None,
-                           wave_range=None,ffsky=False,use_hdf5=False):
+                           wave_range=None,ffsky=False,use_hdf5=False,
+                           ssr_filtered_det_set = set([])):
     """
 
     :param hdf5:
@@ -5352,13 +5389,23 @@ def build_neighborhood_map(hdf5=None,cont_hdf5=None,detectid=None,ra=None, dec=N
 
             #the 1D spectrum
             plt.subplot(gs[gs_idx*row_step+1:(gs_idx+1)*row_step-1,3:])
+
+
             if i==this_detectid_idx and emis[i]==-1 and cwave is not None:
                 # e.g. this was a continuum detect, but elixer assigned the wavelength
-                plt.title(r'Dist: %0.1f"  RA,Dec: (%0.5f,%0.5f)   $\lambda$: (%0.2f)   DetectID: %s  Shot: %s'
+                plt.title(r'Dist: %0.1f"  RA,Dec: (%0.5f,%0.5f)   $\lambda$: (%0.2f)   DetectID: %s Shot: %s'
                           %(dists[i],ras[i],decs[i],cwave,str(int(detectids[i])), str(shot[i])))
             else:
-                plt.title(r'Dist: %0.1f"  RA,Dec: (%0.5f,%0.5f)   $\lambda$: %0.2f   DetectID: %s  Shot: %s'
-                          %(dists[i],ras[i],decs[i],emis[i],str(int(detectids[i])), str(shot[i])))
+                # check this detectid ... is it in the list??
+                if np.int64(detectids[i]) not in ssr_filtered_det_set and len(ssr_filtered_det_set) > 0:
+                    # this is not a detect that passed the filter
+                    plt.title(r'Dist: %0.1f"  RA,Dec: (%0.5f,%0.5f)   $\lambda$: %0.2f   DetectID: *%s* Shot: %s'
+                              % (dists[i], ras[i], decs[i], emis[i], str(int(detectids[i])), str(shot[i])))
+                else:
+                    plt.title(r'Dist: %0.1f"  RA,Dec: (%0.5f,%0.5f)   $\lambda$: %0.2f   DetectID: %s  Shot: %s'
+                              % (dists[i], ras[i], decs[i], emis[i], str(int(detectids[i])), str(shot[i])))
+
+
             plt.plot(wave[i],spec[i],zorder=9,color='b')
             plt.axhline(0,color='k',lw=1,zorder=0)
             if cwave is not None:
@@ -5776,6 +5823,7 @@ def main():
             print("Explicit extraction ...") #list of explicit extractions
 
         hdf5_detectid_list = get_hdf5_detectids_to_process(args)
+        ssr_filtered_det_set = get_ssr_filtered_detectid_set(args)
         if args.dispatch is None and args.dets is not None and not args.blind:
             check_hdr_version_vs_detectids(int(G.HDR_Version), hdf5_detectid_list)
             check_continuum_version_vs_detectids(args.continuum, hdf5_detectid_list)
@@ -5784,6 +5832,7 @@ def main():
             print("Processing %d entries in HDF5" %(len(hdf5_detectid_list)))
     else: #still even if neighborhood_only, may want neighborhood around detection
         hdf5_detectid_list = get_hdf5_detectids_to_process(args)
+        ssr_filtered_det_set = get_ssr_filtered_detectid_set(args)
         if args.dispatch is None and args.dets is not None and not args.blind:
             check_hdr_version_vs_detectids(int(G.HDR_Version), hdf5_detectid_list)
             check_continuum_version_vs_detectids(args.continuum, hdf5_detectid_list)
@@ -7392,7 +7441,8 @@ def main():
                                            broad_hdf5=G.HDF5_BROAD_DETECT_FN,
                                            primary_shotid=e.survey_shotid,
                                            wave_range=wave_range,
-                                           ffsky=args.ffsky)
+                                           ffsky=args.ffsky,
+                                           ssr_filtered_det_set=ssr_filtered_det_set)
 
                         e.nei_mini_buf = nei_mini_buf
                         e.line_mini_buf = line_mini_buf
@@ -7435,7 +7485,8 @@ def main():
                                            fname=os.path.join(args.name, args.name + "_nei.png"),
                                            original_distance=args.error,
                                            this_detection=None,
-                                           broad_hdf5=G.HDF5_BROAD_DETECT_FN,ffsky=args.ffsky)
+                                           broad_hdf5=G.HDF5_BROAD_DETECT_FN,ffsky=args.ffsky,
+                                           ssr_filtered_det_set=ssr_filtered_det_set)
                     except:
                         log.warning("Exception calling build_neighborhood_map.",exc_info=True)
 

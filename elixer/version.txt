@@ -1,6 +1,10 @@
 changes to elixer by version
 
 
+1.26.0a8 [2026-06-30]
+* add "*" around detectid in neighborhood report for raw detections that did not pass the selection filter. They
+  will usually not have an elixer report for them.
+
 1.26.0a7 [2026-06-17]
 * down-weight rank 4 and 5 lines based on their SNR with respect to solution scoring
 * add MW dereddeinging to estimated noise level on full width spectrum figure
