@@ -42,7 +42,7 @@ changes to elixer by version
 * adding in CNN ML stuff ... in progress, not yet acting on the score
   + added p_cnn to elixer hdf5 catalog file Detections table
 * update to special OIII-5007 handling. Allow inconsistencies to reach full rejection state.
-* initial function to reject redshift solution if emission line is impossibly too wide. Currently only OII-3272 included.
+* initial function to reject redshift solution if emission line is impossibly too wide. Currently only OII-3727 included.
 
 1.25.0a3 [2026-04-22]
 * extended option to provide an alternate cosmology

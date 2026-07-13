@@ -649,6 +649,11 @@ def parse_commandline(auto_force=False):
     parser.add_argument('--cnn', help='Attempt ML CNN line scoring.', required=False,
                         action='store_true', default=False)
 
+    #for future use to superceed/replace --no_fiber_elem_mask
+    #parser.add_argument('--flag', help="Bitmapped toggle for internal flagging enforcement. "
+    #                                   "Do not modify unless you know what you are doing.",
+    #                    required=False, type=int,default=0xffffffff)
+
     try:
         args = parser.parse_args()
     except:
@@ -1108,6 +1113,14 @@ def parse_commandline(auto_force=False):
 
     if args.no_fiber_elem_mask is not None:
         G.FIBER_SPEC_ELEM_MASKING = False  #IF the switch is present then we want masking OFF
+
+    #superceedes the single switch no_fiber_elem_mask
+    # for future use if want more fine detail or cover other flagging
+    # if args.flag is not None:
+    #     if args.flag & 0x00000001:
+    #         pass #leave however it is (normally on by default)
+    #     else:
+    #         G.FIBER_SPEC_ELEM_MASKING = False
 
     if (args.dets is not None) and (args.coords is not None):
         print("Invalid combination of parameters. Cannot specify both --dets and --coords")
@@ -5798,6 +5811,7 @@ def main():
 
     fcsdir_list = []
     hdf5_detectid_list = []
+    ssr_filtered_det_set = set([])
     if args.aperture:
         explicit_extraction = True
     else:

@@ -1369,7 +1369,7 @@ PLAE_POII_TRANS_THRESH = [1.4,10.0] #favors LyA for larger threholds at or above
 
 FFSKY = False #if False, then local sky subtraction is the default
 FFSKY_RESCOR = True #rescor == True does NOT imply ffsky == True HERE. If it is explicitly passed on the command line, it does though.
-FIBER_SPEC_ELEM_MASKING = True  #apply HETDEX API per fiber per wavelength bin masking
+FIBER_SPEC_ELEM_MASKING = True  #apply HETDEX API per fiber per wavelength bin masking (see also --no_fiber_elem_mask)
 
 SSR_RUN = False #set to TRUE is this is a single-shot-reduection (re)run. Allows for errors that would normally be fatal.
 SSR_REFIT = False #set to TRUE IF SSR  and you want to re-fit the emission line

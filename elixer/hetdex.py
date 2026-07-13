@@ -1833,13 +1833,14 @@ class DetObj:
                     if not want_band(d['filter_name']) or (d['sep_objects'] is None):
                         continue
 
-                    for s in d['sep_objects']:
-                        if (s['selected'] is False) and (s['mag'] < 23) and (s['mag'] < self.best_gmag) and \
-                            (s['a'] > 4.0) and (s['dist_curve'] < s['a']):
-                            log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_LARGE_NEIGHBOR")
-                            self.flags |= G.DETFLAG_LARGE_NEIGHBOR
-                            #only need one for this to trip
-                            break
+                    if self.best_gmag is not None:
+                        for s in d['sep_objects']:
+                            if (s['selected'] is False) and (s['mag'] < 23) and (s['mag'] < self.best_gmag) and \
+                                (s['a'] > 4.0) and (s['dist_curve'] < s['a']):
+                                log.info(f"Detection Flag set for {self.entry_id}: DETFLAG_LARGE_NEIGHBOR")
+                                self.flags |= G.DETFLAG_LARGE_NEIGHBOR
+                                #only need one for this to trip
+                                break
 
                 ######################################################
                 # check for no SEP ellipse wthin 0.8"
