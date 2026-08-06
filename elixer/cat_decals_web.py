@@ -1040,9 +1040,12 @@ class DECaLS(cat_base.Catalog):#DECaLS
                         d['retry'] = True
 
                 if len(response.content) < 5000:  # should normally be 200k+
-                    if not already_marked_bad:
-                        self.update_query_status_dict(self.Name, filter)
-                        already_marked_bad = True
+                    # do not mark bad here ... could just be there is no image at this spot,
+                    #  but the query did not fail (think about case where we have partial coverage,
+                    #    we don't want to needlessly shut down DECaLS query for that)
+                    # if not already_marked_bad:
+                    #     self.update_query_status_dict(self.Name, filter)
+                    #     already_marked_bad = True
                     log.info(f"Bad (short) response (no image?) from DECaLS. Content = {response.content}")
                     hdulist_array = None
 
@@ -1051,9 +1054,12 @@ class DECaLS(cat_base.Catalog):#DECaLS
                 if hdulist[0].header['NAXIS'] != 2:
                     log.info("Bad response (no image?) from DECaLS")
                     hdulist_array = None
-                    if not already_marked_bad:
-                        self.update_query_status_dict(self.Name, filter)
-                        already_marked_bad = True
+                    # do not mark bad here ... could just be there is no image at this spot,
+                    #  but the query did not fail (think about case where we have partial coverage,
+                    #    we don't want to needlessly shut down DECaLS query for that)
+                    # if not already_marked_bad:
+                    #     self.update_query_status_dict(self.Name, filter)
+                    #     already_marked_bad = True
 
                 hdulist_array = [hdulist]
 
@@ -1090,9 +1096,12 @@ class DECaLS(cat_base.Catalog):#DECaLS
             #     hdulist_array = None
 
             if hdulist_array is None:
-                if not already_marked_bad and not not d['retry']:
-                    self.update_query_status_dict(self.Name, filter)
-                    already_marked_bad = True
+                #specific cases are marked bad above
+                # there are some cases where we get no hdulist_array BUT it is not a reason to mark bad,
+                #  so do not blindly mark here
+                # if not already_marked_bad and not not d['retry']:
+                #     self.update_query_status_dict(self.Name, filter)
+                #     already_marked_bad = True
 
                 log.info("DECaLS query (%f,%f) at %f arcsec for band %s returned None" % (ra, dec, query_radius, filter))
             else:

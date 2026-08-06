@@ -1101,6 +1101,8 @@ class SDSS(cat_base.Catalog):#SDSS
 
             if hdulist_array is None:
                 log.info("SDSS query (%f,%f) at %f arcsec for band %s returned None" % (ra, dec, query_radius, filter))
+                #for now, at least, must blindly mark bad .. do not have the same level of details on fails
+                #  that we have for DECaLS
                 self.update_query_status_dict(self.Name,filter)
             else:
                 # todo: choose the best image?

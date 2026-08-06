@@ -993,6 +993,7 @@ def parse_commandline(auto_force=False):
         exit(0)
 
     if args.ssr_h5 is not None:
+        G.ENFORCE_WEB_FAIL_LIMITER = True
         # this can serve as shot_h5, hdf5
         G.SSR_RUN = True
         if args.shot_h5 is None:
@@ -1042,6 +1043,7 @@ def parse_commandline(auto_force=False):
         pass
 
     if args.shot_h5 is not None:
+        G.ENFORCE_WEB_FAIL_LIMITER = True
         #path could have changed
         if os.path.exists(args.shot_h5): #as is
             G.SINGLE_SHOT_H5 = args.shot_h5

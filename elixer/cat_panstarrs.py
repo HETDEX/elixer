@@ -1106,6 +1106,8 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
 
             if hdulist is None:
                 log.info("Pan-STARRS query (%f,%f) at %f arcsec for band %s returned None" % (ra, dec, query_radius, filter))
+                #for now, at least, must blindly mark bad .. do not have the same level of details on fails
+                #  that we have for DECaLS
                 self.update_query_status_dict(self.Name, filter)
             else:
                 # todo: choose the best image?

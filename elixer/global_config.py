@@ -1219,6 +1219,11 @@ FRAC_DUPLICATE_PIXELS = 0.20 #if 0.25 of pixels are all the same (or in the same
 FRAC_UNIQUE_PIXELS_AUTOCORRELATE = 0.75 #less than --> empty (with an autocorrelation)
 FRAC_NONZERO_PIXELS = 0.66 #0.66 #less than --> empty
 
+
+
+ENFORCE_WEB_FAIL_LIMITER = False #gets set to True if a single shot h5 or ssr h5 is specified
+                                 #so we know all the detections are in a similar location
+
 #note: Pan-STARRS is prioritized over SDSS (since Pan-STARRS is deeper 23.3 vs 22.0)
 DECALS_WEB_ALLOW = True #if no other catalogs match, try DECaLS as online query (default if not dispatch mode)
 DECALS_WEB_FORCE = False #ignore local catalogs and Force the use of only DECaLS

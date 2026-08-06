@@ -48,7 +48,6 @@ log.setlevel(G.LOG_LEVEL)
 pd.options.mode.chained_assignment = None  #turn off warning about setting the distance field
 
 
-
 #todo: future ... see if can reorganize and use this as a wrapper and maintain only one Figure per report
 class Page:
     def __init__(self,num_entries):
@@ -150,6 +149,10 @@ class Catalog:
         """
 
         try:
+
+            if not G.ENFORCE_WEB_FAIL_LIMITER:
+                return
+
             if reset:
                 if catalog_name in cls.query_status_dict.keys():
                     if filter_name in cls.query_status_dict[catalog_name].keys():
@@ -178,6 +181,9 @@ class Catalog:
         :param filter_name:
         :return: True if okay to proceed, false otherwise (default is True on fail to execute)
         """
+
+        if not G.ENFORCE_WEB_FAIL_LIMITER:
+            return True
 
         rc = True
         try:
