@@ -1,6 +1,11 @@
 changes to elixer by version
 
 
+1.26.0a9 [2026-08-06]
+* track fails on web calls to SDSS, PanSTARRS and DECaLS. After threshold consecutive fails (currently 2), stop
+  making requests for that catalog + filter. Any success before final fail, resets the count. Applies within each
+  instance of elixer (e.g. each "dispatch" is independent)
+
 1.26.0a8 [2026-06-30]
 * add "*" around detectid in neighborhood report for raw detections that did not pass the selection filter. They
   will usually not have an elixer report for them.

@@ -1002,6 +1002,9 @@ class DECaLS(cat_base.Catalog):#DECaLS
              'mag_limit':None,
              'details': None}
 
+        if not self.okay_to_query(self.Name,filter):
+            return d
+
         try:
             wcs_manual = self.WCS_Manual
             if aperture is None:
@@ -1022,10 +1025,12 @@ class DECaLS(cat_base.Catalog):#DECaLS
             #build up the request URL
             url = "http://legacysurvey.org/viewer/fits-cutout?ra=%f&dec=%f&layer=%s&bands=%s" %(ra,dec,"ls-dr10",filter)
 
+            already_marked_bad = False
             try:
                 response = requests.get(url, allow_redirects=True,timeout=(10.0,120.0))
-
                 if response.status_code != 200:  # "OK" response
+                    self.update_query_status_dict(self.Name, filter)
+                    already_marked_bad = True
                     log.info("DECaLS http response code = %d (%s)" % (response.status_code, response.reason))
                     hdulist_array = None
                     d['error'] = response.status_code
@@ -1035,6 +1040,9 @@ class DECaLS(cat_base.Catalog):#DECaLS
                         d['retry'] = True
 
                 if len(response.content) < 5000:  # should normally be 200k+
+                    if not already_marked_bad:
+                        self.update_query_status_dict(self.Name, filter)
+                        already_marked_bad = True
                     log.info(f"Bad (short) response (no image?) from DECaLS. Content = {response.content}")
                     hdulist_array = None
 
@@ -1043,6 +1051,9 @@ class DECaLS(cat_base.Catalog):#DECaLS
                 if hdulist[0].header['NAXIS'] != 2:
                     log.info("Bad response (no image?) from DECaLS")
                     hdulist_array = None
+                    if not already_marked_bad:
+                        self.update_query_status_dict(self.Name, filter)
+                        already_marked_bad = True
 
                 hdulist_array = [hdulist]
 
@@ -1050,10 +1061,16 @@ class DECaLS(cat_base.Catalog):#DECaLS
                 log.info("Exception (Timeout) in DECaLS",exc_info=False)
                 hdulist_array = None
                 d['retry'] = False
+                if not already_marked_bad:
+                    self.update_query_status_dict(self.Name, filter)
+                    already_marked_bad = True
             except ConnectionError:
                 log.info("Exception (ConnectionError) in DECaLS",exc_info=False)
                 hdulist_array = None
                 d['retry'] = True
+                if not already_marked_bad:
+                    self.update_query_status_dict(self.Name, filter)
+                    already_marked_bad = True
             except OSError as e:
                 try:
                     extra = e.args[0]
@@ -1062,7 +1079,10 @@ class DECaLS(cat_base.Catalog):#DECaLS
                 log.info(f"Exception (OSError) in DECaLS: {extra}",exc_info=False)
                 hdulist_array = None
                 d['retry'] = False
-            except Exception as e:
+                if not already_marked_bad:
+                    self.update_query_status_dict(self.Name, filter)
+                    already_marked_bad = True
+            except Exception as e:  #generic exception, will NOT update bad count here
                 log.info("Exception in DECaLS",exc_info=True)
                 d['retry'] = True
             # else:
@@ -1070,9 +1090,14 @@ class DECaLS(cat_base.Catalog):#DECaLS
             #     hdulist_array = None
 
             if hdulist_array is None:
+                if not already_marked_bad and not not d['retry']:
+                    self.update_query_status_dict(self.Name, filter)
+                    already_marked_bad = True
+
                 log.info("DECaLS query (%f,%f) at %f arcsec for band %s returned None" % (ra, dec, query_radius, filter))
             else:
                 # todo: choose the best image?
+                self.update_query_status_dict(self.Name, filter, reset=True)  # good query, reset
                 sci = science_image.science_image(wcs_manual=wcs_manual, wcs_idx=0,
                                                   image_location=None, hdulist=hdulist_array[0])
                 sci.catalog_name = "DECaLS"

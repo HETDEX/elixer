@@ -1076,6 +1076,10 @@ class SDSS(cat_base.Catalog):#SDSS
              'mag_limit':None,
              'details': None}
 
+
+        if not self.okay_to_query(self.Name,filter):
+            return d
+
         try:
             wcs_manual = self.WCS_Manual
             if aperture is None:
@@ -1097,8 +1101,10 @@ class SDSS(cat_base.Catalog):#SDSS
 
             if hdulist_array is None:
                 log.info("SDSS query (%f,%f) at %f arcsec for band %s returned None" % (ra, dec, query_radius, filter))
+                self.update_query_status_dict(self.Name,filter)
             else:
                 # todo: choose the best image?
+                self.update_query_status_dict(self.Name, filter,reset=True) #good query
                 sci = science_image.science_image(wcs_manual=wcs_manual, wcs_idx=0,
                                                   image_location=None, hdulist=hdulist_array[0])
                 sci.catalog_name = "SDSS"

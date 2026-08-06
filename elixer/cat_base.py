@@ -117,6 +117,11 @@ class Catalog:
     MAG_LIMIT = 99.9
     imaging_already_dust_corrected = False #assume, unless otherwise explicity confirmed, that imaging has not had dust correction applied
 
+    WEB_QUERY_FAIL_THRESHOLD = 2 #after this many serial fails, stop using the catalog + filter
+    query_status_dict = {} #a dictionary of dictionaries with basically the failed attempt count
+                           #see class method update_query_status_dict and instance method okay_to_query()
+
+
     def __init__(self):
         self.pages = None #list of bid entries (rows in the pdf)
         self.dataframe_of_bid_targets = None
@@ -133,6 +138,58 @@ class Catalog:
     @property
     def name(self):
         return (self.Name)
+
+    @classmethod
+    def update_query_status_dict(cls,catalog_name,filter_name,reset=False):
+        """
+
+        :param catalog_name: name of the catalog being updated (key of the outer dictionary)
+        :param filter_name:  name of the filter for the catalog being updated (key of the inner dictionary)
+        :param reset:  if True, cleans this dictionary entry (e.g. there was a successful query)
+        :return:
+        """
+
+        try:
+            if reset:
+                if catalog_name in cls.query_status_dict.keys():
+                    if filter_name in cls.query_status_dict[catalog_name].keys():
+                        del cls.query_status_dict[catalog_name]
+                        #only log if there was a fail followed by a reset
+                        log.info(f"Web Query Status: {catalog_name} {filter_name} reset on successful query.")
+            else:
+                if catalog_name in cls.query_status_dict.keys():
+                    if filter_name in cls.query_status_dict[catalog_name].keys():
+                        cls.query_status_dict[catalog_name][filter_name] += 1
+                        log.debug(f"Web Query Status: {catalog_name} {filter_name} increment fail to "
+                                 f"{cls.query_status_dict[catalog_name][filter_name]}")
+                    else:
+                        cls.query_status_dict[catalog_name][filter_name] = 1
+                        log.debug(f"Web Query Status: {catalog_name} {filter_name} set initial fail.")
+                else:
+                    cls.query_status_dict[catalog_name] = {filter_name:1}
+                    log.debug(f"Web Query Status: {catalog_name} {filter_name} set initial fail.")
+        except:
+            log.warning(f"Exception in Catalog::update_query_status_dict",exc_info=True)
+
+    def okay_to_query(self,catalog_name,filter_name):
+        """
+
+        :param catalog_name:
+        :param filter_name:
+        :return: True if okay to proceed, false otherwise (default is True on fail to execute)
+        """
+
+        rc = True
+        try:
+            if catalog_name in self.query_status_dict.keys():
+                if filter_name in self.query_status_dict[catalog_name].keys():
+                    if self.query_status_dict[catalog_name][filter_name] >= self.WEB_QUERY_FAIL_THRESHOLD:
+                        rc = False
+                        log.info(f"Web Query Status: {catalog_name} {filter_name} failed attempts exceed limit "
+                                 f"{self.WEB_QUERY_FAIL_THRESHOLD}")
+        except:
+            log.warning(f"Exception in okay_to_query", exc_info=True)
+        return rc
 
     @classmethod
     def position_in_cat(cls, ra, dec, error = 0.0):  # error assumed to be small and this is approximate anyway

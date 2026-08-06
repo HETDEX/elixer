@@ -1081,6 +1081,9 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
              'mag_limit':None,
              'details': None}
 
+        if not self.okay_to_query(self.Name,filter):
+            return d
+
         try:
             wcs_manual = self.WCS_Manual
             if aperture is None:
@@ -1103,8 +1106,10 @@ Median seeing	grizy = 1.31, 1.19, 1.11, 1.07, 1.02 arcsec
 
             if hdulist is None:
                 log.info("Pan-STARRS query (%f,%f) at %f arcsec for band %s returned None" % (ra, dec, query_radius, filter))
+                self.update_query_status_dict(self.Name, filter)
             else:
                 # todo: choose the best image?
+                self.update_query_status_dict(self.Name, filter,reset=True) #good query, reset
                 sci = science_image.science_image(wcs_manual=wcs_manual, wcs_idx=0,
                                                   image_location=None, hdulist=hdulist)
                 sci.catalog_name = "Pan-STARRS"
