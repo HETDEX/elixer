@@ -8,8 +8,9 @@ merge existing ELiXer catalogs
 # 0.10.1  changed sizes of Fiber2DCutouts (ML table) to be 9pix x 100pix vs old 9pix x 49pix
 # 0.10.2  added p_cnn to Detection table
 # 0.10.3  added healpix to Detection table
+# 0.10.4  added p_conf to Detction table
 
-__version__ = '0.10.3' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
+__version__ = '0.10.4' #catalog version ... can merge if major and minor version numbers are the same or in special circumstances
 
 try:
     from elixer import hetdex
@@ -225,6 +226,8 @@ class Detections(tables.IsDescription):
 
     p_cnn = tables.Float32Col(dflt=-1.0)
     p_cnn_model = tables.StringCol(itemsize=32,dflt="")
+
+    p_conf = tables.Float32Col(dflt=-1.0)
 
     if LOCAL_ODIN_HACK:
         odin_lineflux = tables.Float32Col(dflt=UNSET_FLOAT) #reported odin lineflux
@@ -1387,6 +1390,11 @@ def append_entry(fileh,det,overwrite=False):
         try:
             row['p_cnn'] = det.ml_cnn_score
             row['p_cnn_model'] = det.ml_cnn_model_str[:32] #max 32 char
+        except:
+            pass
+
+        try:
+            row['p_conf'] = det.rf_conf_score
         except:
             pass
 

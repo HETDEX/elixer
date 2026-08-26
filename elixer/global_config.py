@@ -25,7 +25,7 @@ if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
 #version
-__version__ = '1.26.0a9'
+__version__ = '1.26.1a0'
 
 
 #initial working dir
@@ -116,6 +116,10 @@ if "--cnn" in args:
 else:
     COMPUTE_ML_CNN_SCORE = False #run the CNN scoring on the 2D cutouts (MAKE_MACHINE_LEARNING_CUTOUTS needs to also be True)
                              #this requires special packages and may not always be available (see --cnn switch on elixer call)
+
+COMPUTE_RF_CONF_SCORE = True
+
+
 IGNORE_ARGS_TMP = True #I/O issues with TACC, ignore the --tmp option if provided
 TMP_COPY_TAR = 0 #when using --tmp, tar the output before copying to the original working dir
                  #0 = Do not use, 1 = make and copy tar to /scratch, but do not extract,

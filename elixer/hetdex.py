@@ -111,6 +111,21 @@ except:
         ML_CNN = None
         G.COMPUTE_ML_CNN_SCORE = False
 
+
+try:
+    if G.COMPUTE_RF_CONF_SCORE:
+        #from elixer.cnn import model_fitting_config as ML_CNN
+        #want to load from elixer directory
+        RF_CONF = joblib.load(os.path.join(G.ELIXER_CODE_PATH,f"random_forest_classifier/rf_clf_20251006.joblib"))
+    else:
+        RF_CONF = None
+except:
+    print("Error! Cannot import Random Forest Classifier package. Will continue without running "
+              "Random Forest confidence line scoring.")
+    log.error(f"Error! Cannot import Random Forest Classifier package",exc_info=True)
+    RF_CONF = None
+    G.COMPUTE_RF_CONF_SCORE = False
+
 #todo: write a class wrapper for log
 #an instance called log that has functions .Info, .Debug, etc
 #they all take a string (the message) and the exc_info flag
@@ -944,6 +959,8 @@ class DetObj:
         self.ml_cnn_score = -1.0
         self.ml_cnn_model_str = "N/A"
 
+        self.rf_conf_score = -1.0 #Erin's Random Forest Classifier confidence (see HETDEX_API make_catalogs_update.py)
+
         self.pixel_flat_weighted_bad_pixel_count = 0.0
 
 
@@ -1190,6 +1207,11 @@ class DetObj:
             rc += self.ml_cnn_score / 2.0
         elif 0 <= self.ml_cnn_score < 0.3:
             rc += -1 * (0.4 - self.ml_cnn_score)
+
+        if -1 < self.rf_conf_score <= 0.1:
+            #it is set, but very low confidence
+            rc += -1  * 0.25 #the 0.25 is a judgement call
+
 
         if self.rvb is not None:
             if self.rvb['flag'] == 0: #or 'flag_str' == 'good'
@@ -3060,7 +3082,8 @@ class DetObj:
             diagnose_extra = 0  #0 = no, 1 = yes, with conditions, 2 = yes, force
             if self.diagnose_dict is not None and ((self.best_gmag - self.best_gmag_unc) <= 23.0):
                 #it could be checked
-                if SU.is_on_skyline(self.w,self.exptimes,self.fwhm) > 1 or (0.0 <= self.ml_cnn_score <= 0.1):
+                if SU.is_on_skyline(self.w,self.exptimes,self.fwhm) > 1 or (0.0 <= self.ml_cnn_score <= 0.1) \
+                        or (0.0 <= self.rf_conf_score <= 0.1):
                     diagnose_extra = 2 #it should be checked (force)
                 else:
                     diagnose_extra = 1 #check, unless other conditions prohibit it
@@ -3085,7 +3108,7 @@ class DetObj:
                 if diagnose_extra > 1 or \
                    (((self.flags & G.DETFLAG_QUESTIONABLE_DETECTION) or (self.flags & G.DETFLAG_BAD_EMISSION_LINE)) or \
                    (p < 0.1 and self.fwhm > 14.0) or (p < 0.1 and self.fwhm < 3.75) or (p < 0.05) or \
-                    (0.0 <= self.ml_cnn_score <= 0.3) or z < -0.01):
+                    (0.0 <= self.ml_cnn_score <= 0.3) or (0.0 <= self.rf_conf_score <= 0.1) or z < -0.01):
 
                     #what is the diagnose z
                     #print("diagnose")
@@ -14649,6 +14672,19 @@ class HETDEX:
 
                     except:
                         log.info("Failed to produce CNN scoring", exc_info=True)
+
+                    try:
+                        if G.COMPUTE_RF_CONF_SCORE and RF_CONF is not None and datakeep['detobj'] is not None:
+                            d = datakeep['detobj']
+                            #columns, in order: ['wave', 'sn', 'chi2', 'linewidth', 'continuum']
+                            #note: linewidth is a sigma, continuum is in 1e-17
+                            #normally this runs on an ARRAY of data, but here we have only one row
+                            d.rf_conf_score = RF_CONF.predict_proba([[d.w , d.snr, d.chi2, d.fwhm/2.355, d.cont]])[:, 1]
+                            log.info(f"Random Forest classifier confidence = {d.rf_conf_score:0.2f} for [{d.w:0.2f}, {d.snr:0.2f}, {d.chi2:0.2f}, "
+                                     f"{d.fwhm/2.355:0.2f}, {d.cont:0.4f}]")
+
+                    except:
+                        log.info("Failed to produce pConf scoring", exc_info=True)
 
                     if G.ZOO_MINI:
                         e.image_2d_fibers_1st_col, _ = self.build_2d_image_1st_column_only(datakeep)
