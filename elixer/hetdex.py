@@ -14681,8 +14681,13 @@ class HETDEX:
                             #note: linewidth is a sigma, continuum is in 1e-17
                             #normally this runs on an ARRAY of data, but here we have only one row
                             d.rf_conf_score = RF_CONF.predict_proba([[d.w , d.snr, d.chi2, d.fwhm/2.355, d.cont]])[:, 1]
-                            log.info(f"Random Forest classifier confidence = {d.rf_conf_score:0.2f} for [{d.w:0.2f}, {d.snr:0.2f}, {d.chi2:0.2f}, "
-                                     f"{d.fwhm/2.355:0.2f}, {d.cont:0.4f}]")
+                            # log.info(f"Random Forest classifier confidence = {d.rf_conf_score:0.2f} for [{d.w:0.2f},"
+                            #          f" {d.snr:0.2f}, {d.chi2:0.2f},"
+                            #          f" {d.fwhm/2.355:0.2f}, {d.cont:0.4f}]")
+
+                            log.info(f"Random Forest classifier confidence = {d.rf_conf_score} for [{d.w},"
+                                 f" {d.snr}, {d.chi2},"
+                                 f" {d.fwhm / 2.355}, {d.cont}]")
 
                     except:
                         log.info("Failed to produce pConf scoring", exc_info=True)
