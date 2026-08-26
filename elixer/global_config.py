@@ -60,6 +60,19 @@ def check_requirements():
 
     pkgs = {
         'hetdex_api': {'version': "0.9", "optional": False},
+        'pyhetdex':{'version': "0.14.2.post0", "optional": False},
+        'numpy': {'version': "1.23.1", "optional": False},
+        'astropy': {'version': "5.2.2", "optional": False},
+        'scipy': {'version': "1.6.0", "optional": False},
+        'tables': {'version': "3.8.0", "optional": False},
+        'speclite': {'version': "0.20", "optional": False},
+        'emcee': {'version': "3.1.0", "optional": False},
+        'photutils': {'version': "1.8.0", "optional": False},
+        'astroquery': {'version': "0.4.7", "optional": False},
+        'pandas': {'version': "2.0.3", "optional": False},
+        'pdf2image': {'version': "1.16.0", "optional": False},
+        'sep': {'version': "1.2.1", "optional": False},
+        'specutils': {'version': "1.16.0", "optional": False},
         'sklearn': {'version':"1.5.2","optional":True},
         'torch': {'version':"2.8.0","optional":True},
             }
@@ -72,7 +85,7 @@ def check_requirements():
 
         if importlib.util.find_spec(pkg) is None:
             if optional:
-                print(f"Warning. You may want to (pip) install '{pkg}' version {ver}")
+                print(f"Optional. You may want to (pip) install '{pkg}' version {ver}")
             else:
                 print(f"Fatal. You need to (pip) install '{pkg}'")
         else:
@@ -81,7 +94,10 @@ def check_requirements():
                 vinst = "N/A"
 
             if vinst != ver:
-                print(f"Warn. Found {pkg} version {vinst}. Target version = {ver}")
+                if opt:
+                    print(f"Optional. Found {pkg} version {vinst}. Target version = {ver}")
+                else:
+                    print(f"Warn. Found {pkg} version {vinst}. Target version = {ver}")
             else:
                 print(f"Pass. Found {pkg} version {vinst}.")
 
