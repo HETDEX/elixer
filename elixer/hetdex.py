@@ -116,6 +116,7 @@ try:
     if G.COMPUTE_RF_CONF_SCORE:
         #from elixer.cnn import model_fitting_config as ML_CNN
         #want to load from elixer directory
+        import joblib
         RF_CONF = joblib.load(os.path.join(G.ELIXER_CODE_PATH,f"random_forest_classifier/rf_clf_20251006.joblib"))
     else:
         RF_CONF = None
