@@ -1208,8 +1208,8 @@ class DetObj:
         elif 0 <= self.ml_cnn_score < 0.3:
             rc += -1 * (0.4 - self.ml_cnn_score)
 
-        if -1 < self.rf_conf_score <= 0.1:
-            #it is set, but very low confidence
+        if -1 < self.rf_conf_score <= 0.1 and self.snr >= 5.5:
+            #it is set, but very low confidence, also does not work well below about SNR 5.5
             rc += -1  * 0.25 #the 0.25 is a judgement call
 
 
@@ -3083,7 +3083,7 @@ class DetObj:
             if self.diagnose_dict is not None and ((self.best_gmag - self.best_gmag_unc) <= 23.0):
                 #it could be checked
                 if SU.is_on_skyline(self.w,self.exptimes,self.fwhm) > 1 or (0.0 <= self.ml_cnn_score <= 0.1) \
-                        or (0.0 <= self.rf_conf_score <= 0.1):
+                        or (0.0 <= self.rf_conf_score <= 0.1 and self.snr >= 5.5):
                     diagnose_extra = 2 #it should be checked (force)
                 else:
                     diagnose_extra = 1 #check, unless other conditions prohibit it
@@ -3108,7 +3108,7 @@ class DetObj:
                 if diagnose_extra > 1 or \
                    (((self.flags & G.DETFLAG_QUESTIONABLE_DETECTION) or (self.flags & G.DETFLAG_BAD_EMISSION_LINE)) or \
                    (p < 0.1 and self.fwhm > 14.0) or (p < 0.1 and self.fwhm < 3.75) or (p < 0.05) or \
-                    (0.0 <= self.ml_cnn_score <= 0.3) or (0.0 <= self.rf_conf_score <= 0.1) or z < -0.01):
+                    (0.0 <= self.ml_cnn_score <= 0.3) or (0.0 <= self.rf_conf_score <= 0.1 and self.snr >=5.5) or z < -0.01):
 
                     #what is the diagnose z
                     #print("diagnose")

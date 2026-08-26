@@ -2,6 +2,7 @@ changes to elixer by version
 
 1.26.1a0 [2026-08-26]
 * adding Erin's random forest classifier (p_conf)
+  + requires sklearn v1.5.2: $ pip install --user scikit-learn==1.5.2
 
 1.26.0a9 [2026-08-06]
 * track fails on web calls to SDSS, PanSTARRS and DECaLS. After threshold consecutive fails (currently 2), stop
