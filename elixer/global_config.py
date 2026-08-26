@@ -88,9 +88,9 @@ def check_requirements():
 
         if importlib.util.find_spec(pkg) is None:
             if optional:
-                print(f"Optional. You may want to (pip) install '{pkg}' version {ver}")
+                print(f"Warn! You may want to (pip) install '{pkg}' version {ver}")
             else:
-                print(f"Fatal. You need to (pip) install '{pkg}'")
+                print(f"FAIL! You need to install '{pkg}'")
         else:
             vinst = str(version(pkg))
 
@@ -98,10 +98,8 @@ def check_requirements():
             if LooseVersion(vinst) != LooseVersion(ver):
 
                 #assume newer is okay?
-
-
                 if opt:
-                    print(f"Optional. Found {pkg} version {vinst}. Target version = {ver}")
+                    print(f"Okay? Found {pkg} version {vinst}. Target version = {ver}")
                 else:
                     print(f"Warn. Found {pkg} version {vinst}. Target version = {ver}")
             else:
