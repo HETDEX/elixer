@@ -52,6 +52,9 @@ def check_requirements():
     # common missing installs (that don't show up until later)
     import importlib
     from importlib.metadata import version
+    #from distutils.version import LooseVersion
+    from packaging.version import Version as LooseVersion
+
     #
     # pkgs = ['sklearn']
     # target_versions = ["1.5.2"]
@@ -61,12 +64,12 @@ def check_requirements():
     pkgs = {
         'hetdex_api': {'version': "0.9", "optional": False},
         'pyhetdex':{'version': "0.14.2.post0", "optional": False},
-        'numpy': {'version': "1.23.1", "optional": False},
-        'astropy': {'version': "5.2.2", "optional": False},
-        'scipy': {'version': "1.6.0", "optional": False},
+        'numpy': {'version': "1.26.4", "optional": False},
+        'astropy': {'version': "5.3", "optional": False},
+        'scipy': {'version': "1.6.1", "optional": False},
         'tables': {'version': "3.8.0", "optional": False},
         'speclite': {'version': "0.20", "optional": False},
-        'emcee': {'version': "3.1.0", "optional": False},
+        'emcee': {'version': "3.1.4", "optional": False},
         'photutils': {'version': "1.8.0", "optional": False},
         'astroquery': {'version': "0.4.7", "optional": False},
         'pandas': {'version': "2.0.3", "optional": False},
@@ -89,11 +92,14 @@ def check_requirements():
             else:
                 print(f"Fatal. You need to (pip) install '{pkg}'")
         else:
-            vinst = version(pkg)
-            if vinst == "0.0":
-                vinst = "N/A"
+            vinst = str(version(pkg))
 
-            if vinst != ver:
+            #if vinst != ver:
+            if LooseVersion(vinst) != LooseVersion(ver):
+
+                #assume newer is okay?
+
+
                 if opt:
                     print(f"Optional. Found {pkg} version {vinst}. Target version = {ver}")
                 else:

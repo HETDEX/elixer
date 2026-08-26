@@ -58,7 +58,8 @@ from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.gridspec as gridspec
 from matplotlib.font_manager import FontProperties
 import io
-from distutils.version import LooseVersion
+#from distutils.version import LooseVersion
+from packaging.version import Version as LooseVersion
 try:
     import pyhetdex.tools.files.file_tools as ft
 except:
