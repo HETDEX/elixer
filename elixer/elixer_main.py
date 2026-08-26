@@ -254,6 +254,40 @@ def make_zeroth_row_header(left_text,show_version=True,redtext=False):
     except:
         log.debug("Exception in make_zeroth_row_header final combination", exc_info=True)
 
+def check_requirements():
+    """
+    check and report on a handful of specific packages needed to run elixer
+    may not be complete
+
+    :return:
+    """
+
+    # common missing installs (that don't show up until later)
+    import importlib
+
+    pkgs = ['sklearn']
+    target_versions = ["1.5.2"]
+    optional = [True,]
+    rc = 0
+    for i in range(len(pkgs)):
+        pkg = pkgs[i]
+        ver = target_versions[i]
+        opt = optional[i]
+
+        if importlib.util.find_spec(pkg) is None:
+            if optional:
+                print(f"Warning. You may want to (pip) install '{pkg}' version {ver}")
+            else:
+                print(f"Fatal. You need to (pip) install '{pkg}'")
+        else:
+            vinst = importlib.metadata.version(pkg)
+            if vinst != ver:
+                print(f"Warn. Found {pkg} version {vinst}. Target version = {ver}")
+            else:
+                print(f"Pass. Found {pkg} version {vinst}.")
+
+
+
 def parse_commandline(auto_force=False):
     desc = "(Version %s) Search multiple catalogs for possible object matches.\n\nNote: if (--ra), (--dec), (--par) supplied in " \
            "addition to (--dither),(--line), the supplied RA, Dec, and Parangle will be used instead of the " \
@@ -267,6 +301,9 @@ def parse_commandline(auto_force=False):
 
     #old CURE options ... no longer supported
     #Some may be re-used for other purposes
+    parser.add_argument('--requirements', help='Check system against requirements to run ELiXer', required=False,
+                        action='store_true', default=False)
+
     parser.add_argument('-c', '--cure', help='Use Cure processed fits (instead of Panacea).', required=False,
                         action='store_true', default=False)
     parser.add_argument('--sigma', help="Minimum sigma threshold (Cure) to meet in selecting detections", required=False,
@@ -669,6 +706,14 @@ def parse_commandline(auto_force=False):
 
         args = None
         return
+
+    if args.requirements:
+        print(f"Checking system requirements. Ignoring all other switches.")
+        log.critical(f"Checking system requirements. Ignoring all other switches.")
+        check_requirements()
+        args = None
+        return
+
 
     try:
         if args.special: #if not None or 0
