@@ -14688,27 +14688,13 @@ class HETDEX:
                             if len(pconf)==1:
                                 d.rf_conf_score =pconf[0]
 
-                            # log.info(f"Random Forest classifier confidence = {d.rf_conf_score} for [{d.w},"
-                            #      f" {d.snr}, {d.chi2},"
-                            #      f" {d.fwhm / 2.355}, {d.cont_cgs_narrow * 2e17}]")
-                            #
-                            #
-                            # log.info(f"Random Forest classifier confidence = {d.rf_conf_score:0.2f}")
-                            # log.info(f"for [{d.w:0.2f},")
-                            # log.info(f"{d.snr:0.2f},")
-                            # log.info(f"{d.chi2:0.2f},")
-                            # log.info(f"{d.fwhm/2.355:0.2f},")
-                            # log.info(f"{d.cont_cgs_narrow*2e17:0.4f}]")
-
-
                             log.info(f"Random Forest classifier confidence = {d.rf_conf_score:0.2f} for [{d.w:0.2f},"
                                      f" {d.snr:0.2f}, {d.chi2:0.2f},"
                                      f" {d.fwhm/2.355:0.2f}, {d.cont_cgs_narrow*2e17:0.4f}]")
 
-
-
                     except:
                         log.info("Failed to produce pConf scoring", exc_info=True)
+                        d.rf_conf_score = -1
 
                     if G.ZOO_MINI:
                         e.image_2d_fibers_1st_col, _ = self.build_2d_image_1st_column_only(datakeep)
