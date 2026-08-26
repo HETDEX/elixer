@@ -34,6 +34,75 @@ cl_args = list(map(str.lower,sys.argv)) #python3 map is no longer a list, so nee
 MAIN_SCRIPT = os.path.basename(cl_args[0])
 #cl_args[0] is the main script. The --tmp DOES NOT APPLY to the initial setup via selixer.
 
+def check_requirements():
+    """
+    check and report on a handful of specific packages needed to run elixer
+    may not be complete
+
+    :return:
+    """
+    global REQUIREMENTS_ONLY
+
+    try:
+        if REQUIREMENTS_ONLY:
+            return
+    except:
+        REQUIREMENTS_ONLY = True
+
+    # common missing installs (that don't show up until later)
+    import importlib
+    from importlib.metadata import version
+    #
+    # pkgs = ['sklearn']
+    # target_versions = ["1.5.2"]
+    # optional = [True,]
+
+
+    pkgs = {
+        'hetdex_api': {'version': "0.9", "optional": False},
+        'sklearn': {'version':"1.5.2","optional":True},
+        'torch': {'version':"2.8.0","optional":True},
+            }
+
+    rc = 0
+    for pkg in pkgs:
+        #pkg = pkgs[k]
+        ver = pkgs[pkg]["version"]
+        opt = pkgs[pkg]["optional"]
+
+        if importlib.util.find_spec(pkg) is None:
+            if optional:
+                print(f"Warning. You may want to (pip) install '{pkg}' version {ver}")
+            else:
+                print(f"Fatal. You need to (pip) install '{pkg}'")
+        else:
+            vinst = version(pkg)
+            if vinst == "0.0":
+                vinst = "N/A"
+
+            if vinst != ver:
+                print(f"Warn. Found {pkg} version {vinst}. Target version = {ver}")
+            else:
+                print(f"Pass. Found {pkg} version {vinst}.")
+
+
+
+if "--requirements" in cl_args:
+    try:
+        if REQUIREMENTS_ONLY:
+            pass
+        else:
+            check_requirements()
+            REQUIREMENTS_ONLY = True
+            os._exit(0)
+    except:
+        REQUIREMENTS_ONLY = False
+        check_requirements()
+        REQUIREMENTS_ONLY = True
+        os._exit(0)
+else:
+    REQUIREMENTS_ONLY = False
+
 if MAIN_SCRIPT == 'elixer_main.py':
     if "--tmp" in cl_args:
         i = cl_args.index("--tmp")

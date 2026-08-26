@@ -93,7 +93,7 @@ log.setlevel(G.LOG_LEVEL)
 
 try:
     #from elixer.cnn import model_fitting_config as ML_CNN
-    if G.COMPUTE_ML_CNN_SCORE:
+    if G.COMPUTE_ML_CNN_SCORE and not G.REQUIREMENTS_ONLY:
         #import cnn.model_fitting_config as ML_CNN
         #from cnn import model_fitting_config as ML_CNN
         from elixer.cnn import model_fitting_config as ML_CNN
@@ -113,7 +113,7 @@ except:
 
 
 try:
-    if G.COMPUTE_RF_CONF_SCORE:
+    if G.COMPUTE_RF_CONF_SCORE and not G.REQUIREMENTS_ONLY:
         #from elixer.cnn import model_fitting_config as ML_CNN
         #want to load from elixer directory
         import joblib

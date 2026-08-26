@@ -7,6 +7,9 @@ except:
     import global_config as G
     G.GLOBAL_LOGGING = True
 
+if G.REQUIREMENTS_ONLY:
+    exit(0)
+
 import astropy.extern.ply.yacc
 import matplotlib
 matplotlib.use('agg')
@@ -253,38 +256,6 @@ def make_zeroth_row_header(left_text,show_version=True,redtext=False):
 
     except:
         log.debug("Exception in make_zeroth_row_header final combination", exc_info=True)
-
-def check_requirements():
-    """
-    check and report on a handful of specific packages needed to run elixer
-    may not be complete
-
-    :return:
-    """
-
-    # common missing installs (that don't show up until later)
-    import importlib
-
-    pkgs = ['sklearn']
-    target_versions = ["1.5.2"]
-    optional = [True,]
-    rc = 0
-    for i in range(len(pkgs)):
-        pkg = pkgs[i]
-        ver = target_versions[i]
-        opt = optional[i]
-
-        if importlib.util.find_spec(pkg) is None:
-            if optional:
-                print(f"Warning. You may want to (pip) install '{pkg}' version {ver}")
-            else:
-                print(f"Fatal. You need to (pip) install '{pkg}'")
-        else:
-            vinst = importlib.metadata.version(pkg)
-            if vinst != ver:
-                print(f"Warn. Found {pkg} version {vinst}. Target version = {ver}")
-            else:
-                print(f"Pass. Found {pkg} version {vinst}.")
 
 
 
@@ -710,7 +681,8 @@ def parse_commandline(auto_force=False):
     if args.requirements:
         print(f"Checking system requirements. Ignoring all other switches.")
         log.critical(f"Checking system requirements. Ignoring all other switches.")
-        check_requirements()
+        if not G.REQUIREMENTS_ONLY:
+            G.check_requirements()
         args = None
         return
 
@@ -5752,11 +5724,11 @@ def main():
         if args is None:
             cli = list(map(str.lower, sys.argv))  # python3 map is no longer a list, so need to cast here
 
-            if "--help" in cli or "-h" in cli:
+            if "--help" in cli or "-h" in cli or "--requirements" in cli:
                 pass
             else:
                 print("Unable to parse command line. Exiting...")
-            exit(0)
+            return
     except:
         cli = list(map(str.lower, sys.argv))  # python3 map is no longer a list, so need to cast here
 
@@ -5765,7 +5737,7 @@ def main():
         else:
             print("Invalid or incomplete command line. Exiting ...")
             log.critical("Exception in command line.",exc_info=True)
-        exit(0)
+        return
 
     elixer_spectrum.update_with_globals()
     try: #may be used for refrerence later
