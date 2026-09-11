@@ -103,6 +103,19 @@ except:
     except ImportError:
         pdfrw = None
 
+try:
+    from filelock import FileLock
+except:
+    print("You need to install filelock (e.g.: pip install --user filelock) ")
+    exit(-1)
+
+try:
+    from pathlib import Path
+except:
+    print("You need to install pathlib (e.g.: pip install --user pathlib) ")
+    exit(-1)
+
+import shutil #always import now
 
 VERSION = sys.version.split()[0]
 #import random
@@ -379,7 +392,8 @@ def parse_commandline(auto_force=False):
 
     parser.add_argument('--tasks', help="If populated, specifies how many TACC tasks to use.", required=False)
 
-    parser.add_argument('--ntasks_per_node', help="If populated, specifies the (max) TACC ntasks_per_node to use.", required=False)
+    parser.add_argument('--ntasks_per_node', help="If populated, specifies the (max) TACC ntasks_per_node to use.",
+                        required=False)
 
     parser.add_argument('--nodes', help="If populated, specifies the maximum TACC nodes to use.", required=False)
 
@@ -1077,16 +1091,17 @@ def parse_commandline(auto_force=False):
         else: #try as is
             G.SINGLE_SHOT_H5 = args.shot_h5
 
-        try:
-            #G.SINGLE_SHOT_SHOTID = np.int64(os.path.basename(G.SINGLE_SHOT_H5).split(".")[0].replace("v",""))
-            #or quick read from the file ... porbably the more correct way (the file name *could* be different)
-            ss_h5 = tables.open_file(args.shot_h5)
-            G.SINGLE_SHOT_SHOTID = ss_h5.root.Shot.read(field="shotid")[0]
-            ss_h5.close()
-        except:
-            if not os.path.exists(args.shot_h5):
-                log.error(f"Specified shot_h5 file does not exist: {args.shot_h5}")
-                print(f"Specified shot_h5 file does not exist: {args.shot_h5}")
+        #move to after the optional copy
+        # try:
+        #     #G.SINGLE_SHOT_SHOTID = np.int64(os.path.basename(G.SINGLE_SHOT_H5).split(".")[0].replace("v",""))
+        #     #or quick read from the file ... probably the more correct way (the file name *could* be different)
+        #     ss_h5 = tables.open_file(args.shot_h5)
+        #     G.SINGLE_SHOT_SHOTID = ss_h5.root.Shot.read(field="shotid")[0]
+        #     ss_h5.close()
+        # except:
+        #     if not os.path.exists(args.shot_h5):
+        #         log.error(f"Specified shot_h5 file does not exist: {args.shot_h5}")
+        #         print(f"Specified shot_h5 file does not exist: {args.shot_h5}")
 
         G.LOAD_SPEC_FROM_HETDEX_API = False
 
@@ -1123,13 +1138,14 @@ def parse_commandline(auto_force=False):
             G.HDF5_CONTINUUM_FN = G.HDF5_DETECT_FN
 
 
-    if args.diagnose is not None:
-        try:
-            from astropy.table import Table
-            G.DIAGNOSE_TABLE = Table.read(args.diagnose,format="ascii")
-        except:
-            G.DIAGNOSE_TABLE = None
-            log.warning(f"--diagnose specified, but unable to load: {args.diagnose}",exc_info=True)
+    #moved to after optional copy
+    # if args.diagnose is not None:
+    #     try:
+    #         from astropy.table import Table
+    #         G.DIAGNOSE_TABLE = Table.read(args.diagnose,format="ascii")
+    #     except:
+    #         G.DIAGNOSE_TABLE = None
+    #         log.warning(f"--diagnose specified, but unable to load: {args.diagnose}",exc_info=True)
 
     if args.no_fiber_elem_mask is not None:
         G.FIBER_SPEC_ELEM_MASKING = False  #IF the switch is present then we want masking OFF
@@ -5711,6 +5727,67 @@ def check_continuum_version_vs_detectids(continuum,dets):
         print(f"Warning! Failure to check detections against HDR version.")
         print(e)
 
+
+def copy_to_tmp(source_file):
+    """
+    limited copy to /tmp for heavily read input file like shot h5 or line detections
+
+    assumes we have already checked and we are in the condition where the copy is necessary
+
+    since many elixer instances may try to do this, protect with a filelock semaphore and only one
+      instance will do the copy ... all others wait and if copy is already done, the move on
+
+    this also necessitates changing the input path from the original in the args to the new path
+
+    :param source_file:
+    :return:
+    """
+
+    new_path = None
+    try:
+        src = Path(source_file)
+        if src.exists():
+            src_size = src.stat().st_size
+        else:
+            log.info(f"Source file for copy_to_tmp() not found. {source_file}")
+            return None
+
+        dst = Path(os.path.join(G.TMP_ELIXDIR,os.path.basename(source_file)))
+        dst_size = -1
+        if dst.exists():
+            dst_size = dst.stat().st_size
+
+        if dst_size == -1 or dst_size != src_size:
+            #get the semaphore
+            lock = FileLock(G.TMP_ELIXDIR_LOCK)
+            with lock:
+                #try again
+                if dst.exists():
+                    dst_size = dst.stat().st_size
+
+                if dst_size == -1 or dst_size != src_size:
+                    #do the copy
+                    if not os.path.exists(G.TMP_ELIXDIR):
+                        Path(G.TMP_ELIXDIRh).mkdir(parents=True, exist_ok=True)
+
+                    shutil.copy2(src,dst)
+
+                    #once more
+                    dst_size = dst.stat().st_size
+                    if dst_size == -1 or dst_size != src_size:
+                        new_path = None
+                    else:
+                        new_path = str(dst)
+
+            #end with lock
+
+    except Exception as e:
+        print(f"Warning! Failure in copy_to_tmp().")
+        print(e)
+        return None
+
+    return new_path
+
 def main():
 
     global G_PDF_FILE_NUM, OS_PNG_ONLY, catch_all_cat, cat_sdss, cat_panstarrs, cat_decals_web
@@ -5747,8 +5824,9 @@ def main():
     except:
         pass
 
-    if G.ORIGINAL_WORKING_DIR != os.getcwd():
-        import shutil #will need this later
+    # use shutil more, so always need it
+    # if G.ORIGINAL_WORKING_DIR != os.getcwd():
+    #     import shutil #will need this later
 
     if args.upgrade_hdf5:
         upgrade_hdf5(args)
@@ -5797,6 +5875,50 @@ def main():
         OS_PNG_ONLY = False
 
 
+    ######################################################
+    #
+    # optional copy of key, often hit files to /tmp
+    # to try and reduce TACC issue with I/O
+    #
+    ######################################################
+    #going to be a run, so do the copies to /tmp if needed
+    if args.ntasks_per_node is not None and args.ntasks_per_node > 1:
+        if G.SINGLE_SHOT_H5 is not None: #was args.shot_h5, but may have already been modified for original pathing
+            new_path = copy_to_tmp(G.SINGLE_SHOT_H5)
+            if new_path is not None:
+                G.SINGLE_SHOT_H5 = new_path
+
+        if G.HDF5_DETECT_FN is not None:
+            new_path = copy_to_tmp(G.HDF5_DETECT_FN)
+            if new_path is not None:
+                G.HDF5_DETECT_FN = new_path
+
+        if G.HDF5_CONTINUUM_FN is not None:
+            new_path = copy_to_tmp(G.HDF5_CONTINUUM_FN)
+            if new_path is not None:
+                G.HDF5_CONTINUUM_FN = new_path
+
+        if args.diagnose is not None:
+            try:
+                from astropy.table import Table
+
+                new_path = copy_to_tmp(args.diagnose)
+                if new_path is not None:
+                    G.DIAGNOSE_TABLE = Table.read(new_path, format="ascii")
+            except:
+                G.DIAGNOSE_TABLE = None
+                log.warning(f"--diagnose specified, but unable to load: {args.diagnose}", exc_info=True)
+
+    if G.SINGLE_SHOT_H5 is not None:
+        try:
+            #or quick read from the file ... probably the more correct way (the file name *could* be different)
+            ss_h5 = tables.open_file(G.SINGLE_SHOT_H5)
+            G.SINGLE_SHOT_SHOTID = ss_h5.root.Shot.read(field="shotid")[0]
+            ss_h5.close()
+        except:
+            if not os.path.exists(G.SINGLE_SHOT_H5):
+                log.error(f"Specified shot_h5 file does not exist: {G.SINGLE_SHOT_H5}")
+                print(f"Specified shot_h5 file does not exist: {G.SINGLE_SHOT_H5}")
 
 
     #always build these ... the library handles the USE_PHOTO_CATS (--nophoto) global
@@ -7394,7 +7516,7 @@ def main():
 
             if args.line:
                 try:
-                    import shutil
+                    #import shutil #always imported now
                     shutil.copy(args.line,os.path.join(args.name,os.path.basename(args.line)))
                 except:
                     log.error("Exception copying line file: ", exc_info=True)

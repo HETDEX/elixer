@@ -25,7 +25,7 @@ if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
 #version
-__version__ = '1.26.1a0'
+__version__ = '1.26.2a0'
 
 
 #initial working dir
@@ -213,6 +213,11 @@ IGNORE_ARGS_TMP = True #I/O issues with TACC, ignore the --tmp option if provide
 TMP_COPY_TAR = 0 #when using --tmp, tar the output before copying to the original working dir
                  #0 = Do not use, 1 = make and copy tar to /scratch, but do not extract,
                  #2 = copy tar and extract, 3 = copy, extract and delete tar when done
+#this is for limited copy to /tmp of one of a handful of heavily read files when in SLURM only
+# files: the detections h5 file (line/or cont), the shot h5 file, the diagnose table
+# THIS IS NOT the other use of tmp that copies to and back and is WAY too much (that is the TMP_COPY_TAR stuff)
+TMP_ELIXDIR = "/tmp/elixer/"
+TMP_ELIXDIR_LOCK ="/tmp/elixer/elixer.lock"
 CORRAL_BASEPATH  = "/corral/utexas/Hobby-Eberly-Telesco"
 ELIXER_SPECIAL = 0 #integer, triggers special behavior in code
 #HDR_DATA_BASEPATH = "/data/03946/hetdex" #defunct 2020-10-01 #TACC wrangler:/data removed
