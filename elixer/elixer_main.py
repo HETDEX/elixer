@@ -5760,7 +5760,9 @@ def copy_to_tmp(source_file):
         if dst_size == -1 or dst_size != src_size:
             #get the semaphore
             lock = FileLock(G.TMP_ELIXDIR_LOCK)
+            log.info(f"Waiting on filelock {G.TMP_ELIXDIR_LOCK} for copy of {str(src)}")
             with lock:
+                log.info(f"Obtained filelock {G.TMP_ELIXDIR_LOCK} for copy of {str(src)}")
                 #try again
                 if dst.exists():
                     dst_size = dst.stat().st_size
@@ -5779,10 +5781,13 @@ def copy_to_tmp(source_file):
                     else:
                         new_path = str(dst)
 
+                log.info(f"Release filelock {G.TMP_ELIXDIR_LOCK} for copy of {str(src)}")
             #end with lock
+        else:
+            log.info(f"Source file {str(src)} already copied to {G.TMP_ELIXDIR}")
 
     except Exception as e:
-        print(f"Warning! Failure in copy_to_tmp().")
+        print(f"Warning! Failure in copy_to_tmp() for {source_file}")
         print(e)
         return None
 
