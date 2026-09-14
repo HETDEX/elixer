@@ -257,6 +257,9 @@ class HSC_SSP(cat_base.Catalog):#Hyper Suprime Cam
                 cat_name = op.basename(t)
                 cat_loc = t
                 #header = cls.BidCols
+                # copy to /tmp (if not there) and use that path
+                if G.TMP_IMAGING_USE:
+                    cat_loc = cls.use_tmp(cat_loc)
 
                 if not op.exists(cat_loc):
                     log.error("Cannot load catalog tract for HSC. File does not exist: %s" %cat_loc)

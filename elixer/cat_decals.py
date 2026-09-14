@@ -109,6 +109,10 @@ class DECALS(cat_base.Catalog):
 
             cat_name = 'R_' + t + ".dat"
             cat_loc = op.join(cls.HSC_CAT_PATH, cat_name)
+
+            if G.TMP_IMAGING_USE:
+                cat_loc = cls.use_tmp(cat_loc)
+
             header = cls.BidCols
 
             if not op.exists(cat_loc):

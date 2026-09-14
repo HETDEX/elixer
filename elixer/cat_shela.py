@@ -385,6 +385,9 @@ class SHELA(cat_base.Catalog):
 
                 log.debug("Building " + cls.Name + " " + cat_name + " dataframe...")
 
+                if G.TMP_IMAGING_USE:
+                    cat_loc = cls.use_tmp(cat_loc)
+
                 try:
                     table = astropy.table.Table.read(cat_loc)#,format='fits')
                 except Exception as e:

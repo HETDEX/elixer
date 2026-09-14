@@ -91,12 +91,21 @@ class LAIGLE2015(cat_base.Catalog):
         cls.CAT_Table = None
         cls.PDZ_Table = None
         try:
-            cls.CAT_Table = Table.read(cls.LAIGLE2015_CAT_PATH)
+            cat_path = cls.LAIGLE2015_CAT_PATH
+            if G.TMP_IMAGING_USE:
+                cat_path = cls.use_tmp(cat_path)
+
+
+            cls.CAT_Table = Table.read(cat_path)
         except:
             log.error(cls.Name + " Exception attempting to open catalog file: " + cls.LAIGLE2015_CAT_PATH, exc_info=True)
 
         try:
-            cls.PDZ_Table = Table.read(cls.LAIGLE2015_PDZ_PATH)
+            pdz_path = cls.LAIGLE2015_PDZ_PATH
+            if G.TMP_IMAGING_USE:
+                pdz_path = cls.use_tmp(pdz_path)
+
+            cls.PDZ_Table = Table.read(pdz_path)
         except:
             log.error(cls.Name + " Exception attempting to open catalog file: " + cls.LAIGLE2015_PDZ_PATH, exc_info=True)
 

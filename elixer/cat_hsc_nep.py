@@ -245,6 +245,11 @@ class HSC_NEP(cat_base.Catalog):#Hyper Suprime Cam, North Ecliptic Pole
 
             cat_name = t
             cat_loc = op.join(cls.HSC_CAT_PATH, cat_name)
+
+            #copy to /tmp (if not there) and use that path
+            if G.TMP_IMAGING_USE:
+                cat_loc = cls.use_tmp(cat_loc)
+
             #not used anymore
             #header = cls.BidCols
 

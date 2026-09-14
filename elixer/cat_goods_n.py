@@ -280,6 +280,9 @@ class GOODS_N(cat_base.Catalog):
         skip = 0
         keep_f = False
 
+        if G.TMP_IMAGING_USE:
+            catalog_loc = cls.use_tmp(catalog_loc)
+
         if op.exists(catalog_loc):
             try:
                 f = open(catalog_loc, mode='r')
@@ -288,6 +291,8 @@ class GOODS_N(cat_base.Catalog):
                 return None
         else:  # see if sql db is there
             db_loc = op.join(op.dirname(catalog_loc), "zPDF.db")
+            if G.TMP_IMAGING_USE:
+                db_loc = cls.use_tmp(db_loc)
             log.debug(f"Checking zPDF database {db_loc} ...")
             if op.exists(db_loc):
                 try:

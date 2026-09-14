@@ -94,6 +94,9 @@ class EGS_GROTH(cat_base.Catalog):
     def read_catalog(cls, catalog_loc, name):
         "This catalog is in a fits file"
 
+        if G.TMP_IMAGING_USE:
+            catalog_loc = cls.use_tmp(catalog_loc)
+
         log.debug("Building " + name + " dataframe...")
         try:
             #f = fits.open(catalog_loc)[1].data

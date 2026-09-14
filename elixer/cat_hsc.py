@@ -506,9 +506,9 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
                 continue
 
             cat_name = t
-            #todo: HERE should we copy to /tmp (if not there) and use that path
             cat_loc = op.join(cls.HSC_CAT_PATH, cat_name)
 
+            #copy to /tmp (if not there) and use that path
             if G.TMP_IMAGING_USE:
                 cat_loc = cls.use_tmp(cat_loc)
 

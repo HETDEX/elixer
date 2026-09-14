@@ -161,7 +161,11 @@ class SDSS(cat_base.Catalog):#SDSS
             return
 
         try:
-            cls.apt_zcat = astropy.table.Table.read(cls.SDSS_CAT_PATH)
+            cat_path = cls.SDSS_CAT_PATH
+            if G.TMP_IMAGING_USE:
+                cat_path = cls.use_tmp(cat_path)
+
+            cls.apt_zcat = astropy.table.Table.read(cat_path)
             #todo: only keep certain columns?
             keep_cols = ["PLUG_RA","PLUG_DEC","Z","Z_ERR","CLASS"]
             drop_cols = [c not in keep_cols for c in cls.apt_zcat.colnames]

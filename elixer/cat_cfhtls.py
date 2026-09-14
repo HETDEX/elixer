@@ -425,6 +425,9 @@ class CFHTLS(cat_base.Catalog):
 
         log.debug("Building " + cls.Name + " " + tile + " dataframe...")
 
+        if G.TMP_IMAGING_USE:
+            fqtile = cls.use_tmp(fqtile)
+
         try:
             df = pd.read_csv(fqtile, names=header,comment='#',
                              delim_whitespace=True, header=None, index_col=False, skiprows=0)

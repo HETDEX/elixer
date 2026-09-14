@@ -361,6 +361,10 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
 
         f = None
         if op.exists(catalog_loc):
+            #copy to /tmp (if not there) and use that path
+            if G.TMP_IMAGING_USE:
+                catalog_loc = cls.use_tmp(catalog_loc)
+
             try:
                 f = open(catalog_loc, mode='r')
             except:
@@ -370,6 +374,9 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
             db_loc = op.join(op.dirname(catalog_loc),"zPDF.db")
             log.debug(f"Checking zPDF database {db_loc} ...")
             if op.exists(db_loc):
+                if G.TMP_IMAGING_USE:
+                    db_loc = cls.use_tmp(db_loc)
+
                 try:
                     f = sql.fetch_zpdf(db_loc, fn=op.basename(catalog_loc))
                     f = io.StringIO(f.decode()) #treat as a text stream (but still has the \t and \n un-translated
@@ -453,6 +460,8 @@ class CANDELS_EGS_Stefanon_2016(cat_base.Catalog):
         #this has no header comments
 
         #note z_best = -99.9 is the non-value?
+        if G.TMP_IMAGING_USE:
+            catalog_loc = cls.use_tmp(catalog_loc)
 
         try: #for now, just use the few columns needed (ID,RA,DEC,z_best,G,eG)
             df = pd.read_csv(catalog_loc, names=header,dtype=dtypes,usecols = [0,1,2,6,26,32],

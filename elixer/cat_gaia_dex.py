@@ -80,8 +80,12 @@ class GAIA_DEX(cat_base.Catalog):
 
         log.debug("Building " + cls.Name + " dataframe...")
         cls.CAT_Table = None
+        catalog_loc = cls.GAIA_DEX_CAT_PATH
+        if G.TMP_IMAGING_USE:
+            catalog_loc = cls.use_tmp(catalog_loc)
+
         try:
-            cls.CAT_Table = Table.read(cls.GAIA_DEX_CAT_PATH,format='fits')
+            cls.CAT_Table = Table.read(catalog_loc,format='fits')
 
             #keep only the columns we want
             cls.CAT_Table.keep_columns(['source_id','ra','ra_error','dec','dec_error','pmra','pmra_error','pmdec',

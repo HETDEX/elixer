@@ -344,7 +344,7 @@ class STACK_COSMOS(cat_base.Catalog):
             if cls.Laigle2015 is None:
                 log.debug("Loading Laigle+2015")
                 cls.Laigle2015 = cat_laigle2015.LAIGLE2015()
-                cls.Laigle2015.read_catalog()
+                cls.Laigle2015.read_catalog() #already has the /tmp built in
         except:
             cls.Laigle2015 = None
 
