@@ -500,14 +500,18 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
             return cls.df
 
 
-
         #todo: future more than just the R filter if any are ever added
         for t in fqtract:
             if t in cls.loaded_tracts: #skip if already loaded
                 continue
 
             cat_name = t
+            #todo: HERE should we copy to /tmp (if not there) and use that path
             cat_loc = op.join(cls.HSC_CAT_PATH, cat_name)
+
+            if G.TMP_IMAGING_USE:
+                cat_loc = cls.use_tmp(cat_loc)
+
             header = cls.BidCols
 
             if not op.exists(cat_loc):

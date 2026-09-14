@@ -5770,7 +5770,7 @@ def copy_to_tmp(source_file):
                 if dst_size == -1 or dst_size != src_size:
                     #do the copy
                     if not os.path.exists(G.TMP_ELIXDIR):
-                        Path(G.TMP_ELIXDIRh).mkdir(parents=True, exist_ok=True)
+                        Path(G.TMP_ELIXDIR).mkdir(parents=True, exist_ok=True)
 
                     shutil.copy2(src,dst)
 
@@ -5887,7 +5887,10 @@ def main():
     #
     ######################################################
     #going to be a run, so do the copies to /tmp if needed
-    if args.ntasks_per_node is not None and args.ntasks_per_node > 1:
+    if G.TMP_ELIXDIR_USE or (args.ntasks_per_node is not None and args.ntasks_per_node > 1):
+        G.TMP_IMAGING_USE = True
+        G.TMP_ELIXER_USE = True
+
         if G.SINGLE_SHOT_H5 is not None: #was args.shot_h5, but may have already been modified for original pathing
             new_path = copy_to_tmp(G.SINGLE_SHOT_H5)
             if new_path is not None:

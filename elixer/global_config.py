@@ -216,8 +216,14 @@ TMP_COPY_TAR = 0 #when using --tmp, tar the output before copying to the origina
 #this is for limited copy to /tmp of one of a handful of heavily read files when in SLURM only
 # files: the detections h5 file (line/or cont), the shot h5 file, the diagnose table
 # THIS IS NOT the other use of tmp that copies to and back and is WAY too much (that is the TMP_COPY_TAR stuff)
+TMP_ELIXDIR_USE = False
 TMP_ELIXDIR = "/tmp/elixer/"
-TMP_ELIXDIR_LOCK ="/tmp/elixer/elixer.lock"
+TMP_ELIXDIR_LOCK = "/tmp/elixer/elixer.lock"
+
+TMP_IMAGING_USE = True # make use of staged, filelock protected caching to /tmp for IMAGING files
+TMP_IMAGING_DIR = "/tmp/elixer/"
+TMP_IMAGING_LOCK = "/tmp/elixer/elixer.lock"
+
 CORRAL_BASEPATH  = "/corral/utexas/Hobby-Eberly-Telesco"
 ELIXER_SPECIAL = 0 #integer, triggers special behavior in code
 #HDR_DATA_BASEPATH = "/data/03946/hetdex" #defunct 2020-10-01 #TACC wrangler:/data removed

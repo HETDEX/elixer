@@ -39,6 +39,9 @@ from matplotlib.font_manager import FontProperties
 import scipy.constants
 import io
 
+from pathlib import Path
+from filelock import FileLock
+import shutil
 
 #log = G.logging.getLogger('Cat_logger')
 #log.setLevel(G.logging.DEBUG)
@@ -137,6 +140,94 @@ class Catalog:
     @property
     def name(self):
         return (self.Name)
+
+    @classmethod
+    def use_tmp(cls,source_file,dst_path=G.TMP_IMAGING_DIR,lockfn=G.TMP_IMAGING_LOCK):
+        """
+
+        if the src file exists on tmp AND we can get a lock (implying that there is no copy in progress),
+        then use the tmp version
+
+        otherwise, if the src file does not exist in the dst_path, obtain a lock and copy it there
+
+        the caller should then update its path, on success
+
+        :param source_file:
+        :param dst_path:
+        :param lockfn:
+        :return: return the full path to the file to use, if it fails, you get back the original path
+        """
+
+        def do_copy(src,dst,src_size):
+            # try again
+            out_path = None
+            if dst.exists(): #dst is a Path object
+                dst_size = dst.stat().st_size
+            else:
+                dst_size = -1
+
+            if dst_size == -1 or dst_size != src_size:
+                # do the copy
+                if not op.exists(dst_path):
+                    Path(dst_path).mkdir(parents=True, exist_ok=True)
+
+                shutil.copy2(src, dst)
+
+                # once more
+                dst_size = dst.stat().st_size
+                if dst_size == -1 or dst_size != src_size:
+                    out_path = None
+                else:
+                    out_path = str(dst)
+
+            return out_path
+
+        out_path = str(source_file)
+        try:
+
+            #first see if the file is there and we can get a lock (to assume no active copy in progress)
+            dst = Path(op.join(dst_path, op.basename(source_file)))
+            if op.exists(dst):
+                if lockfn is not None:
+                    lock = FileLock(lockfn)
+                    log.info(f"Waiting on filelock {lockfn} for check of {str(source_file)}")
+                    with lock:
+                        log.info(f"Obtained and released filelock {lockfn} for check of {str(source_file)}")
+
+                return str(dst)
+
+            #otherwise we need copy
+            src = Path(source_file)
+            if src.exists():
+                src_size = src.stat().st_size
+            else:
+                log.warning(f"Source file for Catalog::use_tmp() not found. {source_file}")
+                return out_path
+
+            dst = Path(op.join(dst_path,op.basename(source_file)))
+            dst_size = -1
+            if dst.exists():
+                dst_size = dst.stat().st_size
+
+            if dst_size == -1 or dst_size != src_size:
+                #get the semaphore
+                if lockfn is not None:
+                    lock = FileLock(lockfn)
+                    log.info(f"Waiting on filelock {lockfn} for copy of {str(source_file)}")
+                    with lock:
+                        log.info(f"Obtained filelock {lockfn} for copy of {str(source_file)}")
+                        out_path = do_copy(src,dst,src_size)
+                        log.info(f"Release filelock {lockfn} for copy of {str(source_file)}")
+                    #end with lock
+                else:
+                    out_path = do_copy(src, dst, src_size)
+            else:
+                log.info(f"Source file {str(source_file)} already copied to {dst_path}")
+
+        except:
+            log.warning(f"Exception in Catalog::use_tmp() src file = {source_file}", exc_info=True)
+
+        return out_path
 
     @classmethod
     def update_query_status_dict(cls,catalog_name,filter_name,reset=False):
