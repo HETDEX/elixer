@@ -1,6 +1,6 @@
 changes to elixer by version
 
-1.26.2a0 [2026-09-11] test git
+1.26.2a0 [2026-09-11] test git 2
 * copy key, heavily read files (shot_h5, line and cont det files, diagnose table) under certain conditions
   to /tmp to try and reduce TACC I/O issues
 
