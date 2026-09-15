@@ -467,7 +467,7 @@ class HSC(cat_base.Catalog):#Hyper Suprime Cam
         :param name:
         :param tract: list of string string as the HSC track id, ie. ['16814']
         :param position: a tuple or array with exactly 2 elements as integers 0-9, i.e. (0,1) or (2,8), etc
-        :return:
+        :return: strings only (not files) of tile name, tract IDs and positions strings
         """
 
         if name is None:

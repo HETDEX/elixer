@@ -624,8 +624,15 @@ def parse_commandline(auto_force=False):
 
     #disable this option ... TACC does not like it. Creates too much I/O from /tmp back to /scratch
     #later will see IGNORE_ARGS_TMP to skip it
-    parser.add_argument('--tmp', help="Use the provided path as temporary output. Copy data to original directory at the end.",
+    parser.add_argument('--tmp', help="Use the provided path as temporary output. "
+                                      "Copy data to original directory at the end.",
                         required=False)
+
+
+    parser.add_argument('--no_stage_tmp', help="Explicitly disable copy and staging to /tmp of either"
+                                               "shot *.h5 file(s) and/or imaging, photz, catalog file(s)."
+                                               "(0) do nothing, (1) disable shot *.h5, (2) disable imaging, (3) disable both",
+                        required=False,type=int,default=0)
 
     # parser.add_argument('--sky_residual', help='Toggle [ON] shot-specific sky residual subtraction for forced-extracions.',
     #                     required=False, action='store_true', default=False)
@@ -792,6 +799,21 @@ def parse_commandline(auto_force=False):
             else:
                 if args.dispatch is not None:
                     args.dispatch = os.path.join(G.ORIGINAL_WORKING_DIR,args.dispatch)
+
+    try:
+        if args.no_stage_tmp is None:
+            pass
+        else:
+            G.TMP_NO_STAGE = args.no_stage_tmp
+
+        if G.TMP_NO_STAGE in [-3,-2,-1,0,1,2,3]: #enforcement happens a bit later
+            pass #all fine
+        else:
+            print(f"Invalid --no_stage_tmp provided. {args.no_stage_tmp}")
+            exit(0)
+    except Exception as e:
+        print("Invalid --no_stage_tmp provided.",e)
+        exit(0)
 
     # try:
     #     if args.zeropoint_shift is not None:
@@ -5886,11 +5908,31 @@ def main():
     # to try and reduce TACC issue with I/O
     #
     ######################################################
-    #going to be a run, so do the copies to /tmp if needed
-    if G.TMP_ELIXDIR_USE or (args.ntasks_per_node is not None and args.ntasks_per_node > 1):
+
+    if args.ntasks_per_node is not None and args.ntasks_per_node > 1:
+
         G.TMP_IMAGING_USE = True
         G.TMP_ELIXER_USE = True
 
+    #override default behavior
+    if G.TMP_NO_STAGE == 0:
+        pass  # do nothing
+    elif G.TMP_NO_STAGE == 1:
+        G.TMP_ELIXDIR_USE = False  # turn it  OFF (part one .. have to also check later where it can be auto-triggered)
+    elif G.TMP_NO_STAGE == 2:
+        G.TMP_IMAGING_USE = False  # turn it  OFF (part one .. have to also check later where it can be auto-triggered)
+    elif G.TMP_NO_STAGE == 3:
+        G.TMP_ELIXDIR_USE = False  # turn it  OFF (part one .. have to also check later where it can be auto-triggered)
+        G.TMP_IMAGING_USE = False  # turn it  OFF (part one .. have to also check later where it can be auto-triggered)
+    elif G.TMP_NO_STAGE == -1:
+        G.TMP_ELIXDIR_USE = True  # turn it  OFF (part one .. have to also check later where it can be auto-triggered)
+    elif G.TMP_NO_STAGE == -2:
+        G.TMP_IMAGING_USE = True  # turn it  OFF (part one .. have to also check later where it can be auto-triggered)
+    elif G.TMP_NO_STAGE == -3:
+        G.TMP_ELIXDIR_USE = True  # turn it  OFF (part one .. have to also check later where it can be auto-triggered)
+        G.TMP_IMAGING_USE = True  # turn it  OFF (part one .. have to also check later where it can be auto-triggered)
+
+    if G.TMP_ELIXDIR_USE :
         if G.SINGLE_SHOT_H5 is not None: #was args.shot_h5, but may have already been modified for original pathing
             new_path = copy_to_tmp(G.SINGLE_SHOT_H5)
             if new_path is not None:

@@ -159,7 +159,7 @@ class SDSS(cat_base.Catalog):#SDSS
         if cls.apt_zcat is not None:
             log.debug("Already built SDSS z-catalog")
             return
-
+        #ALWAYS load this one (SDSS) at startup (about 166MB)
         try:
             cat_path = cls.SDSS_CAT_PATH
             if G.TMP_IMAGING_USE:

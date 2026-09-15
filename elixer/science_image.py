@@ -469,7 +469,11 @@ class science_image():
             self.frame = 'icrs' #todo: try icrs or fk5 (older)
 
         if (image_location is not None) and (len(image_location) > 0):
-            self.image_location = image_location
+
+            if G.TMP_IMAGING_USE:
+                self.image_location = utilities.use_tmp_imaging(image_location) #use defaults for other parms: dst_path, lockfn
+            else:
+                self.image_location = image_location
             self.load_image(wcs_manual=wcs_manual)
         elif hdulist is not None:
             self.headers = []

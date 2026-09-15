@@ -213,16 +213,27 @@ IGNORE_ARGS_TMP = True #I/O issues with TACC, ignore the --tmp option if provide
 TMP_COPY_TAR = 0 #when using --tmp, tar the output before copying to the original working dir
                  #0 = Do not use, 1 = make and copy tar to /scratch, but do not extract,
                  #2 = copy tar and extract, 3 = copy, extract and delete tar when done
+
+
+
+
 #this is for limited copy to /tmp of one of a handful of heavily read files when in SLURM only
 # files: the detections h5 file (line/or cont), the shot h5 file, the diagnose table
 # THIS IS NOT the other use of tmp that copies to and back and is WAY too much (that is the TMP_COPY_TAR stuff)
-TMP_ELIXDIR_USE = False
+TMP_ELIXDIR_USE = False # make use of staged, filelock protected caching to /tmp for shot *.h5 files
 TMP_ELIXDIR = "/tmp/elixer/"
 TMP_ELIXDIR_LOCK = "/tmp/elixer/elixer.lock"
 
-TMP_IMAGING_USE = True # make use of staged, filelock protected caching to /tmp for IMAGING files
+# make use of staged, filelock protected caching to /tmp for IMAGING files; set to true during run in certain conditions
+# see elixer_main.py
+TMP_IMAGING_USE = False
 TMP_IMAGING_DIR = "/tmp/elixer/"
 TMP_IMAGING_LOCK = "/tmp/elixer/elixer.lock"
+
+TMP_NO_STAGE = 0 #run time (command line) override to disable the above:
+#(0) do nothing, (1) disable shot *.h5, (2) disable imaging, (3) disable both
+#note: secret negative FORCES it on, but must be in quotes:   --no_stage_tmp "-3"
+# (0) do nothing, (-1) force enable shot *.h5, (-2) force enable imaging, (-3) force enable both
 
 CORRAL_BASEPATH  = "/corral/utexas/Hobby-Eberly-Telesco"
 ELIXER_SPECIAL = 0 #integer, triggers special behavior in code
@@ -309,7 +320,7 @@ the_DetectionsIndex = None #data release all detections index
 the_DetectionsDict = None #dictionary of neighbors detections query objects (separate from HETDEX_API_Detections)
 HETDEX_API_Detections = None #per detections query object; bound to a single HDR version and line vs continuum
 
-LOCAL_DEV_HOSTNAMES = ["z50","dg5"]
+LOCAL_DEV_HOSTNAMES = ["z50","dg5","N17"]
 
 
 
