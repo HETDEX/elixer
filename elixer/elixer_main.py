@@ -5933,6 +5933,8 @@ def main():
         G.TMP_IMAGING_USE = True  # turn it  OFF (part one .. have to also check later where it can be auto-triggered)
 
     if G.TMP_ELIXDIR_USE :
+        #note: these file names should already be unique, so we will not bother preserving the original path
+        #as part of the destination copy
         if G.SINGLE_SHOT_H5 is not None: #was args.shot_h5, but may have already been modified for original pathing
             new_path = copy_to_tmp(G.SINGLE_SHOT_H5)
             if new_path is not None:

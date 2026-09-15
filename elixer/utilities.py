@@ -70,8 +70,8 @@ def use_tmp_imaging(source_file, dst_path=G.TMP_IMAGING_DIR, lockfn=G.TMP_IMAGIN
 
         if dst_size == -1 or dst_size != src_size:
             # do the copy
-            if not op.exists(dst_path):
-                Path(dst_path).mkdir(parents=True, exist_ok=True)
+            if not op.exists(op.dirname(dst)):
+                Path(op.dirname(dst)).mkdir(parents=True, exist_ok=True)
 
             log.info(f"Starting copy: {str(src)} to {str(dst)}")
             shutil.copy2(src, dst)
@@ -80,7 +80,8 @@ def use_tmp_imaging(source_file, dst_path=G.TMP_IMAGING_DIR, lockfn=G.TMP_IMAGIN
             # once more
             dst_size = dst.stat().st_size
             if dst_size == -1 or dst_size != src_size:
-                out_path = None
+                log.warning(f"Copy failed. Filesize mismatch: {str(src)} to {str(dst)}")
+                out_path = str(src) #must keep the source
             else:
                 out_path = str(dst)
 
@@ -90,7 +91,16 @@ def use_tmp_imaging(source_file, dst_path=G.TMP_IMAGING_DIR, lockfn=G.TMP_IMAGIN
     try:
 
         # first see if the file is there and we can get a lock (to assume no active copy in progress)
-        dst = Path(op.join(dst_path, op.basename(source_file)))
+
+        #consider: if there can be basename collisions, we could
+        #just append the original path behind /tmp/elixer/  ...
+        #then uniqueness is guaranteed, at the small cost of deeper pathing.
+        #dst = Path(op.join(dst_path, op.basename(source_file)))
+        if source_file[0] == "/": #strip the leading / so join will work the way we expect
+            dst = Path(op.join(dst_path, source_file[1:]))  # full path appended to dst_path
+        else:
+            dst = Path(op.join(dst_path, source_file)) #full path appended to dst_path
+
         if op.exists(dst):
             if lockfn is not None:
                 lock = FileLock(lockfn)
@@ -105,10 +115,9 @@ def use_tmp_imaging(source_file, dst_path=G.TMP_IMAGING_DIR, lockfn=G.TMP_IMAGIN
         if src.exists():
             src_size = src.stat().st_size
         else:
-            log.warning(f"Source file for Catalog::use_tmp() not found. {source_file}")
+            log.warning(f"Source file for utilities::use_tmp_imaging() not found. {source_file}")
             return out_path
 
-        dst = Path(op.join(dst_path, op.basename(source_file)))
         dst_size = -1
         if dst.exists():
             dst_size = dst.stat().st_size
@@ -129,7 +138,7 @@ def use_tmp_imaging(source_file, dst_path=G.TMP_IMAGING_DIR, lockfn=G.TMP_IMAGIN
             log.info(f"Source file {str(source_file)} already copied to {dst_path}")
 
     except:
-        log.warning(f"Exception in Catalog::use_tmp() src file = {source_file}", exc_info=True)
+        log.warning(f"Exception in utilities::use_tmp_imaging() src file = {source_file}", exc_info=True)
 
     return out_path
 
