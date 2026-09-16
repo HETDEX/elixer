@@ -5935,6 +5935,7 @@ def main():
         G.TMP_IMAGING_USE = True  # turn it  OFF (part one .. have to also check later where it can be auto-triggered)
 
     if G.TMP_ELIXDIR_USE :
+        log.info(f"Staging shot h5 files to /tmp")
         #note: these file names should already be unique, so we will not bother preserving the original path
         #as part of the destination copy
         if G.SINGLE_SHOT_H5 is not None: #was args.shot_h5, but may have already been modified for original pathing
@@ -5964,6 +5965,14 @@ def main():
         #     except:
         #         G.DIAGNOSE_TABLE = None
         #         log.warning(f"--diagnose specified, but unable to load: {args.diagnose}", exc_info=True)
+    else:
+        log.info(f"Not staging shot h5 files to /tmp")
+
+    if G.TMP_IMAGING_USE:
+        log.info(f"Staging imaging files to /tmp")
+    else:
+        log.info(f"Not staging imaging files to /tmp")
+
 
     if G.SINGLE_SHOT_H5 is not None:
         try:

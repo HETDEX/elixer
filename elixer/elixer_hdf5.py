@@ -1494,18 +1494,31 @@ def append_entry(fileh,det,overwrite=False):
 
             try:
                 row['detectid'] = det.hdf5_detectid
-                row['fiber_id'] = det.ml_2d_fiber_ids
+
+                while len(row['fiber_id']) > len(det.ml_2d_fiber_ids):
+                    #this detection has too few fibers ... need to pad
+                    log.debug(f"Padding ML Fiber2DCutouts for detectid: {det.hdf5_detectid}")
+                    det.ml_2d_fiber_ids.append("")
+                    det.ml_2d_fiber_dists.append(999.9)
+                    det.ml_2d_fiber_weights.append(0.0)
+                    det.ml_2d_fiber_cutouts.append(np.full((9,100),0.0))
+                    det.ml_2d_error_cutouts.append(np.full((9, 100), 0.0))
+                    #this is an array, rather than a list like the others
+                    list(det.ml_2d_fiber_waves).append(np.full(100,0.0))
+
+                row['fiber_id'] = det.ml_2d_fiber_ids #array of 4
+                row['img_sum'] = det.ml_2d_fiber_sum #9x100 2D
+                #these are all 4 x 9x100 (3D)
                 row['distance'] = det.ml_2d_fiber_dists
                 row['weight'] = det.ml_2d_fiber_weights
                 row['wavelength'] = det.ml_2d_fiber_waves
-                row['img_sum'] = det.ml_2d_fiber_sum
                 row['img_arr'] = det.ml_2d_fiber_cutouts
                 row['err_arr'] = det.ml_2d_error_cutouts
 
                 row.append()
                 f2dtb.flush()
             except:
-                log.error("Failed to insert Fiber2DCutouts row",exc_info=True)
+                log.error(f"Failed to insert Fiber2DCutouts row, dectectic {det.hdf5_detectid}",exc_info=True)
 
         #############################
         #ELiXer Found Spectral Lines Table

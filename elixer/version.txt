@@ -1,9 +1,10 @@
 changes to elixer by version
 
-1.26.2a0 [2026-09-15]
+1.26.2a0 [2026-09-16]
 * copy key, heavily read files (shot_h5, line and cont det files, diagnose table) under certain conditions
   to /tmp to try and reduce TACC I/O issues
 * copy imaging, catalog, and photz files to /tmp on first use (per node)
+* pad ML Fiber2DCutouts when not all 4 top fibers exist
 
 1.26.1a0 [2026-08-26]
 * adding Erin's random forest classifier (p_conf)
