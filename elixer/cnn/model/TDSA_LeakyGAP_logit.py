@@ -1,4 +1,5 @@
 import torch
+torch.backends.nnpack.enabled = False
 import torch.nn as nn
 import torch.nn.functional as F
 
