@@ -5909,8 +5909,7 @@ def main():
     #
     ######################################################
 
-    if args.ntasks_per_node is not None and args.ntasks_per_node > 1:
-
+    if args.ntasks_per_node is not None and int(args.ntasks_per_node) > 1:
         G.TMP_IMAGING_USE = True
         G.TMP_ELIXER_USE = True
 
