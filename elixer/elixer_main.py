@@ -5765,10 +5765,13 @@ def copy_to_tmp(source_file):
     :return:
     """
 
+    log.info(f"*** in copy_to_tmp()")
+
     new_path = None
     try:
         src = Path(source_file)
         if src.exists():
+            log.info(f"*** in copy_to_tmp(): src exists")
             src_size = src.stat().st_size
         else:
             log.info(f"Source file for copy_to_tmp() not found. {source_file}")
@@ -5777,6 +5780,7 @@ def copy_to_tmp(source_file):
         dst = Path(os.path.join(G.TMP_ELIXDIR,os.path.basename(source_file)))
         dst_size = -1
         if dst.exists():
+            log.info(f"*** in copy_to_tmp(): dst exists")
             dst_size = dst.stat().st_size
 
         if dst_size == -1 or dst_size != src_size:
@@ -5935,6 +5939,10 @@ def main():
         G.TMP_IMAGING_USE = True  # turn it  OFF (part one .. have to also check later where it can be auto-triggered)
 
     if G.TMP_ELIXDIR_USE :
+        log.info(f"Triggering G.TMP_ELIXER_USE")
+        log.info(f"*** G.SINGLE_SHOT_H5 = {G.SINGLE_SHOT_H5}")
+        log.info(f"*** G.HDF5_DETECT_FN = {G.HDF5_DETECT_FN}")
+        log.info(f"*** G.HDF5_CONTINUUM_FN = {G.HDF5_CONTINUUM_FN}")
         #note: these file names should already be unique, so we will not bother preserving the original path
         #as part of the destination copy
         if G.SINGLE_SHOT_H5 is not None: #was args.shot_h5, but may have already been modified for original pathing
@@ -5962,6 +5970,13 @@ def main():
             except:
                 G.DIAGNOSE_TABLE = None
                 log.warning(f"--diagnose specified, but unable to load: {args.diagnose}", exc_info=True)
+
+        log.info(f"*** after G.SINGLE_SHOT_H5 = {G.SINGLE_SHOT_H5}")
+        log.info(f"*** after G.HDF5_DETECT_FN = {G.HDF5_DETECT_FN}")
+        log.info(f"*** after G.HDF5_CONTINUUM_FN = {G.HDF5_CONTINUUM_FN}")
+
+    else:
+        log.info(f"Not triggering G.TMP_ELIXER_USE")
 
     if G.SINGLE_SHOT_H5 is not None:
         try:
