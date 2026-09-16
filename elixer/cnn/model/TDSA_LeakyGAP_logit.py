@@ -1,5 +1,5 @@
 import torch
-torch.backends.nnpack.enabled = False
+#torch.backends.nnpack.enabled = False #does not seem to stop the (unimportant) warning
 import torch.nn as nn
 import torch.nn.functional as F
 

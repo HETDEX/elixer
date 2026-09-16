@@ -7,7 +7,7 @@ import numpy as np
 from astropy.table import Table, vstack, join
 from astropy.io import ascii
 import torch
-torch.backends.nnpack.enabled = False
+#torch.backends.nnpack.enabled = False #does not seem to stop the (unimportant) warning
 from torch.utils.data import Dataset, DataLoader
 #from elixer import global_config as G
 
