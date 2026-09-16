@@ -5808,6 +5808,7 @@ def copy_to_tmp(source_file):
             #end with lock
         else:
             log.info(f"Source file {str(src)} already copied to {G.TMP_ELIXDIR}")
+            new_path = str(dst)
 
     except Exception as e:
         print(f"Warning! Failure in copy_to_tmp() for {source_file}")
@@ -5911,11 +5912,9 @@ def main():
     ######################################################
 
     if args.ntasks_per_node is not None and int(args.ntasks_per_node) > 1:
-        log.info(f"Condition MET to turn on TMP_ELIXDIR_USE. ntasks_per_node = {args.ntasks_per_node}")
         G.TMP_IMAGING_USE = True
         G.TMP_ELIXDIR_USE = True
-    else:
-        log.info(f"Condition NOT met to turn on TMP_ELIXDIR_USE. ntasks_per_node = {args.ntasks_per_node}")
+
 
     #override default behavior
     if G.TMP_NO_STAGE == 0:
