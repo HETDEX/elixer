@@ -5914,11 +5914,11 @@ def main():
     ######################################################
 
     if args.ntasks_per_node is not None and int(args.ntasks_per_node) > 1:
-        log.info(f"Condition MET to turn on TMP_ELIXER_USE. ntasks_per_node = {args.ntasks_per_node}")
+        log.info(f"Condition MET to turn on TMP_ELIXDIR_USE. ntasks_per_node = {args.ntasks_per_node}")
         G.TMP_IMAGING_USE = True
-        G.TMP_ELIXER_USE = True
+        G.TMP_ELIXDIR_USE = True
     else:
-        log.info(f"Condition NOT met to turn on TMP_ELIXER_USE. ntasks_per_node = {args.ntasks_per_node}")
+        log.info(f"Condition NOT met to turn on TMP_ELIXDIR_USE. ntasks_per_node = {args.ntasks_per_node}")
 
     #override default behavior
     if G.TMP_NO_STAGE == 0:
@@ -5939,7 +5939,7 @@ def main():
         G.TMP_IMAGING_USE = True  # turn it  OFF (part one .. have to also check later where it can be auto-triggered)
 
     if G.TMP_ELIXDIR_USE :
-        log.info(f"Triggering G.TMP_ELIXER_USE")
+        log.info(f"Triggering G.TMP_ELIXDIR_USE")
         log.info(f"*** G.SINGLE_SHOT_H5 = {G.SINGLE_SHOT_H5}")
         log.info(f"*** G.HDF5_DETECT_FN = {G.HDF5_DETECT_FN}")
         log.info(f"*** G.HDF5_CONTINUUM_FN = {G.HDF5_CONTINUUM_FN}")
@@ -5976,7 +5976,7 @@ def main():
         log.info(f"*** after G.HDF5_CONTINUUM_FN = {G.HDF5_CONTINUUM_FN}")
 
     else:
-        log.info(f"Not triggering G.TMP_ELIXER_USE")
+        log.info(f"Not triggering G.TMP_ELIXDIR_USE")
 
     if G.SINGLE_SHOT_H5 is not None:
         try:
