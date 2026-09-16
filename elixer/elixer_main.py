@@ -5910,8 +5910,11 @@ def main():
     ######################################################
 
     if args.ntasks_per_node is not None and int(args.ntasks_per_node) > 1:
+        log.info(f"Condition MET to turn on TMP_ELIXER_USE. ntasks_per_node = {args.ntasks_per_node}")
         G.TMP_IMAGING_USE = True
         G.TMP_ELIXER_USE = True
+    else:
+        log.info(f"Condition NOT met to turn on TMP_ELIXER_USE. ntasks_per_node = {args.ntasks_per_node}")
 
     #override default behavior
     if G.TMP_NO_STAGE == 0:
