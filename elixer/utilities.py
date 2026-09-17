@@ -62,7 +62,7 @@ def use_tmp_imaging(source_file, dst_path=G.TMP_IMAGING_DIR, lockfn=G.TMP_IMAGIN
 
     def do_copy(src, dst, src_size):
         # try again
-        out_path = None
+        out_path = str(src)
         if dst.exists():  # dst is a Path object
             dst_size = dst.stat().st_size
         else:
