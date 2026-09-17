@@ -84,6 +84,8 @@ def use_tmp_imaging(source_file, dst_path=G.TMP_IMAGING_DIR, lockfn=G.TMP_IMAGIN
                 out_path = str(src) #must keep the source
             else:
                 out_path = str(dst)
+        else:
+            out_path = str(dst)
 
         return out_path
 
