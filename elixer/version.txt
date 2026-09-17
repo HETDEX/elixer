@@ -1,5 +1,10 @@
 changes to elixer by version
 
+1.26.2a1 [2026-09-16]
+* trigger DETFLAG_QUESTIONABLE_DETECTION if most of the weight is coming from "bad" chi2 fibers and the line width
+  (sigma) is low (< 2.0)
+
+
 1.26.2a0 [2026-09-16]
 * copy key, heavily read files (shot_h5, line and cont det files, diagnose table) under certain conditions
   to /tmp to try and reduce TACC I/O issues

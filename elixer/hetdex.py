@@ -16187,6 +16187,10 @@ class HETDEX:
         grid_idx = -1
         plot_label = ""
         plot_label_color = "k"
+
+        sum_weight_bad_fiber_chi2 = 0.0 #sum of the weights of the fibers exhibiting a "bad" fiber chi2
+        weighted_sum_weight_bad_fiber_chi2 = 0.0 #same as above but weighted by the chi2 values
+
         for i in range(num_fibers+add_summed_image):
             make_display = False
             plot_label = ""
@@ -16389,6 +16393,8 @@ class HETDEX:
                         max_chi2 = max(datakeep['fiber_chi2'][ind[i]])
                         if max_chi2 > 4.0:
                             plot_label_color = 'red'
+                            sum_weight_bad_fiber_chi2 += datakeep['fiber_weight'][ind[i]]
+                            weighted_sum_weight_bad_fiber_chi2 += datakeep['fiber_weight'][ind[i]] * max_chi2
                         #plot_label += "\n"+ r"$\chi^2$" + "%0.1f " % max_chi2
                         if max_chi2 > 10.0:
                             plot_label += "\n" + "%0.1f " % max_chi2
@@ -16760,6 +16766,18 @@ class HETDEX:
                 detobj.num_duplicate_central_pixels = np.sum(c[np.where(c>1)])
         except:
             pass
+
+        #check for cumulative bad chi2 in top four fibers
+        if sum_weight_bad_fiber_chi2 >= 0.34 and \
+           weighted_sum_weight_bad_fiber_chi2 > 2.0 and \
+           (detobj.fwhm is not None and detobj.fwhm / 2.355 < 2.0):
+            # more than 1/3 of the weight from bad chi2 fiber
+            # and it is not from marginally bad chi2 (e.g. 3.5 is marginally bad, we don't even mark until 4.0)
+            detobj.flags |= G.DETFLAG_QUESTIONABLE_DETECTION
+            log.info(f"[{detobj.id}] flagged as DETFLAG_QUESTIONABLE_DETECTION. "
+                     f"sum bad chi2 weight = {sum_weight_bad_fiber_chi2:0.2f}, "
+                     f"weighted sum bad chi2 = {weighted_sum_weight_bad_fiber_chi2:0.2f},"
+                     f"line fwhm sigma = {detobj.fwhm / 2.355 : 0.2f}")
 
         #check for 3rd rank fiber providing too much flux
         #the third fiber should NOT have more flux than 1st fiber or first two fibers,
