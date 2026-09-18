@@ -3081,7 +3081,12 @@ class DetObj:
 
             #trying to make this a little more readable
             diagnose_extra = 0  #0 = no, 1 = yes, with conditions, 2 = yes, force
-            if self.diagnose_dict is not None and ((self.best_gmag - self.best_gmag_unc) <= 23.0):
+            if self.best_gmag_unc is None:
+                local_best_gmag_unc = 0.
+            else:
+                local_best_gmag_unc = self.best_gmag_unc
+            if (self.diagnose_dict is not None and self.best_gmag is not None and
+                    ((self.best_gmag - local_best_gmag_unc) <= 23.0)):
                 #it could be checked
                 if SU.is_on_skyline(self.w,self.exptimes,self.fwhm) > 1 or (0.0 <= self.ml_cnn_score <= 0.1) \
                         or (0.0 <= self.rf_conf_score <= 0.1 and self.snr >= 5.5):
@@ -3092,7 +3097,7 @@ class DetObj:
                     if (p >= 0.7 and selected_solution_idx >= 0 and multiline_sol_diag >= 1):
                         diagnose_extra = 0
                     elif (scaled_plae_classification >= plya_fixed_hi and rest == G.LyA_rest and
-                        ((self.best_gmag + self.best_gmag_unc) > 22.0)):
+                        ((self.best_gmag + local_best_gmag_unc) > 22.0)):
                             diagnose_extra = 0
 
             # if self.diagnose_dict is not None and ((self.best_gmag - self.best_gmag_unc) <= 23.0) and \

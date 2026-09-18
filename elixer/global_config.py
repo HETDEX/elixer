@@ -1539,9 +1539,11 @@ DETFLAG_NEGATIVE_SPECTRUM           = 0x00040000
 DETFLAG_POOR_THROUGHPUT             = 0x00080000
 DETFLAG_BAD_DITHER_NORM             = 0x00100000
 DETFLAG_POOR_SHOT                   = 0x00200000
-DETFLAG_QUESTIONABLE_DETECTION      = 0x00400000  # !!! SHOULD IGNORE for high SNR emission or high continuum sources !!!
+DETFLAG_QUESTIONABLE_DETECTION      = 0x00400000  # !!! might IGNORE for high SNR emission or high continuum sources !!!
                                                   # unable to fit a continuum (wide) and cont(n) is fairly negative,
-                                                  # or bad emission line fit.
+                                                  # or bad emission line fit or most of the weight from fibers with
+                                                  # bad chi2 AND the line is narrow (note SNR can be high in this last
+                                                  # case and the pCNN score might also be very high)
 DETFLAG_EXCESSIVE_ZERO_PIXELS       = 0x00800000  #too many zero valued pixels at the emission line center in 2D cutouts
 DETFLAG_POSSIBLE_PN                 = 0x01000000  #possible planetery nebula hit (usually 5007, without an obvious source)
 DETFLAG_NO_DUST_CORRECTION          = 0x02000000  #dust correction was requested but failed (see APPLY_GALACTIC_DUST_CORRECTION)
