@@ -1,5 +1,10 @@
 changes to elixer by version
 
+1.26.2a2 [2026-09-18]
+* if any dispatch hdf5 catalog file creation fails with an exception, set a *.fail file
+  follow up --merge will scan for .fail and abort if found
+  constructed elixer.slurm will check for elixer*cat.h5 and only (optionally) move the source files if found
+
 1.26.2a1 [2026-09-16]
 * trigger DETFLAG_QUESTIONABLE_DETECTION if most of the weight is coming from "bad" chi2 fibers and the line width
   (sigma) is low (< 2.0)

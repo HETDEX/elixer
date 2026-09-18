@@ -25,7 +25,7 @@ if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
 #version
-__version__ = '1.26.2a1'
+__version__ = '1.26.2a2'
 
 
 #initial working dir
@@ -1375,6 +1375,7 @@ PROJECT_LINE_IMAGE_TO_COMMON_WCS = True #if True, the lineflux image should be r
                                         #the master cutout's WCS (so North direction matches)
 
 BUILD_HDF5_CATALOG = True
+HDF5_CATALOG_FAIL_IS_FATAL = True
 
 ALLOW_SYSTEM_CALL_PDF_CONVERSION = True #if True, if the Python PDF to PNG fails, attempt a system call to pdftoppm
 

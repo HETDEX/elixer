@@ -3694,6 +3694,12 @@ def merge_hdf5(args=None):
         fn_list += sorted(glob.glob("*_cat_*.h5"))
         fn_list += sorted(glob.glob("dispatch_*/*/*_cat.h5"))
 
+        fail_list = glob.glob("dispatch_*/*/*.fail")
+        if len(fail_list) > 0:
+            print(f"Will not merge. Found {len(fail_list)} *.fail files: {fail_list}")
+            log.error(f"Will not merge. Found {len(fail_list)} *.fail files: {fail_list}")
+            return
+
         #fn_list.append(sorted(glob.glob("dispatch_*/*/*_cat.h5")))
         if len(fn_list) != 0:
             log.critical(f"Merging: {fn_list}")
@@ -5817,6 +5823,49 @@ def copy_to_tmp(source_file):
 
     return new_path
 
+
+def hard_clean_dispatch(dispatch,name):
+    """
+    something catastrophic has occurred and the whole dispatch_xxxx is suspect
+    clear out everything so a --resume will re-run everything in it cleanly
+
+    :return:
+    """
+
+    try:
+        cwd = os.getcwd()
+
+        #double check we are in the right place
+        if os.path.basename(cwd) != dispatch:
+            log.error(f"Error in hard_clean_dispatch(). Path ({cwd}) not as expected. "
+                      f"Does not match target dispatch {dispatch}")
+            return
+        else:
+            log.error(f"Running hard_clean_dispatch() on {cwd}")
+
+        #need to remove all pdfs, pngs, h5 files, but we will be a little safe
+        fns = list(glob.glob(os.path.join(name,"*.pdf")))
+        fns += list(glob.glob(os.path.join(name,"*.png")))
+        fns += list(glob.glob(os.path.join(name,"*.h5")))
+
+        for fn in fns:
+            try:
+                Path(fn).unlink(missing_ok=True)
+            except:
+                log.info(f"Could not delete {fn}")
+
+        #now, to make this easy to find.
+        #we could add a file that says it failed? This would just make for a fast check to
+        #scan the dispatch directories to see if a file exists ... plus we need to NOT run a merge if this has
+        #happened
+        with open(os.path.join(name,f"{dispatch}.fail"),"w") as f:
+            f.write("Critial HDF5 Failure. Removed: \n")
+            for fn in fns:
+                f.write(f"{fn}\n")
+
+    except:
+        log.error(f"Exception! in hard_clean_dispatch()", exc_info=True)
+
 def main():
 
     global G_PDF_FILE_NUM, OS_PNG_ONLY, catch_all_cat, cat_sdss, cat_panstarrs, cat_decals_web
@@ -7540,8 +7589,23 @@ def main():
                                         entry_ct = elixer_hdf5.detectid_in_file(h5name, d_id)
                                         if entry_ct != 1:
                                             log.warning(f"No retry: Unexpected number of entries ({entry_ct}) in h5 file for detectid {d_id}, file {h5name}")
+
+
+                    #this was successful, remove a dispatch_XXXX.fail if it exists as a left over from a previous run
+                    left_over_fail_file = os.path.join(args.name,f"{args.dispatch}.fail")
+                    if os.path.exists(left_over_fail_file):
+                        Path(left_over_fail_file).unlink(missing_ok=True)
                 except:
                     log.error("Exception building HDF5 catalog",exc_info=True)
+
+                    if G.HDF5_CATALOG_FAIL_IS_FATAL:
+                        log.critical(f"Critical HDF5 issue. Terminating processing on {args.dispatch}")
+                        hard_clean_dispatch(args.dispatch,args.name)
+                        #if this is an SSR run, this needs to be completely fatal ... it can screw up SSR stuff downstream
+                        #reports are already done, so need to remove them ...
+                        #the cat h5 file can be corrupt and probably should be removed
+                        exit(-1)
+
 
             if False: #turn off fib and cat.txt files
                 if match_list.size > 0:

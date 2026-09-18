@@ -1572,25 +1572,40 @@ slurm += launch_str +"\n"
 try:
     if POST_MERGE > 0:
         elixer_path = os.path.dirname(importlib.util.find_spec("elixer").origin)
-        slurm += "echo \"Running blind merge ... \"\n"
-        slurm += f"python {elixer_path}/elixer_main.py --merge \n"
 
-        if POST_MERGE > 1:
-            slurm += "echo \"moving report images to all_pngs ... \"\n"
-            slurm += f"mkdir all_pngs; mv dispatch_*/*/*.png all_pngs \n"
+        slurm += "  echo \"Running blind merge ... \"\n"
+        slurm += f"  python {elixer_path}/elixer_main.py --merge \n"
 
         #rename elixer_merged_cat.h5 to something useful? should the user provide the name?
         try:
             if merged_cat_name is not None:
                 if merged_cat_name[-3:] != ".h5":
                     merged_cat_name += ".h5"
-            slurm += f"mv elixer_merged_cat.h5 {merged_cat_name} \n"
-            #no point in having State or ,End  as well, since right here, the job is necessarifly still active
-            slurm += f"sacct -j $SLURM_JOB_ID --format=JobID,Elapsed,Timelimit,Start >> elixer.done \n"
-            slurm += f"echo '  ' >> elixer.done \n"
-            #slurm += f"touch elixer.done \n"
+
+                #note, this will fail if elixer_merged_cat.h5 does not exist (e.g. if the merge failed)
+                slurm += f"  mv elixer_merged_cat.h5 {merged_cat_name} \n"
+                #no point in having State or ,End  as well, since right here, the job is necessarifly still active
+                #slurm += f"touch elixer.done \n"
+            #else merged_cat_name is none, then we don't rename
         except:
             print(f"Error! Cannot rename elixer_merged_cat")
+
+        # put in a check to see if elixer_*_cat.h5 exists (e.g. the --merge actually happened and completed)
+        slurm += "shopt -s nullglob \n"
+        slurm += "files=(elixer_*_cat.h5) \n"
+        slurm += "if (( ${#files[@]} )); then \n"
+        #update the .done file if the merge worked
+        slurm += f"  sacct -j $SLURM_JOB_ID --format=JobID,Elapsed,Timelimit,Start >> elixer.done \n"
+        slurm += f"  echo '  ' >> elixer.done \n"
+        #also if copy was set in POST_MERGE, do the copy
+        if POST_MERGE > 1:
+            slurm += "  echo \"moving report images to all_pngs ... \"\n"
+            slurm += f"  mkdir all_pngs; mv dispatch_*/*/*.png all_pngs \n"
+
+        slurm += "else \n" #the elixer_*_cat.h5 was NOT FOUND, so the --merge failed or did not run
+        slurm += "  echo merge failed or was not executed. \n"
+        slurm += "fi \n"
+        slurm += "shopt -u nullglob \n"
 except:
     print(f"Error! Cannot run post slurm steps: switch == {POST_MERGE}")
 
