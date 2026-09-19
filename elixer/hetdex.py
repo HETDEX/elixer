@@ -10646,7 +10646,7 @@ class DetObj:
                             (self.estflux_unc / self.estflux) ** 2 +
                             (self.best_gmag_cgs_cont_unc / self.best_gmag_cgs_cont) ** 2))
                 except:
-                    log.error("Exception! Excpetion updating DEX-g continuum.",exc_info=True)
+                    log.error("Exception! Exception updating DEX-g continuum.",exc_info=True)
 
             except:
                 log.warning("No MCMC data to update core stats in hetdex::load_flux_calibrated_spectra")
@@ -12003,7 +12003,7 @@ class DetObj:
                     (self.best_gmag_cgs_cont_unc / self.best_gmag_cgs_cont) ** 2))
 
             except:
-                log.error("Exception! Excpetion updating DEX-g continuum.",exc_info=True)
+                log.error("Exception! Exception updating DEX-g continuum.",exc_info=True)
 
         #update with MY FIT results?
             central_wave_volatile = False
@@ -16166,15 +16166,15 @@ class HETDEX:
             duplicate_weight = 0
             try:
                 #trip on any one of the top 3 as identical, checked in weight order
-                if not np.any(datakeep['im'][-1] - datakeep['im'][-2]):
+                if len(datakeep['im']) > 1 and not np.any(datakeep['im'][-1] - datakeep['im'][-2]):
                     #blue and green fiber cutouts are the same
                     log.info("Probable spurious detection. Duplicate fiber cutouts detected (blue and green).")
                     duplicate_weight += datakeep['fiber_weight'][-1] + datakeep['fiber_weight'][-2]
-                elif not np.any(datakeep['im'][-1] - datakeep['im'][-3]):
+                elif len(datakeep['im']) > 2 and not np.any(datakeep['im'][-1] - datakeep['im'][-3]):
                     #blue and yellow fiber cutouts are the same
                     log.info("Probable spurious detection. Duplicate fiber cutouts detected (blue and yellow).")
                     duplicate_weight += datakeep['fiber_weight'][-1] + datakeep['fiber_weight'][-3]
-                elif not np.any(datakeep['im'][-2] - datakeep['im'][-3]):
+                elif len(datakeep['im']) > 2 and not np.any(datakeep['im'][-2] - datakeep['im'][-3]):
                     #green and yellow fiber cutouts are the same
                     log.info("Probable spurious detection. Duplicate fiber cutouts detected (green and yellow).")
                     duplicate_weight += datakeep['fiber_weight'][-2] + datakeep['fiber_weight'][-3]
@@ -16183,7 +16183,7 @@ class HETDEX:
                     detobj.duplicate_fiber_cutout_pair_weight = duplicate_weight
 
             except:
-                log.warning("Excpetion comparing fiber cutouts in hetdex.py build_2d_image()",exc_info=True)
+                log.warning("Exception comparing fiber cutouts in hetdex.py build_2d_image()",exc_info=True)
 
         #need i to start at zero
         #building from bottom up
