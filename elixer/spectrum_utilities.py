@@ -833,7 +833,7 @@ def is_edge_fiber(absolute_fiber_num, ifux=None, ifuy=None):
             return True
 
 
-def get_fluxlimits(ra,dec,wave,datevobs,sncut=4.8,flim_model="v4",ffsky=False,rad=3.5,lineflux=None,linewidth=None):
+def get_fluxlimits(ra,dec,wave,datevobs,sncut=4.8,flim_model="v5_simple",ffsky=False,rad=3.5,lineflux=None,linewidth=None):
     """
     * note: new flim_model available v5_simple, v5_complex
     wrapper to call into HETDEX API
@@ -842,7 +842,7 @@ def get_fluxlimits(ra,dec,wave,datevobs,sncut=4.8,flim_model="v4",ffsky=False,ra
     flux level (with an assummed linewidth)
 
     :param datevobs:  string
-    :param flim_model: string (current is "v4"?) None gives most current
+    :param flim_model: string None gives most current
     :param snrcut:
     :param ra:
     :param dec:
@@ -7112,7 +7112,61 @@ def rest_line_luminosity(z,line_flux,line_flux_err=None,cosmology=None):
 
     return lum, lum_err
 
+def luminosity_to_obs_flux(z,lum,lum_err=None,cosmology=None):
+    """
 
+    inverse of rest_line_luminosity
+
+
+    Assume z, wavelengths, and luminosity distances are without error
+
+    :param z:
+    :param lum: in erg/s
+    :param lum_err: in erg/s
+    :return: line flux and error as erg/s/cm2   NOTICE: flux not flux density !!!
+    """
+
+    # if z < 0.0:
+    #     print("What? invalid z: ", z)
+    #     return None, None
+    #
+    # if (line_flux is None) :
+    #     print("Invalid line_flux")
+    #     return None, None
+
+    line_flux = np.nan
+    line_flux_err = np.nan
+    try:
+        ld = luminosity_distance(z,cosmology)
+        factor = (4.0 * np.pi * ld * ld ).to(U.cm**2) #no DO NOT have (1+z) in there ... this is line flux, not a density
+        #and the 1+z factors are handled in the Luminosity Distance
+
+        units = None
+        try:
+            units = lum.unit
+            if units != (U.erg / (U.s * U.cm**2)):
+                if units != U.dimensionless_unscaled:
+                    log.error(f"Invalid line flux units {units}")
+                else:
+                    units = None
+        except:
+            pass
+
+        if units is None:
+            line_flux =  lum / factor.value
+        else:
+            line_flux = lum / factor
+
+        if lum_err is not None:
+            if units is None:
+                line_flux_err = lum_err / factor.value
+            else:
+                line_flux_err = lum_err / factor
+
+    except:
+        pass
+
+    return line_flux, line_flux_err
 
 def shift_to_rest_flam(z, flux_density, wave, eflux=None, block_skylines=True, apply_air_to_vac=False):
     ### WARNING !!! REMINDER !!! np.arrays are mutable so what are passed in here get modified (flux_density, etc)
