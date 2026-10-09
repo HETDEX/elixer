@@ -40,6 +40,7 @@ import mmap
 import gc
 
 from astropy.coordinates import SkyCoord
+from astropy.table import Table
 import astropy.units as U
 
 import matplotlib
@@ -8887,7 +8888,7 @@ class DetObj:
                 #self.bad_amps_list = list(h5.root.AmpStats.read_where("flag==0", field="multiframe").astype(str))
                 self.bad_amps_list = list(self.amp_stats_table["multiframe"][self.amp_stats_table["flag"]==0].astype(str))
             except:
-                log.warning("DetObj::get_bad_amps_from_shot_h5: Unable to read root.Ampstats in shot specific h5.")#if could not be read, just move on
+                log.warning("DetObj::get_bad_amps_from_shot_h5: Unable to read root.Ampstats in shot specific h5.",exc_info=True)#if could not be read, just move on
 
             if should_close:
                 h5.close()
@@ -8945,7 +8946,7 @@ class DetObj:
             if len(rows) > 0:
                 interference_snr = np.max(rows["interference_snr"])
 
-                cont = self.cont_cgs
+                #cont = self.cont_cgs
 
                 if interference_snr < 10:
                     # we do nothing
