@@ -829,9 +829,6 @@ class DetObj:
         self.p_lae_oii_ratio = None
         self.p_lae_oii_ratio_range = None
 
-        self.bad_amp_dict = None #this is no longer in active use, but is survey wide
-        self.bad_amps_list = None #this is from a shot specific h5, if passed in and present; a list of multiframes
-
         #computed directly from HETDEX spectrum (3600AA-5400AA)
         self.hetdex_gmag_limit = G.HETDEX_CONTINUUM_MAG_LIMIT #this will be specifically computed later for this IFU+shot
         self.hetdex_gmag = None
@@ -884,7 +881,12 @@ class DetObj:
         self.survey_response = None
         self.dither_norm = 0.0 #todo: max/min for dithers?
         self.relflux_virus = []
-        self.amp_stats = 0.0 #todo:???
+
+        #self.amp_stats = 0.0 #todo:???
+        self.amp_stats_table = None
+        self.bad_amp_dict = None #this is no longer in active use, but is survey wide
+        self.bad_amps_list = None #this is from a shot specific h5, if passed in and present; a list of multiframes
+
         self.survey_fieldname = None
         self.exptimes = [None, None, None] #exposure times, usually 3 dithers
 
@@ -7167,6 +7169,8 @@ class DetObj:
 
             log.info(f"{self.entry_id} Aggregate Classification: bad amp.")
 
+        self.check_detection_interference_pattern() #moved flagging inside this function
+
         # check for duplicate pixel positions
         # elif self.num_duplicate_central_pixels > G.MAX_NUM_DUPLICATE_CENTRAL_PIXELS:  # out of the top (usually 4) fibers
         #     reason = "(duplicate pixels)"
@@ -8877,7 +8881,11 @@ class DetObj:
                 return
 
             try:
-                self.bad_amps_list = list(h5.root.AmpStats.read_where("flag==0",field="multiframe").astype(str)) #for some shots, this might not exist
+
+                #for some shots, this might not exist
+                self.amp_stats_table = Table(h5.root.AmpStats.read())
+                #self.bad_amps_list = list(h5.root.AmpStats.read_where("flag==0", field="multiframe").astype(str))
+                self.bad_amps_list = list(self.amp_stats_table["multiframe"][self.amp_stats_table["flag"]==0].astype(str))
             except:
                 log.warning("DetObj::get_bad_amps_from_shot_h5: Unable to read root.Ampstats in shot specific h5.")#if could not be read, just move on
 
@@ -8907,6 +8915,68 @@ class DetObj:
 
         except:
             log.warning("DetObj::check_is_detection_on_bad_amp failure.",exc_info=True)
+
+        return rc
+
+    def check_detection_interference_pattern(self):
+        """
+            checks if the detection should be flagged or rejected due to being on an amp with a severe
+            interference pattern coupled with low detection SNR and/or chi2
+
+            Does NOT fully apply to continuum objects (e.g. they can be flagged for the emission, but not rejected)
+
+            flag if a problem
+
+        :return: True if there is an interference problem, False otherwise (including if unknown)
+        """
+
+        rc = False
+
+        if self.amp_stats_table is None:
+            return False
+
+        try:
+
+            #which fiber? #for now, just use the primary fiber?
+            mf = self.fibers[0].multi[:-4]  #top fiber w/ the fiber number stripped off
+
+            rows = self.amp_stats_table[self.amp_stats_table["multiframe"]==mf]
+
+            if len(rows) > 0:
+                interference_snr = np.max(rows["interference_snr"])
+
+                cont = self.cont_cgs
+
+                if interference_snr < 10:
+                    # we do nothing
+                    pass
+                elif interference_snr < 30:
+                    if self.snr < 5.0 and self.sigma < 2.5:
+                        self.flags |= G.DETFLAG_BAD_EMISSION_LINE
+                        rc = True
+                elif interference_snr < 50:
+                    if self.snr < 5.2 and self.sigma < 3.0:
+                        self.flags |= G.DETFLAG_BAD_EMISSION_LINE
+                        rc = True
+                elif interference_snr < 75.0:  # these are probably already marked bad
+                    if self.snr < 5.5 and self.sigma < 3.0:
+                        self.flags |= G.DETFLAG_BAD_EMISSION_LINE
+                        self.flags |= G.DETFLAG_BAD_AMP #also gets BAD AMP flag at this level
+                        self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
+                        self.needs_review = 1
+                        rc = True
+                else:  # should already be bad
+                    if self.snr < 6.5 and self.sigma < 3.0:
+                        self.flags |= G.DETFLAG_BAD_EMISSION_LINE
+                        self.flags |= G.DETFLAG_BAD_AMP #also gets BAD AMP flag at this level
+                        self.flags |= G.DETFLAG_FOLLOWUP_NEEDED
+                        self.needs_review = 1
+                        rc = True
+
+            if rc:
+                log.info(f"Detection flagged for interference pattern. Interference SNR {interference_snr:0.1f}")
+        except:
+            log.warning("DetObj::check_detection_interference_pattern failure.",exc_info=True)
 
         return rc
 
@@ -9784,7 +9854,7 @@ class DetObj:
            # if self.survey_shotid is None and G.SINGLE_SHOT_H5 is not None:
 
             #may not be able to use masking IF throughput is low (less than 0.08
-            if self.survey_response < 0.08:
+            if self.survey_response is not None and self.survey_response < 0.08:
                 log.warning(f"WARNING! Low throughput {self.survey_response:0.3f}. Forcing off tpmin and spec element masking")
                 tpmin = 0.001
                 spec_elem_masking = False

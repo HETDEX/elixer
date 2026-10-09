@@ -1,5 +1,9 @@
 changes to elixer by version
 
+1.26.3a0 [2026-10-09]
+* add flagging of low quality emission lines when on amp with detected interference pattern
+
+
 1.26.2a2 [2026-09-18]
 * if any dispatch hdf5 catalog file creation fails with an exception, set a *.fail file
   follow up --merge will scan for .fail and abort if found

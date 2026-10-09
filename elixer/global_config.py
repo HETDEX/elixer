@@ -25,7 +25,7 @@ if "tacc.utexas.edu" in hostname:
     hostname = hostname.split(".")[1]
 
 #version
-__version__ = '1.26.2a2'
+__version__ = '1.26.3a0'
 
 
 #initial working dir
@@ -680,7 +680,10 @@ def select_hdr_version(version):
             if (hostname in LOCAL_DEV_HOSTNAMES):
                 from glob import glob
 
-                drives = glob("/media/dustin/*")
+                if os.path.exists("/run/media/dustin/"):
+                    drives = glob("/run/media/dustin/*")
+                else:
+                    drives = glob("/media/dustin/*")
                 if len(drives)==1:
                     #there is exactly one drive attached
                     usb_path = op.join(drives[0],"hetdex/hdr2/imaging/")
