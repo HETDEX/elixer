@@ -4061,10 +4061,22 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
             except:
                 return np.nan
 
-        residual = None
-        residual_err = None
-        contributors = None
-        flags = 0
+
+        if shot_h5 is not None:
+            residual, residual_err, contributors, flags = get_empty_fiber_residual_ssr(shot_h5, rtype, ffsky, add_rescor, persist, replace_nan)
+            if residual is not None and len(residual) > 0:
+                return residual, residual_err, contributors, flags
+            else: #failed so try the HETDEX catalog version
+                residual = None
+                residual_err = None
+                contributors = None
+                flags = 0
+        else:
+            residual = None
+            residual_err = None
+            contributors = None
+            flags = 0
+
         try:
             if shotid is None and (seeing is None or response is None):
                 print("Invalid parameters passed to get_empty_fiber_residual()")

@@ -1054,6 +1054,8 @@ def parse_commandline(auto_force=False):
             args.shot_h5 = args.ssr_h5
 
         if args.hdf5 is None:
+            #this is the detections h5 file, if not specified, use the ssr h5 file, which normally has the detections
+            #in it
             args.hdf5 = args.ssr_h5
 
         if args.aperture is None:

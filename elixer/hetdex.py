@@ -9563,14 +9563,26 @@ class DetObj:
                 ##DD 2024-03-07 updated
                 # note: if ffsky also always apply rescor
                 try:
-                    empty_fiber, empty_fiber_err, contrib, status = SU.get_empty_fiber_residual(hdr=G.HDR_Version,
+
+                    if G.SSR_RUN:
+                        #noting add_rescor and persist not currently supported in this case
+                        empty_fiber, empty_fiber_err, contrib, status = SU.get_empty_fiber_residual_ssr(shot_h5=G.SINGLE_SHOT_H5,
+                                                                                            rtype=G.BGR_RES_FIBER_DEFAULT_RTYPE,
+                                                                                            ffsky=self.extraction_ffsky,
+                                                                                            add_rescor=self.extraction_ffsky,
+                                                                                            persist=False,
+                                                                                            replace_nan=None)
+
+                    else:
+                        empty_fiber, empty_fiber_err, contrib, status = SU.get_empty_fiber_residual(hdr=G.HDR_Version,
                                                                                                 rtype=G.BGR_RES_FIBER_DEFAULT_RTYPE,
                                                                                                 shotid=self.survey_shotid,
                                                                                                 seeing=self.survey_fwhm,
                                                                                                 response=self.survey_response,
                                                                                                 ffsky=self.extraction_ffsky,
                                                                                                 add_rescor=self.extraction_ffsky,
-                                                                                                persist=True)
+                                                                                                persist=True,
+                                                                                                replace_nan=None)
 
                     self.fiber_sky_subtraction_residual = copy(empty_fiber)
                     self.fiber_sky_subtraction_residual_err = copy(empty_fiber_err)
@@ -9805,14 +9817,26 @@ class DetObj:
                 ##DD 2024-03-07 updated
                 #note: if ffsky also always apply rescor
                 try:
-                    empty_fiber, empty_fiber_err, contrib, status = SU.get_empty_fiber_residual(hdr=G.HDR_Version,
+
+                    if G.SSR_RUN:
+                        # noting add_rescor and persist not currently supported in this case
+                        empty_fiber, empty_fiber_err, contrib, status = SU.get_empty_fiber_residual_ssr(shot_h5=G.SINGLE_SHOT_H5,
+                                                                                            rtype=G.BGR_RES_FIBER_DEFAULT_RTYPE,
+                                                                                            ffsky=self.extraction_ffsky,
+                                                                                            add_rescor=self.extraction_ffsky,
+                                                                                            persist=True,
+                                                                                            replace_nan=None)
+
+                    else:
+                        empty_fiber, empty_fiber_err, contrib, status = SU.get_empty_fiber_residual(hdr=G.HDR_Version,
                                                                                             rtype=G.BGR_RES_FIBER_DEFAULT_RTYPE,
                                                                                             shotid=self.survey_shotid,
                                                                                             seeing=self.survey_fwhm,
                                                                                             response=self.survey_response,
                                                                                             ffsky=self.extraction_ffsky,
                                                                                             add_rescor=self.extraction_ffsky,
-                                                                                            persist=True)
+                                                                                            persist=True,
+                                                                                            replace_nan=None)
 
                     self.fiber_sky_subtraction_residual = copy(empty_fiber)
                     self.fiber_sky_subtraction_residual_err = copy(empty_fiber_err)

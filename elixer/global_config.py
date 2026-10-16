@@ -1785,7 +1785,7 @@ BGR_RES_FIBER_TAB_FFRC_RUN = None
 # BGR_RES_FIBER_TAB_FF_IDX_FN = op.join(BGR_BASEPATH,"BGR_RES_FIBER_TAB_FF_IDX.fits")
 # BGR_RES_FIBER_TAB_FFRC_IDX_FN = op.join(BGR_BASEPATH,"BGR_RES_FIBER_TAB_FFRC_IDX.fits")
 
-BGR_RES_FIBER_DEFAULT_RTYPE = "trim"
+BGR_RES_FIBER_DEFAULT_RTYPE = None #"trim" # if None, the normal best is used
 #######################################
 # Empty Fiber Residual (EFR) Flags
 #######################################

@@ -1,8 +1,9 @@
 changes to elixer by version
 
-1.26.3a0 [2026-10-15]
+1.26.3a0 [2026-10-16]
 * add flagging of low quality emission lines when on amp with detected interference pattern
 * add spectrum_utilities::get_empty_fiber_residual_ssr()
+  + update internal ELiXer calls to use the _ssr version when appropriate
 * tweak enhanced_error for empty fibers to NOT add where error == 0.0 (as those are flagged values)
 
 
