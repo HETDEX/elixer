@@ -8977,7 +8977,11 @@ class DetObj:
             if rc:
                 log.info(f"Detection flagged for interference pattern. Interference SNR {interference_snr:0.1f}")
         except:
-            log.warning("DetObj::check_detection_interference_pattern failure.",exc_info=True)
+
+            if "interference_snr" in self.amp_stats_table.columns:
+                log.warning("DetObj::check_detection_interference_pattern failure.",exc_info=True)
+            else:
+                log.warning("DetObj::check_detection_interference_pattern failure. Column not present.")
 
         return rc
 
