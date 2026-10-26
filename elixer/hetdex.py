@@ -11089,6 +11089,10 @@ class DetObj:
             self.snr_unc = row['sn_err']
 
             try:
+                # these are not (yet) dust corrected
+                #check flux first as in some versions it is called flux_line and we fall to the except case
+                self.estflux = row['flux']
+
                 self.sigma = row['linewidth']#AA
                 self.sigma_unc = row['linewidth_err']
                 if (self.sigma_unc is None) or (self.sigma_unc < 0.0):
@@ -11096,21 +11100,33 @@ class DetObj:
                 self.fwhm = 2.35 * self.sigma
                 self.fwhm_unc = 2.35 * self.sigma_unc
 
-                # these are not (yet) dust corrected
-                self.estflux = row['flux']
-                self.estflux_unc = row['flux_err']
-                self.estflux_obs = row['flux']
-                self.estflux_unc_obs = row['flux_err']
+                local_flux_scale = 1
+                local_flux_binning = 1
+
+                try:
+                    #depending on the source of the data (which h5 file) the scale and binning might be included already
+                    if abs(np.log10(abs(self.estflux))) > 9:
+                        #is in 1.0 scale, so need to raise by e17 to put in e-17 scale
+                        local_flux_scale = 1./ G.HETDEX_FLUX_BASE_CGS #1e17
+                        local_flux_binning = 2.0 #need to put back in 2AA bins for some
+                except:
+                    pass
+
+                self.estflux *= local_flux_scale
+                self.estflux_unc = row['flux_err'] * local_flux_scale
+                self.estflux_obs = row['flux'] * local_flux_scale
+                self.estflux_unc_obs = row['flux_err'] * local_flux_scale
 
                 self.estflux_h5 = self.estflux
                 self.estflux_h5_unc = self.estflux_unc
 
-                self.cont_cgs = row[
-                                    'continuum'] / G.FLUX_WAVEBIN_WIDTH  # units of e-17 set below !!!this is in 2AA bins so /2AA
-                self.cont_cgs_unc = row['continuum_err'] / G.FLUX_WAVEBIN_WIDTH
-                self.cont_cgs_obs = row[
-                                        'continuum'] / G.FLUX_WAVEBIN_WIDTH  # units of e-17 set below !!!this is in 2AA bins so /2AA
-                self.cont_cgs_unc_obs = row['continuum_err'] / G.FLUX_WAVEBIN_WIDTH
+                # need to undo the conversion to flux density and scaled to 1e-17
+                # and may need to put back the binning so we can undo it (a mutlipy here, a divide
+                # in the except case below)
+                self.cont_cgs = row['continuum'] / G.FLUX_WAVEBIN_WIDTH  * local_flux_scale * local_flux_binning# units of e-17 set below !!!this is in 2AA bins so /2AA
+                self.cont_cgs_unc = row['continuum_err'] / G.FLUX_WAVEBIN_WIDTH * local_flux_scale * local_flux_binning
+                self.cont_cgs_obs = row['continuum'] / G.FLUX_WAVEBIN_WIDTH  * local_flux_scale  * local_flux_binning# units of e-17 set below !!!this is in 2AA bins so /2AA
+                self.cont_cgs_unc_obs = row['continuum_err'] / G.FLUX_WAVEBIN_WIDTH * local_flux_scale * local_flux_binning
 
 
             except: #different source, SSR h5 file OR if this fails, it is fatal and just let the exception pop
@@ -11121,19 +11137,50 @@ class DetObj:
 
                 #in the original detection h5, these are not (yet) dust corrected, same is TRUE in SSR h5, but
                 #the dust multiplier is also recorded:  dust = row['flux_line_dust_corr']
-                self.estflux = row['flux_line']
-                self.estflux_unc = row['flux_line_err']
-                self.estflux_obs = row['flux_line_obs']
-                self.estflux_unc_obs = row['flux_line_obs_err']
 
-                self.estflux_h5 = self.estflux
-                self.estflux_h5_unc = self.estflux_unc
+                try: #_obs is "as observed" aka "as in the *.mc file"
+                    self.estflux = row['flux_line_obs']
+                    self.estflux_unc = row['flux_line_obs_err']
+                    self.estflux_obs = self.estflux
+                    self.estflux_unc_obs = self.estflux_unc
 
-                # need to undo the conversion to flux density and scaled to 1e-17
-                self.cont_cgs = row['continuum_line'] * G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS#units of e-17 set below !!!this is in 2AA bins so /2AA
-                self.cont_cgs_unc = row['continuum_line_err'] * G.FLUX_WAVEBIN_WIDTH * G.HETDEX_FLUX_BASE_CGS
-                self.cont_cgs_obs = self.cont_cgs
-                self.cont_cgs_unc_obs =  self.cont_cgs_unc
+                    self.estflux_h5 = self.estflux
+                    self.estflux_h5_unc = self.estflux_unc
+
+                    self.cont_cgs = row['continuum_line_obs']
+                    self.cont_cgs_unc = row['continuum_line_obs_err']
+                    self.cont_cgs_obs = self.cont_cgs
+                    self.cont_cgs_unc_obs = self.cont_cgs_unc
+
+                except:
+                    self.estflux = row['flux_line']
+
+                    local_flux_scale = 1
+                    local_flux_binning = 1
+
+                    try:
+                        # depending on the source of the data (which h5 file) the scale and binning might be included already
+                        if abs(np.log10(abs(self.estflux))) > 9:
+                            #is in 1.0 scale, so need to raise by e17 to put in e-17 scale
+                            local_flux_scale = 1./ G.HETDEX_FLUX_BASE_CGS #1e17  #need to rescale to remove the e-17 scale
+                            local_flux_binning = 2.0
+                    except:
+                        pass
+
+                    self.estflux *= local_flux_scale
+                    self.estflux_unc = row['flux_line_err'] * local_flux_scale
+                    self.estflux_obs = row['flux_line_obs'] * local_flux_scale
+                    self.estflux_unc_obs = row['flux_line_obs_err'] * local_flux_scale
+
+                    self.estflux_h5 = self.estflux
+                    self.estflux_h5_unc = self.estflux_unc
+
+                    # need to undo the conversion to flux density and scaled to 1e-17
+                    # and may need to put back the binning so we can undo it (a divide here)
+                    self.cont_cgs = row['continuum_line']  * local_flux_scale #units of e-17 set below !!!this is in 2AA bins so /2AA
+                    self.cont_cgs_unc = row['continuum_line_err']  * local_flux_scale
+                    self.cont_cgs_obs = self.cont_cgs
+                    self.cont_cgs_unc_obs =  self.cont_cgs_unc
 
 
             #bad idea (leaving here just as a reminder)... setting as a small value leads to artifically
@@ -11224,18 +11271,21 @@ class DetObj:
                     self.sumspec_counts = None  # not really using this anymore
                     # self.sumspec_countserr #not using this
                     self.sumspec_wavelength = G.CALFIB_WAVEGRID
-                    self.sumspec_flux = row['flux']  # DOES NOT have units attached, but is 10^17 (so *1e-17 to get to real units)
-                    self.sumspec_fluxerr = row['flux_err']
-                    self.sumspec_apcor = None #row['apcor']  # aperture correction
+                    self.sumspec_flux = row['flux'].astype(np.float32) # DOES NOT have units attached, but is 10^17 (so *1e-17 to get to real units)
+                    self.sumspec_fluxerr = row['flux_err'].astype(np.float32)
+                    try:
+                        self.sumspec_apcor = detection_table.read_where("detectid==id",field="apcor_4500")[0]
+                    except:
+                        self.sumspec_apcor = None #row['apcor']  # aperture correction
                 else:
                     self.sumspec_counts = row['counts1d']  # not really using this anymore
                     # self.sumspec_countserr #not using this
                     self.sumspec_wavelength = row['wave1d']
                     if self.extraction_ffsky:
-                        self.sumspec_flux = row['spec1d_ffsky']
+                        self.sumspec_flux = row['spec1d_ffsky'].astype(np.float32)
                     else:
-                        self.sumspec_flux = row['spec1d'] #DOES NOT have units attached, but is 10^17 (so *1e-17 to get to real units)
-                    self.sumspec_fluxerr = row['spec1d_err']
+                        self.sumspec_flux = row['spec1d'].astype(np.float32) #DOES NOT have units attached, but is 10^17 (so *1e-17 to get to real units)
+                    self.sumspec_fluxerr = row['spec1d_err'].astype(np.float32)
 
                     self.sumspec_apcor = row['apcor'] #aperture correction
 
@@ -11658,7 +11708,24 @@ class DetObj:
             # is already present in the ssr*h5 file, including the images). This would only be useful if there
             # is a change to elixer that would alter the classification, but then that would require the full
             # shot data to re-run anyway.
-            rows = fiber_table.read_where("detectid == id")
+            if "detectid" in fiber_table.colnames:
+                # NOTE: THIS WILL FAIL for SSR Fibers Table, which does not have detectID
+                rows = fiber_table.read_where("detectid == id")
+                detect_fiber_rows = None
+            else: #this is probably the ssr version and the fibers_table is just all the fibers
+                try:
+                    #get the fibers in the detection (by the map)
+                    detect_fiber_rows = h5_detect.root.Detection_Fiber_Map.read_where("detectid == id")
+                    #get the actual fibers that correspond to this map
+                    all_fiber_ids = fiber_table.read(field="fiber_id")
+                    sel_fiber_idx = np.where(np.array([x in detect_fiber_rows['fiber_id'] for x in all_fiber_ids]))
+
+                    rows = fiber_table.read_coordinates(sel_fiber_idx)
+                except:
+                    #cannot continue
+                    log.error("Cannot load fibers.")
+                    return
+
             subset_norm = 0.0 #for the relative weights
 
             num_fibers = rows.size
@@ -11673,11 +11740,18 @@ class DetObj:
                     ifuslot = row['ifuslot']
                     ifuid = row['ifuid']
                     amp = row['amp']
-                    date = str(row['date'])
+                    try:
+                        date = str(row['date'])
+                        time_ex = row['timestamp'][9:]
+                        time = time_ex[0:6]  # hhmmss
+                    except:
+                        date = str(h5_detect.root.Shot.read(field="date")[0])
+                        time_ex = 0
+                        time = 0 # hhmmss
+
 
                     #expected to be "20180320T052104.2"
-                    time_ex = row['timestamp'][9:]
-                    time = time_ex[0:6] #hhmmss
+
                     mfits_name = row['multiframe'] #similar to multi*fits style name
                     fiber_index = row['fibnum'] -1  #1-112 #panacea index is 0-111
                 else:
@@ -11685,11 +11759,19 @@ class DetObj:
                     ifuslot = row['ifuslot'].decode()
                     ifuid = row['ifuid'].decode()
                     amp = row['amp'].decode()
-                    date = str(row['date'])
 
-                    # expected to be "20180320T052104.2"
-                    time_ex = row['timestamp'][9:].decode()
-                    time = time_ex[0:6]  # hhmmss
+                    try:
+                        date = str(row['date'])
+                        # expected to be "20180320T052104.2"
+                        time_ex = row['timestamp'][9:].decode()
+                        time = time_ex[0:6]  # hhmmss
+                    except:
+                        date = str(h5_detect.root.Shot.read(field="date")[0])
+                        # expected to be "20180320T052104.2"
+                        time_ex = 0
+                        time = 0 # hhmmss
+
+
                     mfits_name = row['multiframe'].decode()  # similar to multi*fits style name
                     fiber_index = row['fibnum'] - 1  # 1-112 #panacea index is 0-111
 
@@ -11725,14 +11807,30 @@ class DetObj:
                     duplicate = False
                     fiber.ra = row['ra']
                     fiber.dec = row['dec']
-                    fiber.obsid = int(row['obsid'])
-                    fiber.shotid = date + str(fiber.obsid).zfill(3)
+                    try:
+                        fiber.obsid = int(row['obsid'])
+                        fiber.shotid = date + str(fiber.obsid).zfill(3)
+                    except:
+                        fiber.obsid = int(str(self.survey_shotid)[-3:])
+                        fiber.shotid = self.survey_shotid
+
                     fiber.expid = int(row['expnum']) # integer now
                     #fiber.shotid =
                     fiber.detect_id = id
-                    fiber.center_x = row['x_ifu']
-                    fiber.center_y = row['y_ifu']
-                    fiber.raw_weight = row['weight']
+                    try:
+                        fiber.center_x = row['x_ifu']
+                        fiber.center_y = row['y_ifu']
+                    except:
+                        fiber.center_x = row['ifux']
+                        fiber.center_y = row['ifuy']
+
+                    try:
+                        fiber.raw_weight = row['weight']
+                    except:
+                        if detect_fiber_rows is not None:
+                            #find the match (have to encode() since the fiber_ids are stored as binary str
+                            sel_fid = detect_fiber_rows['fiber_id'] == fiber.hetdex_api_fiber_id.encode()
+                            fiber.raw_weight = detect_fiber_rows['weight'][sel_fid][0]
 
                     #check that this is NOT a duplicate
                     for i in range(len(self.fibers)):
@@ -14424,8 +14522,16 @@ class HETDEX:
                 else:
                     title += f"N={e.dither_norm:0.2f}  "
 
-                if (e.sumspec_apcor is not None) and (len(e.sumspec_apcor) == 1036):
-                    title += f"A={e.sumspec_apcor[515]:0.2f}  "
+                if e.sumspec_apcor is not None:
+                    try:
+                        if isinstance(e.sumspec_apcor,(float,np.floating)):
+                            title += f"A={e.sumspec_apcor:0.2f}  "
+                        elif len(e.sumspec_apcor) == 1036:
+                            title += f"A={e.sumspec_apcor[515]:0.2f}  "
+                        else:
+                            title += f"A=---  "
+                    except:
+                        title += f"A=---  "
                 else:
                     title += f"A=---  "
 

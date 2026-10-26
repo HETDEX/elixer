@@ -1033,7 +1033,13 @@ def append_entry(fileh,det,overwrite=False):
 
         row['response'] = det.survey_response
         row['fieldname'] = det.survey_fieldname
-        row['apcor_4500'] = det.sumspec_apcor[515]
+        try:
+            if isinstance(e.sumspec_apcor, (float, np.floating)):
+                row['apcor_4500'] = det.sumspec_apcor
+            else:
+                row['apcor_4500'] = det.sumspec_apcor[515]
+        except:
+            pass
 
         if det.wra is not None: #reminder, the displayed representation may not be full precision
             row['ra'] = det.wra

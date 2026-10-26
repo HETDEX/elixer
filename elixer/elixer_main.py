@@ -1046,6 +1046,21 @@ def parse_commandline(auto_force=False):
         print("prep_recover complete; exiting ...")
         exit(0)
 
+
+    #need to double check, just in case the user is confused (and it can be with --shot_h5 vs --ssr_h5)
+    if args.shot_h5 is not None:
+        try:
+            if os.path.exists(args.shot_h5):
+                if os.path.basename(args.shot_h5)[0:4] == "ssr_":
+                    #this is probably meant to be --ssr_h5
+                    if args.ssr_h5 is None:
+                        args.ssr_h5 = args.shot_h5
+                        log.info(f"--shot_h5 was probably meant to be --ssr_h5. Updating missing --ssr_h5 to {args.shot_h5}")
+        except:
+            pass
+
+
+
     if args.ssr_h5 is not None:
         G.ENFORCE_WEB_FAIL_LIMITER = True
         # this can serve as shot_h5, hdf5
@@ -1059,9 +1074,9 @@ def parse_commandline(auto_force=False):
             args.hdf5 = args.ssr_h5
 
         if args.aperture is None:
-            args.aperture = 3.0
-            print( f"WARNING! --ssr_h5 <> REQUIRES reextraction and --aperture <x> was not specified. "
-                   f"Defaulting to {args.aperture} arcsec")
+            #args.aperture = 3.0
+            # print( f"WARNING! --ssr_h5 <> REQUIRES reextraction and --aperture <x> was not specified. "
+            #        f"Defaulting to {args.aperture} arcsec")
             G.SSR_REFIT = False
         else:
             G.SSR_REFIT = True
@@ -1521,12 +1536,15 @@ def parse_commandline(auto_force=False):
             log.error(f"Fatal. Invalid plya_thresh parameters: {args.plya_thresh}")
             exit(-1)
 
-    if args.wavelength:
+    if args.wavelength is not None:
         try:
             if not (G.CALFIB_WAVEGRID[0] <= args.wavelength <= G.CALFIB_WAVEGRID[-1]):
-                print("Fatal. Invalid target wavelength.")
-                log.error("Fatal. Invalid target wavelength.")
-                exit(-1)
+                if args.wavelength==0:
+                    args.wavelength = None
+                else:
+                    print("Fatal. Invalid target wavelength.")
+                    log.error("Fatal. Invalid target wavelength.")
+                    exit(-1)
             else:
                 if args.aperture is None:
                     args.aperture = 3.5 #HETDEX default
@@ -2851,18 +2869,37 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,shotid=None,wave=None,sort=Fal
             dec2 = dec + error
 
             rows = None
-            for q_shot in shotlist: #probably not indexed by shot
+
+            #also check the ssr_h5 file, if provided, it would be the hdf5 file, but with the extra SSR tables
+            if os.path.basename(hdf5)[0:4]=="ssr_": #we already checked that this string is not None and the file exists
+                #check THIS file (w/o the shotid)
                 if wave is not None and wave != 0 and G.SEARCH_DELTA_WAVELENGTH > 0:
                     q_wave1 = wave - G.SEARCH_DELTA_WAVELENGTH
                     q_wave2 = wave + G.SEARCH_DELTA_WAVELENGTH
-                    q_rows = dtb.read_where("(shotid == q_shot) & (ra > ra1) & (ra < ra2) & (dec > dec1) & (dec < dec2) & (wave >= q_wave1) & (wave <= q_wave2)")
+                    q_rows = dtb.read_where("(ra > ra1) & (ra < ra2) & (dec > dec1) & (dec < dec2) & (wave >= q_wave1) & (wave <= q_wave2)")
                 else:
-                    q_rows = dtb.read_where("(shotid == q_shot) & (ra > ra1) & (ra < ra2) & (dec > dec1) & (dec < dec2)")
+                    q_rows = dtb.read_where("(ra > ra1) & (ra < ra2) & (dec > dec1) & (dec < dec2)")
+
                 if q_rows is not None and len(q_rows) > 0:
                     if rows is None:
                         rows = q_rows
                     else:
                         rows = np.concatenate((rows,q_rows))
+
+            if "shotid" in dtb.colnames:
+                for q_shot in shotlist: #probably not indexed by shot
+                    if wave is not None and wave != 0 and G.SEARCH_DELTA_WAVELENGTH > 0:
+                        q_wave1 = wave - G.SEARCH_DELTA_WAVELENGTH
+                        q_wave2 = wave + G.SEARCH_DELTA_WAVELENGTH
+                        q_rows = dtb.read_where("(shotid == q_shot) & (ra > ra1) & (ra < ra2) & (dec > dec1) & (dec < dec2) & (wave >= q_wave1) & (wave <= q_wave2)")
+                    else:
+                        q_rows = dtb.read_where("(shotid == q_shot) & (ra > ra1) & (ra < ra2) & (dec > dec1) & (dec < dec2)")
+                    if q_rows is not None and len(q_rows) > 0:
+                        if rows is None:
+                            rows = q_rows
+                        else:
+                            rows = np.concatenate((rows,q_rows))
+
 
 
             if (rows is not None) and (len(rows) > 0):
@@ -2898,6 +2935,12 @@ def get_hdf5_detectids_by_coord(hdf5,ra,dec,error,shotid=None,wave=None,sort=Fal
                 log.info(msg)
                 print(msg)
                 log.info(f"DetectIDs: {detectids}")
+
+
+
+                print(f"***** DEBUG ***** REMOVE THIS ******")
+                print(f"DetectIDs: {detectids}")
+
             else:
                 msg = "0 detection records found +/- %g\" from %f, %f (%s)" % (error * 3600., ra, dec,hdf5)
                 log.info(msg)
@@ -6751,14 +6794,14 @@ def main():
                                         catlist_str += c.name + ", "
 
                         if (len(matched_cats) == 0):
-                            if G.DECALS_WEB_ALLOW:
+                            if G.DECALS_WEB_ALLOW and cat_decals_web is not None:
                                 matched_cats.append(cat_decals_web)
                                 catlist_str += cat_decals_web.name + ", "
-                            elif G.PANSTARRS_ALLOW:
+                            elif G.PANSTARRS_ALLOW and cat_panstarrs is not None:
                                 #todo: should peek and see if panstarrs has a hit? if not then fall to SDSS?
                                 matched_cats.append(cat_panstarrs)
                                 catlist_str += cat_panstarrs.name + ", " #still need this for autoremoval of trailing ", " later
-                            elif G.SDSS_ALLOW:
+                            elif G.SDSS_ALLOW and cat_sdss is not None:
                                 matched_cats.append(cat_sdss)
                                 catlist_str += cat_sdss.name + ", " #still need this for autoremoval of trailing ", " later
 
