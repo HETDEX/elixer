@@ -1,5 +1,7 @@
 from __future__ import print_function
 
+from IPython.terminal.shortcuts.filters import pass_through
+
 try:
     from elixer import global_config as G
     G.GLOBAL_LOGGING = True
@@ -54,6 +56,7 @@ import mmap
 from astropy.coordinates import Angle
 from astropy.coordinates import SkyCoord
 from astropy import units as U
+from astropy.table import Table
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.gridspec as gridspec
 from matplotlib.font_manager import FontProperties
@@ -1062,6 +1065,8 @@ def parse_commandline(auto_force=False):
 
 
     if args.ssr_h5 is not None:
+        #!!!! warning to the coder ... this logic needs to be repeated a little farther below
+        #!!!! if we continue to allow the user to use --shot_h5 and mean --ssr_h5
         G.ENFORCE_WEB_FAIL_LIMITER = True
         # this can serve as shot_h5, hdf5
         G.SSR_RUN = True
@@ -1181,11 +1186,60 @@ def parse_commandline(auto_force=False):
     #so, just leave it here and do not make it part of the copy to /tmp
     if args.diagnose is not None:
         try:
-            from astropy.table import Table
             G.DIAGNOSE_TABLE = Table.read(args.diagnose,format="ascii")
         except:
             G.DIAGNOSE_TABLE = None
             log.warning(f"--diagnose specified, but unable to load: {args.diagnose}",exc_info=True)
+    elif args.ssr_h5 is not None:
+        #it *could* have the Diagnose table in it
+        diag_h5 = None
+        try:
+            diag_h5 = tables.open_file(args.ssr_h5,mode='r')
+            G.DIAGNOSE_TABLE = Table(diag_h5.root.DiagnoseClassifications.read())
+            diag_h5.close()
+        except:
+            if diag_h5 is not None:
+                try:
+                    diag_h5.close()
+                except:
+                    pass
+    elif args.shot_h5 is not None:
+        #it *could* have the Diagnose table in it
+        #the user MIGHT have used --shot_h5 instead of --ssr_h5 ... this is tecnhically wrong, but
+        #can be forgiving for the user
+        diag_h5 = None
+        try:
+            diag_h5 = tables.open_file(args.shot_h5,mode='r')
+            G.DIAGNOSE_TABLE = Table(diag_h5.root.DiagnoseClassifications.read())
+            diag_h5.close()
+            #this CLEARLY was an ssr_h5 file and --ssr_h5 was not specified
+            args.ssr_h5 = args.shot_h5
+            #!!! WARNING to the coder, the logic below is duplicated above for args.shot_h5 is not None
+            #!!! need to keep in sync if we continue to allow the user to supply --shot_h5 when --ssr_h5 should be used
+            G.ENFORCE_WEB_FAIL_LIMITER = True
+            # this can serve as shot_h5, hdf5
+            G.SSR_RUN = True
+            if args.shot_h5 is None:
+                args.shot_h5 = args.ssr_h5
+
+            if args.hdf5 is None:
+                # this is the detections h5 file, if not specified, use the ssr h5 file, which normally has the detections
+                # in it
+                args.hdf5 = args.ssr_h5
+
+            if args.aperture is None:
+                # args.aperture = 3.0
+                # print( f"WARNING! --ssr_h5 <> REQUIRES reextraction and --aperture <x> was not specified. "
+                #        f"Defaulting to {args.aperture} arcsec")
+                G.SSR_REFIT = False
+            else:
+                G.SSR_REFIT = True
+        except:
+            if diag_h5 is not None:
+                try:
+                    diag_h5.close()
+                except:
+                    pass
 
     if args.no_fiber_elem_mask is not None:
         G.FIBER_SPEC_ELEM_MASKING = False  #IF the switch is present then we want masking OFF
