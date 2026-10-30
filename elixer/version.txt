@@ -1,5 +1,8 @@
 changes to elixer by version
 
+1.26.3a1 [2026-10-30]
+* for auto merge at end of slurm, must first attempt to delete elixer_merged_cat.h5 in case this is a resumed
+   run as a partial, left-over .h5 file will screw up the merge
 
 1.26.3a0 [2026-10-26]
 * add flagging of low quality emission lines when on amp with detected interference pattern
