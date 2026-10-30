@@ -1575,7 +1575,7 @@ try:
 
         slurm += "  echo \"Running blind merge ... \"\n"
         #force the merge to start over ... otherwise a partial elixer_merged_cat can mess up a lot
-        slurm += "  rm elixer_merged_cat.h5\n"
+        slurm += "  rm -f elixer_merged_cat.h5\n"
         slurm += f"  python {elixer_path}/elixer_main.py --merge \n"
 
         #rename elixer_merged_cat.h5 to something useful? should the user provide the name?
