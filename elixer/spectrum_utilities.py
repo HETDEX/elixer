@@ -4255,7 +4255,7 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
                 log.warning(msg)
 
                 try:
-                    msg = f"*** DEBUG *** ct == {ct}, T = {T}, h5 = {h5}"
+                    msg = f"*** DEBUG *** hdr = {hdr}, ct == {ct}, T = {T}, h5 = {h5}"
                     print(msg)
                     log.warning(msg)
                 except:
