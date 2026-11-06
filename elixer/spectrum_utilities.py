@@ -4253,7 +4253,20 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
                 msg = f"Warning! Unable to find appropriate background residual."
                 print(msg)
                 log.warning(msg)
-                residual_err[residual_err != 0.0] += enhanced_error
+
+                try:
+                    msg = f"*** DEBUG *** ct == {ct}, T = {T}, h5 = {h5}"
+                    print(msg)
+                    log.warning(msg)
+                except:
+                    print("Could not build debug message.")
+                    log.warning("Could not build debug message.")
+
+                if residual_err is not None:
+                    try:
+                        residual_err[residual_err != 0.0] += enhanced_error
+                    except:
+                        pass
                 return residual, residual_err,contributors, G.EFR_FLAG_NO_RESIDUAL
 
             # if we made it here, there should be exactly one row in rows
@@ -4287,7 +4300,11 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
 
             residual = np.array(h5_rows[col][0])
             residual_err = np.array(h5_rows[col_err][0])
-            residual_err[residual_err != 0.0] += enhanced_error
+            if residual_err is not None:
+                try:
+                    residual_err[residual_err != 0.0] += enhanced_error
+                except:
+                    pass
             contributors = np.array(h5_rows[col_contrib][0])
 
             try: #older ones may not have the flags
@@ -4316,12 +4333,21 @@ def get_empty_fiber_residual_h5(hdr=G.HDR_Version, rtype=None, shotid=None, seei
         if np.count_nonzero(residual) < 1 or np.count_nonzero(np.isnan(residual)) == len(residual):
             flags |= G.EFR_FLAG_ALL_ZERO
 
+
         if replace_nan is not None:
-            residual_err[residual_err != 0.0] += enhanced_error
+            if residual_err is not None:
+                try:
+                    residual_err[residual_err != 0.0] += enhanced_error
+                except:
+                    pass
             return np.nan_to_num(residual, nan=replace_nan), np.nan_to_num(residual_err,nan=replace_nan), \
                     contributors, flags
         else:
-            residual_err[residual_err != 0.0] += enhanced_error
+            if residual_err is not None:
+                try:
+                    residual_err[residual_err != 0.0] += enhanced_error
+                except:
+                    pass
             return residual, residual_err, contributors, flags
 #end get_empty_fiber_residual_h5()
 
